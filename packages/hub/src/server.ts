@@ -11,6 +11,8 @@ import path from "node:path";
 import crypto from "node:crypto";
 import * as C from "@caldera/core";
 
+const hashToken = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
+
 export interface HubOptions { dataDir: string; port?: number; publicUrl?: string; siteDir?: string; trustProxy?: boolean; limits?: { perMinute?: number; writesPerMinute?: number; newProfilesPerDay?: number }; }
 
 const MAX_BODY = 12 * 1024 * 1024;
@@ -191,7 +193,7 @@ export function createHub(opts: HubOptions) {
   // ---------------------------------------------------------------- auth (signed nonce, no passwords)
   function authed(req: http.IncomingMessage): string | null {
     const t = String(req.headers.authorization || "").replace(/^Bearer /, "");
-    const row = q("SELECT id FROM tokens WHERE token=? AND expires > ?").get(t, Date.now()) as any;
+    const row = q("SELECT id FROM tokens WHERE token=? AND expires > ?").get(hashToken(t), Date.now()) as any;
     return row?.id || null;
   }
 
@@ -299,7 +301,7 @@ export function createHub(opts: HubOptions) {
         if (!ch) return json(res, 401, { error: "unknown or expired challenge" });
         q("DELETE FROM challenges WHERE id=?").run(env.from);
         const token = crypto.randomBytes(24).toString("hex");
-        q("INSERT INTO tokens VALUES (?,?,?)").run(token, env.from, Date.now() + 3600_000);
+        q("INSERT INTO tokens VALUES (?,?,?)").run(hashToken(token), env.from, Date.now() + 3600_000);  // only the hash is stored
         return json(res, 200, { token, expires_in: 3600 });
       }
 
