@@ -117,3 +117,11 @@ test("privacy: owner can erase their profile and everything tied to it", async (
   assert.equal((await get("/@zed/")).status, 404);
   assert.equal((await get(`/v1/credits/${z.id}`)).body.balance, 0);
 });
+
+test("routes accept percent-encoded ids (raw-URI proxies)", async () => {
+  const files = { "index.html": Buffer.from("<h1>Mike again</h1>").toString("base64") };
+  const up = await post(`/v1/profiles/${encodeURIComponent(mike.id)}/bundle`, { manifest: manifest(mike, "mike", "Mike Jones", 371), files });
+  assert.equal(up.status, 200);
+  assert.equal((await get(`/v1/credits/${encodeURIComponent(mike.id)}`)).status, 200);
+  assert.equal((await get(`/v1/profiles/${encodeURIComponent(mike.id)}`)).status, 200);
+});

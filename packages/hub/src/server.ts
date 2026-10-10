@@ -235,7 +235,8 @@ export function createHub(opts: HubOptions) {
     try {
       if (limited(req)) return json(res, 429, { error: "slow down" });
       const url = new URL(req.url || "/", "http://hub");
-      const p = url.pathname;
+      // ids arrive percent-encoded ("cal%3A...") when a proxy passes the raw URI through; API routes match the decoded form
+      const p = url.pathname.startsWith("/v1/") ? url.pathname.replace(/%3A/gi, ":") : url.pathname;
       if (req.method === "OPTIONS") return json(res, 204, {});
 
       if (req.method === "GET" && p === "/v1/info") return json(res, 200, { name: "Caldera Hub", protocol: C.PROTOCOL_VERSION, profiles: (q("SELECT COUNT(*) c FROM profiles").get() as any).c });

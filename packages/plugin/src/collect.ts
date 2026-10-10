@@ -31,7 +31,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     created.set(iso(f.stat.ctime), (created.get(iso(f.stat.ctime)) || 0) + 1);
     changed.set(iso(f.stat.mtime), (changed.get(iso(f.stat.mtime)) || 0) + 1);
     const cache = app.metadataCache.getFileCache(f);
-    links += (cache?.links?.length || 0) + (cache?.embeds?.length || 0);
+    links += (cache?.links?.length || 0) + (cache?.embeds?.length || 0) + (cache?.frontmatterLinks?.length || 0);   // links in properties live in frontmatterLinks
     words += Math.round(f.stat.size / 6);                // fast estimate; avoids reading every file
     for (const t of (cache ? getAllTags(cache) || [] : [])) {
       const k = t.replace(/^#/, "").toLowerCase();
