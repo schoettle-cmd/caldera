@@ -170,5 +170,5 @@ export function newId(prefix: "ask" | "off" | "card" | "msg"): string {
   return prefix + "_" + b58encode(nacl.randomBytes(12));
 }
 
-export { agentPrompt } from "./agent-prompt.js";
+export { agentPrompt, richerPrompt } from "./agent-prompt.js";
 export type { AgentPromptOptions } from "./agent-prompt.js";

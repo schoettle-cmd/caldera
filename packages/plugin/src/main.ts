@@ -36,7 +36,8 @@ export default class CalderaPlugin extends Plugin {
       const f = this.app.workspace.getActiveFile(); if (!f) return false; if (!check) this.shareNote(f); return true; } });
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try { await this.send("profile.delete", {}); new Notice("Your Caldera profile was deleted from the hub."); } catch (e: any) { new Notice(e.message); } }).open() });
-    this.addCommand({ id: "agent-prompt", name: "Copy AI agent setup prompt (daily journal + activity)", callback: () => this.copyAgentPrompt() });
+    this.addCommand({ id: "agent-prompt", name: "Copy AI agent setup prompt (daily journal + activity)", callback: () => this.copyPrompt("setup") });
+    this.addCommand({ id: "richer-prompt", name: "Copy AI prompt: make my profile richer", callback: () => this.copyPrompt("richer") });
     this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
@@ -101,14 +102,14 @@ export default class CalderaPlugin extends Plugin {
     new PreviewModal(this.app, html).open();
   }
 
-  async copyAgentPrompt() {
+  async copyPrompt(kind: "setup" | "richer") {
     const a = this.app.vault.adapter;
-    const text = C.agentPrompt({
+    const text = (kind === "richer" ? C.richerPrompt : C.agentPrompt)({
       vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined,
       hubUrl: this.settings.hubUrl, handle: this.settings.handle || undefined,
       activityFile: this.settings.activityFile, publicTopics: this.settings.publicTopics.map(t => t[0]), installed: true,
     });
-    try { await navigator.clipboard.writeText(text); new Notice("Agent prompt copied. Paste it into your AI agent (Claude Code, Codex, ...) and schedule it daily."); }
+    try { await navigator.clipboard.writeText(text); new Notice(kind === "richer" ? "Prompt copied. Paste it into your AI agent; it asks before making anything public." : "Agent prompt copied. Paste it into your AI agent (Claude Code, Codex, ...) and schedule it daily."); }
     catch { new PromptModal(this.app, text).open(); }
   }
 

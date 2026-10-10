@@ -4,8 +4,8 @@ Nothing here is submitted until (1) caldera.social is live on HTTPS, and (2) Mik
 
 ## 0. Pre-launch checklist
 
-- [ ] caldera.social resolves to DIRECTOR; TLS cert issued; nginx server block live
-- [ ] Hub `CALDERA_PUBLIC_URL=https://caldera.social`; mjonesone.com/caldera/ 301 -> caldera.social
+- [x] caldera.social resolves to DIRECTOR; TLS cert issued; nginx server block live
+- [x] mjonesone.com/caldera/ 301 -> caldera.social (API path still proxied for older plugin settings)
 - [ ] privacy@ and legal@caldera.social forwarding works (send a test to each)
 - [ ] Plugin manifest description no longer contains the word "Obsidian" (the release bot flags it). Suggested: "The social layer for your vault: a living profile, friends between vaults, encrypted shared notes, asks, offers and gravity. Private by default."
 - [ ] Public plugin repo `schoettle-cmd/caldera-obsidian` (or the monorepo made public with a ROOT `manifest.json` + README; the obsidian-releases bot reads the repo root)

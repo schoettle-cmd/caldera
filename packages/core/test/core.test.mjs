@@ -49,3 +49,10 @@ test("agent prompt: privacy rules always present; install steps only when not in
   const mine = agentPrompt({ installed: true, vaultPath: "/v", handle: "mike", publicTopics: ["ai"] });
   assert.ok(!mine.includes("Download ") && mine.includes("/@mike/") && mine.includes("#ai") && mine.includes("/v/Caldera/activity.json"));
 });
+
+test("richer prompt: approval-gated, counts-only activity, key file off-limits", async () => {
+  const { richerPrompt } = await import("../dist/index.js");
+  const t = richerPrompt({ vaultPath: "/v" });
+  assert.ok(t.includes("explicit yes first") && t.includes("COUNTS ONLY") && t.includes("data.json") && t.includes("/v/Caldera/activity.json"));
+  assert.ok(!t.includes("If I did not fill this in"));
+});
