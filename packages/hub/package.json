@@ -9,5 +9,8 @@
     "start": "node --no-warnings dist/server.js",
     "test": "npm run build && node --no-warnings --test test/*.test.mjs"
   },
-  "dependencies": { "@caldera/core": "0.1.0" }
+  "dependencies": {
+    "@caldera/core": "0.1.0"
+  },
+  "author": "mjonesone, LLC"
 }

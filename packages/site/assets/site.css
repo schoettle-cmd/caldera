@@ -1,0 +1,78 @@
+/* Caldera landing page - components only; all colors/fonts/sizes come from theme.css tokens. */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 16px; line-height: 1.65; }
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, kbd { font-family: var(--font-mono); font-size: .88em; background: var(--bg-raised); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+.muted { color: var(--text-muted); }
+main { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+.nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 24px; padding: 14px 24px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 22px; color: var(--text-strong); font-weight: 600; }
+.brand:hover { text-decoration: none; }
+.nav nav { flex: 1; display: flex; gap: 22px; flex-wrap: wrap; }
+.nav nav a { color: var(--text-muted); font-size: 14.5px; }
+.btn { display: inline-flex; align-items: center; min-height: 46px; padding: 0 22px; border-radius: var(--radius-round); background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn:hover { text-decoration: none; filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--text-strong); border: 1px solid var(--line-strong); }
+.btn.small { min-height: 38px; padding: 0 16px; font-size: 14px; }
+@media (max-width: 720px) { .nav nav { display: none; } .nav { justify-content: space-between; } }
+
+.hero { padding: 96px 0 72px; position: relative; }
+.hero::before { content: ""; position: absolute; inset: 20px -10% auto auto; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 35%, transparent), transparent 65%); filter: blur(20px); z-index: -1; animation: drift 14s ease-in-out infinite; }
+.eyebrow { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; }
+.hero h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(48px, 8vw, 92px); line-height: 1; letter-spacing: -.02em; color: var(--text-strong); margin: 14px 0 22px; }
+.lead { font-size: clamp(18px, 2vw, 21px); max-width: 640px; color: var(--text); }
+.lead b { color: var(--text-strong); }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 30px 0 14px; }
+.fine { color: var(--text-muted); font-size: 14px; }
+
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; margin: 24px 0 96px; }
+.feature { background: var(--bg); padding: 28px; }
+.feature .k { font-family: var(--font-mono); font-size: 12px; color: var(--accent-text); }
+.feature h3 { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--text-strong); margin: 8px 0; }
+.feature p { margin: 0; color: var(--text); font-size: 15px; }
+
+section h2 { font-family: var(--font-display); font-weight: 600; font-size: clamp(32px, 4vw, 44px); color: var(--text-strong); margin: 0 0 22px; }
+section h2.sub { font-size: 28px; margin-top: 56px; }
+.privacy { margin-bottom: 96px; }
+.checks { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px 28px; }
+.checks li { padding-left: 30px; position: relative; }
+.checks li::before { content: ""; position: absolute; left: 0; top: 7px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent-2); mask: radial-gradient(circle, #000 40%, transparent 41%); }
+.checks b { color: var(--text-strong); }
+
+.install { margin-bottom: 96px; }
+.steps { display: grid; gap: 14px; }
+.step { display: flex; gap: 18px; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px; }
+.step .n { flex: 0 0 38px; height: 38px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: flex; align-items: center; justify-content: center; font-weight: 600; }
+.step h3 { margin: 4px 0 6px; color: var(--text-strong); font-size: 19px; }
+.step p, .step ol { margin: 0; }
+.quick { counter-reset: q; list-style: none; padding: 0; display: grid; gap: 10px; }
+.quick li { counter-increment: q; padding-left: 44px; position: relative; }
+.quick li::before { content: counter(q); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-strong); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
+.table-wrap { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 15px; }
+table.data th { text-align: left; padding: 10px; border-bottom: 1px solid var(--line-strong); color: var(--text-muted); font-weight: 500; }
+table.data td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+
+.faq { margin-bottom: 96px; max-width: 760px; }
+.faq details { border-bottom: 1px solid var(--line); padding: 14px 0; }
+.faq summary { cursor: pointer; font-weight: 600; color: var(--text-strong); font-size: 17px; }
+.faq p { margin: 10px 0 0; }
+
+.footer { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; max-width: 1080px; margin: 0 auto; padding: 28px 24px 48px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--text-muted); }
+
+@keyframes drift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-30px, 20px); } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; scroll-behavior: auto !important; } }
+
+/* --- Legal pages ------------------------------------------------------- */
+.legal { max-width: 760px; padding-top: 48px; padding-bottom: 72px; }
+.legal h1 { font-family: var(--font-display); font-weight: 600; font-size: 44px; color: var(--text-strong); margin: 0 0 6px; }
+.legal h2 { font-size: 24px; margin: 36px 0 10px; }
+.legal li { margin: 6px 0; }
+.legal table.data { font-size: 14px; margin: 10px 0; }
+.step > div:last-child { min-width: 0; }
+.step code, .quick code, table.data code { word-break: break-word; }
+@media (max-width: 560px) { .step { flex-direction: column; gap: 10px; padding: 18px; } .hero { padding-top: 64px; } }
+main { overflow-x: clip; }

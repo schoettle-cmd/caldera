@@ -23,6 +23,10 @@ Your vault becomes a **living profile** that updates itself, and vaults can **be
 
 Conventions (all optional): `caldera: public` on a note lists it publicly; daily notes named `YYYY-MM-DD` can carry `caldera_headline`, `caldera_focus`, `caldera_wins`, `caldera_themes` for the daily journal; `Caldera/activity.json` lets outside tools (calendar, email, git) add daily counts.
 
+## Privacy and terms
+
+Hosted service: [Privacy Policy](packages/site/privacy.html) and [Terms of Service](packages/site/terms.html). Delete your hub profile anytime with **Caldera: Delete my profile from the hub**.
+
 ## Network use (disclosure)
 
 The plugin contacts only the hub you configure, and only when you publish, sync your inbox, or act (friend, card, ask, offer, gravity). No telemetry, no analytics, no third parties. Your identity keys live in the plugin's data file on your device; export your recovery key from settings.
@@ -45,3 +49,7 @@ npm test          # core (6), hub end-to-end (7), plugin render + publish end-to
 ## Principles
 
 Local-first. Keys, not accounts. Everything that matters is signed. Positive-only social signals. Points before money: help credits have no cash value in v0.1.
+
+---
+
+Caldera is developed and maintained by **mjonesone, LLC**. Copyright (c) 2026 mjonesone, LLC. Licensed as noted per package.

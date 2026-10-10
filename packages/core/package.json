@@ -9,5 +9,8 @@
     "build": "tsc -p .",
     "test": "npm run build && node --test test/*.test.mjs"
   },
-  "dependencies": { "tweetnacl": "^1.0.3" }
+  "dependencies": {
+    "tweetnacl": "^1.0.3"
+  },
+  "author": "mjonesone, LLC"
 }

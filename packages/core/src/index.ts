@@ -7,7 +7,7 @@ import nacl from "tweetnacl";
 export const PROTOCOL_VERSION = 1;
 
 export type EnvelopeType =
-  | "profile.manifest" | "friend.request" | "friend.accept" | "friend.remove"
+  | "profile.manifest" | "profile.delete" | "friend.request" | "friend.accept" | "friend.remove"
   | "card" | "ask" | "offer" | "gravity" | "credit.award" | "message";
 
 export interface Envelope<B = any> {

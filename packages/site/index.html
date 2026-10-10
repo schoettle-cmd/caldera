@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caldera - the social layer for Obsidian</title>
+<meta name="description" content="Turn your Obsidian vault into a living profile, then connect with friends' vaults: share notes, ask for help, give gravity. Private by default. Free and open source.">
+<meta property="og:title" content="Caldera - the social layer for Obsidian">
+<meta property="og:description" content="A living profile grown from your vault. Friends between vaults. Private by default.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="./"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M3 26 L11 10 L14 15 L17 8 L29 26 Z" fill="var(--accent)"/><path d="M11 10 L14 15 L17 8" fill="none" stroke="var(--text-strong)" stroke-width="1.2"/><circle cx="16" cy="21" r="2.4" fill="var(--accent-2)"/></svg>Caldera</a>
+  <nav><a href="#how">How it works</a><a href="#privacy">Privacy</a><a href="#install">Install</a><a href="#faq">FAQ</a></nav>
+  <a class="btn small" href="#install">Get the plugin</a>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="eyebrow">Free and open source / for Obsidian</div>
+    <h1>The social layer<br>for Obsidian.</h1>
+    <p class="lead">Turn your vault into a <b>living profile</b> that updates itself every day. Then connect with friends' vaults: share notes, ask for help, offer help, and give <b>gravity</b> to the people who show up for you.</p>
+    <div class="cta"><a class="btn" href="#install">Install Caldera</a><a class="btn ghost" href="@mike/">See a live profile</a></div>
+    <p class="fine">Private by default. Nothing leaves your vault unless you choose it. <a href="privacy.html">Privacy Policy</a></p>
+  </section>
+
+  <section id="how" class="features">
+    <div class="feature"><div class="k">01</div><h3>A living profile</h3><p>Caldera reads your vault on your device and builds a profile page: a daily journal you can flip through, an activity score, topics, and the notes you choose to share.</p></div>
+    <div class="feature"><div class="k">02</div><h3>A reason to check in</h3><p>Every morning: what you did yesterday, how it compares to the day before, your streak, and your best days. Bring your own data from calendar, email or git.</p></div>
+    <div class="feature"><div class="k">03</div><h3>Friends between vaults</h3><p>Add friends by handle. Share any note as an end-to-end encrypted card; it lands in their vault as a normal note and updates when you edit it.</p></div>
+    <div class="feature"><div class="k">04</div><h3>Asks and offers</h3><p>Post what you could use help with and what you can help with. Put a bounty of help credits on an ask and award it to whoever helps.</p></div>
+    <div class="feature"><div class="k">05</div><h3>Gravity, positive only</h3><p>No likes, no downvotes. Give gravity to people who helped you. It fades over a month, so recent help counts most.</p></div>
+    <div class="feature"><div class="k">06</div><h3>Open protocol</h3><p>Your identity is a key that lives in your vault, not an account. Everything is signed. Self-host your page or your own hub.</p></div>
+  </section>
+
+  <section id="privacy" class="privacy">
+    <h2>Private by default</h2>
+    <ul class="checks">
+      <li><b>Your vault never uploads.</b> Caldera builds your profile on your device and sends only the finished page.</li>
+      <li><b>You choose every section.</b> Each part of the profile has its own switch. Notes are public only if you add <code>caldera: public</code>.</li>
+      <li><b>Preview first.</b> See exactly what visitors will see before anything is published.</li>
+      <li><b>Shared notes are end-to-end encrypted.</b> The hub only stores ciphertext it cannot read.</li>
+      <li><b>Topics are allow-listed.</b> Only tags you list are ever counted, so private names never appear.</li>
+      <li><b>No telemetry.</b> The plugin talks only to the hub you choose, only when you act.</li>
+    </ul>
+  </section>
+
+  <section id="install" class="install">
+    <h2>Install</h2>
+    <div class="steps">
+      <div class="step"><div class="n">A</div><div><h3>From Obsidian (once listed)</h3><p>Settings &rarr; Community plugins &rarr; Browse &rarr; search <b>Caldera</b> &rarr; Install &rarr; Enable. <span class="muted">Submission to the community directory is in review.</span></p></div></div>
+      <div class="step"><div class="n">B</div><div><h3>Manual install (works today)</h3>
+        <ol>
+          <li>Download <a href="download/caldera-0.1.0.zip">caldera-0.1.0.zip</a>.</li>
+          <li>In your vault, open the hidden folder <code>.obsidian/plugins/</code> and create a folder named <code>caldera</code>. (On Mac, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> in Finder to show hidden folders.)</li>
+          <li>Unzip into it so you have <code>.obsidian/plugins/caldera/main.js</code>, <code>manifest.json</code> and <code>styles.css</code>.</li>
+          <li>Restart Obsidian, then Settings &rarr; Community plugins &rarr; turn on <b>Caldera</b>.</li>
+        </ol></div></div>
+    </div>
+
+    <h2 class="sub">Set up in two minutes</h2>
+    <ol class="quick">
+      <li><b>Open Settings &rarr; Caldera.</b> Click <b>Create identity</b>, then <b>Export recovery key</b> and keep it somewhere safe.</li>
+      <li><b>Pick a handle and name</b>, and optionally an avatar and banner image from your vault.</li>
+      <li><b>Choose what's public</b> with the section switches. Add the tags you're happy to show under <i>Public topics</i>.</li>
+      <li>Command palette &rarr; <b>Caldera: Preview my public profile</b>. Check it.</li>
+      <li>Command palette &rarr; <b>Caldera: Publish my profile</b>. Your page is live at <code>hub/@yourhandle</code>.</li>
+      <li>Click the <b>flame icon</b> to open the Caldera panel: add friends, accept requests, give gravity.</li>
+    </ol>
+
+    <h2 class="sub">Make it richer (optional)</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Add this</th><th>To get</th></tr></thead>
+      <tbody>
+        <tr><td><code>caldera: public</code> in a note's properties</td><td>The note listed on your profile (title and first paragraph)</td></tr>
+        <tr><td><code>caldera_headline</code>, <code>caldera_focus</code>, <code>caldera_wins</code> in a daily note named <code>YYYY-MM-DD</code></td><td>That day's journal entry</td></tr>
+        <tr><td><code>Caldera/activity.json</code></td><td>Daily counts from outside tools (meetings, emails sent, commits, AI sessions) for your score</td></tr>
+        <tr><td>Command: <b>Share this note with a friend</b></td><td>An encrypted copy in their vault, under <code>Caldera/Inbox/</code></td></tr>
+        <tr><td>Commands: <b>Post an ask</b> / <b>Post an offer</b></td><td>The help exchange on your profile and the hub</td></tr>
+      </tbody>
+    </table></div>
+    <p class="fine">Publishing from a server or a scheduled job: <code>npx caldera-cli publish --vault /path/to/vault</code> uses the same settings and identity.</p>
+  </section>
+
+  <section id="faq" class="faq">
+    <h2>Questions</h2>
+    <details><summary>Is it free?</summary><p>Yes. The plugin, your profile and friends are free and open source. Optional paid features (like a hosted AI journal and custom domains) may come later.</p></details>
+    <details><summary>Who can see my notes?</summary><p>Only what you publish. Your vault is read on your device; Caldera publishes the sections you switch on and notes you mark <code>caldera: public</code>. Notes you share with a friend are encrypted so only that friend can read them.</p></details>
+    <details><summary>What are help credits?</summary><p>Points you earn by helping people with their asks. Everyone starts with 100. They have no cash value and can't be bought or sold.</p></details>
+    <details><summary>Does it work on mobile?</summary><p>Yes, the plugin runs on Obsidian desktop and mobile.</p></details>
+    <details><summary>Can I host it myself?</summary><p>Yes. Use <b>Export profile to a vault folder</b> to get a static site for any host, or run your own hub. The protocol is open.</p></details>
+    <details><summary>How do I delete my profile?</summary><p>In Obsidian, run <b>Caldera: Delete my profile from the hub</b>. Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is never touched.</p></details>
+    <details><summary>What if I lose my device?</summary><p>Your identity is a key in your vault's plugin settings. Export the recovery key when you set up, and import it on a new device.</p></details>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>&copy; 2026 mjonesone, LLC. Caldera is open source under the MIT license (hub: AGPL-3.0).</span>
+  <span><a href="PROTOCOL.md">Protocol spec</a> &middot; <a href="privacy.html">Privacy Policy</a> &middot; <a href="terms.html">Terms of Service</a></span>
+</footer>
+</body>
+</html>

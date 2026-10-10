@@ -3,8 +3,15 @@
   "version": "0.1.0",
   "description": "Publish a Caldera profile from an Obsidian vault folder without opening Obsidian (servers, cron, CI).",
   "type": "module",
-  "bin": { "caldera": "dist/cli.js" },
+  "bin": {
+    "caldera": "dist/cli.js"
+  },
   "license": "MIT",
-  "scripts": { "build": "node build.mjs" },
-  "dependencies": { "@caldera/core": "0.1.0" }
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@caldera/core": "0.1.0"
+  },
+  "author": "mjonesone, LLC"
 }

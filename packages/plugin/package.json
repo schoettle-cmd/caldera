@@ -8,6 +8,11 @@
     "build": "node esbuild.config.mjs",
     "test": "node esbuild.config.mjs && node --test test/*.test.mjs"
   },
-  "dependencies": { "@caldera/core": "0.1.0" },
-  "devDependencies": { "obsidian": "latest" }
+  "dependencies": {
+    "@caldera/core": "0.1.0"
+  },
+  "devDependencies": {
+    "obsidian": "latest"
+  },
+  "author": "mjonesone, LLC"
 }

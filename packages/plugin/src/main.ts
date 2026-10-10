@@ -34,6 +34,8 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "sync", name: "Sync inbox now", callback: () => this.syncInbox(true) });
     this.addCommand({ id: "share", name: "Share this note with a friend", checkCallback: (check) => {
       const f = this.app.workspace.getActiveFile(); if (!f) return false; if (!check) this.shareNote(f); return true; } });
+    this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
+      try { await this.send("profile.delete", {}); new Notice("Your Caldera profile was deleted from the hub."); } catch (e: any) { new Notice(e.message); } }).open() });
     this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
@@ -287,6 +289,15 @@ class GravityModal extends Modal {
     let reason = "";
     new Setting(this.contentEl).addText(t => t.setPlaceholder("They found me an operator").onChange(v => reason = v))
       .addButton(b => b.setButtonText("Add gravity").setCta().onClick(() => { this.done(reason); this.close(); }));
+  }
+}
+
+class ConfirmModal extends Modal {
+  constructor(app: App, private msg: string, private yes: () => void) { super(app); }
+  onOpen() {
+    this.titleEl.setText("Are you sure?"); this.contentEl.createEl("p", { text: this.msg });
+    new Setting(this.contentEl).addButton(b => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton(b => b.setButtonText("Delete").setWarning().onClick(() => { this.yes(); this.close(); }));
   }
 }
 

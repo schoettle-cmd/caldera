@@ -11,9 +11,13 @@ import path from "node:path";
 import crypto from "node:crypto";
 import * as C from "@caldera/core";
 
-export interface HubOptions { dataDir: string; port?: number; publicUrl?: string; }
+export interface HubOptions { dataDir: string; port?: number; publicUrl?: string; siteDir?: string; trustProxy?: boolean; limits?: { perMinute?: number; writesPerMinute?: number; newProfilesPerDay?: number }; }
 
 const MAX_BODY = 12 * 1024 * 1024;
+const RESERVED = new Set(["admin", "api", "www", "caldera", "help", "support", "root", "hub", "v1", "about", "login", "settings", "official", "team", "security", "obsidian"]);
+const SECURITY_HEADERS = { "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin", "x-frame-options": "DENY" };
+// User-uploaded profile pages run in a sandbox: unique origin, no access to the hub's origin, no forms, no top navigation.
+const PROFILE_CSP = "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
 const DAY = 86_400_000;
 
 export function createHub(opts: HubOptions) {
@@ -72,6 +76,7 @@ export function createHub(opts: HubOptions) {
       case "profile.manifest": {
         const handle = String(b.handle || "").toLowerCase();
         if (handle && !/^[a-z0-9][a-z0-9-]{1,30}$/.test(handle)) return { status: 400, body: { error: "bad handle" } };
+        if (RESERVED.has(handle)) return { status: 400, body: { error: "that handle is reserved" } };
         const owner = handle ? byHandle(handle) : null;
         if (owner && owner.id !== e.from) return { status: 409, body: { error: "handle taken" } };
         const existing = profile(e.from);
@@ -82,6 +87,16 @@ export function createHub(opts: HubOptions) {
           .run(e.from, handle || null, b.boxKey || "", b.name || "", b.headline || "", JSON.stringify(e), e.ts, existing?.created || now());
         storeEnvelope(e, null);
         return { status: 200, body: { ok: true, id: e.from, handle } };
+      }
+      case "profile.delete": {
+        // Owner-signed erasure: profile, page files, friendships, asks, offers, gravity, ledger and stored envelopes.
+        const pr = profile(e.from);
+        if (pr?.handle) fs.rmSync(path.join(opts.dataDir, "profiles", pr.handle), { recursive: true, force: true });
+        for (const sql of ["DELETE FROM profiles WHERE id=?", "DELETE FROM friends WHERE a=? OR b=?", "DELETE FROM asks WHERE author=?", "DELETE FROM offers WHERE author=?",
+          "DELETE FROM gravity WHERE sender=? OR recipient=?", "DELETE FROM ledger WHERE who=?", "DELETE FROM envelopes WHERE sender=? OR recipient=?", "DELETE FROM tokens WHERE id=?"]) {
+          const n = (sql.match(/\?/g) || []).length; q(sql).run(...Array(n).fill(e.from));
+        }
+        return { status: 200, body: { ok: true, deleted: e.from } };
       }
       case "friend.request": {
         if (!b.to || b.to === e.from) return { status: 400, body: { error: "bad recipient" } };
@@ -193,18 +208,51 @@ export function createHub(opts: HubOptions) {
   }
 
   const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".json": "application/json",
-    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml" };
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml" , ".md": "text/plain; charset=utf-8", ".zip": "application/zip", ".ico": "image/x-icon" };
+
+  const buckets = new Map<string, { n: number; w: number; reset: number }>();
+  const newProfiles = new Map<string, { n: number; day: string }>();
+  const L = { perMinute: 240, writesPerMinute: 40, newProfilesPerDay: 5, ...(opts.limits || {}) };
+  // Behind nginx, X-Real-IP is set by the proxy from the TCP peer (clients cannot spoof it); X-Forwarded-For is not trusted.
+  const ipOf = (req: http.IncomingMessage) => (opts.trustProxy ? String(req.headers["x-real-ip"] || "").trim() : "") || req.socket.remoteAddress || "?";
+  function limited(req: http.IncomingMessage): boolean {
+    const ip = ipOf(req), t = Date.now(); let b = buckets.get(ip);
+    if (!b || b.reset < t) { b = { n: 0, w: 0, reset: t + 60_000 }; buckets.set(ip, b); }
+    b.n++; if (req.method === "POST") b.w++;
+    if (buckets.size > 50_000) buckets.clear();
+    return b.n > L.perMinute || b.w > L.writesPerMinute;
+  }
+  function allowNewProfile(req: http.IncomingMessage): boolean {
+    const ip = ipOf(req), day = new Date().toISOString().slice(0, 10); const r = newProfiles.get(ip);
+    if (!r || r.day !== day) { newProfiles.set(ip, { n: 1, day }); return true; }
+    r.n++; return r.n <= L.newProfilesPerDay;
+  }
 
   const server = http.createServer(async (req, res) => {
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
     try {
+      if (limited(req)) return json(res, 429, { error: "slow down" });
       const url = new URL(req.url || "/", "http://hub");
       const p = url.pathname;
       if (req.method === "OPTIONS") return json(res, 204, {});
 
-      if (req.method === "GET" && p === "/") return json(res, 200, { name: "Caldera Hub", protocol: C.PROTOCOL_VERSION, profiles: (q("SELECT COUNT(*) c FROM profiles").get() as any).c });
+      if (req.method === "GET" && p === "/v1/info") return json(res, 200, { name: "Caldera Hub", protocol: C.PROTOCOL_VERSION, profiles: (q("SELECT COUNT(*) c FROM profiles").get() as any).c });
+      if (req.method === "GET" && opts.siteDir && !p.startsWith("/v1/") && !p.startsWith("/@")) {
+        let rel = p === "/" ? "index.html" : decodeURIComponent(p.slice(1));
+        if (rel.endsWith("/")) rel += "index.html";
+        const root = path.resolve(opts.siteDir), file = path.resolve(root, path.normalize(rel));
+        if (file.startsWith(root + path.sep) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+          const ext = path.extname(file).toLowerCase();
+          res.writeHead(200, { "content-type": MIME[ext] || (ext === ".zip" ? "application/zip" : "application/octet-stream"), "cache-control": "public, max-age=600" });
+          return fs.createReadStream(file).pipe(res);
+        }
+      }
+      if (req.method === "GET" && p === "/") return json(res, 200, { name: "Caldera Hub", protocol: C.PROTOCOL_VERSION });
 
       if (req.method === "POST" && p === "/v1/envelopes") {
-        const r = accept(await readBody(req)); return json(res, r.status, r.body);
+        const env = await readBody(req);
+        if (env?.type === "profile.manifest" && !profile(env.from) && !allowNewProfile(req)) return json(res, 429, { error: "too many new profiles from this address today" });
+        const r = accept(env); return json(res, r.status, r.body);
       }
 
       // upload a static profile bundle: { manifest: <signed profile.manifest>, files: { "index.html": "<base64>", ... } }
@@ -212,6 +260,7 @@ export function createHub(opts: HubOptions) {
       if (req.method === "POST" && m) {
         const body = await readBody(req);
         if (body.manifest?.from !== m[1]) return json(res, 403, { error: "manifest must be signed by the profile" });
+        if (!profile(m[1]) && !allowNewProfile(req)) return json(res, 429, { error: "too many new profiles from this address today" });
         const r = accept(body.manifest); if (r.status !== 200) return json(res, r.status, r.body);
         const handle = r.body.handle; if (!handle) return json(res, 400, { error: "a handle is required to host a page" });
         const dir = path.join(opts.dataDir, "profiles", handle);
@@ -233,7 +282,8 @@ export function createHub(opts: HubOptions) {
         if (rel.endsWith("/")) rel += "index.html";
         const file = path.join(dir, path.normalize(rel));
         if (!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end("not found"); }
-        res.writeHead(200, { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "x-robots-tag": "noindex" });
+        res.removeHeader("x-frame-options");
+        res.writeHead(200, { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "x-robots-tag": "noindex", "content-security-policy": PROFILE_CSP, "cache-control": "public, max-age=300" });
         return fs.createReadStream(file).pipe(res);
       }
 
@@ -310,11 +360,12 @@ export function createHub(opts: HubOptions) {
     }
   });
 
-  return { server, db, listen: (port = opts.port || 8787) => new Promise<number>(r => server.listen(port, () => r((server.address() as any).port))) };
+  return { server, db, listen: (port = opts.port || 8787, host = process.env.CALDERA_HOST || "127.0.0.1") => new Promise<number>(r => server.listen(port, host, () => r((server.address() as any).port))) };
 }
 
 // CLI: node dist/server.js  (env: CALDERA_DATA, PORT, CALDERA_PUBLIC_URL)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const hub = createHub({ dataDir: process.env.CALDERA_DATA || "./data", port: Number(process.env.PORT || 8787), publicUrl: process.env.CALDERA_PUBLIC_URL || "" });
+  const hub = createHub({ dataDir: process.env.CALDERA_DATA || "./data", port: Number(process.env.PORT || 8787), publicUrl: process.env.CALDERA_PUBLIC_URL || "",
+    siteDir: process.env.CALDERA_SITE || undefined, trustProxy: process.env.CALDERA_TRUST_PROXY === "1" });
   hub.listen().then(p => console.log(`Caldera Hub listening on :${p}`));
 }

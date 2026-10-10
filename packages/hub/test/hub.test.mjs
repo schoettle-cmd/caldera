@@ -88,3 +88,32 @@ test("leaderboard: friends scope ranks you against your friends by weekly score"
   assert.deepEqual(lb.map(r => r.handle), ["mike", "ana"]);
   assert.equal(lb[0].week, 370);
 });
+
+test("security: reserved handles, sandboxed profile pages, rate limits", async () => {
+  const x = C.newIdentity();
+  assert.equal((await post("/v1/envelopes", C.sign(x, "profile.manifest", { name: "x", handle: "admin", boxKey: x.boxPublic }))).status, 400);
+  const r = await fetch(base + "/@mike/");
+  assert.match(r.headers.get("content-security-policy") || "", /sandbox allow-scripts/);
+  assert.equal(r.headers.get("x-content-type-options"), "nosniff");
+});
+
+test("security: new-profile cap per address", async () => {
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), "caldera-hub2-"));
+  const h2 = createHub({ dataDir: dir2, limits: { newProfilesPerDay: 2 } }); const b2 = "http://127.0.0.1:" + await h2.listen(0);
+  const codes = [];
+  for (let i = 0; i < 3; i++) { const id = C.newIdentity(); codes.push((await fetch(b2 + "/v1/envelopes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(C.sign(id, "profile.manifest", { name: "n" + i, handle: "user" + i, boxKey: id.boxPublic })) })).status); }
+  assert.deepEqual(codes, [200, 200, 429]);
+  h2.server.close(); fs.rmSync(dir2, { recursive: true, force: true });
+});
+
+test("privacy: owner can erase their profile and everything tied to it", async () => {
+  const z = C.newIdentity();
+  await post(`/v1/profiles/${z.id}/bundle`, { manifest: C.sign(z, "profile.manifest", { name: "Zed", handle: "zed", boxKey: z.boxPublic }), files: { "index.html": Buffer.from("<p>z</p>").toString("base64") } });
+  assert.equal((await get("/@zed/")).status, 200);
+  assert.equal((await post("/v1/envelopes", C.sign(eve, "profile.delete", {}))).body.deleted, eve.id);
+  assert.equal((await get("/v1/profiles/zed")).status, 200, "someone else cannot delete it");
+  assert.equal((await post("/v1/envelopes", C.sign(z, "profile.delete", {}))).status, 200);
+  assert.equal((await get("/v1/profiles/zed")).status, 404);
+  assert.equal((await get("/@zed/")).status, 404);
+  assert.equal((await get(`/v1/credits/${z.id}`)).body.balance, 0);
+});

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
   "description": "The social layer for Obsidian: a living profile built from your vault, friends between vaults, shared notes, asks, offers and gravity. Private by default.",
-  "author": "Caldera",
+  "author": "mjonesone, LLC",
   "authorUrl": "https://caldera.social",
   "isDesktopOnly": false
 }
