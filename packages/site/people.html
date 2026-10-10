@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>People - Caldera</title>
+<meta name="description" content="Browse living profiles grown from Obsidian vaults. Find people by what they work on, and befriend their vault.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="./"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M3 26 L11 10 L14 15 L17 8 L29 26 Z" fill="var(--accent)"/><path d="M11 10 L14 15 L17 8" fill="none" stroke="var(--text-strong)" stroke-width="1.2"/><circle cx="16" cy="21" r="2.4" fill="var(--accent-2)"/></svg>Caldera</a>
+  <nav><a href="./#how">How it works</a><a href="people.html" aria-current="page">People</a><a href="./#install">Install</a><a href="./#faq">FAQ</a></nav>
+  <a class="btn small" href="./#install">Get the plugin</a>
+</header>
+
+<main class="people">
+  <div class="people-head">
+    <p class="eyebrow">Directory</p>
+    <h1>People on Caldera</h1>
+    <p class="lead-in">Living profiles grown from Obsidian vaults. Every page updates itself from its owner's notes, so what you see is what they're actually working on.</p>
+  </div>
+
+  <div class="people-tools">
+    <label class="people-search"><span class="sr">Search</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input id="q" type="search" placeholder="Search names, headlines, topics" autocomplete="off">
+    </label>
+    <div class="people-sort" role="tablist">
+      <button type="button" role="tab" data-sort="active" aria-selected="true">Most active this week</button>
+      <button type="button" role="tab" data-sort="new" aria-selected="false">Newest</button>
+    </div>
+  </div>
+
+  <p class="people-count fine" id="count">Loading the directory&hellip;</p>
+  <div class="people-grid" id="grid"></div>
+
+  <div class="people-empty" id="empty" hidden>
+    <h2>Be one of the first</h2>
+    <p>Caldera just opened. Install it, pick a handle, and your card shows up here.</p>
+    <a class="btn" href="./#install">Get the plugin</a>
+  </div>
+
+  <p class="fine people-foot">Cards appear for people who chose to be listed. Anyone can switch it off in Settings &rarr; Caldera &rarr; List me in the directory. See something that breaks our <a href="terms.html">terms</a>? Email legal@caldera.social.</p>
+</main>
+
+<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
+
+<script>
+(function () {
+  var grid = document.getElementById("grid"), count = document.getElementById("count"), empty = document.getElementById("empty"), input = document.getElementById("q");
+  var sort = "active", timer = null;
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function card(p) {
+    var a = el("a", "pcard"); a.href = "@" + encodeURIComponent(p.handle) + "/";
+    var top = el("div", "pcard-top");
+    var av = el("div", "pcard-av");
+    if (p.avatar) { var img = new Image(); img.alt = ""; img.loading = "lazy"; img.src = p.avatar.replace(/^\//, ""); img.onerror = function () { img.remove(); av.textContent = (p.name || p.handle).charAt(0).toUpperCase(); }; av.appendChild(img); }
+    else av.textContent = (p.name || p.handle).charAt(0).toUpperCase();
+    var who = el("div", "pcard-who"); who.appendChild(el("b", null, p.name || p.handle)); who.appendChild(el("span", null, "@" + p.handle));
+    top.appendChild(av); top.appendChild(who);
+    if (p.week > 0) { var s = el("div", "pcard-score"); s.appendChild(el("b", null, String(p.week))); s.appendChild(el("span", null, "this week")); top.appendChild(s); }
+    a.appendChild(top);
+    if (p.headline) a.appendChild(el("p", "pcard-line", p.headline));
+    if (p.topics && p.topics.length) { var t = el("div", "pcard-topics"); p.topics.forEach(function (x) { t.appendChild(el("span", null, x)); }); a.appendChild(t); }
+    return a;
+  }
+  function load() {
+    var url = "v1/directory?sort=" + sort + "&q=" + encodeURIComponent(input.value.trim());
+    fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      grid.textContent = "";
+      (d.profiles || []).forEach(function (p) { grid.appendChild(card(p)); });
+      var n = d.total || 0, searching = input.value.trim();
+      count.textContent = searching ? n + (n === 1 ? " match" : " matches") : n + (n === 1 ? " person" : " people") + " listed";
+      empty.hidden = !!(n || searching);
+    }).catch(function () { count.textContent = "Couldn't load the directory. Try again in a moment."; });
+  }
+  input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(load, 200); });
+  document.querySelectorAll("[data-sort]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      sort = b.getAttribute("data-sort");
+      document.querySelectorAll("[data-sort]").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
+      load();
+    });
+  });
+  load();
+})();
+</script>
+</body>
+</html>

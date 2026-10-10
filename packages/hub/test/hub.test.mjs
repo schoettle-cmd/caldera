@@ -125,3 +125,27 @@ test("routes accept percent-encoded ids (raw-URI proxies)", async () => {
   assert.equal((await get(`/v1/credits/${encodeURIComponent(mike.id)}`)).status, 200);
   assert.equal((await get(`/v1/profiles/${encodeURIComponent(mike.id)}`)).status, 200);
 });
+
+test("directory: lists listed profiles, honours listed:false, hides moderated, admin tools", async () => {
+  const d1 = await get("/v1/directory");
+  assert.equal(d1.status, 200);
+  const handles = d1.body.profiles.map(p => p.handle);
+  assert.ok(handles.includes("mike") && handles.includes("ana"));
+  const mikeRow = d1.body.profiles.find(p => p.handle === "mike");
+  assert.ok("week" in mikeRow && !("manifest" in mikeRow) && !("id" in mikeRow), "directory exposes only card fields");
+  // opt out
+  const unl = C.sign(ana, "profile.manifest", { name: "Ana", handle: "ana", boxKey: ana.boxPublic, listed: false, daily: [] });
+  assert.equal((await post("/v1/envelopes", unl)).status, 200);
+  assert.ok(!(await get("/v1/directory")).body.profiles.some(p => p.handle === "ana"), "unlisted not in directory");
+  assert.equal((await get("/v1/profiles/ana")).status, 200, "unlisted still reachable directly");
+  // operator takedown
+  hub.admin.hide("mike", "test");
+  assert.equal((await get("/@mike/")).status, 410);
+  assert.equal((await get("/v1/profiles/mike")).status, 404);
+  assert.ok(!(await get("/v1/directory")).body.profiles.some(p => p.handle === "mike"));
+  assert.equal((await post("/v1/envelopes", manifest(mike, "mike", "Mike Jones", 1))).status, 403, "owner cannot republish while hidden");
+  hub.admin.unhide("mike");
+  assert.equal((await get("/@mike/")).status, 200);
+  hub.admin.block("impostor");
+  assert.equal((await post("/v1/envelopes", manifest(ana, "impostor", "Fake", 1))).status, 403, "blocked handle cannot be claimed");
+});

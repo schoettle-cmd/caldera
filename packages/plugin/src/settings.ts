@@ -16,6 +16,7 @@ export interface CalderaSettings {
   offers: { id: string; title: string }[];
   autoPublishHours: number;           // 0 = manual only
   welcomed: boolean;                  // first-run welcome finished
+  listed: boolean;                    // shown in the public directory at hub/people
 }
 
 export const DEFAULT_SETTINGS: CalderaSettings = {
@@ -27,7 +28,7 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
-  asks: [], offers: [], autoPublishHours: 6, welcomed: false,
+  asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true,
 };
 
 const SECTION_LABELS: Record<string, string> = {
@@ -56,6 +57,8 @@ export class CalderaSettingTab extends PluginSettingTab {
       }));
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", v => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
+    new Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.")
+      .addToggle(t => t.setValue(s.listed !== false).onChange(async v => { s.listed = v; await this.plugin.saveSettings(); }));
 
     containerEl.createEl("h3", { text: "Profile" });
     this.text("Name", "", "name");

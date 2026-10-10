@@ -39,6 +39,7 @@ export function createHub(opts: HubOptions) {
     CREATE TABLE IF NOT EXISTS ledger (who TEXT, delta INTEGER, reason TEXT, ref TEXT, ts TEXT);
     CREATE TABLE IF NOT EXISTS challenges (id TEXT, nonce TEXT, expires INTEGER);
     CREATE TABLE IF NOT EXISTS tokens (token TEXT PRIMARY KEY, id TEXT, expires INTEGER);
+    CREATE TABLE IF NOT EXISTS moderation (handle TEXT PRIMARY KEY, id TEXT, action TEXT, reason TEXT, at TEXT);
   `);
   const q = (sql: string) => db.prepare(sql);
   const now = () => new Date().toISOString();
@@ -46,6 +47,10 @@ export function createHub(opts: HubOptions) {
   // ---------------------------------------------------------------- helpers
   const profile = (id: string) => q("SELECT * FROM profiles WHERE id=?").get(id) as any;
   const byHandle = (h: string) => q("SELECT * FROM profiles WHERE handle=?").get(h) as any;
+  // operator moderation (Terms s.3): hidden = taken down, owner cannot republish; blocked = handle can never be claimed
+  const modOf = (handle: string | null, id?: string) => q("SELECT * FROM moderation WHERE handle=? OR (id IS NOT NULL AND id=?)").get(handle || "", id || "") as any;
+  const body = (pr: any) => { try { return JSON.parse(pr.manifest).body || {}; } catch { return {}; } };
+  const listed = (pr: any) => body(pr).listed !== false && !modOf(pr.handle, pr.id);
   const areFriends = (a: string, b: string) => !!q("SELECT 1 FROM friends WHERE a=? AND b=?").get(a, b);
   const balance = (id: string) => (q("SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE who=?").get(id) as any).s as number;
 
@@ -79,6 +84,7 @@ export function createHub(opts: HubOptions) {
         const handle = String(b.handle || "").toLowerCase();
         if (handle && !/^[a-z0-9][a-z0-9-]{1,30}$/.test(handle)) return { status: 400, body: { error: "bad handle" } };
         if (RESERVED.has(handle)) return { status: 400, body: { error: "that handle is reserved" } };
+        if (modOf(handle, e.from)) return { status: 403, body: { error: "this profile or handle is not available" } };
         const owner = handle ? byHandle(handle) : null;
         if (owner && owner.id !== e.from) return { status: 409, body: { error: "handle taken" } };
         const existing = profile(e.from);
@@ -92,12 +98,7 @@ export function createHub(opts: HubOptions) {
       }
       case "profile.delete": {
         // Owner-signed erasure: profile, page files, friendships, asks, offers, gravity, ledger and stored envelopes.
-        const pr = profile(e.from);
-        if (pr?.handle) fs.rmSync(path.join(opts.dataDir, "profiles", pr.handle), { recursive: true, force: true });
-        for (const sql of ["DELETE FROM profiles WHERE id=?", "DELETE FROM friends WHERE a=? OR b=?", "DELETE FROM asks WHERE author=?", "DELETE FROM offers WHERE author=?",
-          "DELETE FROM gravity WHERE sender=? OR recipient=?", "DELETE FROM ledger WHERE who=?", "DELETE FROM envelopes WHERE sender=? OR recipient=?", "DELETE FROM tokens WHERE id=?"]) {
-          const n = (sql.match(/\?/g) || []).length; q(sql).run(...Array(n).fill(e.from));
-        }
+        erase(e.from);
         return { status: 200, body: { ok: true, deleted: e.from } };
       }
       case "friend.request": {
@@ -172,6 +173,24 @@ export function createHub(opts: HubOptions) {
     }
   }
 
+  function erase(id: string) {
+    const pr = profile(id);
+    if (pr?.handle) fs.rmSync(path.join(opts.dataDir, "profiles", pr.handle), { recursive: true, force: true });
+    for (const sql of ["DELETE FROM profiles WHERE id=?", "DELETE FROM friends WHERE a=? OR b=?", "DELETE FROM asks WHERE author=?", "DELETE FROM offers WHERE author=?",
+      "DELETE FROM gravity WHERE sender=? OR recipient=?", "DELETE FROM ledger WHERE who=?", "DELETE FROM envelopes WHERE sender=? OR recipient=?", "DELETE FROM tokens WHERE id=?"]) {
+      const n = (sql.match(/\?/g) || []).length; q(sql).run(...Array(n).fill(id));
+    }
+  }
+
+  // ---------------------------------------------------------------- operator tools (run on the server: node dist/admin.js)
+  const admin = {
+    list: () => q("SELECT * FROM moderation ORDER BY at DESC").all(),
+    hide(handle: string, reason = "") { const pr = byHandle(handle); q("INSERT OR REPLACE INTO moderation VALUES (?,?,?,?,?)").run(handle, pr?.id || null, "hidden", reason, now()); return { hidden: handle, id: pr?.id || null }; },
+    unhide(handle: string) { q("DELETE FROM moderation WHERE handle=?").run(handle); return { restored: handle }; },
+    remove(handle: string, reason = "") { const pr = byHandle(handle); if (pr) erase(pr.id); q("INSERT OR REPLACE INTO moderation VALUES (?,?,?,?,?)").run(handle, pr?.id || null, "removed", reason, now()); return { removed: handle, id: pr?.id || null }; },
+    block(handle: string, reason = "") { q("INSERT OR REPLACE INTO moderation VALUES (?,?,?,?,?)").run(handle, null, "blocked", reason, now()); return { blocked: handle }; },
+  };
+
   // ---------------------------------------------------------------- scores for leaderboards
   function weekScore(manifestJson: string): number {
     try {
@@ -184,7 +203,7 @@ export function createHub(opts: HubOptions) {
   function leaderboard(ofId: string | null) {
     const rows = (ofId
       ? q("SELECT p.* FROM profiles p WHERE p.id=? OR p.id IN (SELECT b FROM friends WHERE a=?)").all(ofId, ofId)
-      : q("SELECT * FROM profiles WHERE handle IS NOT NULL").all()) as any[];
+      : (q("SELECT * FROM profiles WHERE handle IS NOT NULL").all() as any[]).filter(listed)) as any[];
     return rows.map(p => ({ id: p.id, handle: p.handle, name: p.name, week: weekScore(p.manifest), gravity: gravityOf(p.id) }))
       .sort((a, b) => b.week - a.week || b.gravity - a.gravity)
       .map((r, i) => ({ rank: i + 1, ...r }));
@@ -280,6 +299,7 @@ export function createHub(opts: HubOptions) {
 
       m = p.match(/^\/@([a-z0-9-]+)(\/.*)?$/);
       if (req.method === "GET" && m) {
+        if (modOf(m[1])) { res.writeHead(410, { "content-type": "text/plain" }); return res.end("This profile is not available."); }
         const dir = path.join(opts.dataDir, "profiles", m[1]);
         let rel = (m[2] || "/").slice(1) || "index.html";
         if (rel.endsWith("/")) rel += "index.html";
@@ -318,12 +338,22 @@ export function createHub(opts: HubOptions) {
         const term = "%" + (url.searchParams.get("q") || "").toLowerCase() + "%";
         const rows = q(`SELECT id, handle, name, headline, box_key FROM profiles WHERE handle IS NOT NULL AND
           (lower(name) LIKE ? OR lower(handle) LIKE ? OR lower(headline) LIKE ? OR lower(manifest) LIKE ?) ORDER BY updated DESC LIMIT 50`).all(term, term, term, term);
-        return json(res, 200, { profiles: rows });
+        return json(res, 200, { profiles: (rows as any[]).filter(r => !modOf(r.handle, r.id)) });
+      }
+      if (req.method === "GET" && p === "/v1/directory") {
+        const term = (url.searchParams.get("q") || "").toLowerCase().trim(), sort = url.searchParams.get("sort") || "active";
+        const rows = (q("SELECT * FROM profiles WHERE handle IS NOT NULL").all() as any[]).filter(listed).map(pr => {
+          const b = body(pr), avatar = b.photos?.avatar ? `/@${pr.handle}/${String(b.photos.avatar).replace(/^\.?\//, "")}` : null;
+          return { handle: pr.handle, name: pr.name, headline: pr.headline, avatar, topics: (b.topics || []).slice(0, 3).map((t: any) => t[0]),
+            week: weekScore(pr.manifest), gravity: gravityOf(pr.id), created: pr.created, updated: pr.updated };
+        }).filter(r => !term || [r.handle, r.name, r.headline, ...r.topics].join(" ").toLowerCase().includes(term));
+        rows.sort(sort === "new" ? (a, b) => String(b.created).localeCompare(String(a.created)) : (a, b) => b.week - a.week || b.gravity - a.gravity);
+        return json(res, 200, { total: rows.length, profiles: rows.slice(0, 120) });
       }
       m = p.match(/^\/v1\/profiles\/(cal:[1-9A-HJ-NP-Za-km-z]+|[a-z0-9-]+)$/);
       if (req.method === "GET" && m) {
         const pr = m[1].startsWith("cal:") ? profile(m[1]) : byHandle(m[1]);
-        if (!pr) return json(res, 404, { error: "not found" });
+        if (!pr || modOf(pr.handle, pr.id)) return json(res, 404, { error: "not found" });
         return json(res, 200, { id: pr.id, handle: pr.handle, name: pr.name, headline: pr.headline, boxKey: pr.box_key, manifest: JSON.parse(pr.manifest) });
       }
 
@@ -363,11 +393,11 @@ export function createHub(opts: HubOptions) {
     }
   });
 
-  return { server, db, listen: (port = opts.port || 8787, host = process.env.CALDERA_HOST || "127.0.0.1") => new Promise<number>(r => server.listen(port, host, () => r((server.address() as any).port))) };
+  return { server, db, admin, listen: (port = opts.port || 8787, host = process.env.CALDERA_HOST || "127.0.0.1") => new Promise<number>(r => server.listen(port, host, () => r((server.address() as any).port))) };
 }
 
 // CLI: node dist/server.js  (env: CALDERA_DATA, PORT, CALDERA_PUBLIC_URL)
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === `file://${process.argv[1]}` && /server\.js$/.test(process.argv[1] || "")) {
   const hub = createHub({ dataDir: process.env.CALDERA_DATA || "./data", port: Number(process.env.PORT || 8787), publicUrl: process.env.CALDERA_PUBLIC_URL || "",
     siteDir: process.env.CALDERA_SITE || undefined, trustProxy: process.env.CALDERA_TRUST_PROXY === "1" });
   hub.listen().then(p => console.log(`Caldera Hub listening on :${p}`));

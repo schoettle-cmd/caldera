@@ -140,3 +140,39 @@ section h2 { line-height: 1.12; }
   .prompt-does::-webkit-scrollbar { display: none; }
   .prompt-does li { flex: none; }
 }
+
+/* --- People directory ---------------------------------------------------- */
+.people { padding-top: 48px; padding-bottom: 72px; }
+.people-head { max-width: 720px; margin-bottom: 28px; }
+.people-head h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(36px, 5vw, 52px); line-height: 1.08; color: var(--text-strong); margin: 6px 0 12px; text-wrap: balance; }
+.people-head .lead-in { color: var(--text-muted); }
+.people-tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.people-search { flex: 1 1 320px; max-width: 460px; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 46px; border: 1px solid var(--line-strong); border-radius: var(--radius-round); background: var(--bg-raised); }
+.people-search:focus-within { border-color: var(--accent); }
+.people-search svg { width: 18px; height: 18px; fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; flex: none; }
+.people-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text-strong); font: 15px var(--font-body); outline: none; }
+.people-sort { display: inline-flex; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius-round); background: var(--bg-sunken); }
+.people-sort button { border: 0; background: none; color: var(--text-muted); font: 500 14px var(--font-body); padding: 8px 14px; border-radius: var(--radius-round); cursor: pointer; }
+.people-sort button[aria-selected="true"] { background: var(--bg-raised); color: var(--text-strong); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.people-count { margin: 6px 0 18px; font-variant-numeric: tabular-nums; }
+.people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.pcard { display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--bg-raised); color: var(--text); transition: border-color .15s, transform .15s; }
+.pcard:hover { text-decoration: none; border-color: var(--accent); transform: translateY(-2px); }
+.pcard-top { display: flex; align-items: center; gap: 12px; }
+.pcard-av { width: 52px; height: 52px; flex: none; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-text); font: 600 20px var(--font-display); }
+.pcard-av img { width: 100%; height: 100%; object-fit: cover; }
+.pcard-who { min-width: 0; flex: 1; }
+.pcard-who b { display: block; color: var(--text-strong); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard-who span { color: var(--text-muted); font: 13px var(--font-mono); }
+.pcard-score { text-align: right; flex: none; }
+.pcard-score b { display: block; font: 600 18px var(--font-mono); color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.pcard-score span { font-size: 11.5px; color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase; }
+.pcard-line { margin: 0; font-size: 14.5px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pcard-topics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.pcard-topics span { font-size: 12.5px; padding: 3px 9px; border-radius: var(--radius-round); background: var(--accent-soft); color: var(--accent-text); }
+.people-empty { text-align: center; padding: 48px 16px; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); margin-top: 8px; }
+.people-empty h2 { margin: 0 0 8px; }
+.people-foot { margin-top: 32px; max-width: 720px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.nav nav a[aria-current="page"] { color: var(--text-strong); }
+@media (max-width: 560px) { .people-sort { width: 100%; } .people-sort button { flex: 1; } }

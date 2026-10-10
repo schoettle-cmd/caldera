@@ -128,7 +128,7 @@ export default class CalderaPlugin extends Plugin {
         photos: { avatar: data.avatar, banner: data.banner }, links: data.links,
         sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
-        topics: data.topics, asks: data.asks, offers: data.offers, page: "index.html", updated: data.updated,
+        topics: data.topics, asks: data.asks, offers: data.offers, listed: this.settings.listed !== false, page: "index.html", updated: data.updated,
       });
       const files: Record<string, string> = {};
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
@@ -369,6 +369,9 @@ class WelcomeModal extends Modal {
     new Setting(this.contentEl).setName("Your name").addText(t => t.setPlaceholder("Ada Lovelace").setValue(name).onChange(v => name = v.trim()));
     new Setting(this.contentEl).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`)
       .addText(t => t.setPlaceholder("ada").setValue(handle).onChange(v => { handle = clean(v); if (v !== handle) t.setValue(handle); status.setText(""); }));
+    let listed = s.listed !== false;
+    new Setting(this.contentEl).setName("List me in the directory").setDesc("Your card appears on the public People page. You can change this anytime.")
+      .addToggle(t => t.setValue(listed).onChange(v => listed = v));
     new Setting(this.contentEl).setName("Headline").setDesc("Optional, one line").addText(t => t.setPlaceholder("Building things with notes").setValue(headline).onChange(v => headline = v.trim()));
     this.contentEl.appendChild(status);
     const go = new Setting(this.contentEl).addButton(b => b.setButtonText("Create my profile").setCta().onClick(async () => {
@@ -379,7 +382,7 @@ class WelcomeModal extends Modal {
         const me = await this.plugin.ensureIdentity(true);
         const r = await requestUrl({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
         if (r.status === 200 && r.json?.id !== me.id) { status.setText(`@${handle} is taken. Try another.`); b.setDisabled(false); b.setButtonText("Create my profile"); return; }
-        Object.assign(s, { name, handle, headline, welcomed: true });
+        Object.assign(s, { name, handle, headline, listed, welcomed: true });
         if (!s.autoPublishHours) s.autoPublishHours = 6;
         await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish();
         const url = await this.plugin.publish(true);
