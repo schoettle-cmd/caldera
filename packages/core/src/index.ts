@@ -169,3 +169,6 @@ export function activityScore(c: DailyCounts): number {
 export function newId(prefix: "ask" | "off" | "card" | "msg"): string {
   return prefix + "_" + b58encode(nacl.randomBytes(12));
 }
+
+export { agentPrompt } from "./agent-prompt.js";
+export type { AgentPromptOptions } from "./agent-prompt.js";

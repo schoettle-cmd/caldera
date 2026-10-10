@@ -3,7 +3,7 @@
  * Network use (disclosed): only when you publish, sync your inbox, or act on friends/asks/gravity,
  * and only to the hub you configure. No telemetry.
  */
-import { App, ItemView, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
+import { App, FileSystemAdapter, ItemView, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS } from "./settings";
 import { collectProfile } from "./collect";
@@ -36,6 +36,7 @@ export default class CalderaPlugin extends Plugin {
       const f = this.app.workspace.getActiveFile(); if (!f) return false; if (!check) this.shareNote(f); return true; } });
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try { await this.send("profile.delete", {}); new Notice("Your Caldera profile was deleted from the hub."); } catch (e: any) { new Notice(e.message); } }).open() });
+    this.addCommand({ id: "agent-prompt", name: "Copy AI agent setup prompt (daily journal + activity)", callback: () => this.copyAgentPrompt() });
     this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
@@ -98,6 +99,17 @@ export default class CalderaPlugin extends Plugin {
       html = html.split(`src="${p}"`).join(`src="data:${mime};base64,${C.b64.enc(new Uint8Array(buf))}"`);
     }
     new PreviewModal(this.app, html).open();
+  }
+
+  async copyAgentPrompt() {
+    const a = this.app.vault.adapter;
+    const text = C.agentPrompt({
+      vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined,
+      hubUrl: this.settings.hubUrl, handle: this.settings.handle || undefined,
+      activityFile: this.settings.activityFile, publicTopics: this.settings.publicTopics.map(t => t[0]), installed: true,
+    });
+    try { await navigator.clipboard.writeText(text); new Notice("Agent prompt copied. Paste it into your AI agent (Claude Code, Codex, ...) and schedule it daily."); }
+    catch { new PromptModal(this.app, text).open(); }
   }
 
   async publish(quiet = false) {
@@ -320,4 +332,14 @@ class AskModal extends Modal {
       } catch (e: any) { new Notice(e.message); }
     }));
   }
+}
+
+class PromptModal extends Modal {
+  constructor(app: App, private text: string) { super(app); }
+  onOpen() {
+    this.titleEl.setText("AI agent setup prompt");
+    const ta = this.contentEl.createEl("textarea", { cls: "caldera-prompt" });
+    ta.value = this.text; ta.rows = 18; ta.style.width = "100%"; ta.readOnly = true; ta.select();
+  }
+  onClose() { this.contentEl.empty(); }
 }

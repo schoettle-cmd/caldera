@@ -40,3 +40,12 @@ test("activity score caps bulk imports", () => {
   assert.equal(C.activityScore({ meetings: 11, emails: 60, prompts: 144, commits: 37, notes: 1547, docs: 6 }), 370);
   assert.equal(C.activityScore({ notes: 1547 }), 15);
 });
+
+test("agent prompt: privacy rules always present; install steps only when not installed", async () => {
+  const { agentPrompt } = await import("../dist/index.js");
+  const fresh = agentPrompt({ hubUrl: "https://hub.example/" });
+  assert.ok(fresh.includes("## 3. Privacy rules") && fresh.includes("Download https://hub.example/download/caldera-0.1.0.zip"));
+  assert.ok(fresh.includes("data.json"), "warns agent away from the key file");
+  const mine = agentPrompt({ installed: true, vaultPath: "/v", handle: "mike", publicTopics: ["ai"] });
+  assert.ok(!mine.includes("Download ") && mine.includes("/@mike/") && mine.includes("#ai") && mine.includes("/v/Caldera/activity.json"));
+});
