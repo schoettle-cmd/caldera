@@ -23,6 +23,7 @@ export interface ProfileData {
   offers: { title: string }[];
   social?: { friends: number; gravity: number; credits: number };
   updated: string;                                         // ISO
+  hub?: string;                                            // hub base URL, for the 'how to edit' link
 }
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -91,7 +92,7 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <div class="hx-card"><div class="label">I can help with</div>${p.offers.map(o => `<div class="hx-row"><span>${esc(o.title)}</span></div>`).join("") || '<div class="muted">Ask me</div>'}</div></div>`);
   if (s.social && p.social) parts.push(`<div class="stat-strip">${[[fmt(p.social.friends), "friends"], [String(p.social.gravity), "gravity"], [fmt(p.social.credits), "help credits"]].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.links && p.links.length) parts.push(`<h2>Elsewhere</h2><ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc(u)}" rel="noopener">${esc(l)}</a></li>`).join("")}</ul>`);
-  parts.push(`<div class="foot">Grown from an Obsidian vault with Caldera. Updated ${esc(p.updated.slice(0, 16).replace("T", " "))} UTC.</div></div></main>`);
+  parts.push(`<div class="foot">Grown from an Obsidian vault with Caldera. Updated ${esc(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
   parts.push(`<script>${CLIENT_JS}</script></body></html>`);
   return { "index.html": parts.join("\n"), "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS };
 }

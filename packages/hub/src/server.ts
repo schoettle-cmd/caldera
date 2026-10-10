@@ -229,7 +229,7 @@ export function createHub(opts: HubOptions) {
   }
 
   const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".json": "application/json",
-    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml" , ".md": "text/plain; charset=utf-8", ".zip": "application/zip", ".ico": "image/x-icon" };
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml" , ".md": "text/plain; charset=utf-8", ".zip": "application/zip", ".ico": "image/x-icon", ".xml": "application/rss+xml; charset=utf-8", };
 
   const buckets = new Map<string, { n: number; w: number; reset: number }>();
   const newProfiles = new Map<string, { n: number; day: string }>();

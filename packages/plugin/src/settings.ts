@@ -17,6 +17,7 @@ export interface CalderaSettings {
   autoPublishHours: number;           // 0 = manual only
   welcomed: boolean;                  // first-run welcome finished
   listed: boolean;                    // shown in the public directory at hub/people
+  lastSeenRelease: string;            // newest release the owner has been shown (What's new)
 }
 
 export const DEFAULT_SETTINGS: CalderaSettings = {
@@ -28,7 +29,7 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
-  asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true,
+  asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true, lastSeenRelease: "",
 };
 
 const SECTION_LABELS: Record<string, string> = {
@@ -61,6 +62,8 @@ export class CalderaSettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.listed !== false).onChange(async v => { s.listed = v; await this.plugin.saveSettings(); }));
 
     containerEl.createEl("h3", { text: "Profile" });
+    new Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.")
+      .addButton(b => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
     this.text("Name", "", "name");
     this.text("Headline", "One line under your name", "headline");
     this.text("Avatar image", "Path in your vault, e.g. Attachments/me.jpg", "avatarPath");

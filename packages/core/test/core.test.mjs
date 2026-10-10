@@ -44,7 +44,7 @@ test("activity score caps bulk imports", () => {
 test("agent prompt: privacy rules always present; install steps only when not installed", async () => {
   const { agentPrompt } = await import("../dist/index.js");
   const fresh = agentPrompt({ hubUrl: "https://hub.example/" });
-  assert.ok(fresh.includes("## 3. Privacy rules") && fresh.includes("Download https://hub.example/download/caldera-0.1.0.zip"));
+  assert.ok(fresh.includes("## 3. Privacy rules") && fresh.includes("Download https://hub.example/download/caldera-latest.zip"));
   assert.ok(fresh.includes("data.json"), "warns agent away from the key file");
   const mine = agentPrompt({ installed: true, vaultPath: "/v", handle: "mike", publicTopics: ["ai"] });
   assert.ok(!mine.includes("Download ") && mine.includes("/@mike/") && mine.includes("#ai") && mine.includes("/v/Caldera/activity.json"));
@@ -55,4 +55,11 @@ test("richer prompt: approval-gated, counts-only activity, key file off-limits",
   const t = richerPrompt({ vaultPath: "/v" });
   assert.ok(t.includes("explicit yes first") && t.includes("COUNTS ONLY") && t.includes("data.json") && t.includes("/v/Caldera/activity.json"));
   assert.ok(!t.includes("If I did not fill this in"));
+});
+
+test("edit prompt: points at Caldera/profile.md, approval-gated, key file off-limits", async () => {
+  const { editPrompt, agentPrompt } = await import("../dist/index.js");
+  const t = editPrompt({ handle: "mike" });
+  assert.ok(t.includes("Caldera/profile.md") && t.includes("/@mike/") && t.includes("before you make it") && t.includes("data.json"));
+  assert.ok(agentPrompt().includes("## 5. When I ask you to change my page"));
 });

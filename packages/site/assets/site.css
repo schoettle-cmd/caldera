@@ -176,3 +176,20 @@ section h2 { line-height: 1.12; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .nav nav a[aria-current="page"] { color: var(--text-strong); }
 @media (max-width: 560px) { .people-sort { width: 100%; } .people-sort button { flex: 1; } }
+
+/* --- Guide + changelog --------------------------------------------------- */
+.guide .lead-in, .changelog .lead-in { color: var(--text-muted); margin-bottom: 26px; }
+.ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 0 12px; }
+.way { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--bg-raised); color: var(--text); }
+.way:hover { text-decoration: none; border-color: var(--accent); }
+.way b { color: var(--text-strong); }
+.way span:not(.way-n) { color: var(--text-muted); font-size: 14px; line-height: 1.45; }
+.way-n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-text); font: 13px var(--font-mono); margin-bottom: 4px; }
+.guide .prompt-card { margin: 14px 0 10px; }
+.release { padding: 26px 0; border-top: 1px solid var(--line); }
+.release-meta { font: 13px var(--font-mono); color: var(--text-muted); display: flex; gap: 10px; align-items: center; }
+.release-meta .tag { color: var(--accent-text); background: var(--accent-soft); border-radius: var(--radius-round); padding: 2px 9px; }
+.release h2 { margin: 8px 0 10px; font-size: 24px; line-height: 1.25; text-wrap: balance; }
+.release ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.release .howto { margin: 12px 0 0; padding: 10px 14px; border-left: 2px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-md) var(--radius-md) 0; font-size: 14.5px; }
+@media (max-width: 720px) { .ways { grid-template-columns: 1fr; } }

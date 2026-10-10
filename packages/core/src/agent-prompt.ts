@@ -17,7 +17,7 @@ export function agentPrompt(o: AgentPromptOptions = {}): string {
   const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, "");
   const vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
   const activity = o.activityFile || "Caldera/activity.json";
-  const zip = o.zipUrl || hub + "/download/caldera-0.1.0.zip";
+  const zip = o.zipUrl || hub + "/download/caldera-latest.zip";
   const topics = o.publicTopics?.length ? o.publicTopics.map(t => "#" + t).join(", ") : "the tags I allow-listed in Settings -> Caldera -> Public topics";
   const page = o.handle ? `${hub}/@${o.handle}/` : `${hub}/@<my handle>/`;
 
@@ -59,7 +59,10 @@ Everything you write in the caldera_* fields and in ${activity} is PUBLIC on the
 - Never write to any other part of the vault, never change notes' privacy markings (caldera: public / friends), never touch .obsidian/plugins/caldera/data.json.
 
 ## 4. Check your work
-After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.`;
+After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.
+
+## 5. When I ask you to change my page
+My name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed in the directory all live in the frontmatter of "${vault}/Caldera/profile.md". Edit that file (keep its format; the same privacy rules apply) and the page republishes itself within about a minute. Guide: ${hub}/guide.html`;
 }
 
 /** Second copy-paste prompt: an agent session that makes an existing profile richer, with the user approving anything that becomes public. */
@@ -96,4 +99,27 @@ Privacy rules (these override everything above):
 - If you are unsure whether something is private, leave it out.
 - Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.
 - Never remove or change an existing "caldera:" marking without asking me.`;
+}
+
+/** Third copy-paste prompt: ask an agent to change something on an existing profile. */
+export function editPrompt(o: AgentPromptOptions = {}): string {
+  const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, "");
+  const vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
+  return `Help me change my Caldera profile (${hub}/@${o.handle || "<my handle>"}/). Caldera builds that public page from my Obsidian vault.
+
+Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)"}
+
+Where things live:
+- Name, headline, photo, banner, links, properties, topics, which sections show, and directory listing: the frontmatter of "Caldera/profile.md". Keep its format. Photo and banner are paths to images inside the vault.
+- A note on my page: add "caldera: public" to that note's frontmatter (title and first paragraph are shown). Remove it to take the note down.
+- My daily journal: caldera_headline / caldera_focus / caldera_wins / caldera_themes in daily notes named YYYY-MM-DD.md.
+- Activity counts: "Caldera/activity.json".
+The page republishes automatically about a minute after Caldera/profile.md changes. For anything else, tell me to run "Caldera: Publish my profile".
+
+Rules:
+- Show me the exact change before you make it, and only make what I approve.
+- Everything on the page is public: no private names, clients, deals, money, health, family, location, emails or phone numbers.
+- Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key. My handle can only be changed in Settings -> Caldera.
+
+What I want to change: <DESCRIBE THE CHANGE>`;
 }

@@ -8,6 +8,7 @@ import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS } from "./settings";
 import { collectProfile } from "./collect";
 import { renderProfile } from "./render";
+import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-file";
 
 const VIEW = "caldera-panel";
 interface Friend { id: string; handle?: string; name?: string; box_key?: string; }
@@ -30,6 +31,12 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
     this.addCommand({ id: "open", name: "Open my public profile", callback: () => this.openProfile() });
+    this.addCommand({ id: "profile-file", name: "Edit my profile (open Caldera/profile.md)", callback: () => this.openProfileFile() });
+    this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
+    this.addCommand({ id: "whats-new", name: "What's new in Caldera", callback: () => this.checkReleases(true) });
+    this.addCommand({ id: "guide", name: "Open the Caldera guide", callback: () => window.open(this.settings.hubUrl.replace(/\/$/, "") + "/guide.html") });
+    this.registerEvent(this.app.metadataCache.on("changed", f => { if (f.path === PROFILE_FILE) this.queuePublish("profile"); }));
+    this.registerEvent(this.app.vault.on("modify", f => { if (f.path === this.settings.activityFile) this.queuePublish("activity"); }));
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
@@ -46,6 +53,7 @@ export default class CalderaPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       if (this.settings.identity && this.settings.handle) this.syncInbox(false);
       else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
+      window.setTimeout(() => this.checkReleases(false), 8_000);
     });
     this.timers.push(window.setInterval(() => this.settings.identity && this.syncInbox(false), 10 * 60_000));
     this.scheduleAutoPublish();
@@ -90,9 +98,45 @@ export default class CalderaPlugin extends Plugin {
 
   // ---------------------------------------------------------------- profile
   private async build() {
-    const { data, files } = await collectProfile(this.app, this.settings, this.settings.sections.social ? this.social : undefined);
+    const eff = effectiveSettings(this.app, this.settings);   // Caldera/profile.md wins over settings
+    const { data, files } = await collectProfile(this.app, eff, eff.sections.social ? this.social : undefined);
+    data.hub = this.settings.hubUrl;
     const text = renderProfile(data);
-    return { data, text, binaries: files };
+    return { data, text, binaries: files, eff };
+  }
+
+  async openProfileFile() {
+    const f = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
+    await this.app.workspace.getLeaf(true).openFile(f);
+  }
+
+  // republish shortly after the owner (or their agent) edits Caldera/profile.md or the activity file
+  private publishTimer: number | null = null;
+  queuePublish(reason: "profile" | "activity") {
+    if (!this.settings.identity || !this.settings.handle) return;
+    if (this.publishTimer) window.clearTimeout(this.publishTimer);
+    this.publishTimer = window.setTimeout(async () => {
+      this.publishTimer = null;
+      const url = await this.publish(true);
+      if (url && reason === "profile") new Notice("Caldera: your public page was updated.");
+    }, 45_000);
+  }
+
+  // What's new: the hub's release feed, shown only to the owner, inside Obsidian
+  async checkReleases(manual = false) {
+    try {
+      const r = await requestUrl({ url: this.settings.hubUrl.replace(/\/$/, "") + "/releases.json", throw: false });
+      const list: Release[] = r.status === 200 ? (r.json?.releases || []) : [];
+      if (!list.length) { if (manual) new Notice("Couldn't load release notes."); return; }
+      const seen = list.findIndex(x => x.version === this.settings.lastSeenRelease);
+      if (!this.settings.lastSeenRelease && !manual) { this.settings.lastSeenRelease = list[0].version; await this.saveSettings(); return; }
+      const unseen = manual ? list.slice(0, 3) : list.slice(0, seen === -1 ? 1 : seen);
+      if (!unseen.length) return;
+      const open = () => { new WhatsNewModal(this.app, this, unseen).open(); this.settings.lastSeenRelease = list[0].version; this.saveSettings(); };
+      if (manual) return open();
+      const frag = createFragment(f => { f.createEl("b", { text: `Caldera ${unseen[0].version}: ` }); f.appendText(unseen[0].title + " "); f.createEl("u", { text: "See what's new" }); });
+      const n = new Notice(frag, 20_000); n.noticeEl.addEventListener("click", open);
+    } catch { if (manual) new Notice("Couldn't load release notes."); }
   }
 
   async preview() {
@@ -107,9 +151,9 @@ export default class CalderaPlugin extends Plugin {
     new PreviewModal(this.app, html).open();
   }
 
-  async copyPrompt(kind: "setup" | "richer") {
+  async copyPrompt(kind: "setup" | "richer" | "edit") {
     const a = this.app.vault.adapter;
-    const text = (kind === "richer" ? C.richerPrompt : C.agentPrompt)({
+    const text = (kind === "richer" ? C.richerPrompt : kind === "edit" ? C.editPrompt : C.agentPrompt)({
       vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined,
       hubUrl: this.settings.hubUrl, handle: this.settings.handle || undefined,
       activityFile: this.settings.activityFile, publicTopics: this.settings.publicTopics.map(t => t[0]), installed: true,
@@ -122,13 +166,13 @@ export default class CalderaPlugin extends Plugin {
     try {
       if (!this.settings.handle) throw new Error("Set a handle in Caldera settings first");
       const me = await this.ensureIdentity();
-      const { data, text, binaries } = await this.build();
+      const { data, text, binaries, eff } = await this.build();
       const manifest = C.sign(me, "profile.manifest", {
         name: data.name, handle: this.settings.handle, boxKey: me.boxPublic, headline: data.headline || "",
         photos: { avatar: data.avatar, banner: data.banner }, links: data.links,
         sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
-        topics: data.topics, asks: data.asks, offers: data.offers, listed: this.settings.listed !== false, page: "index.html", updated: data.updated,
+        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, page: "index.html", updated: data.updated,
       });
       const files: Record<string, string> = {};
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
@@ -387,6 +431,7 @@ class WelcomeModal extends Modal {
         await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish();
         const url = await this.plugin.publish(true);
         if (!url) { status.setText("Publishing failed. Check your connection and try again."); b.setDisabled(false); b.setButtonText("Create my profile"); return; }
+        await ensureProfileFile(this.app, s, s.hubUrl).catch(() => {});
         window.open(url);
         this.done(url);
       } catch (e: any) { status.setText(e.message); b.setDisabled(false); b.setButtonText("Create my profile"); }
@@ -397,7 +442,7 @@ class WelcomeModal extends Modal {
     this.contentEl.empty(); this.titleEl.setText("Your profile is live");
     const link = this.contentEl.createEl("p").createEl("a", { text: url, href: url });
     link.addEventListener("click", e => { e.preventDefault(); window.open(url); });
-    this.contentEl.createEl("p", { text: "It updates itself every 6 hours from your vault. To change it, edit Settings -> Caldera (sections, photo, links) or your notes, then run 'Caldera: Publish my profile' - or let your AI agent do it." });
+    this.contentEl.createEl("p", { text: "It updates itself from your vault. To change your name, headline, photo, links or sections, edit the note Caldera/profile.md - or ask your AI agent to. The page republishes about a minute after you save." });
     this.contentEl.createEl("p", { text: "Your login is a key stored in this vault - no password. Save a copy so you can recover your profile on another device:", cls: "caldera-welcome-key" });
     new Setting(this.contentEl)
       .addButton(b => b.setButtonText("Copy recovery key").onClick(async () => {
@@ -406,6 +451,28 @@ class WelcomeModal extends Modal {
       }))
       .addButton(b => b.setButtonText("Open my profile").setCta().onClick(() => window.open(url)))
       .addButton(b => b.setButtonText("Done").onClick(() => this.close()));
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+interface Release { version: string; date: string; title: string; items: string[]; howto?: string }
+
+class WhatsNewModal extends Modal {
+  constructor(app: App, private plugin: CalderaPlugin, private releases: Release[]) { super(app); }
+  onOpen() {
+    this.titleEl.setText("What's new in Caldera");
+    for (const r of this.releases) {
+      const box = this.contentEl.createDiv({ cls: "caldera-release" });
+      box.createEl("div", { cls: "caldera-release-meta", text: `${r.version} \u00b7 ${r.date}` });
+      box.createEl("h3", { text: r.title });
+      const ul = box.createEl("ul"); for (const it of r.items) ul.createEl("li", { text: it });
+      if (r.howto) box.createEl("p", { cls: "caldera-release-howto", text: r.howto });
+    }
+    const hub = this.plugin.settings.hubUrl.replace(/\/$/, "");
+    new Setting(this.contentEl)
+      .addButton(b => b.setButtonText("All release notes").onClick(() => window.open(hub + "/changelog.html")))
+      .addButton(b => b.setButtonText("Guide").onClick(() => window.open(hub + "/guide.html")))
+      .addButton(b => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() { this.contentEl.empty(); }
 }

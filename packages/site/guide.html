@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide - Caldera</title>
+<meta name="description" content="How to change your Caldera page: ask your AI, edit Caldera/profile.md, or use commands.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="./"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M3 26 L11 10 L14 15 L17 8 L29 26 Z" fill="var(--accent)"/><path d="M11 10 L14 15 L17 8" fill="none" stroke="var(--text-strong)" stroke-width="1.2"/><circle cx="16" cy="21" r="2.4" fill="var(--accent-2)"/></svg>Caldera</a>
+  <nav><a href="./#how">How it works</a><a href="people.html">People</a><a href="guide.html" aria-current="page">Guide</a><a href="changelog.html">What's new</a><a href="./#faq">FAQ</a></nav>
+  <a class="btn small" href="./#install">Get the plugin</a>
+</header>
+<main class="legal guide">
+  <p class="eyebrow">Guide</p>
+  <h1>Change your page</h1>
+  <p class="lead-in">Your page is built from your vault, so you change it the way you change notes. Pick whichever is easiest; they all end in the same place.</p>
+
+  <div class="ways">
+    <a class="way" href="#ai"><span class="way-n">1</span><b>Ask your AI</b><span>Paste one prompt and describe the change.</span></a>
+    <a class="way" href="#file"><span class="way-n">2</span><b>Edit a note</b><span>Caldera/profile.md holds every public field.</span></a>
+    <a class="way" href="#commands"><span class="way-n">3</span><b>Use commands</b><span>Settings and the command palette in Obsidian.</span></a>
+  </div>
+
+  <h2 id="ai">1. Ask your AI</h2>
+  <p>Copy this into Claude Code, Codex, Cursor, or any agent that can edit files in your vault. Replace the last line with what you want, like <i>"make my headline about my new studio and add my Substack link"</i>. It shows you the change before it makes it.</p>
+    <div class="prompt-card">
+      <div class="prompt-bar">
+        <div class="prompt-file"><span class="pf-dot"></span>caldera-change.md<span class="pf-meta" data-lines="edit-prompt"></span></div>
+        <button class="btn copy" type="button" data-copy="edit-prompt"><svg class="ic ic-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg><svg class="ic ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="copy-label">Copy prompt</span></button>
+      </div>
+      <ul class="prompt-does"><li>Finds the right file</li><li>Shows you the change first</li><li>Keeps private things off your page</li><li>Never touches your key</li></ul>
+      <div class="prompt-body is-collapsed">
+        <pre id="edit-prompt"><!-- EDIT_PROMPT_START -->Help me change my Caldera profile (https://caldera.social/@&lt;my handle&gt;/). Caldera builds that public page from my Obsidian vault.
+
+Vault: &lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;
+(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)
+
+Where things live:
+- Name, headline, photo, banner, links, properties, topics, which sections show, and directory listing: the frontmatter of "Caldera/profile.md". Keep its format. Photo and banner are paths to images inside the vault.
+- A note on my page: add "caldera: public" to that note's frontmatter (title and first paragraph are shown). Remove it to take the note down.
+- My daily journal: caldera_headline / caldera_focus / caldera_wins / caldera_themes in daily notes named YYYY-MM-DD.md.
+- Activity counts: "Caldera/activity.json".
+The page republishes automatically about a minute after Caldera/profile.md changes. For anything else, tell me to run "Caldera: Publish my profile".
+
+Rules:
+- Show me the exact change before you make it, and only make what I approve.
+- Everything on the page is public: no private names, clients, deals, money, health, family, location, emails or phone numbers.
+- Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key. My handle can only be changed in Settings -&gt; Caldera.
+
+What I want to change: &lt;DESCRIBE THE CHANGE&gt;<!-- EDIT_PROMPT_END --></pre>
+        <div class="prompt-fade"><button class="prompt-expand" type="button" aria-expanded="false">Show the full prompt</button></div>
+      </div>
+    </div>
+
+    
+  <p class="fine">In Obsidian, <b>Caldera: Copy AI prompt: change my profile</b> gives you this prompt with your vault path and handle filled in.</p>
+
+  <h2 id="file">2. Edit Caldera/profile.md</h2>
+  <p>Caldera creates this note when you set up. Everything in its properties is public. Save it and your page republishes about a minute later. Run <b>Caldera: Edit my profile</b> to open it.</p>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Property</th><th>What it does</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><code>name</code>, <code>headline</code></td><td>The top of your page</td><td><code>headline: "Designer. Writing about tools."</code></td></tr>
+      <tr><td><code>photo</code>, <code>banner</code></td><td>Images from your vault</td><td><code>photo: "Attachments/me.jpg"</code></td></tr>
+      <tr><td><code>links</code></td><td>Your links, one per line</td><td><code>- "Substack | https://you.substack.com"</code></td></tr>
+      <tr><td><code>properties</code></td><td>Short facts</td><td><code>- "Based in | Lisbon"</code></td></tr>
+      <tr><td><code>topics</code></td><td>Which tags may be counted publicly</td><td><code>- "design | Design"</code></td></tr>
+      <tr><td><code>sections</code></td><td>Switch parts of the page on or off</td><td><code>journal: false</code></td></tr>
+      <tr><td><code>listed</code></td><td>Show your card on the People page</td><td><code>listed: true</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Notes and journal come from the rest of your vault:</p>
+  <ul>
+    <li><code>caldera: public</code> in a note's properties lists it on your page (title and first paragraph). Remove it to take it down.</li>
+    <li><code>caldera: friends</code> marks a note you can share with friends as an encrypted card.</li>
+    <li>Daily notes named <code>YYYY-MM-DD</code> can carry <code>caldera_headline</code>, <code>caldera_focus</code>, <code>caldera_wins</code>, <code>caldera_themes</code> for your journal.</li>
+    <li><code>Caldera/activity.json</code> adds daily counts (meetings, emails sent, AI prompts, commits, documents) to your score.</li>
+  </ul>
+
+  <h2 id="commands">3. Commands</h2>
+  <p>Open the command palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>P</kbd>) and type <b>Caldera</b>.</p>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Command</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td>Edit my profile</td><td>Opens Caldera/profile.md</td></tr>
+      <tr><td>Preview my public profile</td><td>Shows exactly what will be published</td></tr>
+      <tr><td>Publish my profile</td><td>Publishes now (it also runs on its own every 6 hours and after you edit profile.md)</td></tr>
+      <tr><td>Open my public profile</td><td>Opens your page in the browser</td></tr>
+      <tr><td>Copy AI prompt: change my profile</td><td>The prompt above, filled in for you</td></tr>
+      <tr><td>Copy AI prompt: make my profile richer</td><td>Suggests notes, topics, activity sources and a journal backfill</td></tr>
+      <tr><td>Copy AI agent setup prompt</td><td>The daily journal and activity routine</td></tr>
+      <tr><td>Open friends panel</td><td>Friends, requests, gravity (or click the flame icon)</td></tr>
+      <tr><td>Share this note with a friend</td><td>Sends an encrypted copy to a friend's vault</td></tr>
+      <tr><td>Post an ask / Post an offer</td><td>The help exchange</td></tr>
+      <tr><td>What's new in Caldera</td><td>Release notes</td></tr>
+      <tr><td>Delete my profile from the hub</td><td>Erases your page and everything tied to it</td></tr>
+    </tbody>
+  </table></div>
+  <p>Your <b>handle</b>, <b>hub</b> and <b>identity</b> are in Settings &rarr; Caldera.</p>
+
+  <h2 id="key">Your key, other devices, and deleting</h2>
+  <ul>
+    <li>There's no password. Your login is a key Caldera keeps in this vault, and the hub only accepts changes signed with it, so nobody else can edit your page.</li>
+    <li>Save it: Settings &rarr; Caldera &rarr; <b>Export recovery key</b>, into your password manager. Never paste it into an AI chat.</li>
+    <li>On a new device, open the same vault (Obsidian Sync, iCloud, git) and your key comes with it.</li>
+    <li>To leave, run <b>Caldera: Delete my profile from the hub</b>. Your vault isn't touched.</li>
+  </ul>
+
+  <h2 id="help">Help</h2>
+  <p>Email <a href="mailto:hello@caldera.social">hello@caldera.social</a>. New features land on <a href="changelog.html">What's new</a>, and Caldera shows you a short alert inside Obsidian when something ships.</p>
+</main>
+<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>
