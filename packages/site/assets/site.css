@@ -82,3 +82,7 @@ main { overflow-x: clip; }
 .prompt-box pre { margin: 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 52px 20px 20px; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; color: var(--text); }
 .prompt-box .copy { position: absolute; top: 10px; right: 10px; }
 h2[id], section[id] { scroll-margin-top: 84px; }
+.lead-in { font-size: 17px; max-width: 760px; margin: 0 0 6px; }
+details.manual { margin-top: 28px; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 20px; }
+details.manual > summary { cursor: pointer; font-weight: 600; color: var(--text-strong); }
+details.manual[open] > summary { margin-bottom: 16px; }

@@ -51,53 +51,19 @@
 
   <section id="install" class="install">
     <h2>Install</h2>
-    <div class="steps">
-      <div class="step"><div class="n">A</div><div><h3>From Obsidian (once listed)</h3><p>Settings &rarr; Community plugins &rarr; Browse &rarr; search <b>Caldera</b> &rarr; Install &rarr; Enable. <span class="muted">Submission to the community directory is in review.</span></p></div></div>
-      <div class="step"><div class="n">B</div><div><h3>Manual install (works today)</h3>
-        <ol>
-          <li>Download <a href="download/caldera-0.1.0.zip">caldera-0.1.0.zip</a>.</li>
-          <li>In your vault, open the hidden folder <code>.obsidian/plugins/</code> and create a folder named <code>caldera</code>. (On Mac, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> in Finder to show hidden folders.)</li>
-          <li>Unzip into it so you have <code>.obsidian/plugins/caldera/main.js</code>, <code>manifest.json</code> and <code>styles.css</code>.</li>
-          <li>Restart Obsidian, then Settings &rarr; Community plugins &rarr; turn on <b>Caldera</b>.</li>
-        </ol></div></div>
-    </div>
-
-    <h2 class="sub">Set up in two minutes</h2>
-    <ol class="quick">
-      <li><b>Open Settings &rarr; Caldera.</b> Click <b>Create identity</b>, then <b>Export recovery key</b> and keep it somewhere safe.</li>
-      <li><b>Pick a handle and name</b>, and optionally an avatar and banner image from your vault.</li>
-      <li><b>Choose what's public</b> with the section switches. Add the tags you're happy to show under <i>Public topics</i>.</li>
-      <li>Command palette &rarr; <b>Caldera: Preview my public profile</b>. Check it.</li>
-      <li>Command palette &rarr; <b>Caldera: Publish my profile</b>. Your page is live at <code>hub/@yourhandle</code>.</li>
-      <li>Click the <b>flame icon</b> to open the Caldera panel: add friends, accept requests, give gravity.</li>
-    </ol>
-
-    <h2 class="sub">Make it richer (optional)</h2>
-    <div class="table-wrap"><table class="data">
-      <thead><tr><th>Add this</th><th>To get</th></tr></thead>
-      <tbody>
-        <tr><td><code>caldera: public</code> in a note's properties</td><td>The note listed on your profile (title and first paragraph)</td></tr>
-        <tr><td><code>caldera_headline</code>, <code>caldera_focus</code>, <code>caldera_wins</code> in a daily note named <code>YYYY-MM-DD</code></td><td>That day's journal entry</td></tr>
-        <tr><td><code>Caldera/activity.json</code></td><td>Daily counts from outside tools (meetings, emails sent, commits, AI sessions) for your score</td></tr>
-        <tr><td>Command: <b>Share this note with a friend</b></td><td>An encrypted copy in their vault, under <code>Caldera/Inbox/</code></td></tr>
-        <tr><td>Commands: <b>Post an ask</b> / <b>Post an offer</b></td><td>The help exchange on your profile and the hub</td></tr>
-      </tbody>
-    </table></div>
-    <p class="fine">Publishing from a server or a scheduled job: the Caldera CLI in the repository (<code>packages/cli</code>, <code>caldera publish --vault /path/to/vault</code>) uses the same settings and identity.</p>
-
-    <h2 class="sub" id="agent">Let your AI agent run it</h2>
-    <p>Use Claude Code, Codex, Cursor or another agent with access to your vault? Paste this prompt into it. It installs Caldera, then writes your daily journal entry and activity counts every morning, with strict rules that keep anything private off your page. Inside Obsidian, the command <b>Caldera: Copy AI agent setup prompt</b> gives you the same prompt, pre-filled with your vault path, handle and topics.</p>
+    <p class="lead-in">Copy this and paste it into your AI agent: Claude Code, Codex, Cursor, or any assistant that can work with files on your computer. It installs Caldera and sets up your daily journal and activity, with strict privacy rules. You do two things yourself: restart Obsidian, and click <b>Create identity</b> in Settings &rarr; Caldera. Your private key never goes through the AI.</p>
     <div class="prompt-box">
       <button class="btn small copy" type="button" data-copy="agent-prompt">Copy prompt</button>
       <pre id="agent-prompt"><!-- AGENT_PROMPT_START -->You are helping me run Caldera, the social layer for my Obsidian vault (https://caldera.social). Caldera builds a public profile page from my vault. Follow these instructions exactly.
 
 Vault: &lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;
+(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)
 My public page: https://caldera.social/@&lt;my handle&gt;/
 
 ## 1. Install the plugin
 1. Download https://caldera.social/download/caldera-0.1.0.zip and unzip it into "&lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css.
 2. Add "caldera" to the JSON array in "&lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;/.obsidian/community-plugins.json" (create the file as ["caldera"] if it does not exist). Do not remove other entries.
-3. Tell me to restart Obsidian, then open Settings -&gt; Caldera, click "Create identity", export the recovery key, pick a handle, and choose which sections are public. Do NOT create the identity, read the plugin's data.json, or handle my keys yourself - that file holds my private key.
+3. Tell me to restart Obsidian. If Obsidian asks, I turn off Restricted mode (Settings -&gt; Community plugins -&gt; Turn on community plugins) and make sure Caldera is switched on. Then I open Settings -&gt; Caldera, click "Create identity", export the recovery key, pick a handle, and choose which sections are public. Do NOT create the identity, read the plugin's data.json, or handle my keys yourself - that file holds my private key.
 
 ## 2. Daily routine (run once a day, in the morning, for YESTERDAY's date; I will schedule you)
 A. Journal entry. Open (or create) yesterday's daily note, named YYYY-MM-DD.md, wherever my daily notes live. Add these frontmatter properties, keeping everything already in the note:
@@ -125,6 +91,44 @@ Everything you write in the caldera_* fields and in Caldera/activity.json is PUB
 ## 4. Check your work
 After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.<!-- AGENT_PROMPT_END --></pre>
     </div>
+    <p class="fine" id="agent">Already installed? In Obsidian, run <b>Caldera: Copy AI agent setup prompt</b> for the same prompt pre-filled with your vault path, handle and topics.</p>
+
+    <details class="manual">
+      <summary>Prefer to install by hand?</summary>
+    <div class="steps">
+      <div class="step"><div class="n">A</div><div><h3>From Obsidian (once listed)</h3><p>Settings &rarr; Community plugins &rarr; Browse &rarr; search <b>Caldera</b> &rarr; Install &rarr; Enable. <span class="muted">Submission to the community directory is in review.</span></p></div></div>
+      <div class="step"><div class="n">B</div><div><h3>Manual install (works today)</h3>
+        <ol>
+          <li>Download <a href="download/caldera-0.1.0.zip">caldera-0.1.0.zip</a>.</li>
+          <li>In your vault, open the hidden folder <code>.obsidian/plugins/</code> and create a folder named <code>caldera</code>. (On Mac, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> in Finder to show hidden folders.)</li>
+          <li>Unzip into it so you have <code>.obsidian/plugins/caldera/main.js</code>, <code>manifest.json</code> and <code>styles.css</code>.</li>
+          <li>Restart Obsidian, then Settings &rarr; Community plugins &rarr; turn on <b>Caldera</b>.</li>
+        </ol></div></div>
+    </div>
+
+    <h2 class="sub">Set up in two minutes</h2>
+    <ol class="quick">
+      <li><b>Open Settings &rarr; Caldera.</b> Click <b>Create identity</b>, then <b>Export recovery key</b> and keep it somewhere safe.</li>
+      <li><b>Pick a handle and name</b>, and optionally an avatar and banner image from your vault.</li>
+      <li><b>Choose what's public</b> with the section switches. Add the tags you're happy to show under <i>Public topics</i>.</li>
+      <li>Command palette &rarr; <b>Caldera: Preview my public profile</b>. Check it.</li>
+      <li>Command palette &rarr; <b>Caldera: Publish my profile</b>. Your page is live at <code>hub/@yourhandle</code>.</li>
+      <li>Click the <b>flame icon</b> to open the Caldera panel: add friends, accept requests, give gravity.</li>
+    </ol>
+    </details>
+
+    <h2 class="sub">Make it richer (optional)</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Add this</th><th>To get</th></tr></thead>
+      <tbody>
+        <tr><td><code>caldera: public</code> in a note's properties</td><td>The note listed on your profile (title and first paragraph)</td></tr>
+        <tr><td><code>caldera_headline</code>, <code>caldera_focus</code>, <code>caldera_wins</code> in a daily note named <code>YYYY-MM-DD</code></td><td>That day's journal entry</td></tr>
+        <tr><td><code>Caldera/activity.json</code></td><td>Daily counts from outside tools (meetings, emails sent, commits, AI sessions) for your score</td></tr>
+        <tr><td>Command: <b>Share this note with a friend</b></td><td>An encrypted copy in their vault, under <code>Caldera/Inbox/</code></td></tr>
+        <tr><td>Commands: <b>Post an ask</b> / <b>Post an offer</b></td><td>The help exchange on your profile and the hub</td></tr>
+      </tbody>
+    </table></div>
+    <p class="fine">Publishing from a server or a scheduled job: the Caldera CLI in the repository (<code>packages/cli</code>, <code>caldera publish --vault /path/to/vault</code>) uses the same settings and identity.</p>
   </section>
 
   <section id="faq" class="faq">
