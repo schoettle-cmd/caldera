@@ -13,6 +13,21 @@ Nothing here is submitted until (1) caldera.social is live on HTTPS, and (2) Mik
 - [ ] `leak_audit.py` clean, e2e test on production hub green (done 2026-10-10)
 - [ ] Attorney skim of privacy.html / terms.html; USPTO/TESS check on "Caldera" in class 9/42 (MITRE Caldera is a security tool; different field, but check)
 
+## 0b. Beta channels (get test users before the community listing)
+
+| Where | Audience | How |
+|---|---|---|
+| r/ObsidianMD | ~300k Obsidian users | Showcase post, flair "Plugins" (open source required). Best single channel. |
+| Obsidian Forum - Share & showcase | Official; where plugin betas are announced | Post with "beta" in the title; devs and power users test here. |
+| Obsidian Discord - #share-showcase / #plugin-dev | ~100k members | Short post + link; ask for testers. |
+| BRAT (Beta Reviewers Auto-update Tool) | How Obsidian users install betas | Needs the public repo + a GitHub release; testers paste the repo URL into BRAT. |
+| Obsidian Roundup newsletter | Weekly digest read by most power users | Submit the release for the next issue. |
+| r/PKMS, r/PKM, r/Zettelkasten | Note-taking enthusiasts | Cross-post after the r/ObsidianMD post has feedback. |
+| Show HN | Developers / open-protocol crowd | Lead with the open protocol and key-based identity. |
+| Mike's Instagram (308K) / X | Broad, non-PKM | After the directory has 20+ profiles, so visitors see something. |
+
+Blockers: public repo (Mike's OK) and a Reddit/Discord/forum account to post from (Mike's).
+
 ## 1. obsidian-releases PR
 
 Fork https://github.com/obsidianmd/obsidian-releases, append to the END of `community-plugins.json`:
