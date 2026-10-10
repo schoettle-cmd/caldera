@@ -50,11 +50,26 @@
   </section>
 
   <section id="install" class="install">
-    <h2>Install</h2>
-    <p class="lead-in">Copy this and paste it into your AI agent: Claude Code, Codex, Cursor, or any assistant that can work with files on your computer. It installs Caldera and sets up your daily journal and activity, with strict privacy rules. You do two things yourself: restart Obsidian, and click <b>Create identity</b> in Settings &rarr; Caldera. Your private key never goes through the AI.</p>
-    <div class="prompt-box">
-      <button class="btn small copy" type="button" data-copy="agent-prompt">Copy prompt</button>
-      <pre id="agent-prompt"><!-- AGENT_PROMPT_START -->You are helping me run Caldera, the social layer for my Obsidian vault (https://caldera.social). Caldera builds a public profile page from my vault. Follow these instructions exactly.
+    <div class="install-head">
+      <p class="eyebrow">Install</p>
+      <h2>One paste. Your AI does the rest.</h2>
+      <p class="lead-in">Works with Claude Code, Codex, Cursor, or any AI agent that can edit files on your computer.</p>
+    </div>
+
+    <ol class="flow">
+      <li><span class="flow-n">1</span><div><b>Copy the prompt</b><span>One click, below.</span></div></li>
+      <li><span class="flow-n">2</span><div><b>Paste it into your agent</b><span>It installs Caldera and sets up your daily journal.</span></div></li>
+      <li><span class="flow-n">3</span><div><b>Restart Obsidian</b><span>Click <i>Create identity</i>. Your key never passes through the AI.</span></div></li>
+    </ol>
+
+    <div class="prompt-card">
+      <div class="prompt-bar">
+        <div class="prompt-file"><span class="pf-dot"></span>caldera-setup.md<span class="pf-meta" data-lines="agent-prompt"></span></div>
+        <button class="btn copy" type="button" data-copy="agent-prompt"><svg class="ic ic-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg><svg class="ic ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="copy-label">Copy prompt</span></button>
+      </div>
+      <ul class="prompt-does"><li>Installs the plugin</li><li>Writes a daily journal entry</li><li>Counts your activity</li><li>Privacy rules override everything</li><li>Never touches your key</li></ul>
+      <div class="prompt-body is-collapsed">
+        <pre id="agent-prompt"><!-- AGENT_PROMPT_START -->You are helping me run Caldera, the social layer for my Obsidian vault (https://caldera.social). Caldera builds a public profile page from my vault. Follow these instructions exactly.
 
 Vault: &lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;
 (If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)
@@ -90,38 +105,52 @@ Everything you write in the caldera_* fields and in Caldera/activity.json is PUB
 
 ## 4. Check your work
 After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.<!-- AGENT_PROMPT_END --></pre>
+        <div class="prompt-fade"><button class="prompt-expand" type="button" aria-expanded="false">Show the full prompt</button></div>
+      </div>
     </div>
-    <p class="fine" id="agent">Already installed? In Obsidian, run <b>Caldera: Copy AI agent setup prompt</b> for the same prompt pre-filled with your vault path, handle and topics.</p>
+
+    <p class="fine" id="agent">Already installed? In Obsidian, run <b>Caldera: Copy AI agent setup prompt</b> for a version pre-filled with your vault path, handle and topics.</p>
 
     <details class="manual">
       <summary>Prefer to install by hand?</summary>
-    <div class="steps">
-      <div class="step"><div class="n">A</div><div><h3>From Obsidian (once listed)</h3><p>Settings &rarr; Community plugins &rarr; Browse &rarr; search <b>Caldera</b> &rarr; Install &rarr; Enable. <span class="muted">Submission to the community directory is in review.</span></p></div></div>
-      <div class="step"><div class="n">B</div><div><h3>Manual install (works today)</h3>
-        <ol>
-          <li>Download <a href="download/caldera-0.1.0.zip">caldera-0.1.0.zip</a>.</li>
-          <li>In your vault, open the hidden folder <code>.obsidian/plugins/</code> and create a folder named <code>caldera</code>. (On Mac, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> in Finder to show hidden folders.)</li>
-          <li>Unzip into it so you have <code>.obsidian/plugins/caldera/main.js</code>, <code>manifest.json</code> and <code>styles.css</code>.</li>
-          <li>Restart Obsidian, then Settings &rarr; Community plugins &rarr; turn on <b>Caldera</b>.</li>
-        </ol></div></div>
-    </div>
-
-    <h2 class="sub">Set up in two minutes</h2>
-    <ol class="quick">
-      <li><b>Open Settings &rarr; Caldera.</b> Click <b>Create identity</b>, then <b>Export recovery key</b> and keep it somewhere safe.</li>
-      <li><b>Pick a handle and name</b>, and optionally an avatar and banner image from your vault.</li>
-      <li><b>Choose what's public</b> with the section switches. Add the tags you're happy to show under <i>Public topics</i>.</li>
-      <li>Command palette &rarr; <b>Caldera: Preview my public profile</b>. Check it.</li>
-      <li>Command palette &rarr; <b>Caldera: Publish my profile</b>. Your page is live at <code>hub/@yourhandle</code>.</li>
-      <li>Click the <b>flame icon</b> to open the Caldera panel: add friends, accept requests, give gravity.</li>
-    </ol>
+      <div class="manual-grid">
+        <div>
+          <h3>1 &middot; Get the plugin</h3>
+          <ol>
+            <li>Download <a href="download/caldera-0.1.0.zip">caldera-0.1.0.zip</a>.</li>
+            <li>In your vault, open the hidden folder <code>.obsidian/plugins/</code> and create a folder named <code>caldera</code>. On a Mac, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> shows hidden folders in Finder.</li>
+            <li>Unzip into it: you should see <code>main.js</code>, <code>manifest.json</code> and <code>styles.css</code>.</li>
+            <li>Restart Obsidian, then Settings &rarr; Community plugins &rarr; turn on <b>Caldera</b>.</li>
+          </ol>
+          <p class="fine">Once listed in the community directory: Settings &rarr; Community plugins &rarr; Browse &rarr; search <b>Caldera</b>.</p>
+        </div>
+        <div>
+          <h3>2 &middot; Set it up</h3>
+          <ol>
+            <li>Settings &rarr; Caldera &rarr; <b>Create identity</b>, then <b>Export recovery key</b> and keep it safe.</li>
+            <li>Pick a handle and name, and optionally an avatar and banner from your vault.</li>
+            <li>Choose what's public with the section switches and <i>Public topics</i>.</li>
+            <li>Run <b>Caldera: Preview my public profile</b>, then <b>Publish my profile</b>.</li>
+            <li>Open the <b>flame icon</b> panel to add friends and give gravity.</li>
+          </ol>
+        </div>
+      </div>
     </details>
 
-    <h2 class="sub" id="richer">Make it richer (optional)</h2>
-    <p class="lead-in">Paste this into your AI agent once Caldera is set up. It suggests notes to show, topics, activity sources, a 14-day journal backfill, and asks and offers, and it asks you before anything becomes public.</p>
-    <div class="prompt-box">
-      <button class="btn small copy" type="button" data-copy="richer-prompt">Copy prompt</button>
-      <pre id="richer-prompt"><!-- RICHER_PROMPT_START -->Help me make my Caldera profile richer. Caldera (https://caldera.social) builds a public profile page from my Obsidian vault.
+    <div class="richer" id="richer">
+      <div class="install-head">
+        <p class="eyebrow">Optional &middot; after setup</p>
+        <h2>Make it richer</h2>
+        <p class="lead-in">A second prompt that suggests notes to show, topics, activity sources, a 14-day journal backfill, and asks and offers. It asks before anything becomes public.</p>
+      </div>
+    <div class="prompt-card">
+      <div class="prompt-bar">
+        <div class="prompt-file"><span class="pf-dot"></span>caldera-richer.md<span class="pf-meta" data-lines="richer-prompt"></span></div>
+        <button class="btn copy" type="button" data-copy="richer-prompt"><svg class="ic ic-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg><svg class="ic ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="copy-label">Copy prompt</span></button>
+      </div>
+      <ul class="prompt-does"><li>Suggests public notes</li><li>Picks safe topics</li><li>Connects activity sources</li><li>Backfills 14 days</li><li>Asks before publishing</li></ul>
+      <div class="prompt-body is-collapsed">
+        <pre id="richer-prompt"><!-- RICHER_PROMPT_START -->Help me make my Caldera profile richer. Caldera (https://caldera.social) builds a public profile page from my Obsidian vault.
 
 Vault: &lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;
 (If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)
@@ -151,12 +180,14 @@ Privacy rules (these override everything above):
 - If you are unsure whether something is private, leave it out.
 - Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.
 - Never remove or change an existing "caldera:" marking without asking me.<!-- RICHER_PROMPT_END --></pre>
+        <div class="prompt-fade"><button class="prompt-expand" type="button" aria-expanded="false">Show the full prompt</button></div>
+      </div>
     </div>
-    <p class="fine">In Obsidian: <b>Caldera: Copy AI prompt: make my profile richer</b> gives you the same prompt pre-filled with your vault path.</p>
 
-    <details class="manual">
-      <summary>Or do it by hand: what each convention does</summary>
-    <div class="table-wrap"><table class="data">
+      <p class="fine">In Obsidian: <b>Caldera: Copy AI prompt: make my profile richer</b>.</p>
+      <details class="manual">
+        <summary>Or do it by hand: what each convention does</summary>
+        <div class="table-wrap"><table class="data">
       <thead><tr><th>Add this</th><th>To get</th></tr></thead>
       <tbody>
         <tr><td><code>caldera: public</code> in a note's properties</td><td>The note listed on your profile (title and first paragraph)</td></tr>
@@ -166,8 +197,9 @@ Privacy rules (these override everything above):
         <tr><td>Commands: <b>Post an ask</b> / <b>Post an offer</b></td><td>The help exchange on your profile and the hub</td></tr>
       </tbody>
     </table></div>
-    <p class="fine">Publishing from a server or a scheduled job: the Caldera CLI in the repository (<code>packages/cli</code>, <code>caldera publish --vault /path/to/vault</code>) uses the same settings and identity.</p>
-    </details>
+        <p class="fine">Publishing from a server or a scheduled job: the Caldera CLI in the repository (<code>packages/cli</code>, <code>caldera publish --vault /path/to/vault</code>) uses the same settings and identity.</p>
+      </details>
+    </div>
   </section>
 
   <section id="faq" class="faq">
@@ -189,10 +221,22 @@ Privacy rules (these override everything above):
 <script>
 /* copyPrompt */
 document.querySelectorAll("[data-copy]").forEach(function (b) {
+  var pre = document.getElementById(b.getAttribute("data-copy"));
+  var label = b.querySelector(".copy-label");
   b.addEventListener("click", function () {
-    var t = document.getElementById(b.getAttribute("data-copy")).innerText;
-    var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy prompt"; }, 1800); };
-    if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () { window.getSelection().selectAllChildren(document.getElementById(b.getAttribute("data-copy"))); });
+    var done = function () { b.classList.add("is-copied"); label.textContent = "Copied"; setTimeout(function () { b.classList.remove("is-copied"); label.textContent = "Copy prompt"; }, 2000); };
+    var fallback = function () { window.getSelection().selectAllChildren(pre); label.textContent = "Press Cmd/Ctrl+C"; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(pre.innerText).then(done, fallback); else fallback();
+  });
+});
+document.querySelectorAll("[data-lines]").forEach(function (m) {
+  var pre = document.getElementById(m.getAttribute("data-lines"));
+  m.textContent = " \u00b7 " + pre.innerText.split("\n").length + " lines";
+});
+document.querySelectorAll(".prompt-expand").forEach(function (b) {
+  b.addEventListener("click", function () {
+    var body = b.closest(".prompt-body"), open = body.classList.toggle("is-collapsed") === false;
+    b.textContent = open ? "Collapse" : "Show the full prompt"; b.setAttribute("aria-expanded", String(open));
   });
 });
 </script>

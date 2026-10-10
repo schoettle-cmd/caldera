@@ -77,12 +77,66 @@ table.data td { padding: 10px; border-bottom: 1px solid var(--line); vertical-al
 @media (max-width: 560px) { .step { flex-direction: column; gap: 10px; padding: 18px; } .hero { padding-top: 64px; } }
 main { overflow-x: clip; }
 
-/* --- Agent prompt ------------------------------------------------------ */
-.prompt-box { position: relative; margin-top: 14px; }
-.prompt-box pre { margin: 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 52px 20px 20px; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; color: var(--text); }
-.prompt-box .copy { position: absolute; top: 10px; right: 10px; }
-h2[id], section[id] { scroll-margin-top: 84px; }
-.lead-in { font-size: 17px; max-width: 760px; margin: 0 0 6px; }
-details.manual { margin-top: 28px; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 20px; }
-details.manual > summary { cursor: pointer; font-weight: 600; color: var(--text-strong); }
-details.manual[open] > summary { margin-bottom: 16px; }
+/* --- Install: one-paste flow ------------------------------------------- */
+.install-head { max-width: 720px; margin-bottom: 28px; }
+.install-head h2 { margin: 6px 0 10px; text-wrap: balance; }
+.install-head .lead-in { color: var(--text-muted); }
+.lead-in { font-size: 17px; max-width: 720px; margin: 0; }
+
+.flow { list-style: none; padding: 0; margin: 0 0 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.flow li { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-top: 2px solid var(--line-strong); }
+.flow li:first-child { border-top-color: var(--accent); }
+.flow-n { flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-size: 13px; background: var(--accent-soft); color: var(--accent-text); }
+.flow li:first-child .flow-n { background: var(--accent); color: var(--on-accent); }
+.flow b { display: block; color: var(--text-strong); font-size: 15.5px; }
+.flow span:not(.flow-n) { display: block; color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-top: 2px; }
+
+.prompt-card { border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--bg-sunken); overflow: hidden; box-shadow: 0 24px 60px -30px rgba(139, 108, 246, .35); }
+.prompt-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 12px 12px 18px; border-bottom: 1px solid var(--line); background: var(--bg-raised); }
+.prompt-file { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-2) 18%, transparent); flex: none; }
+.pf-meta { color: var(--text-muted); }
+.btn.copy { gap: 8px; min-height: 42px; padding: 0 18px; border: 0; cursor: pointer; font: 600 14.5px var(--font-body); flex: none; transition: background .2s; }
+.btn.copy .ic { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn.copy .ic-check, .btn.copy.is-copied .ic-copy { display: none; }
+.btn.copy.is-copied .ic-check { display: block; }
+.btn.copy.is-copied { background: var(--accent-2); }
+.prompt-does { list-style: none; margin: 0; padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--line); }
+.prompt-does li { font-size: 13px; padding: 4px 10px; border-radius: var(--radius-round); background: var(--accent-soft); color: var(--accent-text); }
+.prompt-body { position: relative; }
+.prompt-body pre { margin: 0; padding: 18px 20px 64px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: var(--text); background: none; border: 0; }
+.prompt-body.is-collapsed pre { max-height: 230px; overflow: hidden; }
+.prompt-fade { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: flex-end; padding: 0 0 14px; height: 120px; background: linear-gradient(to bottom, transparent, var(--bg-sunken) 72%); }
+.prompt-body:not(.is-collapsed) .prompt-fade { height: auto; background: none; position: static; padding: 0 0 16px; }
+.prompt-expand { cursor: pointer; font: 500 13.5px var(--font-body); color: var(--text-strong); background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--radius-round); padding: 7px 16px; }
+.prompt-expand:hover { border-color: var(--accent); }
+.prompt-card + .fine { margin-top: 14px; }
+
+details.manual { margin-top: 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 4px 0; }
+details.manual > summary { cursor: pointer; list-style: none; padding: 14px 0; font-weight: 600; color: var(--text-strong); display: flex; justify-content: space-between; align-items: center; }
+details.manual > summary::-webkit-details-marker { display: none; }
+details.manual > summary::after { content: "+"; font-family: var(--font-mono); font-size: 20px; color: var(--text-muted); }
+details.manual[open] > summary::after { content: "\2212"; }
+.manual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 40px; padding: 6px 0 18px; }
+.manual-grid h3 { font-size: 15px; color: var(--text-strong); margin: 0 0 8px; font-family: var(--font-mono); font-weight: 400; letter-spacing: .02em; }
+.manual-grid ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; }
+details.manual .table-wrap { margin: 4px 0 12px; }
+
+.richer { margin-top: 88px; }
+
+@media (max-width: 760px) {
+  .flow { grid-template-columns: 1fr; gap: 0; }
+  .flow li { padding: 12px 4px; }
+  .manual-grid { grid-template-columns: 1fr; }
+  .prompt-bar { padding-left: 14px; }
+  .btn.copy { padding: 0 14px; }
+}
+@media (max-width: 420px) { .pf-meta { display: none; } }
+h2[id], section[id], div[id] { scroll-margin-top: 84px; }
+:root { color-scheme: dark; } :root[data-theme="light"] { color-scheme: light; }
+section h2 { line-height: 1.12; }
+@media (max-width: 760px) {
+  .prompt-does { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(to right, #000 85%, transparent); }
+  .prompt-does::-webkit-scrollbar { display: none; }
+  .prompt-does li { flex: none; }
+}
