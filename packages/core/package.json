@@ -1,0 +1,13 @@
+{
+  "name": "@caldera/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": { "tweetnacl": "^1.0.3" }
+}

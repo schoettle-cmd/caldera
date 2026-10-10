@@ -1,0 +1,13 @@
+{
+  "name": "caldera-obsidian",
+  "version": "0.1.0",
+  "description": "Caldera: the social layer for Obsidian.",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "test": "node esbuild.config.mjs && node --test test/*.test.mjs"
+  },
+  "dependencies": { "@caldera/core": "0.1.0" },
+  "devDependencies": { "obsidian": "latest" }
+}

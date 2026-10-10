@@ -1,0 +1,101 @@
+/* ============================================================================
+   LIVING PROFILE - DESIGN TOKENS
+   This is the ONLY file you need to edit to restyle the whole page.
+   Every color, font, size, radius and spacing used anywhere comes from here.
+   profile.css uses these variables only; it never hard-codes a color.
+
+   Quick recipes:
+   - Switch to the light theme:  <html data-theme="light"> in index template,
+     or set "theme": "light" in config/profile.json.
+   - New accent color:           change --accent (and --accent-soft).
+   - Different fonts:            change --font-body / --font-display / --font-mono
+                                 (and the Google Fonts link in the template).
+   - Tighter / looser layout:    change --space-unit.
+   ========================================================================== */
+
+:root {
+  /* --- Typography ------------------------------------------------------- */
+  --font-body: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  --text-xs: 11.5px;
+  --text-sm: 13.5px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-h2: 26px;
+  --text-h1: clamp(34px, 5vw, 46px);
+  --leading: 1.65;
+
+  /* --- Spacing & shape -------------------------------------------------- */
+  --space-unit: 8px;                       /* everything scales off this */
+  --space-1: calc(var(--space-unit) * 0.5);
+  --space-2: var(--space-unit);
+  --space-3: calc(var(--space-unit) * 1.5);
+  --space-4: calc(var(--space-unit) * 2);
+  --space-6: calc(var(--space-unit) * 3);
+  --space-8: calc(var(--space-unit) * 4);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-round: 999px;
+
+  /* --- Layout ----------------------------------------------------------- */
+  --sidebar-width: 250px;
+  --rail-width: 300px;
+  --content-width: 760px;
+  --banner-height: 260px;
+  --avatar-size: 112px;
+  --banner-focus: 62% 14%;   /* which part of the banner photo stays in view (x y) */
+
+  /* --- Color: dark theme (default) -------------------------------------- */
+  --bg: #1C1C1F;           /* page */
+  --bg-sunken: #17171A;    /* sidebars */
+  --bg-raised: #232327;    /* cards, buttons */
+  --bg-tab: #141416;       /* top tab bar */
+  --line: #2A2A2E;         /* hairlines */
+  --line-strong: #3A3A40;
+  --text: #DADADF;
+  --text-strong: #F2F2F5;
+  --text-muted: #8A8A93;
+  --accent: #8B6CF6;       /* links, highlights, graph center */
+  --accent-text: #B39DFA;  /* link text on dark */
+  --accent-soft: rgba(139, 108, 246, .10);
+  --accent-2: #4FB89A;     /* secondary accent (help exchange, gravity) */
+  --on-accent: #FFFFFF;
+  --chart-bar: var(--accent);
+  --chart-bar-quiet: rgba(139, 108, 246, .55);
+  --graph-node: #6E6E78;
+  --graph-node-hot: var(--accent-text);
+  --graph-edge: var(--line-strong);
+  /* activity heatmap, empty -> busiest */
+  --heat-0: #232327;
+  --heat-1: #3A2F66;
+  --heat-2: #5B47B0;
+  --heat-3: #8B6CF6;
+  --heat-4: #C7B8FF;
+  --chart-alt: var(--accent-2);  /* second chart color */
+}
+
+/* --- Color: light theme ------------------------------------------------- */
+:root[data-theme="light"] {
+  --bg: #FFFFFF;
+  --bg-sunken: #F6F6F7;
+  --bg-raised: #F0F0F2;
+  --bg-tab: #EDEDF0;
+  --line: #E4E4E7;
+  --line-strong: #D0D0D6;
+  --text: #2B2B30;
+  --text-strong: #0D0D10;
+  --text-muted: #6E6E78;
+  --accent: #6D4AE8;
+  --accent-text: #5A38D6;
+  --accent-soft: rgba(109, 74, 232, .08);
+  --accent-2: #138A6A;
+  --graph-node: #A8A8B3;
+  --heat-0: #EDEDF0;
+  --heat-1: #D9D0FB;
+  --heat-2: #B3A1F6;
+  --heat-3: #8B6CF6;
+  --heat-4: #5A38D6;
+}

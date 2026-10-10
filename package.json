@@ -1,0 +1,22 @@
+{
+  "name": "caldera",
+  "private": true,
+  "description": "Caldera: the social layer for Obsidian. Living profiles, friends between vaults, cards, asks, offers and gravity.",
+  "license": "MIT",
+  "workspaces": [
+    "packages/core",
+    "packages/hub",
+    "packages/plugin",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/core && npm run build -w packages/hub && npm run build -w packages/plugin && npm run build -w packages/cli",
+    "test": "npm test -w packages/core && npm test -w packages/hub && npm test -w packages/plugin",
+    "typecheck": "tsc -p packages/core && tsc -p packages/hub --noEmit && tsc -p packages/plugin --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

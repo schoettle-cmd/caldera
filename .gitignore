@@ -1,0 +1,6 @@
+node_modules/
+dist/
+packages/plugin/main.js
+packages/plugin/test/render.build.mjs
+data/
+*.sqlite
