@@ -26,7 +26,7 @@ Caldera is already installed and enabled in this vault. Skip to step 2.
 ` : `## 1. Install the plugin
 1. Download ${zip} and unzip it into "${vault}/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css.
 2. Add "caldera" to the JSON array in "${vault}/.obsidian/community-plugins.json" (create the file as ["caldera"] if it does not exist). Do not remove other entries.
-3. Tell me to restart Obsidian. If Obsidian asks, I turn off Restricted mode (Settings -> Community plugins -> Turn on community plugins) and make sure Caldera is switched on. Then I open Settings -> Caldera, click "Create identity", export the recovery key, pick a handle, and choose which sections are public. Do NOT create the identity, read the plugin's data.json, or handle my keys yourself - that file holds my private key.
+3. Tell me to restart Obsidian. If Obsidian asks, I turn off Restricted mode (Settings -> Community plugins -> Turn on community plugins) and make sure Caldera is switched on. Caldera then opens a Welcome window where I type my name and pick a handle; it creates my identity on this device, publishes my profile and opens it in my browser. Do NOT create the identity, read the plugin's data.json, or handle my keys yourself - that file holds my private key. Wait until I tell you my profile is live, then continue with step 2.
 `;
 
   return `You are helping me run Caldera, the social layer for my Obsidian vault (${hub}). Caldera builds a public profile page from my vault. Follow these instructions exactly.

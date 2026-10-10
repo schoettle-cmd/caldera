@@ -29,6 +29,8 @@ export default class CalderaPlugin extends Plugin {
 
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
+    this.addCommand({ id: "open", name: "Open my public profile", callback: () => this.openProfile() });
+    this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
     this.addCommand({ id: "sync", name: "Sync inbox now", callback: () => this.syncInbox(true) });
@@ -41,7 +43,10 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
-    this.app.workspace.onLayoutReady(() => { if (this.settings.identity && this.settings.handle) this.syncInbox(false); });
+    this.app.workspace.onLayoutReady(() => {
+      if (this.settings.identity && this.settings.handle) this.syncInbox(false);
+      else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
+    });
     this.timers.push(window.setInterval(() => this.settings.identity && this.syncInbox(false), 10 * 60_000));
     this.scheduleAutoPublish();
   }
@@ -49,10 +54,10 @@ export default class CalderaPlugin extends Plugin {
   onunload() { this.timers.forEach(t => window.clearInterval(t)); }
   async saveSettings() { await this.saveData(this.settings); }
 
-  async ensureIdentity(): Promise<C.Identity> {
+  async ensureIdentity(quiet = false): Promise<C.Identity> {
     if (!this.settings.identity) {
       this.settings.identity = C.newIdentity(); await this.saveSettings();
-      new Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
+      if (!quiet) new Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
     }
     return this.settings.identity;
   }
@@ -113,7 +118,7 @@ export default class CalderaPlugin extends Plugin {
     catch { new PromptModal(this.app, text).open(); }
   }
 
-  async publish(quiet = false) {
+  async publish(quiet = false): Promise<string | null> {
     try {
       if (!this.settings.handle) throw new Error("Set a handle in Caldera settings first");
       const me = await this.ensureIdentity();
@@ -129,9 +134,14 @@ export default class CalderaPlugin extends Plugin {
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
       for (const [p, b] of Object.entries(binaries)) files[p] = C.b64.enc(new Uint8Array(b));
       const r = await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files });
-      if (!quiet) new Notice(`Published: ${this.settings.hubUrl.replace(/\/$/, "")}${r.url}`);
-    } catch (e: any) { new Notice("Caldera publish failed: " + e.message); }
+      const url = this.profileUrl();
+      if (!quiet) new Notice(`Published: ${url}`);
+      return url;
+    } catch (e: any) { new Notice("Caldera publish failed: " + e.message); return null; }
   }
+
+  profileUrl() { return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`; }
+  openProfile() { if (this.settings.handle) window.open(this.profileUrl()); else new WelcomeModal(this.app, this).open(); }
 
   async exportToFolder() {
     const { text, binaries } = await this.build();
@@ -341,6 +351,58 @@ class PromptModal extends Modal {
     this.titleEl.setText("AI agent setup prompt");
     const ta = this.contentEl.createEl("textarea", { cls: "caldera-prompt" });
     ta.value = this.text; ta.rows = 18; ta.style.width = "100%"; ta.readOnly = true; ta.select();
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+/** First run: name + handle -> identity created on this device -> publish -> profile opens in the browser. */
+class WelcomeModal extends Modal {
+  constructor(app: App, private plugin: CalderaPlugin) { super(app); }
+  onOpen() {
+    const s = this.plugin.settings;
+    this.modalEl.addClass("caldera-welcome");
+    this.titleEl.setText("Welcome to Caldera");
+    this.contentEl.createEl("p", { text: "Pick a name and a handle. Caldera creates your identity on this device, publishes your profile, and opens it in your browser. Nothing private leaves your vault." });
+    let name = s.name, handle = s.handle, headline = s.headline;
+    const status = createEl("div", { cls: "caldera-welcome-status" });
+    const clean = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
+    new Setting(this.contentEl).setName("Your name").addText(t => t.setPlaceholder("Ada Lovelace").setValue(name).onChange(v => name = v.trim()));
+    new Setting(this.contentEl).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`)
+      .addText(t => t.setPlaceholder("ada").setValue(handle).onChange(v => { handle = clean(v); if (v !== handle) t.setValue(handle); status.setText(""); }));
+    new Setting(this.contentEl).setName("Headline").setDesc("Optional, one line").addText(t => t.setPlaceholder("Building things with notes").setValue(headline).onChange(v => headline = v.trim()));
+    this.contentEl.appendChild(status);
+    const go = new Setting(this.contentEl).addButton(b => b.setButtonText("Create my profile").setCta().onClick(async () => {
+      if (!name) { status.setText("Add your name."); return; }
+      if (handle.length < 3) { status.setText("Handles need at least 3 letters or numbers."); return; }
+      b.setDisabled(true); b.setButtonText("Publishing...");
+      try {
+        const me = await this.plugin.ensureIdentity(true);
+        const r = await requestUrl({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
+        if (r.status === 200 && r.json?.id !== me.id) { status.setText(`@${handle} is taken. Try another.`); b.setDisabled(false); b.setButtonText("Create my profile"); return; }
+        Object.assign(s, { name, handle, headline, welcomed: true });
+        if (!s.autoPublishHours) s.autoPublishHours = 6;
+        await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish();
+        const url = await this.plugin.publish(true);
+        if (!url) { status.setText("Publishing failed. Check your connection and try again."); b.setDisabled(false); b.setButtonText("Create my profile"); return; }
+        window.open(url);
+        this.done(url);
+      } catch (e: any) { status.setText(e.message); b.setDisabled(false); b.setButtonText("Create my profile"); }
+    }));
+    go.settingEl.addClass("caldera-welcome-go");
+  }
+  done(url: string) {
+    this.contentEl.empty(); this.titleEl.setText("Your profile is live");
+    const link = this.contentEl.createEl("p").createEl("a", { text: url, href: url });
+    link.addEventListener("click", e => { e.preventDefault(); window.open(url); });
+    this.contentEl.createEl("p", { text: "It updates itself every 6 hours from your vault. To change it, edit Settings -> Caldera (sections, photo, links) or your notes, then run 'Caldera: Publish my profile' - or let your AI agent do it." });
+    this.contentEl.createEl("p", { text: "Your login is a key stored in this vault - no password. Save a copy so you can recover your profile on another device:", cls: "caldera-welcome-key" });
+    new Setting(this.contentEl)
+      .addButton(b => b.setButtonText("Copy recovery key").onClick(async () => {
+        await navigator.clipboard.writeText(btoa(JSON.stringify(this.plugin.settings.identity)));
+        new Notice("Recovery key copied. Paste it into your password manager. Anyone with it can act as you.");
+      }))
+      .addButton(b => b.setButtonText("Open my profile").setCta().onClick(() => window.open(url)))
+      .addButton(b => b.setButtonText("Done").onClick(() => this.close()));
   }
   onClose() { this.contentEl.empty(); }
 }

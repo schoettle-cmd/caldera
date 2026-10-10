@@ -15,6 +15,7 @@ export interface CalderaSettings {
   asks: { id: string; title: string; bounty: number }[];
   offers: { id: string; title: string }[];
   autoPublishHours: number;           // 0 = manual only
+  welcomed: boolean;                  // first-run welcome finished
 }
 
 export const DEFAULT_SETTINGS: CalderaSettings = {
@@ -26,7 +27,7 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
-  asks: [], offers: [], autoPublishHours: 0,
+  asks: [], offers: [], autoPublishHours: 6, welcomed: false,
 };
 
 const SECTION_LABELS: Record<string, string> = {
