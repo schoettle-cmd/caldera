@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.3.1",
+      "date": "2026-10-10",
+      "title": "Invite friends from your page, and a Caldera bar on every profile",
+      "items": [
+        "Every profile page now has a slim Caldera bar at the top: the logo goes to caldera.social and 'Get your own page' goes straight to install. Visitors who arrive this way see who invited them.",
+        "The 'Invite a friend' rows on your leaderboard open a ready-to-send invite email with your page and install link.",
+        "New signups and deletions can alert the hub operator by email."
+      ]
+    },
+    {
       "version": "0.3.0",
       "date": "2026-10-10",
       "title": "Full living profile: three columns, AI usage, activity, growth, projects, code and timeline",

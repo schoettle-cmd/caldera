@@ -21,8 +21,13 @@
   <h1>What's new</h1>
   <p class="lead-in">Every Caldera release. When something ships, Caldera also shows its owner a short alert inside Obsidian. Follow along with the <a href="releases.xml">RSS feed</a>.</p>
   <!-- RELEASES_START -->
+  <article class="release" id="v0.3.1">
+    <div class="release-meta"><span class="tag">0.3.1</span><time datetime="2026-10-10">2026-10-10</time><span>latest</span></div>
+    <h2>Invite friends from your page, and a Caldera bar on every profile</h2>
+    <ul><li>Every profile page now has a slim Caldera bar at the top: the logo goes to caldera.social and 'Get your own page' goes straight to install. Visitors who arrive this way see who invited them.</li><li>The 'Invite a friend' rows on your leaderboard open a ready-to-send invite email with your page and install link.</li><li>New signups and deletions can alert the hub operator by email.</li></ul>
+  </article>
   <article class="release" id="v0.3.0">
-    <div class="release-meta"><span class="tag">0.3.0</span><time datetime="2026-10-10">2026-10-10</time><span>latest</span></div>
+    <div class="release-meta"><span class="tag">0.3.0</span><time datetime="2026-10-10">2026-10-10</time></div>
     <h2>Full living profile: three columns, AI usage, activity, growth, projects, code and timeline</h2>
     <ul><li>Three-column layout: a Vault sidebar on the left, a local graph and backlinks on the right. Choose what they show in Caldera/profile.md (sidebar, graph, backlinks), or leave them empty to show your topics and public notes.</li><li>New sections: Summary, Now, Timeline and Projects, written in Caldera/profile.md. Links like [[Label|https://...]] and **bold** work.</li><li>Activity heatmap (26 weeks) and Growth chart, computed from your vault. Counts only.</li><li>What it knows, Inbox to knowledge and Code (GitHub) sections, filled from Caldera/activity.json by your own tools or AI agent.</li><li>AI usage: total tokens, tokens per day, and your model and provider mix as charts. Your AI agent fills it from local Claude Code and Codex logs - counts only, never prompts or costs.</li><li>Scoreboard now shows a leaderboard and your best other days.</li><li>Fixes: dates use your local day (not UTC), and link counts wait until Obsidian has finished indexing.</li></ul>
     <p class="howto">Run 'Caldera: Edit my profile' and fill in summary, now, timeline and projects - or paste the 'change my profile' prompt into your AI.</p>

@@ -29,7 +29,7 @@ test("profiles: publish manifest + static page; handles are unique", async () =>
   const files = { "index.html": Buffer.from("<h1>Mike</h1>").toString("base64"), "assets/theme.css": Buffer.from(":root{}").toString("base64"), "../../escape.html": Buffer.from("x").toString("base64") };
   const up = await post(`/v1/profiles/${mike.id}/bundle`, { manifest: manifest(mike, "mike", "Mike Jones", 370), files });
   assert.equal(up.status, 200); assert.equal(up.body.url, "/@mike/");
-  assert.equal((await get("/@mike/")).body, "<h1>Mike</h1>");
+  const page = (await get("/@mike/")).body; assert.ok(page.endsWith("<h1>Mike</h1>") && page.includes('id="caldera-bar"'));
   assert.equal((await get("/@mike/caldera.json")).status, 200);
   assert.ok(!fs.existsSync(path.join(dir, "escape.html")), "path traversal blocked");
   assert.equal((await post("/v1/envelopes", manifest(eve, "mike", "Impostor", 1))).status, 409);
@@ -162,4 +162,12 @@ test("onEvent: signup fires once per new profile, not on updates; delete fires",
   assert.equal(await p2(C.sign(z, "profile.delete", {})), 200);
   assert.deepEqual(events.map(e => e.type + ":" + e.handle + ":" + e.total), ["signup:zed:1", "delete:zed:0"]);
   h2.server.close(); fs2.rmSync(dir2, { recursive: true, force: true });
+});
+
+test("every hosted profile page gets the Caldera bar linking home with the owner's invite", async () => {
+  const html = (await get("/@mike/")).body;
+  assert.ok(html.includes('id="caldera-bar"') && html.includes("/?invite=mike") && html.includes("Get your own page"));
+  assert.ok(html.indexOf('id="caldera-bar"') < html.indexOf("Mike again") || !html.includes("Mike again"));
+  const css = await fetch(base + "/@mike/caldera.json").then(r => r.text());
+  assert.ok(!css.includes("caldera-bar"), "only HTML pages are touched");
 });

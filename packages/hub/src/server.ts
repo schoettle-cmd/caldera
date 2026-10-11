@@ -22,6 +22,17 @@ const SECURITY_HEADERS = { "x-content-type-options": "nosniff", "referrer-policy
 const PROFILE_CSP = "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
 const DAY = 86_400_000;
 
+/** Platform bar injected at the top of every hosted profile: logo back to the hub + a sign-up call to action.
+ *  Inline styles/SVG only (the profile CSP allows inline styles and blocks external resources). */
+function calderaBar(hub: string, handle: string): string {
+  const base = hub.replace(/\/$/, ""), join = `${base}/?invite=${encodeURIComponent(handle)}`;
+  const logo = `<svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true" style="display:block"><path d="M3 26 L11 10 L14 15 L17 8 L29 26 Z" fill="#8B6CF6"/><path d="M11 10 L14 15 L17 8" fill="none" stroke="#F2F2F5" stroke-width="1.2"/><circle cx="16" cy="21" r="2.4" fill="#4FB89A"/></svg>`;
+  return `<div id="caldera-bar" style="position:relative;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;background:#111113;border-bottom:1px solid #2A2A2E;font:500 13.5px/1.2 'IBM Plex Sans','Helvetica Neue',Arial,sans-serif">`
+    + `<a href="${join}" style="display:inline-flex;align-items:center;gap:8px;color:#F2F2F5;text-decoration:none;font:600 15px 'Source Serif 4',Georgia,serif">${logo}Caldera<span style="font:400 12.5px 'IBM Plex Sans',Arial,sans-serif;color:#8A8A93;margin-left:4px" class="cb-tag">the social layer for Obsidian</span></a>`
+    + `<a href="${join}#install" style="display:inline-flex;align-items:center;min-height:30px;padding:0 14px;border-radius:999px;background:#8B6CF6;color:#fff;text-decoration:none;font-weight:600;white-space:nowrap">Get your own page</a>`
+    + `</div><style>@media (max-width:520px){#caldera-bar .cb-tag{display:none}}</style>`;
+}
+
 export function createHub(opts: HubOptions) {
   fs.mkdirSync(path.join(opts.dataDir, "profiles"), { recursive: true });
   const db = new DatabaseSync(path.join(opts.dataDir, "hub.sqlite"));
@@ -311,7 +322,13 @@ export function createHub(opts: HubOptions) {
         const file = path.join(dir, path.normalize(rel));
         if (!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end("not found"); }
         res.removeHeader("x-frame-options");
-        res.writeHead(200, { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "x-robots-tag": "noindex", "content-security-policy": PROFILE_CSP, "cache-control": "no-cache" });
+        const headers = { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "x-robots-tag": "noindex", "content-security-policy": PROFILE_CSP, "cache-control": "no-cache" };
+        if (rel === "index.html") {   // every hosted profile gets the Caldera bar, whatever plugin version built it
+          const html = fs.readFileSync(file, "utf8"), bar = calderaBar(opts.publicUrl || "https://caldera.social", m[1]);
+          const out = /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, b => b + bar) : bar + html;
+          res.writeHead(200, headers); return res.end(out);
+        }
+        res.writeHead(200, headers);
         return fs.createReadStream(file).pipe(res);
       }
 
