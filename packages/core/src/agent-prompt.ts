@@ -23,7 +23,16 @@ export function agentPrompt(o: AgentPromptOptions = {}): string {
 
   const install = o.installed ? `## 1. Install
 Caldera is already installed and enabled in this vault. Skip to step 2.
-` : `## 1. Install the plugin
+` : `## 0. Obsidian itself (most important if I'm new: skip only if I already use Obsidian)
+1. Check whether Obsidian is installed (macOS: /Applications/Obsidian.app; Windows: the Obsidian app in Start / %LOCALAPPDATA%\\Programs\\Obsidian; Linux: the obsidian command, Flatpak md.obsidian.Obsidian, or an Obsidian AppImage).
+2. If it is not installed, ask me first, then install the official app from https://obsidian.md :
+   - macOS: brew install --cask obsidian  (or download the .dmg from https://obsidian.md/download and drag Obsidian into Applications)
+   - Windows: winget install --id Obsidian.Obsidian -e  (or the installer from https://obsidian.md/download)
+   - Linux: flatpak install flathub md.obsidian.Obsidian  (or the AppImage / .deb from https://obsidian.md/download)
+   If you cannot install software here, give me the download link and wait until I tell you it's installed. Obsidian is free.
+3. If I don't have a vault yet: ask where I'd like my notes (suggest ~/Documents/Notes), create that folder with a short "Welcome.md" note in it, then tell me to open Obsidian, choose "Open folder as vault", and pick that folder. Wait until I confirm it's open - that creates the vault's .obsidian folder - then use that folder as my vault below.
+
+## 1. Install the plugin
 1. Download ${zip} and unzip it into "${vault}/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css.
 2. Add "caldera" to the JSON array in "${vault}/.obsidian/community-plugins.json" (create the file as ["caldera"] if it does not exist). Do not remove other entries.
 3. Tell me to restart Obsidian. If Obsidian asks, I turn off Restricted mode (Settings -> Community plugins -> Turn on community plugins) and make sure Caldera is switched on. Caldera then opens a Welcome window where I type my name and pick a handle; it creates my identity on this device, publishes my profile and opens it in my browser. Do NOT create the identity, read the plugin's data.json, or handle my keys yourself - that file holds my private key. Wait until I tell you my profile is live, then continue with step 2.
@@ -31,7 +40,7 @@ Caldera is already installed and enabled in this vault. Skip to step 2.
 
   return `You are helping me run Caldera, the social layer for my Obsidian vault (${hub}). Caldera builds a public profile page from my vault. Follow these instructions exactly.
 
-Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)"}
+Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which. If there is none, I probably don't have Obsidian yet - many people don't - so start with step 0.)"}
 My public page: ${page}
 
 ${install}

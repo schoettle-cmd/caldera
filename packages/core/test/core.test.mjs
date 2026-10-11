@@ -63,3 +63,11 @@ test("edit prompt: points at Caldera/profile.md, approval-gated, key file off-li
   assert.ok(t.includes("Caldera/profile.md") && t.includes("/@mike/") && t.includes("before you make it") && t.includes("data.json"));
   assert.ok(agentPrompt().includes("## 5. When I ask you to change my page"));
 });
+
+test("setup prompt covers installing Obsidian when missing; installed variant skips it", async () => {
+  const { agentPrompt } = await import("../dist/index.js");
+  const fresh = agentPrompt();
+  assert.ok(fresh.includes("## 0. Obsidian itself") && fresh.includes("brew install --cask obsidian") && fresh.includes("winget install --id Obsidian.Obsidian") && fresh.includes("md.obsidian.Obsidian") && fresh.includes("Open folder as vault"));
+  assert.ok(fresh.indexOf("## 0.") < fresh.indexOf("## 1. Install the plugin"));
+  assert.ok(!agentPrompt({ installed: true }).includes("## 0. Obsidian itself"));
+});

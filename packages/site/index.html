@@ -59,13 +59,13 @@
     <div class="install-head">
       <p class="eyebrow">Install</p>
       <h2>One paste. Your AI does the rest.</h2>
-      <p class="lead-in">Works with Claude Code, Codex, Cursor, or any AI agent that can edit files on your computer.</p>
+      <p class="lead-in">Works with Claude Code, Codex, Cursor, or any AI agent that can edit files on your computer. <b>New to Obsidian?</b> That's fine: the prompt installs Obsidian (free) and sets up your first vault, too.</p>
     </div>
 
     <ol class="flow">
       <li><span class="flow-n">1</span><div><b>Copy the prompt</b><span>One click, below.</span></div></li>
-      <li><span class="flow-n">2</span><div><b>Paste it into your agent</b><span>It installs Caldera and sets up your daily journal.</span></div></li>
-      <li><span class="flow-n">3</span><div><b>Restart Obsidian, pick a handle</b><span>Your profile publishes and opens in your browser. Your key never passes through the AI.</span></div></li>
+      <li><span class="flow-n">2</span><div><b>Paste it into your agent</b><span>It installs Obsidian if you need it, then Caldera, and sets up your daily journal.</span></div></li>
+      <li><span class="flow-n">3</span><div><b>Open Obsidian, pick a handle</b><span>Your profile publishes and opens in your browser. Your key never passes through the AI.</span></div></li>
     </ol>
 
     <div class="prompt-card">
@@ -73,13 +73,22 @@
         <div class="prompt-file"><span class="pf-dot"></span>caldera-setup.md<span class="pf-meta" data-lines="agent-prompt"></span></div>
         <button class="btn copy" type="button" data-copy="agent-prompt"><svg class="ic ic-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg><svg class="ic ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="copy-label">Copy prompt</span></button>
       </div>
-      <ul class="prompt-does"><li>Installs the plugin</li><li>Writes a daily journal entry</li><li>Counts your activity</li><li>Privacy rules override everything</li><li>Never touches your key</li></ul>
+      <ul class="prompt-does"><li>Installs Obsidian if needed</li><li>Installs the plugin</li><li>Writes a daily journal entry</li><li>Counts your activity</li><li>Privacy rules override everything</li><li>Never touches your key</li></ul>
       <div class="prompt-body is-collapsed">
         <pre id="agent-prompt"><!-- AGENT_PROMPT_START -->You are helping me run Caldera, the social layer for my Obsidian vault (https://caldera.social). Caldera builds a public profile page from my vault. Follow these instructions exactly.
 
 Vault: &lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;
-(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)
+(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which. If there is none, I probably don't have Obsidian yet - many people don't - so start with step 0.)
 My public page: https://caldera.social/@&lt;my handle&gt;/
+
+## 0. Obsidian itself (most important if I'm new: skip only if I already use Obsidian)
+1. Check whether Obsidian is installed (macOS: /Applications/Obsidian.app; Windows: the Obsidian app in Start / %LOCALAPPDATA%\Programs\Obsidian; Linux: the obsidian command, Flatpak md.obsidian.Obsidian, or an Obsidian AppImage).
+2. If it is not installed, ask me first, then install the official app from https://obsidian.md :
+   - macOS: brew install --cask obsidian  (or download the .dmg from https://obsidian.md/download and drag Obsidian into Applications)
+   - Windows: winget install --id Obsidian.Obsidian -e  (or the installer from https://obsidian.md/download)
+   - Linux: flatpak install flathub md.obsidian.Obsidian  (or the AppImage / .deb from https://obsidian.md/download)
+   If you cannot install software here, give me the download link and wait until I tell you it's installed. Obsidian is free.
+3. If I don't have a vault yet: ask where I'd like my notes (suggest ~/Documents/Notes), create that folder with a short "Welcome.md" note in it, then tell me to open Obsidian, choose "Open folder as vault", and pick that folder. Wait until I confirm it's open - that creates the vault's .obsidian folder - then use that folder as my vault below.
 
 ## 1. Install the plugin
 1. Download https://caldera.social/download/caldera-latest.zip and unzip it into "&lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css.
@@ -130,6 +139,7 @@ My name, headline, photo, banner, links, properties, topics, which sections show
         <div>
           <h3>1 &middot; Get the plugin</h3>
           <ol>
+            <li>No Obsidian yet? Download it free from <a href="https://obsidian.md/download" rel="noopener">obsidian.md</a>, open it, and choose <b>Create new vault</b>.</li>
             <li>Download <a href="download/caldera-latest.zip">caldera-latest.zip</a>.</li>
             <li>In your vault, open the hidden folder <code>.obsidian/plugins/</code> and create a folder named <code>caldera</code>. On a Mac, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> shows hidden folders in Finder.</li>
             <li>Unzip into it: you should see <code>main.js</code>, <code>manifest.json</code> and <code>styles.css</code>.</li>
@@ -218,6 +228,7 @@ Privacy rules (these override everything above):
 
   <section id="faq" class="faq">
     <h2>Questions</h2>
+    <details><summary>Do I need Obsidian already?</summary><p>No. Obsidian is a free notes app (<a href="https://obsidian.md" rel="noopener">obsidian.md</a>) for Mac, Windows, Linux, iPhone and Android. The install prompt checks for it, installs it if you say yes, and creates your first vault (a folder of notes). Your page starts simple and fills in as you write.</p></details>
     <details><summary>Is it free?</summary><p>Yes. The plugin, your profile and friends are free and open source. Optional paid features (like a hosted AI journal and custom domains) may come later.</p></details>
     <details><summary>Who can see my notes?</summary><p>Only what you publish. Your vault is read on your device; Caldera publishes the sections you switch on and notes you mark <code>caldera: public</code>. Notes you share with a friend are encrypted so only that friend can read them.</p></details>
     <details><summary>What are help credits?</summary><p>Points you earn by helping people with their asks. Everyone starts with 100. They have no cash value and can't be bought or sold.</p></details>
