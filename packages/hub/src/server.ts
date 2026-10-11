@@ -306,7 +306,7 @@ export function createHub(opts: HubOptions) {
         const file = path.join(dir, path.normalize(rel));
         if (!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end("not found"); }
         res.removeHeader("x-frame-options");
-        res.writeHead(200, { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "x-robots-tag": "noindex", "content-security-policy": PROFILE_CSP, "cache-control": "public, max-age=300" });
+        res.writeHead(200, { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "x-robots-tag": "noindex", "content-security-policy": PROFILE_CSP, "cache-control": "no-cache" });
         return fs.createReadStream(file).pipe(res);
       }
 
