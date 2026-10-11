@@ -18,7 +18,7 @@ export interface CalderaSettings {
   welcomed: boolean;                  // first-run welcome finished
   listed: boolean;                    // shown in the public directory at hub/people
   lastSeenRelease: string;            // newest release the owner has been shown (What's new)
-  tree: [string, string][];           // left sidebar: [group, "item, item"]; empty = topics + public notes
+  tree: [string, string, string?][];  // left sidebar: [group, "item, item", folder to count]; empty = topics + public notes
   graph: string[];                    // right rail graph: note names, sized by how many notes link to each; empty = topics
   backlinks: [string, string][];      // right rail list: [title, context]; empty = public notes
   summary: string; now: string[];      // owner-written page text (Caldera/profile.md)

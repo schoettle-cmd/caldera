@@ -24,7 +24,7 @@ export interface ProfileData {
   social?: { friends: number; gravity: number; credits: number };
   updated: string;                                         // ISO
   hub?: string;                                            // hub base URL, for the 'how to edit' link
-  tree?: { name: string; child: boolean; current?: boolean }[];   // left sidebar
+  tree?: { name: string; child: boolean; current?: boolean; href?: string; count?: number }[];   // left sidebar (href: link or #anchor; count: notes in folder)
   graph?: { t: string; n: number }[]; graphLabel?: string;        // right rail graph (counts only)
   backlinks?: [string, string][]; backlinkLabel?: string;         // right rail list
   // owner-written (Caldera/profile.md)
@@ -51,6 +51,9 @@ function inviteHref(p: ProfileData): string {
   const body = `Hey,\n\nI'm using Caldera, the social layer for Obsidian. It turns your notes into a living profile that updates itself, and lets our vaults connect: share notes, ask for help, and compare our daily scores.\n\nMy page: ${hub}/@${p.handle || ""}/\n\nSet up takes about 5 minutes - copy one prompt into your AI and it installs everything:\n${join}\n\nThen add me as a friend (${who}) from the Caldera panel in Obsidian.\n\n${p.name}`;
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+/** Anchor id for a heading or note title: "AI usage" -> "ai-usage". */
+export function slug(t: string): string { return t.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "s"; }
 
 /** 7675123642 -> 7.68B, 456865 -> 457K */
 const big = (n: number) => n >= 1e9 ? (n / 1e9).toFixed(2).replace(/\.?0+$/, "") + "B" : n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1e3 ? Math.round(n / 1e3) + "K" : String(n);
@@ -123,17 +126,17 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
-  if (sideOn) parts.push(`<nav class="sidebar tree" aria-label="Vault"><span class="label">Vault</span>${p.tree!.map(r => `<div class="tree-row${r.child ? " child" : ""}${r.current ? " is-current" : ""}"><span>${r.child ? "" : "&#9662; "}${esc(r.name)}</span></div>`).join("")}</nav>`);
+  if (sideOn) parts.push(`<nav class="sidebar tree" aria-label="Vault"><div class="side-inner">%%TOC%%<span class="label">Vault</span>${sidebarTree(p.tree!)}</div></nav>`);
   parts.push(`<main class="note">`);
   if (p.banner || p.avatar) parts.push(`<div class="banner">${p.banner ? `<img class="cover" src="${esc(p.banner)}" alt="">` : ""}${p.avatar ? `<img class="avatar" src="${esc(p.avatar)}" alt="${esc(p.name)}">` : ""}</div>`);
   parts.push(`<div class="page"><div class="crumb">People / ${esc(p.name)}.md${p.handle ? " / @" + esc(p.handle) : ""}</div>
 <h1 class="title">${esc(p.name)}<span class="caret">|</span></h1>${p.headline ? `<p class="lede">${esc(p.headline)}</p>` : ""}`);
 
-  if (s.journal && journal.length) parts.push(`<section class="journal" aria-label="Daily journal"><div class="j-head"><button class="j-nav" id="jprev" aria-label="Previous day">&#8249;</button>
+  if (s.journal && journal.length) parts.push(`<section class="journal" id="journal" aria-label="Daily journal"><div class="j-head"><button class="j-nav" id="jprev" aria-label="Previous day">&#8249;</button>
 <div class="j-title"><div class="label">Daily journal</div><div class="j-date" id="jdate"></div></div><button class="j-nav" id="jnext" aria-label="Next day">&#8250;</button></div>
 <div class="j-body" id="jbody" aria-live="polite"></div></section><script id="journal-data" type="application/json">${JSON.stringify(journal).replace(/</g, "\\u003c")}</script>`);
 
-  if (s.scoreboard && days.length > 2) parts.push(`<section class="scoreboard"><div class="sb-stats">
+  if (s.scoreboard && days.length > 2) parts.push(`<section class="scoreboard" id="scoreboard"><div class="sb-stats">
 <div class="sb-stat"><div class="v">${streak}<small> days</small></div><div class="l">active streak</div></div>
 <div class="sb-stat"><div class="v">#${yrank}</div><div class="l">yesterday's rank of ${days.length - 1} days</div></div>
 <div class="sb-stat"><div class="v">${avg(last7)}</div><div class="l">7-day average, ${trend >= 0 ? `<span class="up">&#9650; ${trend}%</span>` : `<span class="down">&#9660; ${-trend}%</span>`} vs prior week</div></div></div>
@@ -188,7 +191,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     parts.push(`<h2>AI usage</h2><p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc(a.note)}</span>` : ""}</p>${td.some(x => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map(x => `<span class="${x.n >= tpeak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>`);
   }
   if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${p.timeline.map(([y, t]) => `<div class="row"><span class="year">${esc(y)}</span><span>${inline(t)}</span></div>`).join("")}</div>`);
-  if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map(n => `<div class="pnote"><div class="pn-title">${esc(n.title)}</div><div class="pn-ex">${esc(n.excerpt)}</div><div class="pn-date">${esc(n.updated.slice(0, 10))}</div></div>`).join("")}`);
+  if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map(n => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc(n.title)}</div><div class="pn-ex">${esc(n.excerpt)}</div><div class="pn-date">${esc(n.updated.slice(0, 10))}</div></div>`).join("")}`);
   if (s.asks && (p.asks.length || p.offers.length)) parts.push(`<h2>Help exchange</h2><div class="hx-grid">
 <div class="hx-card"><div class="label">I could use help with</div>${p.asks.map(a => `<div class="hx-row"><span>${esc(a.title)}</span><span class="bounty">+${a.bounty}</span></div>`).join("") || '<div class="muted">Nothing right now</div>'}</div>
 <div class="hx-card"><div class="label">I can help with</div>${p.offers.map(o => `<div class="hx-row"><span>${esc(o.title)}</span></div>`).join("") || '<div class="muted">Ask me</div>'}</div></div>`);
@@ -198,11 +201,42 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc(t)}</span><div class="ctx">${esc(c)}</div></div>`).join("")}</div>` : ""}</aside>`);
   parts.push(`</div>`);
   parts.push(`<script>${CLIENT_JS}</script></body></html>`);
-  return { "index.html": parts.join("\n"), "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS };
+  // every h2 gets an anchor; the sidebar's "On this page" lists them (journal + scoreboard first)
+  const toc: [string, string][] = [];
+  if (s.journal && journal.length) toc.push(["journal", "Daily journal"]);
+  if (s.scoreboard && days.length > 2) toc.push(["scoreboard", "Scoreboard"]);
+  const seen = new Set<string>();
+  let html = parts.join("\n").replace(/<h2>([^<]+)<\/h2>/g, (_m, t: string) => { let id = slug(t); while (seen.has(id)) id += "-2"; seen.add(id); toc.push([id, t]); return `<h2 id="${id}">${t}</h2>`; });
+  html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
+  return { "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS };
+}
+
+/** Vault groups: collapsible (native <details>, works without script), linked items, optional note count. */
+function sidebarTree(rows: NonNullable<ProfileData["tree"]>): string {
+  const out: string[] = []; let open = false;
+  const item = (r: (typeof rows)[number]) => {
+    const cls = `tree-row child${r.current ? " is-current" : ""}${r.href ? " is-link" : ""}`;
+    if (!r.href || !/^(https?:\/\/|#[\w-]+$)/.test(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc(r.name)}</span></div>`;
+    const ext = /^https?:\/\//.test(r.href);
+    return `<a class="${cls}" href="${esc(r.href)}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc(r.name)}</span>${ext ? '<span class="ext" aria-hidden="true">&#8599;</span>' : ""}</a>`;
+  };
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (r.child) { out.push(item(r)); continue; }
+    if (open) { out.push(`</details>`); open = false; }
+    const kids = rows.slice(i + 1).findIndex(x => !x.child), n = kids < 0 ? rows.length - i - 1 : kids;
+    const count = r.count != null ? `<span class="count" title="${r.count} notes">${fmt(r.count)}</span>` : n ? `<span class="count">${n}</span>` : "";
+    if (!n) { out.push(`<div class="tree-row group leaf"><span class="caret" aria-hidden="true"></span><span class="g-name">${esc(r.name)}</span>${count}</div>`); open = false; continue; }
+    out.push(`<details class="tree-group" open><summary class="tree-row group"><span class="caret" aria-hidden="true"></span><span class="g-name">${esc(r.name)}</span>${count}</summary>`);
+    open = true;
+  }
+  if (open) out.push(`</details>`);
+  return out.join("");
 }
 
 /** Tiny client script: "synced ago" + flippable journal. */
-const CLIENT_JS = `(function(){var a=document.getElementById('ago');if(a){var t=Date.parse(a.dataset.ts);var f=function(){var m=Math.max(0,Math.round((Date.now()-t)/60000));a.textContent=m<60?m+'m ago':Math.floor(m/60)+'h '+(m%60)+'m ago'};f();setInterval(f,30000)}
+const CLIENT_JS = `(function(){var L=[].slice.call(document.querySelectorAll('.toc a'));if(!L.length||!window.IntersectionObserver)return;var by={};L.forEach(function(a){by[a.getAttribute('href').slice(1)]=a});var cur;var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){if(cur)cur.classList.remove('is-active');cur=by[e.target.id];if(cur)cur.classList.add('is-active')}})},{rootMargin:'0px 0px -70% 0px'});Object.keys(by).forEach(function(id){var el=document.getElementById(id);if(el)io.observe(el)})})();
+(function(){var a=document.getElementById('ago');if(a){var t=Date.parse(a.dataset.ts);var f=function(){var m=Math.max(0,Math.round((Date.now()-t)/60000));a.textContent=m<60?m+'m ago':Math.floor(m/60)+'h '+(m%60)+'m ago'};f();setInterval(f,30000)}
 var el=document.getElementById('journal-data');if(!el)return;var days=JSON.parse(el.textContent);if(!days.length)return;var i=Math.max(0,days.length-2);
 var body=document.getElementById('jbody'),dt=document.getElementById('jdate'),pv=document.getElementById('jprev'),nx=document.getElementById('jnext');
 var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};

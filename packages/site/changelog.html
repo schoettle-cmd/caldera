@@ -13,6 +13,7 @@
 
 
 
+
 <link rel="canonical" href="https://caldera.social/changelog">
 </head>
 <body>
@@ -26,8 +27,14 @@
   <h1>What's new</h1>
   <p class="lead-in">Every Caldera release. When something ships, Caldera also shows its owner a short alert inside Obsidian. Follow along with the <a href="releases.xml">RSS feed</a>.</p>
   <!-- RELEASES_START -->
+  <article class="release" id="v0.3.5">
+    <div class="release-meta"><span class="tag">0.3.5</span><time datetime="2026-10-11">2026-10-11</time><span>latest</span></div>
+    <h2>A working Vault sidebar: links, folding groups, note counts and an On this page guide</h2>
+    <ul><li>Sidebar items now link: a project opens its site, a public note or topic jumps to it on your page. Items that match nothing stay plain text.</li><li>Groups fold and unfold, and show how many items they hold. Add a folder to a group (Group | items | folder) to show how many notes that folder has - a count only, file names never leave your vault.</li><li>Empty groups are hidden instead of showing a bare heading.</li><li>New On this page list at the top of the sidebar jumps to every section and highlights where you are as you scroll. On phones it becomes a scrollable bar of section links.</li></ul>
+    <p class="howto">Optional: in Caldera/profile.md, add a folder to a sidebar group, e.g. "Concepts | | wiki/concepts".</p>
+  </article>
   <article class="release" id="v0.3.2">
-    <div class="release-meta"><span class="tag">0.3.2</span><time datetime="2026-10-11">2026-10-11</time><span>latest</span></div>
+    <div class="release-meta"><span class="tag">0.3.2</span><time datetime="2026-10-11">2026-10-11</time></div>
     <h2>Stronger privacy: journal lines that look sensitive are never published</h2>
     <ul><li>Caldera now checks every journal line before publishing and drops any that mention other people's names, meetings or their times, places and addresses, secret or unannounced work, money, legal, health, HR or family matters, or contact details. Only names you already made public on your page (your projects, topics and links) are allowed.</li><li>All AI prompts carry one stricter privacy policy: never reveal who you met, where or when, secret projects, or anything that could get someone in trouble. When unsure, leave it out.</li><li>New Learn pages at caldera.social/learn answer common questions about Obsidian profiles, private sharing and AI agents.</li></ul>
     <p class="howto">Nothing to do: the filter runs automatically on your next publish.</p>
@@ -56,7 +63,7 @@
   </article>
   <!-- RELEASES_END -->
 </main>
-<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
+<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

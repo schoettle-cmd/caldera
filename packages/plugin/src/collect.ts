@@ -12,7 +12,7 @@
  *                   "docs": 6, "headline": "...", "focus": [], "wins": [], "themes": [] } ] }
  */
 import { App, TFile, getAllTags } from "obsidian";
-import type { DailyEntry, ProfileData } from "./render";
+import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
 
@@ -101,10 +101,27 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
 
   const topTopics = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]);
   const notesSorted = publicNotes.sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 12);
-  const tree: NonNullable<ProfileData["tree"]> = [{ name: "People", child: false }, { name: s.name || "Me", child: true, current: true }];
-  const groups: [string, string[]][] = s.tree?.length ? s.tree.map(([g, items]) => [g, items.split(",").map(x => x.trim()).filter(Boolean)])
+  // left sidebar: owner-chosen groups. Items become links when they match a project (its URL), a public note or a page
+  // section; a group's optional folder shows a note count (count only, file names never leave the vault).
+  const tree: NonNullable<ProfileData["tree"]> = [{ name: "People", child: false }, { name: s.name || "Me", child: true, current: true, href: "#top" }];
+  const projUrl = new Map((s.projects || []).map(([n, rest]) => [n.toLowerCase(), (rest.split("|")[1] || "").trim()]));
+  const noteIds = new Set(notesSorted.map(n => n.title.toLowerCase()));
+  const hrefFor = (it: string): string | undefined => {
+    const k = it.toLowerCase(), u = projUrl.get(k);
+    if (u !== undefined) return /^https?:\/\//.test(u) ? u : "#projects";
+    if (noteIds.has(k)) return "#" + slug("note-" + it);
+    if (topTopics.some(t => t[0].toLowerCase() === k)) return "#topics";
+    return undefined;
+  };
+  const folderCount = (folder?: string) => { if (!folder) return undefined; const pre = folder.replace(/^\/+|\/+$/g, "") + "/"; const n = md.filter(f => f.path.startsWith(pre)).length; return n || undefined; };
+  const groups: [string, string[], string?][] = s.tree?.length ? s.tree.map(([g, items, folder]) => [g, items.split(",").map(x => x.trim()).filter(Boolean), folder])
     : [["Topics", topTopics.slice(0, 5).map(t => t[0])], ["Notes", notesSorted.slice(0, 5).map(n => n.title)]];
-  for (const [g, items] of groups) { if (!items.length && !s.tree?.length) continue; tree.push({ name: g, child: false }); for (const it of items) tree.push({ name: it, child: true }); }
+  for (const [g, items, folder] of groups) {
+    const count = folderCount(folder);
+    if (!items.length && !count) continue;              // an empty group is noise
+    tree.push({ name: g, child: false, count });
+    for (const it of items) tree.push({ name: it, child: true, href: hrefFor(it) });
+  }
   const graph = (s.graph?.length ? s.graph.map(n => ({ t: n, n: linkCount(n) })) : topTopics.slice(0, 12).map(([t, n]) => ({ t, n }))).slice(0, 16);
   const backlinks: [string, string][] = s.backlinks?.length ? s.backlinks : notesSorted.slice(0, 6).map(n => [n.title, n.excerpt.slice(0, 70)]);
 
@@ -158,3 +175,4 @@ function asList(v: unknown): string[] {
   if (typeof v === "string" && v.trim()) return [v.trim()];
   return [];
 }
+

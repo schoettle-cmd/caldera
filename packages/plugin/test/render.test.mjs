@@ -68,6 +68,19 @@ test("three columns: vault sidebar, graph + backlinks rail; switchable; escaped"
   assert.ok(!off.includes('class="sidebar tree"') && !off.includes('class="rail"'));
 });
 
+test("vault sidebar: linked items, collapsible groups, folder counts, on-this-page anchors", () => {
+  const p = { ...sample(), tree: [{ name: "People", child: false }, { name: "Ana", child: true, current: true, href: "#top" },
+      { name: "Projects", child: false }, { name: "Garden app", child: true, href: "https://garden.example" }, { name: "Plain", child: true },
+      { name: "Bad", child: true, href: "javascript:alert(1)" }, { name: "Concepts", child: false, count: 54 }] };
+  const html = renderProfile(p)["index.html"];
+  assert.ok(html.includes('<details class="tree-group" open>') && html.includes('href="https://garden.example" target="_blank" rel="noopener"'));
+  assert.ok(html.includes('<div class="tree-row child"><span>Plain</span></div>'), "unmatched items stay plain text");
+  assert.ok(/class="tree-row group leaf">.*Concepts.*title="54 notes">54</.test(html), "folder-only group shows its count without a caret");
+  assert.ok(html.includes('aria-current="page"') && !html.includes("javascript:"), "current marked; only http(s) and #anchors link");
+  const toc = html.match(/<div class="toc">(.*?)<\/div>/)[1];
+  for (const id of [...toc.matchAll(/href="#([^"]+)"/g)].map(m => m[1])) assert.ok(html.includes(`id="${id}"`), `anchor #${id} exists`);
+});
+
 test("full page: summary/now/activity/growth/knows/inbox/projects/code/timeline; safe inline links", () => {
   const heat = Array.from({ length: 30 }, (_, i) => ({ date: day(29 - i), n: i % 7 }));
   const p = { ...sample(),
@@ -80,20 +93,20 @@ test("full page: summary/now/activity/growth/knows/inbox/projects/code/timeline;
     code: { commits: 5706, repos: 29, languages: ["HTML", "Python"], weekly: [0, 3, 10, 4], url: "https://github.com/x", start: "Feb 2026" },
     extraNumbers: [["121", "daily digests written"]] };
   const html = renderProfile(p)["index.html"];
-  for (const h of ["Summary", "<h2>Now</h2>", "<h2>Activity</h2>", "<h2>Growth</h2>", "<h2>What it knows</h2>", "<h2>Inbox to knowledge</h2>", "<h2>Projects</h2>", "<h2>Code</h2>", "<h2>Timeline</h2>", "daily digests written", "Your best other days"])
+  for (const h of ["Summary", ">Now</h2>", ">Activity</h2>", ">Growth</h2>", ">What it knows</h2>", ">Inbox to knowledge</h2>", ">Projects</h2>", ">Code</h2>", ">Timeline</h2>", "daily digests written", "Your best other days"])
     assert.ok(html.includes(h), "missing " + h);
   assert.ok(html.includes('<a href="https://example.com/venice" rel="noopener">Venice</a>') && html.includes("<b>Bold</b>"));
   assert.ok(!/href="javascript/i.test(html), "no javascript: links anywhere");
   assert.ok(!html.includes("<b>raw</b>"), "raw HTML in text is escaped");
   const off = renderProfile({ ...p, sections: { ...p.sections, code: false, timeline: false, inbox: false } })["index.html"];
-  assert.ok(!off.includes("<h2>Code</h2>") && !off.includes("<h2>Timeline</h2>") && !off.includes("Inbox to knowledge"));
+  assert.ok(!off.includes(">Code</h2>") && !off.includes(">Timeline</h2>") && !off.includes("Inbox to knowledge"));
 });
 
 test("AI usage: totals, per-day bars, model and provider shares; hidden when off or empty", () => {
   const p = { ...sample(), daily: sample().daily.map((d, i) => ({ ...d, tokens: i * 1e8 })),
     ai: { total: 7_675_123_642, window_days: 45, models: [["Claude Opus 5.5", 5_930_000_000], ["GPT-5 <x>", 256_000]], providers: [["Anthropic", 7_674_000_000], ["OpenAI", 712_069]], note: "Counts only." } };
   const html = renderProfile(p)["index.html"];
-  assert.ok(html.includes("<h2>AI usage</h2>") && html.includes("<b>7.68B</b> tokens") && html.includes("Models / share of tokens") && html.includes("Providers"));
+  assert.ok(html.includes(">AI usage</h2>") && html.includes("<b>7.68B</b> tokens") && html.includes("Models / share of tokens") && html.includes("Providers"));
   assert.ok(html.includes("77.3%") && html.includes("&lt;0.1%") && !html.includes("GPT-5 <x>"), "shares + escaping");
   assert.ok(!renderProfile({ ...p, sections: { ...p.sections, ai: false } })["index.html"].includes("AI usage"));
   assert.ok(!renderProfile(sample())["index.html"].includes("AI usage"));
