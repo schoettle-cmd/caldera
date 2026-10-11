@@ -118,3 +118,11 @@ test("timeline: eras, detail lines (links with | survive), repeated years shown 
   assert.ok(html.includes('<a href="https://u.example"') && html.includes('<div class="detail">Chat for the &lt;early&gt; web</div>'));
   assert.ok(html.includes('class="row same"><span class="year"></span>'));
 });
+
+test("leaderboard invite: buttons open one invite panel with the inviter's link", () => {
+  const days = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-0${i}`, counts: { notes: i } }));
+  const html = renderProfile({ ...sample(), handle: "ana", hub: "https://caldera.social", daily: days, sections: { ...sample().sections, scoreboard: true } })["index.html"];
+  assert.equal((html.match(/data-invite href=/g) || []).length, 3);
+  assert.equal((html.match(/class="invite-pop"/g) || []).length, 1);
+  assert.ok(html.includes('data-url="https://caldera.social/?invite=ana#install"') && html.includes("Copy link"));
+});

@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.3.10",
+      "date": "2026-10-11",
+      "title": "One-tap invites from your leaderboard",
+      "items": [
+        "'Invite a friend' on your leaderboard now opens an invite panel: copy your personal invite link, or send it by email, text or your phone's share sheet.",
+        "Friends who use your link land on the install page and see who invited them."
+      ]
+    },
+    {
       "version": "0.3.9",
       "date": "2026-10-11",
       "title": "Activity heatmap you can read: hover any day",
