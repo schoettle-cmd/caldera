@@ -1,14 +1,14 @@
 {
   "releases": [
     {
-      "version": "0.3.5",
+      "version": "0.3.6",
       "date": "2026-10-11",
       "title": "A working Vault sidebar: links, folding groups, note counts and an On this page guide",
       "items": [
         "Sidebar items now link: a project opens its site, a public note or topic jumps to it on your page. Items that match nothing stay plain text.",
         "Groups fold and unfold, and show how many items they hold. Add a folder to a group (Group | items | folder) to show how many notes that folder has - a count only, file names never leave your vault.",
         "Empty groups are hidden instead of showing a bare heading.",
-        "New On this page list at the top of the sidebar jumps to every section and highlights where you are as you scroll. On phones it becomes a scrollable bar of section links."
+        "New On this page list at the top of the sidebar jumps to every section and highlights where you are as you scroll. On phones it becomes a sticky bar of section links that follows along."
       ],
       "howto": "Optional: in Caldera/profile.md, add a folder to a sidebar group, e.g. \"Concepts | | wiki/concepts\"."
     },
