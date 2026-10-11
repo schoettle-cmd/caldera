@@ -193,3 +193,11 @@ section h2 { line-height: 1.12; }
 .release ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .release .howto { margin: 12px 0 0; padding: 10px 14px; border-left: 2px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-md) var(--radius-md) 0; font-size: 14.5px; }
 @media (max-width: 720px) { .ways { grid-template-columns: 1fr; } }
+
+/* --- Invite banner ------------------------------------------------------ */
+.invited { display: flex; align-items: center; gap: 14px; margin: 24px 0 -40px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: var(--radius-lg); background: var(--accent-soft); font-size: 15px; }
+.invited[hidden] { display: none; }
+.invited-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; }
+.invited > div { flex: 1; min-width: 0; }
+.invited b { color: var(--text-strong); }
+@media (max-width: 560px) { .invited { flex-wrap: wrap; margin-bottom: -24px; } .invited .btn { width: 100%; justify-content: center; } }

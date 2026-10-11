@@ -18,3 +18,18 @@ document.querySelectorAll(".prompt-expand").forEach(function (b) {
     b.textContent = open ? "Collapse" : "Show the full prompt"; b.setAttribute("aria-expanded", String(open));
   });
 });
+/* invite: caldera.social/?invite=<handle> greets the friend with who invited them */
+(function () {
+  var box = document.getElementById("invited"); if (!box) return;
+  var h = (new URLSearchParams(location.search).get("invite") || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
+  if (!h) return;
+  fetch("v1/profiles/" + h).then(function (r) { return r.ok ? r.json() : null; }).then(function (p) {
+    if (!p) return;
+    document.getElementById("invited-name").textContent = p.name || "@" + h;
+    document.getElementById("invited-handle").textContent = "@" + h;
+    var av = p.manifest && p.manifest.body && p.manifest.body.photos && p.manifest.body.photos.avatar;
+    var img = document.getElementById("invited-av");
+    if (av) img.src = "@" + h + "/" + String(av).replace(/^\.?\//, ""); else img.remove();
+    box.hidden = false;
+  }).catch(function () {});
+})();

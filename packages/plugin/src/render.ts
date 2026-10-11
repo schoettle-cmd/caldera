@@ -42,6 +42,16 @@ export interface ProfileData {
   ai?: { total: number; window_days?: number; models: [string, number][]; providers?: [string, number][]; note?: string };   // AI tokens, counts only
 }
 
+/** Pre-written invite email; the link carries the inviter's handle so caldera.social can greet the friend. */
+function inviteHref(p: ProfileData): string {
+  const hub = (p.hub || "https://caldera.social").replace(/\/$/, "");
+  const who = p.handle ? `@${p.handle}` : p.name;
+  const join = `${hub}/${p.handle ? `?invite=${encodeURIComponent(p.handle)}` : ""}#install`;
+  const subject = `Join me on Caldera`;
+  const body = `Hey,\n\nI'm using Caldera, the social layer for Obsidian. It turns your notes into a living profile that updates itself, and lets our vaults connect: share notes, ask for help, and compare our daily scores.\n\nMy page: ${hub}/@${p.handle || ""}/\n\nSet up takes about 5 minutes - copy one prompt into your AI and it installs everything:\n${join}\n\nThen add me as a friend (${who}) from the Caldera panel in Obsidian.\n\n${p.name}`;
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 /** 7675123642 -> 7.68B, 456865 -> 457K */
 const big = (n: number) => n >= 1e9 ? (n / 1e9).toFixed(2).replace(/\.?0+$/, "") + "B" : n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1e3 ? Math.round(n / 1e3) + "K" : String(n);
 
@@ -130,7 +140,7 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <div class="sb-bars" role="img" aria-label="Daily activity score">${days.slice(-30).map((d, i, a) => `<span class="${i === a.length - 2 ? "yday" : i === a.length - 1 ? "today" : ""}" style="height:${Math.max(2, Math.round(d.score / smax * 100))}%" title="${d.date}: ${d.score}"></span>`).join("")}</div><div class="bars-legend"><span>${Math.min(30, days.length)} days ago</span><span>yesterday highlighted / today in progress</span></div>
 ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) => b.d.score - a.d.score).slice(0, 5);
     const lb = [`<div class="lb-row me"><span class="rank">1</span><span class="who">You</span><span class="num">${fmt(days.slice(-8, -1).reduce((x, d) => x + d.score, 0))}</span></div>`]
-      .concat([2, 3, 4].map(r => `<div class="lb-row empty"><span class="rank">${r}</span><span class="who">Invite a friend</span><span class="num">-</span></div>`));
+      .concat([2, 3, 4].map(r => `<div class="lb-row empty"><span class="rank">${r}</span><a class="who" href="${esc(inviteHref(p))}" target="_blank" rel="noopener">Invite a friend</a><span class="num">-</span></div>`));
     return `<div class="two-col sb-lower"><div><div class="label">Leaderboard / points this week</div>${lb.join("")}</div><div><div class="label">Your best other days</div>${best.map((b, k) => `<div class="lb-row"><span class="rank">${k + 1}</span><span class="who">${esc(new Date(b.d.date + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }))}</span><span class="num">${b.d.score}</span></div>`).join("")}</div></div>`; })()}
 <details class="sb-how"><summary>How the score works</summary>Weighted daily counts: ${Object.entries(ACTIVITY_WEIGHTS).map(([k, w]) => `${labels[k] || k} x${w}`).join(", ")}. Bulk imports are capped. Counts only.</details></section>`);
 
