@@ -98,10 +98,16 @@ export default class CalderaPlugin extends Plugin {
 
   // ---------------------------------------------------------------- profile
   /** Link counts are only right once Obsidian has resolved every link (it re-indexes after a restart). */
+  /** Wait until Obsidian has indexed every note (so link counts are right), at most 10s. Obsidian has no public
+   *  "resolved" flag and the "resolved" event may already have fired, so check the caches directly. */
   private linksResolved(): Promise<void> {
-    const mc = this.app.metadataCache as any;
-    if (mc.resolved) return Promise.resolve();
-    return new Promise(r => { const ref = this.app.metadataCache.on("resolved", () => { this.app.metadataCache.offref(ref); r(); }); window.setTimeout(r, 90_000); });
+    const mc = this.app.metadataCache;
+    const ready = () => this.app.vault.getMarkdownFiles().every(f => mc.getFileCache(f));
+    if (ready()) return Promise.resolve();
+    return new Promise(r => {
+      const t0 = Date.now();
+      const tick = window.setInterval(() => { if (ready() || Date.now() - t0 > 10_000) { window.clearInterval(tick); r(); } }, 250);
+    });
   }
 
   private async build() {
@@ -171,6 +177,7 @@ export default class CalderaPlugin extends Plugin {
   }
 
   async publish(quiet = false): Promise<string | null> {
+    this.lastPublishError = "";
     try {
       if (!this.settings.handle) throw new Error("Set a handle in Caldera settings first");
       const me = await this.ensureIdentity();
@@ -189,8 +196,9 @@ export default class CalderaPlugin extends Plugin {
       const url = this.profileUrl();
       if (!quiet) new Notice(`Published: ${url}`);
       return url;
-    } catch (e: any) { new Notice("Caldera publish failed: " + e.message); return null; }
+    } catch (e: any) { this.lastPublishError = e.message; if (!quiet) new Notice("Caldera publish failed: " + e.message); else console.warn("Caldera publish failed:", e.message); return null; }
   }
+  lastPublishError = "";
 
   profileUrl() { return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`; }
   openProfile() { if (this.settings.handle) window.open(this.profileUrl()); else new WelcomeModal(this.app, this).open(); }
@@ -435,11 +443,16 @@ class WelcomeModal extends Modal {
         const me = await this.plugin.ensureIdentity(true);
         const r = await requestUrl({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
         if (r.status === 200 && r.json?.id !== me.id) { status.setText(`@${handle} is taken. Try another.`); b.setDisabled(false); b.setButtonText("Create my profile"); return; }
-        Object.assign(s, { name, handle, headline, listed, welcomed: true });
+        Object.assign(s, { name, handle, headline, listed });
         if (!s.autoPublishHours) s.autoPublishHours = 6;
-        await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish();
+        await this.plugin.saveSettings();
         const url = await this.plugin.publish(true);
-        if (!url) { status.setText("Publishing failed. Check your connection and try again."); b.setDisabled(false); b.setButtonText("Create my profile"); return; }
+        if (!url) {   // stay un-welcomed so this screen comes back next time
+          const why = this.plugin.lastPublishError;
+          status.setText(why && !/network|fetch|ENOTFOUND|timed out/i.test(why) ? `Publishing failed: ${why}` : "Publishing failed. Check your connection and try again.");
+          b.setDisabled(false); b.setButtonText("Create my profile"); return;
+        }
+        s.welcomed = true; await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish();
         await ensureProfileFile(this.app, s, s.hubUrl).catch(() => {});
         window.open(url);
         this.done(url);

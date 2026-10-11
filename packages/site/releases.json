@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.3.13",
+      "date": "2026-10-11",
+      "title": "Fix: first profile publishes in about a second (was up to 90 seconds)",
+      "items": [
+        "Creating your profile from the Welcome screen could sit on 'Publishing...' for up to a minute and a half while Caldera waited for Obsidian to finish indexing. It now checks directly and publishes right away. Every later publish is faster too.",
+        "If publishing fails, the Welcome screen now says why, and it comes back next time you open Obsidian until your profile is live."
+      ],
+      "howto": "If you installed Caldera and your profile never appeared, run 'Caldera: Set up my profile (welcome)' from the command palette."
+    },
+    {
       "version": "0.3.12",
       "date": "2026-10-11",
       "title": "AI usage shows where your tokens come from",
