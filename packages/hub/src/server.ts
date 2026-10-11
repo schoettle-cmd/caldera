@@ -13,7 +13,7 @@ import * as C from "@caldera/core";
 
 const hashToken = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 
-export interface HubOptions { dataDir: string; port?: number; publicUrl?: string; siteDir?: string; trustProxy?: boolean; limits?: { perMinute?: number; writesPerMinute?: number; newProfilesPerDay?: number }; }
+export interface HubOptions { dataDir: string; port?: number; publicUrl?: string; siteDir?: string; trustProxy?: boolean; onEvent?: (e: { type: "signup" | "delete"; handle?: string; name?: string; total: number }) => void; limits?: { perMinute?: number; writesPerMinute?: number; newProfilesPerDay?: number }; }
 
 const MAX_BODY = 12 * 1024 * 1024;
 const RESERVED = new Set(["admin", "api", "www", "caldera", "help", "support", "root", "hub", "v1", "about", "login", "settings", "official", "team", "security", "obsidian"]);
@@ -94,11 +94,14 @@ export function createHub(opts: HubOptions) {
            headline=excluded.headline, manifest=excluded.manifest, updated=excluded.updated`)
           .run(e.from, handle || null, b.boxKey || "", b.name || "", b.headline || "", JSON.stringify(e), e.ts, existing?.created || now());
         storeEnvelope(e, null);
+        if (!existing) emit({ type: "signup", handle, name: b.name || "", total: (q("SELECT COUNT(*) c FROM profiles").get() as any).c });
         return { status: 200, body: { ok: true, id: e.from, handle } };
       }
       case "profile.delete": {
         // Owner-signed erasure: profile, page files, friendships, asks, offers, gravity, ledger and stored envelopes.
+        const gone = profile(e.from);
         erase(e.from);
+        if (gone) emit({ type: "delete", handle: gone.handle, name: gone.name, total: (q("SELECT COUNT(*) c FROM profiles").get() as any).c });
         return { status: 200, body: { ok: true, deleted: e.from } };
       }
       case "friend.request": {
@@ -172,6 +175,8 @@ export function createHub(opts: HubOptions) {
         return { status: 200, body: { ok: true, ignored: e.type } };   // unknown types are ignored, not rejected
     }
   }
+
+  const emit = (ev: Parameters<NonNullable<HubOptions["onEvent"]>>[0]) => { try { opts.onEvent?.(ev); } catch { /* never let a notifier break a request */ } };
 
   function erase(id: string) {
     const pr = profile(id);
@@ -398,7 +403,21 @@ export function createHub(opts: HubOptions) {
 
 // CLI: node dist/server.js  (env: CALDERA_DATA, PORT, CALDERA_PUBLIC_URL)
 if (import.meta.url === `file://${process.argv[1]}` && /server\.js$/.test(process.argv[1] || "")) {
+  // Owner alerts on signups/deletions: Telegram and/or email (Resend). Both optional, fire-and-forget.
+  const tg = process.env.CALDERA_TELEGRAM_TOKEN, chat = process.env.CALDERA_TELEGRAM_CHAT, site = process.env.CALDERA_PUBLIC_URL || "https://caldera.social";
+  const resend = process.env.CALDERA_RESEND_KEY, mailTo = process.env.CALDERA_NOTIFY_EMAIL, mailFrom = process.env.CALDERA_NOTIFY_FROM || "Caldera <inbox@caldera.social>";
+  const onEvent: HubOptions["onEvent"] = (tg && chat) || (resend && mailTo) ? (ev) => {
+    const who = ev.handle ? `@${ev.handle}` : "(no handle)";
+    const subject = ev.type === "signup" ? `New Caldera profile: ${who} (${ev.total} total)` : `Caldera profile deleted: ${who} (${ev.total} total)`;
+    const text = ev.type === "signup" ? `New Caldera profile: ${who}${ev.name ? ` (${ev.name})` : ""}\nTotal profiles: ${ev.total}\n${site}/@${ev.handle || ""}/\n\nAll profiles: ${site}/people.html`
+      : `Caldera profile deleted: ${who}. Total profiles: ${ev.total}`;
+    const warn = (what: string) => (r: Response) => { if (!r.ok) console.error(what + " notify failed", r.status); };
+    if (tg && chat) fetch(`https://api.telegram.org/bot${tg}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }) })
+      .then(warn("telegram")).catch(err => console.error("telegram notify error", String(err)));
+    if (resend && mailTo) fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resend, "content-type": "application/json" }, body: JSON.stringify({ from: mailFrom, to: [mailTo], subject, text }) })
+      .then(warn("email")).catch(err => console.error("email notify error", String(err)));
+  } : undefined;
   const hub = createHub({ dataDir: process.env.CALDERA_DATA || "./data", port: Number(process.env.PORT || 8787), publicUrl: process.env.CALDERA_PUBLIC_URL || "",
-    siteDir: process.env.CALDERA_SITE || undefined, trustProxy: process.env.CALDERA_TRUST_PROXY === "1" });
+    siteDir: process.env.CALDERA_SITE || undefined, trustProxy: process.env.CALDERA_TRUST_PROXY === "1", onEvent });
   hub.listen().then(p => console.log(`Caldera Hub listening on :${p}`));
 }

@@ -149,3 +149,17 @@ test("directory: lists listed profiles, honours listed:false, hides moderated, a
   hub.admin.block("impostor");
   assert.equal((await post("/v1/envelopes", manifest(ana, "impostor", "Fake", 1))).status, 403, "blocked handle cannot be claimed");
 });
+
+test("onEvent: signup fires once per new profile, not on updates; delete fires", async () => {
+  const fs2 = await import("node:fs"), os2 = await import("node:os"), path2 = await import("node:path");
+  const dir2 = fs2.mkdtempSync(path2.join(os2.tmpdir(), "caldera-ev-")), events = [];
+  const h2 = createHub({ dataDir: dir2, onEvent: e => events.push(e) });
+  const b2 = "http://127.0.0.1:" + await h2.listen(0);
+  const p2 = (body) => fetch(b2 + "/v1/envelopes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(r => r.status);
+  const z = C.newIdentity();
+  assert.equal(await p2(manifest(z, "zed", "Zed", 1)), 200);
+  assert.equal(await p2(manifest(z, "zed", "Zed again", 2)), 200);
+  assert.equal(await p2(C.sign(z, "profile.delete", {})), 200);
+  assert.deepEqual(events.map(e => e.type + ":" + e.handle + ":" + e.total), ["signup:zed:1", "delete:zed:0"]);
+  h2.server.close(); fs2.rmSync(dir2, { recursive: true, force: true });
+});
