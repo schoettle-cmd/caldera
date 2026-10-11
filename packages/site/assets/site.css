@@ -17,7 +17,13 @@ main { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 .btn:hover { text-decoration: none; filter: brightness(1.08); }
 .btn.ghost { background: transparent; color: var(--text-strong); border: 1px solid var(--line-strong); }
 .btn.small { min-height: 38px; padding: 0 16px; font-size: 14px; }
-@media (max-width: 720px) { .nav nav { display: none; } .nav { justify-content: space-between; } }
+/* phones: logo + button on the first row, links on a second row that scrolls sideways (they used to be hidden) */
+@media (max-width: 720px) {
+  .nav { flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; padding: 10px 16px 0; }
+  .nav nav { order: 3; flex: 1 0 100%; flex-wrap: nowrap; gap: 20px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .nav nav::-webkit-scrollbar { display: none; }
+  .nav nav a { white-space: nowrap; font-size: 14px; padding: 4px 0; }
+}
 
 .hero { padding: 96px 0 72px; position: relative; }
 .hero::before { content: ""; position: absolute; inset: 20px -10% auto auto; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 35%, transparent), transparent 65%); filter: blur(20px); z-index: -1; animation: drift 14s ease-in-out infinite; }
