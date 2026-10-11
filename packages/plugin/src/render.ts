@@ -190,7 +190,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     const bars = (rows: [string, number][], alt = false) => { const m = Math.max(1, ...rows.map(r => r[1])); return rows.map(([l, n]) => `<div class="hbar"><span>${esc(l)}</span><span class="track"><span class="fill${alt ? " alt" : ""}" style="width:${(n / m * 100).toFixed(1)}%"></span></span><span class="num" title="${fmt(n)} tokens">${share(n) >= 0.1 ? share(n) + "%" : "&lt;0.1%"}</span></div>`).join(""); };
     parts.push(`<h2>AI usage</h2><p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc(a.note)}</span>` : ""}</p>${td.some(x => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map(x => `<span class="${x.n >= tpeak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>`);
   }
-  if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${p.timeline.map(([y, t]) => `<div class="row"><span class="year">${esc(y)}</span><span>${inline(t)}</span></div>`).join("")}</div>`);
+  if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${timelineRows(p.timeline)}</div>`);
   if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map(n => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc(n.title)}</div><div class="pn-ex">${esc(n.excerpt)}</div><div class="pn-date">${esc(n.updated.slice(0, 10))}</div></div>`).join("")}`);
   if (s.asks && (p.asks.length || p.offers.length)) parts.push(`<h2>Help exchange</h2><div class="hx-grid">
 <div class="hx-card"><div class="label">I could use help with</div>${p.asks.map(a => `<div class="hx-row"><span>${esc(a.title)}</span><span class="bounty">+${a.bounty}</span></div>`).join("") || '<div class="muted">Nothing right now</div>'}</div>
@@ -232,6 +232,23 @@ function sidebarTree(rows: NonNullable<ProfileData["tree"]>): string {
   }
   if (open) out.push(`</details>`);
   return out.join("");
+}
+
+/** Split "text | detail" on the last " | " outside [[Label|url]] links. */
+function splitDetail(t: string): [string, string] {
+  const masked = t.replace(/\[\[[^\]]*\]\]/g, m => "x".repeat(m.length)), i = masked.lastIndexOf(" | ");
+  return i < 0 ? [t, ""] : [t.slice(0, i).trim(), t.slice(i + 3).trim()];
+}
+
+/** Timeline: "year | text | optional detail"; "era | Name | 1995-2006" starts a section. A repeated year shows once. */
+function timelineRows(rows: [string, string][]): string {
+  let prev = "";
+  return rows.map(([y, t]) => {
+    const [main, detail] = splitDetail(t);
+    if (y.trim().toLowerCase() === "era") { prev = ""; return `<div class="era"><span class="era-name">${inline(main)}</span>${detail ? `<span class="era-range">${esc(detail)}</span>` : ""}</div>`; }
+    const same = y === prev; prev = y;
+    return `<div class="row${same ? " same" : ""}"><span class="year">${same ? "" : esc(y)}</span><span class="dot" aria-hidden="true"></span><div class="what"><div>${inline(main)}</div>${detail ? `<div class="detail">${inline(detail)}</div>` : ""}</div></div>`;
+  }).join("");
 }
 
 /** Tiny client script: "synced ago" + flippable journal. */

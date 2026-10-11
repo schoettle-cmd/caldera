@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "0.3.7",
+      "date": "2026-10-11",
+      "title": "A richer Timeline: chapters, detail lines and a connected rail",
+      "items": [
+        "Timeline entries can carry a short second line: Year | what happened | detail.",
+        "Group your story into chapters with era | Name | 1995-2006.",
+        "The timeline now draws as a connected rail with a dot per milestone; a repeated year is shown once."
+      ],
+      "howto": "Ask your AI: 'Rebuild my Caldera timeline from my notes, in chapters, with a detail line per milestone. Public facts only.'"
+    },
+    {
       "version": "0.3.6",
       "date": "2026-10-11",
       "title": "A working Vault sidebar: links, folding groups, note counts and an On this page guide",

@@ -92,7 +92,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
 - **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
 - **now** - what you're doing now, one line each.
-- **timeline** - \`Year | what happened\`.
+- **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
 - **projects** - \`Name | status | https://link\`.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
 - **tabs** - extra tab labels in the top bar, like \`Now.md\`.

@@ -111,3 +111,10 @@ test("AI usage: totals, per-day bars, model and provider shares; hidden when off
   assert.ok(!renderProfile({ ...p, sections: { ...p.sections, ai: false } })["index.html"].includes("AI usage"));
   assert.ok(!renderProfile(sample())["index.html"].includes("AI usage"));
 });
+
+test("timeline: eras, detail lines (links with | survive), repeated years shown once", () => {
+  const html = renderProfile({ ...sample(), timeline: [["era", "Founder | 1995-2006"], ["2001", "Founded [[Userplane|https://u.example]] | Chat for the <early> web"], ["2001", "Second thing"], ["era", "Investor"]] })["index.html"];
+  assert.ok(html.includes('<span class="era-name">Founder</span><span class="era-range">1995-2006</span>'));
+  assert.ok(html.includes('<a href="https://u.example"') && html.includes('<div class="detail">Chat for the &lt;early&gt; web</div>'));
+  assert.ok(html.includes('class="row same"><span class="year"></span>'));
+});
