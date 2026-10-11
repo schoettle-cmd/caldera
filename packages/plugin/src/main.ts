@@ -309,8 +309,9 @@ class CalderaView extends ItemView {
       return;
     }
     const stats = el.createDiv("caldera-stats");
-    for (const [v, l] of [[p.social.friends, "friends"], [p.social.gravity, "gravity"], [p.social.credits, "credits"]] as const)
-      stats.createDiv({ cls: "caldera-stat" }).innerHTML = `<b>${v}</b><span>${l}</span>`;
+    for (const [v, l] of [[p.social.friends, "friends"], [p.social.gravity, "gravity"], [p.social.credits, "credits"]] as const) {
+      const st = stats.createDiv({ cls: "caldera-stat" }); st.createEl("b", { text: String(v) }); st.createSpan({ text: String(l) });
+    }
     const actions = el.createDiv("caldera-actions");
     actions.createEl("button", { text: "Preview" }).onclick = () => p.preview();
     actions.createEl("button", { text: "Publish", cls: "mod-cta" }).onclick = () => p.publish();

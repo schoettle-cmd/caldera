@@ -53,10 +53,9 @@ export class CalderaSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this; const s = this.plugin.settings;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Caldera" });
     containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
 
-    containerEl.createEl("h3", { text: "Identity" });
+    new Setting(containerEl).setName("Identity").setHeading();
     new Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet")
       .addButton(b => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
         if (!s.identity) { await this.plugin.ensureIdentity(); this.display(); }
@@ -70,7 +69,7 @@ export class CalderaSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.")
       .addToggle(t => t.setValue(s.listed !== false).onChange(async v => { s.listed = v; await this.plugin.saveSettings(); }));
 
-    containerEl.createEl("h3", { text: "Profile" });
+    new Setting(containerEl).setName("Profile").setHeading();
     new Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.")
       .addButton(b => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
     this.text("Name", "", "name");
@@ -81,14 +80,14 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.pairs("Links", "One per line: Label | https://url", "links");
     this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
 
-    containerEl.createEl("h3", { text: "What is public" });
+    new Setting(containerEl).setName("What is public").setHeading();
     for (const [k, label] of Object.entries(SECTION_LABELS)) {
       new Setting(containerEl).setName(label).addToggle(t => t.setValue(!!s.sections[k]).onChange(async v => { s.sections[k] = v; await this.plugin.saveSettings(); }));
     }
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
 
-    containerEl.createEl("h3", { text: "Publishing" });
+    new Setting(containerEl).setName("Publishing").setHeading();
     new Setting(containerEl).setName("Auto-publish every N hours").setDesc("0 = only when you click Publish")
       .addText(t => t.setValue(String(s.autoPublishHours)).onChange(async v => { s.autoPublishHours = Math.max(0, Number(v) || 0); await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish(); }));
   }
