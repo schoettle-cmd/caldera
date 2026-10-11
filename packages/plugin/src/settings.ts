@@ -18,6 +18,13 @@ export interface CalderaSettings {
   welcomed: boolean;                  // first-run welcome finished
   listed: boolean;                    // shown in the public directory at hub/people
   lastSeenRelease: string;            // newest release the owner has been shown (What's new)
+  tree: [string, string][];           // left sidebar: [group, "item, item"]; empty = topics + public notes
+  graph: string[];                    // right rail graph: note names, sized by how many notes link to each; empty = topics
+  backlinks: [string, string][];      // right rail list: [title, context]; empty = public notes
+  summary: string; now: string[];      // owner-written page text (Caldera/profile.md)
+  timeline: [string, string][];       // [year, text]
+  projects: [string, string][];       // [name, "status | url"]
+  knows: [string, string][];          // [label, vault folder] -> note counts
 }
 
 export const DEFAULT_SETTINGS: CalderaSettings = {
@@ -25,11 +32,12 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   identity: null, handle: "", name: "", headline: "", theme: "dark",
   avatarPath: "", bannerPath: "",
   links: [], properties: [],
-  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true },
+  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true, sidebar: true, rail: true },
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
   asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true, lastSeenRelease: "",
+  tree: [], graph: [], backlinks: [], summary: "", now: [], timeline: [], projects: [], knows: [],
 };
 
 const SECTION_LABELS: Record<string, string> = {

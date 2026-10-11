@@ -97,7 +97,15 @@ export default class CalderaPlugin extends Plugin {
   }
 
   // ---------------------------------------------------------------- profile
+  /** Link counts are only right once Obsidian has resolved every link (it re-indexes after a restart). */
+  private linksResolved(): Promise<void> {
+    const mc = this.app.metadataCache as any;
+    if (mc.resolved) return Promise.resolve();
+    return new Promise(r => { const ref = this.app.metadataCache.on("resolved", () => { this.app.metadataCache.offref(ref); r(); }); window.setTimeout(r, 90_000); });
+  }
+
   private async build() {
+    await this.linksResolved();
     const eff = effectiveSettings(this.app, this.settings);   // Caldera/profile.md wins over settings
     const { data, files } = await collectProfile(this.app, eff, eff.sections.social ? this.social : undefined);
     data.hub = this.settings.hubUrl;

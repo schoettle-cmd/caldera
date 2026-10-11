@@ -55,3 +55,36 @@ test("end to end: plugin-style publish to a real hub, page is served", async () 
   const css = await fetch(base + "/@ana/assets/theme.css"); assert.equal(css.headers.get("content-type"), "text/css");
   hub.server.close(); fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("three columns: vault sidebar, graph + backlinks rail; switchable; escaped", () => {
+  const p = { ...sample(), tree: [{ name: "People", child: false }, { name: "Ana", child: true, current: true }, { name: "Projects <b>", child: false }],
+    graph: [{ t: "Garden app", n: 12 }, { t: "<img src=x>", n: 3 }], graphLabel: "Local graph / sized by linked notes",
+    backlinks: [["Garden app", "builder"]], backlinkLabel: "Backlinks / 40 notes link here" };
+  const html = renderProfile(p)["index.html"];
+  assert.ok(html.includes('class="shell"') && html.includes('class="sidebar tree"') && html.includes('class="rail"'));
+  assert.ok(html.includes("Local graph / sized by linked notes") && html.includes("Backlinks / 40 notes link here") && html.includes("<circle class=\"center\""));
+  assert.ok(!html.includes("<img src=x>") && !html.includes("Projects <b>"), "sidebar and graph text escaped");
+  const off = renderProfile({ ...p, sections: { ...p.sections, sidebar: false, rail: false } })["index.html"];
+  assert.ok(!off.includes('class="sidebar tree"') && !off.includes('class="rail"'));
+});
+
+test("full page: summary/now/activity/growth/knows/inbox/projects/code/timeline; safe inline links", () => {
+  const heat = Array.from({ length: 30 }, (_, i) => ({ date: day(29 - i), n: i % 7 }));
+  const p = { ...sample(),
+    summary: "Builder in [[Venice|https://example.com/venice]]. **Bold** and [[bad|javascript:alert(1)]] <b>raw</b>",
+    now: ["Testing **agents**"], timeline: [["2011", "Co-founded [[Studio|https://example.com]]"]],
+    projects: [{ name: "Garden", status: "live", url: "https://garden.example", commits: 42 }, { name: "Bad", status: "x", url: "javascript:alert(1)" }],
+    heat, growth: [{ week: day(21), total: 10 }, { week: day(14), total: 40 }, { week: day(7), total: 90 }],
+    knows: [["Companies", 230], ["People", 82]],
+    inbox: { kinds: [["Legal", 145], ["Reports", 55]], series: { label: "Pitch decks received per week", weeks: [["Jul 20", 1], ["Jul 27", 5]] } },
+    code: { commits: 5706, repos: 29, languages: ["HTML", "Python"], weekly: [0, 3, 10, 4], url: "https://github.com/x", start: "Feb 2026" },
+    extraNumbers: [["121", "daily digests written"]] };
+  const html = renderProfile(p)["index.html"];
+  for (const h of ["Summary", "<h2>Now</h2>", "<h2>Activity</h2>", "<h2>Growth</h2>", "<h2>What it knows</h2>", "<h2>Inbox to knowledge</h2>", "<h2>Projects</h2>", "<h2>Code</h2>", "<h2>Timeline</h2>", "daily digests written", "Your best other days"])
+    assert.ok(html.includes(h), "missing " + h);
+  assert.ok(html.includes('<a href="https://example.com/venice" rel="noopener">Venice</a>') && html.includes("<b>Bold</b>"));
+  assert.ok(!/href="javascript/i.test(html), "no javascript: links anywhere");
+  assert.ok(!html.includes("<b>raw</b>"), "raw HTML in text is escaped");
+  const off = renderProfile({ ...p, sections: { ...p.sections, code: false, timeline: false, inbox: false } })["index.html"];
+  assert.ok(!off.includes("<h2>Code</h2>") && !off.includes("<h2>Timeline</h2>") && !off.includes("Inbox to knowledge"));
+});

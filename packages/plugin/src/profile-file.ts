@@ -28,8 +28,16 @@ export function effectiveSettings(app: App, s: CalderaSettings): CalderaSettings
   e.links = pairs(fm.links) ?? e.links;
   e.properties = pairs(fm.properties) ?? e.properties;
   const topics = pairs(fm.topics); if (topics) e.publicTopics = topics.map(([tag, label]) => [tag.replace(/^#/, ""), label]);
-  if (fm.sections && typeof fm.sections === "object") for (const k of Object.keys(e.sections)) if (k in fm.sections) e.sections[k] = fm.sections[k] !== false;
+  if (fm.sections && typeof fm.sections === "object") for (const [k, v] of Object.entries(fm.sections)) e.sections[k] = v !== false;
   if (typeof fm.listed === "boolean") e.listed = fm.listed;
+  if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x: unknown) => { const [g, ...r] = String(x ?? "").split("|"); return [g.trim(), r.join("|").trim()] as [string, string]; }).filter(([g]) => g);
+  if (Array.isArray(fm.graph)) e.graph = fm.graph.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 20);
+  e.backlinks = pairs(fm.backlinks) ?? e.backlinks;
+  if (typeof fm.summary === "string") e.summary = fm.summary.trim();
+  if (Array.isArray(fm.now)) e.now = fm.now.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 8);
+  e.timeline = pairs(fm.timeline) ?? e.timeline;
+  e.projects = pairs(fm.projects) ?? e.projects;
+  e.knows = pairs(fm.knows) ?? e.knows;
   return e;
 }
 
@@ -52,6 +60,21 @@ ${list(s.publicTopics.map(([a, b]) => `${a} | ${b}`))}
 sections:
 ${Object.entries(s.sections).map(([k, v]) => `  ${k}: ${v}`).join("\n")}
 listed: ${s.listed !== false}
+summary: ${q(s.summary || "")}
+now:
+${list(s.now || [])}
+timeline:
+${list((s.timeline || []).map(([a, b]) => `${a} | ${b}`))}
+projects:
+${list((s.projects || []).map(([a, b]) => `${a} | ${b}`))}
+knows:
+${list((s.knows || []).map(([a, b]) => `${a} | ${b}`))}
+sidebar:
+${list((s.tree || []).map(([a, b]) => `${a} | ${b}`))}
+graph:
+${list(s.graph || [])}
+backlinks:
+${list((s.backlinks || []).map(([a, b]) => `${a} | ${b}`))}
 ---
 # My Caldera profile
 
@@ -64,6 +87,14 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **topics** - which of your tags may be counted publicly, \`tag | Label\`. Tags not listed are never shown.
 - **sections** - switch parts of the page on or off: ${Object.keys(s.sections).join(", ")}.
 - **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
+- **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
+- **now** - what you're doing now, one line each.
+- **timeline** - \`Year | what happened\`.
+- **projects** - \`Name | status | https://link\`.
+- **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
+- **sidebar** - the left column, \`Group | item, item\` (e.g. \`Projects | Garden app, Newsletter\`). Empty: your topics and public notes.
+- **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
+- **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.
 
 Your handle and identity key live in Settings -> Caldera, never here. Guide: ${hubUrl.replace(/\/$/, "")}/guide.html
 `;

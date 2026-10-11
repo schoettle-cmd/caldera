@@ -16,7 +16,9 @@ import type { DailyEntry, ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 
 const DAY = 86_400_000;
-const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+const fmtN = (n: number) => n.toLocaleString("en-US");
+// the owner's local calendar day (UTC would roll 'today' over hours early for anyone west of Greenwich)
+const iso = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 export async function collectProfile(app: App, s: CalderaSettings, social?: ProfileData["social"]): Promise<{ data: ProfileData; files: Record<string, ArrayBuffer> }> {
   const md = app.vault.getMarkdownFiles();
@@ -52,9 +54,10 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
 
   // outside activity (calendar, email, git, AI sessions ...) written by your own scripts
   const external = new Map<string, any>();
+  let extra: any = {};   // optional extras from the owner's tools: knows, inbox, code, projects (commit counts), numbers
   const actFile = app.vault.getAbstractFileByPath(s.activityFile);
   if (actFile instanceof TFile) {
-    try { for (const d of JSON.parse(await app.vault.cachedRead(actFile)).days || []) external.set(d.date, d); } catch { /* ignore malformed */ }
+    try { extra = JSON.parse(await app.vault.cachedRead(actFile)) || {}; for (const d of extra.days || []) external.set(d.date, d); } catch { /* ignore malformed */ }
   }
 
   const today = Date.now();
@@ -80,6 +83,46 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     return undefined;
   };
 
+  // how many notes link to a note with this name (a count only; titles of linking notes never leave the vault)
+  const inbound = new Map<string, number>();
+  const bump = (k: string) => inbound.set(k, (inbound.get(k) || 0) + 1);
+  for (const targets of Object.values(app.metadataCache.resolvedLinks)) for (const t of Object.keys(targets)) bump(t.split("/").pop()!.replace(/\.md$/i, "").toLowerCase());
+  for (const targets of Object.values(app.metadataCache.unresolvedLinks)) for (const t of Object.keys(targets)) bump(t.split("|")[0].split("/").pop()!.replace(/\.md$/i, "").toLowerCase());
+  const linkCount = (name: string) => inbound.get(name.toLowerCase()) || 0;
+
+  const topTopics = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const notesSorted = publicNotes.sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 12);
+  const tree: NonNullable<ProfileData["tree"]> = [{ name: "People", child: false }, { name: s.name || "Me", child: true, current: true }];
+  const groups: [string, string[]][] = s.tree?.length ? s.tree.map(([g, items]) => [g, items.split(",").map(x => x.trim()).filter(Boolean)])
+    : [["Topics", topTopics.slice(0, 5).map(t => t[0])], ["Notes", notesSorted.slice(0, 5).map(n => n.title)]];
+  for (const [g, items] of groups) { if (!items.length && !s.tree?.length) continue; tree.push({ name: g, child: false }); for (const it of items) tree.push({ name: it, child: true }); }
+  const graph = (s.graph?.length ? s.graph.map(n => ({ t: n, n: linkCount(n) })) : topTopics.slice(0, 12).map(([t, n]) => ({ t, n }))).slice(0, 16);
+  const backlinks: [string, string][] = s.backlinks?.length ? s.backlinks : notesSorted.slice(0, 6).map(n => [n.title, n.excerpt.slice(0, 70)]);
+
+  // 26-week activity (notes created + changed per day, plus outside counts) and cumulative growth
+  const DAYMS = 86_400_000, todayD = new Date(); todayD.setHours(12, 0, 0, 0);
+  const startD = new Date(todayD.getTime() - (((todayD.getDay() + 6) % 7) + 7 * 25) * DAYMS);
+  const heat: NonNullable<ProfileData["heat"]> = [];
+  for (let t = startD.getTime(); t <= todayD.getTime(); t += DAYMS) {
+    const d = iso(t), e = external.get(d) || {};
+    heat.push({ date: d, n: (created.get(d) || 0) + (changed.get(d) || 0) + (Number(e.docs) || 0) });
+  }
+  const createdDays = [...created.keys()].sort();
+  const growth: NonNullable<ProfileData["growth"]> = [];
+  if (createdDays.length) {
+    const first = new Date(createdDays[0] + "T12:00:00"); first.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+    let total = 0;
+    for (let w = first.getTime(); w <= todayD.getTime(); w += 7 * DAYMS) {
+      for (let k = 0; k < 7; k++) total += created.get(iso(w + k * DAYMS)) || 0;
+      growth.push({ week: iso(w), total });
+    }
+  }
+  const knows: [string, number][] = s.knows?.length
+    ? s.knows.map(([label, folder]) => { const pre = folder.replace(/^\/+|\/+$/g, "") + "/"; return [label, md.filter(f => f.path.startsWith(pre)).length]; })
+    : (Array.isArray(extra.knows) ? extra.knows.filter((k: any) => Array.isArray(k) && typeof k[1] === "number").map((k: any) => [String(k[0]), k[1]]) : []);
+  const pc = extra.projects && typeof extra.projects === "object" ? extra.projects : {};
+  const projects = (s.projects || []).map(([name, rest]) => { const [status = "", url = ""] = rest.split("|").map(x => x.trim()); return { name, status, url, commits: Number(pc[name]) || undefined }; });
+
   const data: ProfileData = {
     name: s.name || "Untitled", handle: s.handle || undefined, headline: s.headline, theme: s.theme,
     avatar: await img(s.avatarPath, "avatar"), banner: await img(s.bannerPath, "banner"),
@@ -87,7 +130,13 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     sections: s.sections,
     stats: { notes: md.length, words, links, activeDays },
     topics: [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18),
-    daily, publicNotes: publicNotes.sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 12),
+    daily, publicNotes: notesSorted,
+    summary: s.summary || undefined, now: s.now, timeline: s.timeline, projects, heat, growth, knows,
+    inbox: extra.inbox && Array.isArray(extra.inbox.kinds) ? extra.inbox : undefined,
+    code: extra.code && typeof extra.code.commits === "number" ? extra.code : undefined,
+    extraNumbers: Array.isArray(extra.numbers) ? extra.numbers.filter((x: any) => Array.isArray(x)).map((x: any) => [String(x[0]), String(x[1])]) : undefined,
+    tree, graph, graphLabel: s.graph?.length ? "Local graph / sized by linked notes" : "Topics / sized by notes",
+    backlinks, backlinkLabel: s.backlinks?.length ? `Backlinks / ${fmtN(linkCount(s.name || ""))} notes link here` : "Public notes",
     asks: s.asks, offers: s.offers, social, updated: new Date().toISOString(),
   };
   return { data, files };
