@@ -25,6 +25,7 @@ export interface CalderaSettings {
   timeline: [string, string][];       // [year, text]
   projects: [string, string][];       // [name, "status | url"]
   knows: [string, string][];          // [label, vault folder] -> note counts
+  tabs: string[];                     // extra tab labels in the page's top bar
 }
 
 export const DEFAULT_SETTINGS: CalderaSettings = {
@@ -37,7 +38,7 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
   asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true, lastSeenRelease: "",
-  tree: [], graph: [], backlinks: [], summary: "", now: [], timeline: [], projects: [], knows: [],
+  tree: [], graph: [], backlinks: [], summary: "", now: [], timeline: [], projects: [], knows: [], tabs: [],
 };
 
 const SECTION_LABELS: Record<string, string> = {

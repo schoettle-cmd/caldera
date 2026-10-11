@@ -38,6 +38,7 @@ export function effectiveSettings(app: App, s: CalderaSettings): CalderaSettings
   e.timeline = pairs(fm.timeline) ?? e.timeline;
   e.projects = pairs(fm.projects) ?? e.projects;
   e.knows = pairs(fm.knows) ?? e.knows;
+  if (Array.isArray(fm.tabs)) e.tabs = fm.tabs.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 5);
   return e;
 }
 
@@ -69,6 +70,8 @@ projects:
 ${list((s.projects || []).map(([a, b]) => `${a} | ${b}`))}
 knows:
 ${list((s.knows || []).map(([a, b]) => `${a} | ${b}`))}
+tabs:
+${list(s.tabs || [])}
 sidebar:
 ${list((s.tree || []).map(([a, b]) => `${a} | ${b}`))}
 graph:
@@ -92,6 +95,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **timeline** - \`Year | what happened\`.
 - **projects** - \`Name | status | https://link\`.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
+- **tabs** - extra tab labels in the top bar, like \`Now.md\`.
 - **sidebar** - the left column, \`Group | item, item\` (e.g. \`Projects | Garden app, Newsletter\`). Empty: your topics and public notes.
 - **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
 - **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.

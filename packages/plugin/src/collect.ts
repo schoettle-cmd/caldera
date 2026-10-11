@@ -132,6 +132,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     stats: { notes: md.length, words, links, activeDays },
     topics: [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18),
     daily, publicNotes: notesSorted,
+    tabs: s.tabs?.length ? s.tabs : undefined,
     summary: s.summary || undefined, now: s.now, timeline: s.timeline, projects, heat, growth, knows,
     inbox: extra.inbox && Array.isArray(extra.inbox.kinds) ? extra.inbox : undefined,
     code: extra.code && typeof extra.code.commits === "number" ? extra.code : undefined,

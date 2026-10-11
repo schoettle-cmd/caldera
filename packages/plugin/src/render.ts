@@ -38,6 +38,7 @@ export interface ProfileData {
   inbox?: { total?: number; note?: string; kinds: [string, number][]; series?: { label: string; weeks: [string, number][] } };
   code?: { commits: number; repos: number; languages?: string[]; weekly?: number[]; url?: string; start?: string };
   extraNumbers?: [string, string][];                        // [value, label] appended to the number strip
+  tabs?: string[];                                          // extra (decorative) tabs next to the page tab
   ai?: { total: number; window_days?: number; models: [string, number][]; providers?: [string, number][]; note?: string };   // AI tokens, counts only
 }
 
@@ -109,7 +110,7 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 <link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css"></head><body>
-<div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span><span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
+<div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
   if (sideOn) parts.push(`<nav class="sidebar tree" aria-label="Vault"><span class="label">Vault</span>${p.tree!.map(r => `<div class="tree-row${r.child ? " child" : ""}${r.current ? " is-current" : ""}"><span>${r.child ? "" : "&#9662; "}${esc(r.name)}</span></div>`).join("")}</nav>`);
@@ -126,7 +127,7 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <div class="sb-stat"><div class="v">${streak}<small> days</small></div><div class="l">active streak</div></div>
 <div class="sb-stat"><div class="v">#${yrank}</div><div class="l">yesterday's rank of ${days.length - 1} days</div></div>
 <div class="sb-stat"><div class="v">${avg(last7)}</div><div class="l">7-day average, ${trend >= 0 ? `<span class="up">&#9650; ${trend}%</span>` : `<span class="down">&#9660; ${-trend}%</span>`} vs prior week</div></div></div>
-<div class="sb-bars" role="img" aria-label="Daily activity score">${days.slice(-30).map((d, i, a) => `<span class="${i === a.length - 2 ? "yday" : i === a.length - 1 ? "today" : ""}" style="height:${Math.max(2, Math.round(d.score / smax * 100))}%" title="${d.date}: ${d.score}"></span>`).join("")}</div>
+<div class="sb-bars" role="img" aria-label="Daily activity score">${days.slice(-30).map((d, i, a) => `<span class="${i === a.length - 2 ? "yday" : i === a.length - 1 ? "today" : ""}" style="height:${Math.max(2, Math.round(d.score / smax * 100))}%" title="${d.date}: ${d.score}"></span>`).join("")}</div><div class="bars-legend"><span>${Math.min(30, days.length)} days ago</span><span>yesterday highlighted / today in progress</span></div>
 ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) => b.d.score - a.d.score).slice(0, 5);
     const lb = [`<div class="lb-row me"><span class="rank">1</span><span class="who">You</span><span class="num">${fmt(days.slice(-8, -1).reduce((x, d) => x + d.score, 0))}</span></div>`]
       .concat([2, 3, 4].map(r => `<div class="lb-row empty"><span class="rank">${r}</span><span class="who">Invite a friend</span><span class="num">-</span></div>`));
@@ -164,7 +165,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   if (s.topics && p.topics.length) parts.push(`<h2>Topics</h2><div class="cloud">${p.topics.map(([t, n]) => `<span style="font-size:${(13 + n / tmax * 15).toFixed(1)}px">${esc(t)}<sup>${n}</sup></span>`).join("")}</div>`);
   if (s.projects !== false && p.projects?.length) {
     const hasC = p.projects.some(x => x.commits);
-    parts.push(`<h2>Projects</h2><div class="table-wrap"><table class="data"><thead><tr><th>Project</th><th>status</th>${hasC ? '<th class="num">commits</th>' : ""}<th>link</th></tr></thead><tbody>${p.projects.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc(x.url)}" rel="noopener">${esc(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
+    parts.push(`<h2>Projects</h2><div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div><div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? '<th class="num">commits</th>' : ""}<th>link</th></tr></thead><tbody>${p.projects.map(x => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc(x.url)}" rel="noopener">${esc(x.name)}</a>` : esc(x.name)}</td><td>${esc(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc(x.url)}" rel="noopener">${esc(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
   }
   if (s.code !== false && p.code && p.code.commits > 0) {
     const c = p.code, wk = c.weekly || [], f = Math.max(0, wk.findIndex(x => x > 0)), w2 = wk.slice(f), peak = Math.max(1, ...w2);
