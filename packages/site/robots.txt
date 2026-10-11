@@ -1,0 +1,79 @@
+# caldera.social - search engines and AI assistants are welcome to read and cite the public site.
+# Profile pages carry noindex (owners' choice); the API is not for crawling.
+User-agent: GPTBot
+Allow: /
+Disallow: /v1/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /v1/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /v1/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /v1/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /v1/
+
+User-agent: Claude-User
+Allow: /
+Disallow: /v1/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /v1/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /v1/
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /v1/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /v1/
+
+User-agent: Googlebot
+Allow: /
+Disallow: /v1/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /v1/
+
+User-agent: Applebot
+Allow: /
+Disallow: /v1/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /v1/
+
+User-agent: DuckAssistBot
+Allow: /
+Disallow: /v1/
+
+User-agent: Meta-ExternalAgent
+Allow: /
+Disallow: /v1/
+
+User-agent: MistralAI-User
+Allow: /
+Disallow: /v1/
+
+User-agent: CCBot
+Allow: /
+Disallow: /v1/
+
+User-agent: *
+Allow: /
+Disallow: /v1/
+
+Sitemap: https://caldera.social/sitemap.xml

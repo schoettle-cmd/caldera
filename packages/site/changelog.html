@@ -9,6 +9,11 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/theme.css">
 <link rel="stylesheet" href="assets/site.css">
+
+
+
+
+<link rel="canonical" href="https://caldera.social/changelog">
 </head>
 <body>
 <header class="nav">
@@ -21,8 +26,14 @@
   <h1>What's new</h1>
   <p class="lead-in">Every Caldera release. When something ships, Caldera also shows its owner a short alert inside Obsidian. Follow along with the <a href="releases.xml">RSS feed</a>.</p>
   <!-- RELEASES_START -->
+  <article class="release" id="v0.3.2">
+    <div class="release-meta"><span class="tag">0.3.2</span><time datetime="2026-10-11">2026-10-11</time><span>latest</span></div>
+    <h2>Stronger privacy: journal lines that look sensitive are never published</h2>
+    <ul><li>Caldera now checks every journal line before publishing and drops any that mention other people's names, meetings or their times, places and addresses, secret or unannounced work, money, legal, health, HR or family matters, or contact details. Only names you already made public on your page (your projects, topics and links) are allowed.</li><li>All AI prompts carry one stricter privacy policy: never reveal who you met, where or when, secret projects, or anything that could get someone in trouble. When unsure, leave it out.</li><li>New Learn pages at caldera.social/learn answer common questions about Obsidian profiles, private sharing and AI agents.</li></ul>
+    <p class="howto">Nothing to do: the filter runs automatically on your next publish.</p>
+  </article>
   <article class="release" id="v0.3.1">
-    <div class="release-meta"><span class="tag">0.3.1</span><time datetime="2026-10-10">2026-10-10</time><span>latest</span></div>
+    <div class="release-meta"><span class="tag">0.3.1</span><time datetime="2026-10-10">2026-10-10</time></div>
     <h2>Invite friends from your page, and a Caldera bar on every profile</h2>
     <ul><li>Every profile page now has a slim Caldera bar at the top: the logo goes to caldera.social and 'Get your own page' goes straight to install. Visitors who arrive this way see who invited them.</li><li>The 'Invite a friend' rows on your leaderboard open a ready-to-send invite email with your page and install link.</li><li>New signups and deletions can alert the hub operator by email.</li></ul>
   </article>
@@ -45,7 +56,7 @@
   </article>
   <!-- RELEASES_END -->
 </main>
-<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
+<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

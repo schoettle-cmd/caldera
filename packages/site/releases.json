@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "0.3.2",
+      "date": "2026-10-11",
+      "title": "Stronger privacy: journal lines that look sensitive are never published",
+      "items": [
+        "Caldera now checks every journal line before publishing and drops any that mention other people's names, meetings or their times, places and addresses, secret or unannounced work, money, legal, health, HR or family matters, or contact details. Only names you already made public on your page (your projects, topics and links) are allowed.",
+        "All AI prompts carry one stricter privacy policy: never reveal who you met, where or when, secret projects, or anything that could get someone in trouble. When unsure, leave it out.",
+        "New Learn pages at caldera.social/learn answer common questions about Obsidian profiles, private sharing and AI agents."
+      ],
+      "howto": "Nothing to do: the filter runs automatically on your next publish."
+    },
+    {
       "version": "0.3.1",
       "date": "2026-10-10",
       "title": "Invite friends from your page, and a Caldera bar on every profile",

@@ -245,7 +245,7 @@ export function createHub(opts: HubOptions) {
   }
 
   const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".json": "application/json",
-    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml" , ".md": "text/plain; charset=utf-8", ".zip": "application/zip", ".ico": "image/x-icon", ".xml": "application/rss+xml; charset=utf-8", };
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml" , ".md": "text/plain; charset=utf-8", ".zip": "application/zip", ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8", ".xml": "application/xml; charset=utf-8", };
 
   const buckets = new Map<string, { n: number; w: number; reset: number }>();
   const newProfiles = new Map<string, { n: number; day: string }>();
@@ -278,7 +278,11 @@ export function createHub(opts: HubOptions) {
       if (req.method === "GET" && opts.siteDir && !p.startsWith("/v1/") && !p.startsWith("/@")) {
         let rel = p === "/" ? "index.html" : decodeURIComponent(p.slice(1));
         if (rel.endsWith("/")) rel += "index.html";
-        const root = path.resolve(opts.siteDir), file = path.resolve(root, path.normalize(rel));
+        const root = path.resolve(opts.siteDir);
+        let file = path.resolve(root, path.normalize(rel));
+        // clean URLs: /obsidian-public-profile serves obsidian-public-profile.html; /x.html 301s to /x so each page has one URL
+        if (/\.html$/.test(rel) && rel !== "index.html" && !rel.endsWith("/index.html") && !/^google[0-9a-f]+\.html$/.test(rel) && fs.existsSync(file)) { res.writeHead(301, { location: "/" + rel.replace(/\.html$/, "") }); return res.end(); }
+        if (!path.extname(file) && fs.existsSync(file + ".html")) file += ".html";
         if (file.startsWith(root + path.sep) && fs.existsSync(file) && fs.statSync(file).isFile()) {
           const ext = path.extname(file).toLowerCase();
           res.writeHead(200, { "content-type": MIME[ext] || (ext === ".zip" ? "application/zip" : "application/octet-stream"), "cache-control": "public, max-age=600" });

@@ -13,6 +13,16 @@ export interface AgentPromptOptions {
   zipUrl?: string;
 }
 
+/** One privacy policy for every prompt. The plugin also enforces most of this in code (see privacy.ts). */
+export const PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
+- Other people: no names, initials, handles, photos or descriptions that identify anyone I meet, work with, hire, date, advise or invest with. Say "a founder", "the team", "a friend" only when it adds nothing identifying - usually leave it out.
+- Meetings: no meetings, calls, lunches, dinners, interviews or events - not their titles, times, dates, attendees, or that they happened with someone specific.
+- Times and places: no times of day, schedules, travel, cities, venues, addresses, offices, home or "where I am".
+- Secret or sensitive work: no unannounced, stealth, confidential or NDA projects, codenames, deals, fundraising, investors, acquisitions, valuations, hiring, firing or anything said in confidence.
+- Things that can get someone in trouble: legal, medical, health, HR, money, salaries, debts, relationships, family, children, politics, religion.
+- Contact details and links: no emails, phone numbers or links to private documents. No money amounts at all.
+Describe work only by its public theme ("shipped a release", "wrote about design") and only name things I have already made public on my page (my own public projects, topics and links). If you are unsure, leave it out - an empty field is fine. Caldera also drops any journal line that looks sensitive before publishing.`;
+
 export function agentPrompt(o: AgentPromptOptions = {}): string {
   const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, "");
   const vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
@@ -63,13 +73,9 @@ B. Activity counts. Update "${vault}/${activity}" (create it if missing). Format
 C. Publish. If Caldera auto-publish is on (Settings -> Caldera -> Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
 
 ## 3. Privacy rules (these override everything above)
-Everything you write in the caldera_* fields and in ${activity} is PUBLIC on the internet. So:
-- No names of people, companies, clients, investors, deals, or products that are not already public on my page.
-- No money amounts, prices, valuations, metrics, health, legal, family, location or travel details.
-- No email addresses, phone numbers, URLs to private docs, or anything copied from email bodies.
-- Describe work by its public theme instead ("closed out a design review", "shipped a release"), and only use topics among ${topics}.
-- If you are unsure whether something is private, leave it out. An empty field is fine.
-- Never write to any other part of the vault, never change notes' privacy markings (caldera: public / friends), never touch .obsidian/plugins/caldera/data.json.
+${PRIVACY_RULES}
+Themes and topics: only use topics among ${topics}.
+Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / friends), never touch .obsidian/plugins/caldera/data.json.
 
 ## 4. Check your work
 After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.
@@ -108,10 +114,7 @@ Work through these one at a time. Anything that would become PUBLIC needs my exp
 8. Finish. Tell me to run "Caldera: Preview my public profile", check it, then "Caldera: Publish my profile".
 
 Privacy rules (these override everything above):
-- Never put names of people, companies, clients, investors, deals or unannounced products into anything public.
-- No money amounts, prices, valuations, metrics, health, legal, family, location or travel details.
-- No email addresses, phone numbers, or links to private documents.
-- If you are unsure whether something is private, leave it out.
+${PRIVACY_RULES}
 - Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.
 - Never remove or change an existing "caldera:" marking without asking me.`;
 }
@@ -133,7 +136,7 @@ The page republishes automatically about a minute after Caldera/profile.md chang
 
 Rules:
 - Show me the exact change before you make it, and only make what I approve.
-- Everything on the page is public: no private names, clients, deals, money, health, family, location, emails or phone numbers.
+${PRIVACY_RULES}
 - Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key. My handle can only be changed in Settings -> Caldera.
 
 What I want to change: <DESCRIBE THE CHANGE>`;

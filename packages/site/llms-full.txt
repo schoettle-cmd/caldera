@@ -1,0 +1,178 @@
+# Caldera - full text
+
+## What is Caldera?
+URL: https://caldera.social/what-is-caldera
+
+Caldera is a free, open-source plugin for Obsidian that turns your notes vault into a living public profile page and connects vaults to each other. Your page updates itself from your notes (a daily journal, activity, topics, projects and the notes you choose to share), and friends can share notes as end-to-end encrypted cards, post asks and offers for help, and give positive-only "gravity". It is private by default: nothing leaves your vault unless you switch it on.
+
+### What Caldera does
+Living profile. A public page at caldera.social/@you, built on your own device from your vault and republished automatically. Friends between vaults. Add friends by handle. Share any note as an end-to-end encrypted card that lands in their vault as a normal note. Help exchange. Post asks ("I could use help with...") and offers, with optional help-credit bounties. Credits have no cash value. Gravity. Positive-only recognition that fades over a month. No likes, downvotes or follower counts. AI-native setup. One copy-paste prompt lets Claude Code, Codex or Cursor install it and run a daily journal routine.
+
+### Who makes it
+Caldera is built by mjonesone, LLC. The plugin and core library are MIT-licensed, the reference hub is AGPL-3.0 and self-hostable, and the protocol is open. Source: github.com/schoettle-cmd/caldera .
+
+### How private is it?
+The plugin reads your vault locally and never uploads it. Only counts, the profile sections you switch on, notes you mark caldera: public , and journal fields you write are published. Shared notes are end-to-end encrypted; the hub stores ciphertext it cannot read. Your identity is a key in your vault, not a password account.
+
+### Questions
+Q: Is Caldera free?
+A: Yes. The plugin, your profile and friends are free and open source.
+Q: Does Caldera need Obsidian?
+A: Yes, it is an Obsidian plugin. Obsidian is free; the Caldera install prompt can install Obsidian for you and create your first vault.
+Q: Is Caldera an official Obsidian product?
+A: No. Caldera is an independent, open-source community plugin made by mjonesone, LLC.
+
+## How to make a public profile from your Obsidian vault
+URL: https://caldera.social/obsidian-public-profile
+
+The fastest way to turn an Obsidian vault into a public profile page is the free Caldera plugin: install it (or paste one prompt into Claude Code, Codex or Cursor and let the AI install it), type your name and a handle in the Welcome window, and your page goes live at caldera.social/@yourhandle. It rebuilds itself from your vault, publishing only counts and the notes and sections you switch on.
+
+### Steps
+Install Obsidian if you don't have it (free at obsidian.md ). Copy the setup prompt from caldera.social/#install into your AI agent, or install the plugin by hand from the latest release. Open Obsidian. The Welcome to Caldera window asks for your name and a handle, creates your identity on your device, publishes your page and opens it in your browser. Edit the note Caldera/profile.md to change your headline, photo, links, projects and which sections show. The page republishes about a minute after you save.
+
+### What can be on the page
+A flippable daily journal, an activity score and 26-week heatmap, a growth chart, your public topics, projects, a timeline, links, AI usage charts, and any note you mark caldera: public (title and first paragraph). Every section has an on/off switch. See a full example: caldera.social/@mike .
+
+### What stays private
+Note contents stay on your computer unless you mark a note public. Topics are allow-listed, so only tags you approve are counted, and the plugin publishes counts rather than titles. You can preview before publishing and delete your page with one command.
+
+### Questions
+Q: Can I use my own domain?
+A: You can export your profile as a static site and host it anywhere, or run your own Caldera hub.
+Q: Does it update automatically?
+A: Yes. It republishes every few hours and about a minute after you edit Caldera/profile.md.
+Q: Do I need to code?
+A: No. Paste one prompt into an AI agent, or install the plugin by hand and use the Welcome window.
+
+## How to share Obsidian notes privately with friends
+URL: https://caldera.social/share-obsidian-notes-privately
+
+To share a single Obsidian note privately, use the free Caldera plugin: add a friend by their handle, open the note and run "Caldera: Share this note with a friend". The note is encrypted on your device so only that friend can read it, and it arrives in their vault as a normal Markdown note under Caldera/Inbox. Nothing is posted publicly and the server only stores ciphertext.
+
+### How it works
+Both of you install Caldera and pick a handle. Send a friend request from the Caldera panel (the flame icon); your friend accepts it. On any note, run Share this note with a friend from the command palette. Your friend's vault receives the note on its next sync, in Caldera/Inbox/your-handle/ .
+
+### Other ways to share Obsidian notes
+Obsidian Sync shared vaults (paid): share a whole vault with collaborators. Obsidian Publish (paid) or static-site tools: public pages, not private sharing. Collaboration plugins : shared folders edited live by a team. Caldera (free): one note at a time to one friend, end-to-end encrypted, landing in their own vault.
+
+### Questions
+Q: Can the server read shared notes?
+A: No. Notes are encrypted on your device with your friend's public key; the hub stores ciphertext only.
+Q: Does my friend need Obsidian?
+A: Yes, shared notes are delivered into an Obsidian vault with Caldera installed.
+Q: Can I unshare a note?
+A: A delivered note is a copy in your friend's vault, like an email. You can stop sharing future versions.
+
+## Is there a social network for Obsidian users?
+URL: https://caldera.social/obsidian-social-network
+
+Yes. Caldera is an open-source social layer built for Obsidian: every member gets a living profile generated from their vault, vaults can befriend each other and share end-to-end encrypted notes, people post asks and offers for help, and a People directory at caldera.social/people lets you browse profiles by what people work on. There are no likes or follower counts; recognition is a positive-only score called gravity.
+
+### How it differs from a normal social network
+Your vault is the source. Profiles are built from your own notes on your own device, not typed into a website. Private by default. Only the sections and notes you switch on are published. Open protocol. Identity is a key in your vault; the hub is open source and self-hostable. Built for helping. Asks, offers and help credits instead of feeds and engagement.
+
+### Where Obsidian users talk today
+The official Obsidian forum and Discord, and the r/ObsidianMD subreddit, are where the community discusses the app. Caldera complements them: it is about connecting vaults and showing your work, not discussion threads.
+
+### Questions
+Q: How do I find other Obsidian users on Caldera?
+A: Browse caldera.social/people and search by name, headline or topic.
+Q: Can I stay unlisted?
+A: Yes. Turn off "List me in the directory" and your page works only for people with the link.
+Q: How do I invite friends?
+A: Use "Invite a friend" on your page's leaderboard, or share caldera.social/?invite=yourhandle.
+
+## Free alternatives to Obsidian Publish
+URL: https://caldera.social/obsidian-publish-alternatives
+
+Obsidian Publish is the official paid way to put a vault online as a website. Popular free alternatives are Quartz (an open-source static-site generator for publishing many notes), digital-garden style community plugins that publish selected notes to hosts like Netlify or Vercel, and Caldera, which publishes a living profile page about you and your work rather than your notes themselves. Pick by goal: a full notes website, a curated garden, or a profile that updates itself.
+
+### Comparison
+Option Cost Best for Setup Obsidian Publish Paid add-on (see obsidian.md for current pricing) An official, hosted website of your notes Built into Obsidian Quartz Free, open source A full static site of many notes, self-hosted Command line + a static host Digital-garden plugins Free (hosting tier dependent) Publishing selected notes as a garden Plugin + Netlify/Vercel account Caldera Free, open source A living profile: journal, activity, projects, chosen notes, plus friends and private sharing One prompt or the plugin; hosted at caldera.social or self-hosted
+
+### When Caldera is the right choice
+Choose Caldera if you want a page that shows what you're working on and updates itself, while your actual notes stay private, and if you want to connect with other Obsidian users. If you want to publish hundreds of notes as a browsable website, use Obsidian Publish or Quartz; Caldera can link to it.
+
+### Questions
+Q: Can I use Caldera and Quartz together?
+A: Yes. Many people publish a notes site with Quartz or Publish and use Caldera for their profile, linking the two.
+Q: Does Caldera publish my whole vault?
+A: No. It publishes counts, sections you turn on, and only notes marked caldera: public (title and first paragraph).
+Q: Is there a hosting cost?
+A: Profiles on caldera.social are free. Self-hosting the open-source hub is also possible.
+
+## Using Claude Code, Codex or Cursor with Obsidian
+URL: https://caldera.social/obsidian-ai-agent-setup
+
+Because an Obsidian vault is just a folder of Markdown files, AI coding agents like Claude Code, OpenAI Codex and Cursor can work in it directly: install plugins, edit notes, and run daily routines. Caldera ships copy-paste prompts built for this: one installs Obsidian (if needed) and the Caldera plugin, then has the agent write your daily journal and activity counts each morning under strict privacy rules, and never lets it touch your identity key.
+
+### The three Caldera prompts
+Setup ( caldera.social/#install ): install Obsidian and Caldera, then a daily journal + activity routine. Make it richer ( caldera.social/#richer ): suggests public notes, topics, activity sources and a 14-day journal backfill, asking before anything goes public. Change my profile ( caldera.social/guide ): describe a change in plain English; the agent edits Caldera/profile.md and the page republishes.
+
+### Safety rules built into the prompts
+Privacy rules override everything: no names, clients, money, health, family or locations on public pages. Anything that would become public needs your explicit yes. The agent never reads or edits the plugin's key file, so your identity key never passes through the model.
+
+### Questions
+Q: Which AI agents work?
+A: Any agent that can read and write files on your computer: Claude Code, OpenAI Codex, Cursor, and similar tools.
+Q: Can the AI run this daily?
+A: Yes. The setup prompt describes a once-a-day routine you can schedule with your agent.
+Q: Does the AI see my private key?
+A: No. The prompts forbid reading the plugin's data.json, and your identity is created by the plugin, not the AI.
+
+## An automatic daily journal in Obsidian, written by AI
+URL: https://caldera.social/obsidian-daily-journal-ai
+
+You can have an AI agent write a short journal entry in Obsidian every morning: it reads yesterday's notes, calendar, sent email, commits and AI sessions, then adds a headline, focus, wins and themes to that day's daily note. With the Caldera plugin those entries become a flippable daily journal on your public profile, alongside an activity score, while the privacy rules keep names, clients and money out of anything public.
+
+### What gets written
+Four properties on each daily note (named YYYY-MM-DD.md ): caldera_headline (one sentence), caldera_focus (2-4 items), caldera_wins (1-3 items) and caldera_themes (1-3 words). Daily counts (meetings, emails sent, AI prompts, commits, documents) go in Caldera/activity.json .
+
+### How to set it up
+Copy the setup prompt from caldera.social/#install into Claude Code, Codex or Cursor. After install, schedule the agent to run the daily routine each morning. Use the "make it richer" prompt to backfill the last 14 days.
+
+### Questions
+Q: Do I have to make the journal public?
+A: No. The journal section has an on/off switch; the entries stay in your daily notes either way.
+Q: What if a day had nothing public to say?
+A: The rules allow empty fields; the page shows the activity counts only.
+Q: Can I write entries myself?
+A: Yes. The same four properties work whether you or an agent write them.
+
+## Track your AI token usage by day and by model
+URL: https://caldera.social/track-ai-token-usage
+
+Claude Code and OpenAI Codex both keep local usage logs with the model and token counts for every response, so you can chart your AI usage without any API access. Caldera's prompts have your AI agent total those logs into tokens per day, per model and per provider (counts only, never prompts or costs), and the AI usage section of your profile shows the daily chart and your model mix.
+
+### Where the numbers come from
+Claude Code: ~/.claude/projects/**/*.jsonl - assistant messages include message.model and message.usage (input, output, cache read and cache write tokens). Count each message id once. Codex: ~/.codex/sessions/**/*.jsonl - token_count events carry per-turn usage; the model comes from turn_context .
+
+### What surprises most people
+Agent sessions re-read cached context constantly, so totals are dominated by cache reads. On one heavy user's profile, about 7.7 billion tokens over 45 days were almost all cached context. Charting it by model also shows how much work each model actually does.
+
+### Questions
+Q: Does this show my costs?
+A: No. Only token counts and model names are published; money amounts are deliberately excluded.
+Q: Does it read my prompts?
+A: No. Only usage fields (model, token counts, timestamps) are totaled.
+Q: Which tools are supported?
+A: Claude Code and Codex out of the box; any tool that keeps local usage logs can be added by your agent.
+
+## Activity heatmap, streaks and a leaderboard for Obsidian
+URL: https://caldera.social/obsidian-activity-tracker
+
+Caldera adds a GitHub-style 26-week activity heatmap, a daily activity score, streaks, your best days and a friends leaderboard to your Obsidian vault, shown on your public profile. The score combines notes written plus optional outside counts (meetings, emails sent, AI prompts, commits, documents), with caps so a bulk import can't win a day.
+
+### What's measured
+Notes created and changed each day come from the vault itself. Outside activity comes from Caldera/activity.json , which your AI agent or scripts can fill with counts. Only numbers are published.
+
+### Compete with friends, positively
+The leaderboard ranks you against friends by points this week. There are no downvotes; recognition is gravity, a positive-only score that fades over a month so recent help counts most.
+
+### Questions
+Q: How is the score calculated?
+A: Weighted daily counts (meetings, emails, prompts, commits, notes, documents), each capped so bulk imports can't dominate. The formula is shown on every page under "How the score works".
+Q: Can I hide the heatmap?
+A: Yes. Every section can be switched off in Caldera/profile.md.
+Q: Does it work on mobile?
+A: Yes. The plugin runs on Obsidian desktop and mobile, and profiles are responsive.

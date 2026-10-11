@@ -12,6 +12,16 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/theme.css">
 <link rel="stylesheet" href="assets/site.css">
+
+
+
+
+
+
+
+
+<link rel="canonical" href="https://caldera.social/">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","name":"Caldera","applicationCategory":"ProductivityApplication","operatingSystem":"Windows, macOS, Linux, iOS, Android (Obsidian plugin)","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://caldera.social","downloadUrl":"https://caldera.social/download/caldera-latest.zip","softwareVersion":"0.3","license":"https://opensource.org/licenses/MIT","codeRepository":"https://github.com/schoettle-cmd/caldera","description":"Caldera is the social layer for Obsidian: a living public profile built from your vault, friends between vaults, end-to-end encrypted shared notes, asks, offers and gravity. Private by default.","publisher":{"@id":"https://caldera.social/#org"},"image":"https://caldera.social/og.jpg"},{"@type":"WebSite","name":"Caldera","url":"https://caldera.social","publisher":{"@id":"https://caldera.social/#org"}},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do I need Obsidian already?","acceptedAnswer":{"@type":"Answer","text":"No. Obsidian is a free notes app ( obsidian.md ) for Mac, Windows, Linux, iPhone and Android. The install prompt checks for it, installs it if you say yes, and creates your first vault (a folder of notes). Your page starts simple and fills in as you write."}},{"@type":"Question","name":"Is it free?","acceptedAnswer":{"@type":"Answer","text":"Yes. The plugin, your profile and friends are free and open source. Optional paid features (like a hosted AI journal and custom domains) may come later."}},{"@type":"Question","name":"Who can see my notes?","acceptedAnswer":{"@type":"Answer","text":"Only what you publish. Your vault is read on your device; Caldera publishes the sections you switch on and notes you mark caldera: public . Notes you share with a friend are encrypted so only that friend can read them."}},{"@type":"Question","name":"What are help credits?","acceptedAnswer":{"@type":"Answer","text":"Points you earn by helping people with their asks. Everyone starts with 100. They have no cash value and can't be bought or sold."}},{"@type":"Question","name":"Does it work on mobile?","acceptedAnswer":{"@type":"Answer","text":"Yes, the plugin runs on Obsidian desktop and mobile."}},{"@type":"Question","name":"Can I host it myself?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use Export profile to a vault folder to get a static site for any host, or run your own hub. The protocol is open."}},{"@type":"Question","name":"How do I delete my profile?","acceptedAnswer":{"@type":"Answer","text":"In Obsidian, run Caldera: Delete my profile from the hub . Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is never touched."}},{"@type":"Question","name":"What if I lose my device?","acceptedAnswer":{"@type":"Answer","text":"Your identity is a key in your vault's plugin settings. Export the recovery key when you set up, and import it on a new device."}}]},{"@type":"Organization","@id":"https://caldera.social/#org","name":"mjonesone, LLC","url":"https://caldera.social","email":"hello@caldera.social"}]}</script>
 </head>
 <body>
 <header class="nav">
@@ -114,13 +124,16 @@ B. Activity counts. Update "&lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;/Caldera/a
 C. Publish. If Caldera auto-publish is on (Settings -&gt; Caldera -&gt; Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
 
 ## 3. Privacy rules (these override everything above)
-Everything you write in the caldera_* fields and in Caldera/activity.json is PUBLIC on the internet. So:
-- No names of people, companies, clients, investors, deals, or products that are not already public on my page.
-- No money amounts, prices, valuations, metrics, health, legal, family, location or travel details.
-- No email addresses, phone numbers, URLs to private docs, or anything copied from email bodies.
-- Describe work by its public theme instead ("closed out a design review", "shipped a release"), and only use topics among the tags I allow-listed in Settings -&gt; Caldera -&gt; Public topics.
-- If you are unsure whether something is private, leave it out. An empty field is fine.
-- Never write to any other part of the vault, never change notes' privacy markings (caldera: public / friends), never touch .obsidian/plugins/caldera/data.json.
+Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
+- Other people: no names, initials, handles, photos or descriptions that identify anyone I meet, work with, hire, date, advise or invest with. Say "a founder", "the team", "a friend" only when it adds nothing identifying - usually leave it out.
+- Meetings: no meetings, calls, lunches, dinners, interviews or events - not their titles, times, dates, attendees, or that they happened with someone specific.
+- Times and places: no times of day, schedules, travel, cities, venues, addresses, offices, home or "where I am".
+- Secret or sensitive work: no unannounced, stealth, confidential or NDA projects, codenames, deals, fundraising, investors, acquisitions, valuations, hiring, firing or anything said in confidence.
+- Things that can get someone in trouble: legal, medical, health, HR, money, salaries, debts, relationships, family, children, politics, religion.
+- Contact details and links: no emails, phone numbers or links to private documents. No money amounts at all.
+Describe work only by its public theme ("shipped a release", "wrote about design") and only name things I have already made public on my page (my own public projects, topics and links). If you are unsure, leave it out - an empty field is fine. Caldera also drops any journal line that looks sensitive before publishing.
+Themes and topics: only use topics among the tags I allow-listed in Settings -&gt; Caldera -&gt; Public topics.
+Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / friends), never touch .obsidian/plugins/caldera/data.json.
 
 ## 4. Check your work
 After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.
@@ -198,10 +211,14 @@ Work through these one at a time. Anything that would become PUBLIC needs my exp
 8. Finish. Tell me to run "Caldera: Preview my public profile", check it, then "Caldera: Publish my profile".
 
 Privacy rules (these override everything above):
-- Never put names of people, companies, clients, investors, deals or unannounced products into anything public.
-- No money amounts, prices, valuations, metrics, health, legal, family, location or travel details.
-- No email addresses, phone numbers, or links to private documents.
-- If you are unsure whether something is private, leave it out.
+Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
+- Other people: no names, initials, handles, photos or descriptions that identify anyone I meet, work with, hire, date, advise or invest with. Say "a founder", "the team", "a friend" only when it adds nothing identifying - usually leave it out.
+- Meetings: no meetings, calls, lunches, dinners, interviews or events - not their titles, times, dates, attendees, or that they happened with someone specific.
+- Times and places: no times of day, schedules, travel, cities, venues, addresses, offices, home or "where I am".
+- Secret or sensitive work: no unannounced, stealth, confidential or NDA projects, codenames, deals, fundraising, investors, acquisitions, valuations, hiring, firing or anything said in confidence.
+- Things that can get someone in trouble: legal, medical, health, HR, money, salaries, debts, relationships, family, children, politics, religion.
+- Contact details and links: no emails, phone numbers or links to private documents. No money amounts at all.
+Describe work only by its public theme ("shipped a release", "wrote about design") and only name things I have already made public on my page (my own public projects, topics and links). If you are unsure, leave it out - an empty field is fine. Caldera also drops any journal line that looks sensitive before publishing.
 - Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.
 - Never remove or change an existing "caldera:" marking without asking me.<!-- RICHER_PROMPT_END --></pre>
         <div class="prompt-fade"><button class="prompt-expand" type="button" aria-expanded="false">Show the full prompt</button></div>
@@ -241,7 +258,7 @@ Privacy rules (these override everything above):
 
 <footer class="footer">
   <span>&copy; 2026 mjonesone, LLC. Caldera is open source under the MIT license (hub: AGPL-3.0).</span>
-  <span><a href="PROTOCOL.md">Protocol spec</a> &middot; <a href="privacy.html">Privacy Policy</a> &middot; <a href="terms.html">Terms of Service</a></span>
+  <span><a href="/learn">Learn</a> &middot; <a href="PROTOCOL.md">Protocol spec</a> &middot; <a href="privacy.html">Privacy Policy</a> &middot; <a href="terms.html">Terms of Service</a></span>
 </footer>
 <script src="assets/site.js"></script>
 </body>

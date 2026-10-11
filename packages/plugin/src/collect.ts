@@ -14,6 +14,7 @@
 import { App, TFile, getAllTags } from "obsidian";
 import type { DailyEntry, ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
+import { publicTextFilter } from "@caldera/core";
 
 const DAY = 86_400_000;
 const fmtN = (n: number) => n.toLocaleString("en-US");
@@ -62,6 +63,13 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
 
   const today = Date.now();
   const daily: DailyEntry[] = [];
+  // Journal text is the riskiest public text (often AI-written, daily, about real days). Every line passes the privacy
+  // filter: lines naming people, places, meetings/times, secret work, money, legal/health/family matters are dropped.
+  // Only words the owner already chose to publish count as safe names.
+  const ownerPublic = [s.name, s.headline, ...(s.links || []).map(l => l[0]), ...(s.properties || []).map(p => p[1]), ...(s.publicTopics || []).map(t => t[1]),
+    ...(s.projects || []).map(p => p[0]), ...(s.tree || []).flatMap(t => [t[0], ...t[1].split(",")]), ...(s.graph || []), ...(s.backlinks || []).map(b => b[0]), ...(s.tabs || [])].filter(Boolean).map(x => String(x).trim());
+  const safe = publicTextFilter(ownerPublic);
+  const clean = (xs: string[]) => xs.filter(x => safe(x));
   for (let i = s.historyDays - 1; i >= 0; i--) {
     const date = iso(today - i * DAY);
     const ext = external.get(date) || {};
@@ -70,8 +78,8 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
       date,
       counts: { notes: Math.max(created.get(date) || 0, changed.get(date) || 0), meetings: ext.meetings, emails: ext.emails, prompts: ext.prompts, commits: ext.commits, docs: ext.docs },
       tokens: Number(ext.tokens) || undefined,
-      headline: j.headline || ext.headline, focus: j.focus?.length ? j.focus : asList(ext.focus), wins: j.wins?.length ? j.wins : asList(ext.wins),
-      themes: j.themes?.length ? j.themes : asList(ext.themes),
+      headline: [j.headline || ext.headline].filter(h => h && safe(String(h)))[0], focus: clean(j.focus?.length ? j.focus : asList(ext.focus)), wins: clean(j.wins?.length ? j.wins : asList(ext.wins)),
+      themes: clean(j.themes?.length ? j.themes : asList(ext.themes)),
     });
   }
   let activeDays = 0;

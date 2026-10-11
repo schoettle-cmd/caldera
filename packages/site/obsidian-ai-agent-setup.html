@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Use Claude Code, Codex or Cursor with your Obsidian vault</title>
+<meta name="description" content="Let an AI agent set up and maintain your Obsidian vault: install plugins, write a daily journal, track activity, and keep private data private. Copy-paste prompts included.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/site.css">
+
+
+
+<link rel="canonical" href="https://caldera.social/obsidian-ai-agent-setup"><meta property="og:title" content="Use Claude Code, Codex or Cursor with your Obsidian vault"><meta property="og:description" content="Let an AI agent set up and maintain your Obsidian vault: install plugins, write a daily journal, track activity, and keep private data private. Copy-paste prompts included."><meta property="og:url" content="https://caldera.social/obsidian-ai-agent-setup"><meta property="og:type" content="article"><meta property="og:image" content="https://caldera.social/og.jpg"><meta name="twitter:card" content="summary_large_image"><meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Using Claude Code, Codex or Cursor with Obsidian","description":"Let an AI agent set up and maintain your Obsidian vault: install plugins, write a daily journal, track activity, and keep private data private. Copy-paste prompts included.","url":"https://caldera.social/obsidian-ai-agent-setup","dateModified":"2026-10-11","datePublished":"2026-10-11","author":{"@id":"https://caldera.social/#org"},"publisher":{"@id":"https://caldera.social/#org"},"about":{"@type":"SoftwareApplication","name":"Caldera","url":"https://caldera.social"},"image":"https://caldera.social/og.jpg"},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Which AI agents work?","acceptedAnswer":{"@type":"Answer","text":"Any agent that can read and write files on your computer: Claude Code, OpenAI Codex, Cursor, and similar tools."}},{"@type":"Question","name":"Can the AI run this daily?","acceptedAnswer":{"@type":"Answer","text":"Yes. The setup prompt describes a once-a-day routine you can schedule with your agent."}},{"@type":"Question","name":"Does the AI see my private key?","acceptedAnswer":{"@type":"Answer","text":"No. The prompts forbid reading the plugin's data.json, and your identity is created by the plugin, not the AI."}}]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Caldera","item":"https://caldera.social/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://caldera.social/learn"},{"@type":"ListItem","position":3,"name":"Using Claude Code, Codex or Cursor with Obsidian","item":"https://caldera.social/obsidian-ai-agent-setup"}]},{"@type":"Organization","@id":"https://caldera.social/#org","name":"mjonesone, LLC","url":"https://caldera.social","email":"hello@caldera.social"}]}</script>
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="./"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M3 26 L11 10 L14 15 L17 8 L29 26 Z" fill="var(--accent)"/><path d="M11 10 L14 15 L17 8" fill="none" stroke="var(--text-strong)" stroke-width="1.2"/><circle cx="16" cy="21" r="2.4" fill="var(--accent-2)"/></svg>Caldera</a>
+  <nav><a href="./#how">How it works</a><a href="people.html">People</a><a href="guide.html">Guide</a><a href="changelog.html">What's new</a><a href="./#faq">FAQ</a></nav>
+  <a class="btn small" href="./#install">Get the plugin</a>
+</header>
+<main class="legal guide learn-page">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Caldera</a> / <a href="/learn">Learn</a></nav>
+  <h1>Using Claude Code, Codex or Cursor with Obsidian</h1>
+  <p class="answer">Because an Obsidian vault is just a folder of Markdown files, AI coding agents like Claude Code, OpenAI Codex and Cursor can work in it directly: install plugins, edit notes, and run daily routines. Caldera ships copy-paste prompts built for this: one installs Obsidian (if needed) and the Caldera plugin, then has the agent write your daily journal and activity counts each morning under strict privacy rules, and never lets it touch your identity key.</p>
+  <p class="fine">Updated 2026-10-11 &middot; by mjonesone, LLC</p>
+  <h2>The three Caldera prompts</h2>
+  <ul>
+<li><b>Setup</b> (<a href="/#install">caldera.social/#install</a>): install Obsidian and Caldera, then a daily journal + activity routine.</li>
+<li><b>Make it richer</b> (<a href="/#richer">caldera.social/#richer</a>): suggests public notes, topics, activity sources and a 14-day journal backfill, asking before anything goes public.</li>
+<li><b>Change my profile</b> (<a href="/guide#ai">caldera.social/guide</a>): describe a change in plain English; the agent edits Caldera/profile.md and the page republishes.</li>
+</ul>
+  <h2>Safety rules built into the prompts</h2>
+  <ul>
+<li>Privacy rules override everything: no names, clients, money, health, family or locations on public pages.</li>
+<li>Anything that would become public needs your explicit yes.</li>
+<li>The agent never reads or edits the plugin's key file, so your identity key never passes through the model.</li>
+</ul>
+  <div class="cta-box"><b>Try it free.</b> One prompt in Claude Code, Codex or Cursor installs Obsidian (if needed) and Caldera. <a class="btn small" href="/#install">Install Caldera</a></div>
+  <h2>Questions</h2>
+  <div class="faq-list"><details open><summary>Which AI agents work?</summary><p>Any agent that can read and write files on your computer: Claude Code, OpenAI Codex, Cursor, and similar tools.</p></details><details open><summary>Can the AI run this daily?</summary><p>Yes. The setup prompt describes a once-a-day routine you can schedule with your agent.</p></details><details open><summary>Does the AI see my private key?</summary><p>No. The prompts forbid reading the plugin's data.json, and your identity is created by the plugin, not the AI.</p></details></div>
+  <h2>Related</h2>
+  <ul><li><a href="/obsidian-daily-journal-ai">An automatic daily journal in Obsidian, written by AI</a></li><li><a href="/track-ai-token-usage">Track your AI token usage by day and by model</a></li><li><a href="/obsidian-public-profile">How to make a public profile from your Obsidian vault</a></li></ul>
+</main>
+<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

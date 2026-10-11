@@ -201,3 +201,18 @@ section h2 { line-height: 1.12; }
 .invited > div { flex: 1; min-width: 0; }
 .invited b { color: var(--text-strong); }
 @media (max-width: 560px) { .invited { flex-wrap: wrap; margin-bottom: -24px; } .invited .btn { width: 100%; justify-content: center; } }
+
+/* --- Learn pages -------------------------------------------------------- */
+.learn-page .crumbs { font: 13px var(--font-mono); color: var(--text-muted); margin-bottom: 10px; }
+.learn-page .crumbs a { color: var(--text-muted); }
+.learn-page .answer { font-size: 18px; line-height: 1.6; color: var(--text-strong); border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; margin: 0 0 8px; }
+.learn-page .cta-box { margin: 32px 0 8px; padding: 16px 18px; border: 1px solid var(--accent); border-radius: var(--radius-lg); background: var(--accent-soft); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.learn-page .cta-box .btn { margin-left: auto; }
+.learn-page .faq-list details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.learn-page .faq-list summary { cursor: pointer; font-weight: 600; color: var(--text-strong); }
+.learn-page .faq-list p { margin: 6px 0 0; }
+.learn-list { display: grid; gap: 10px; margin-top: 20px; }
+.learn-item { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--bg-raised); color: var(--text); }
+.learn-item:hover { text-decoration: none; border-color: var(--accent); }
+.learn-item b { color: var(--text-strong); font-size: 17px; }
+.learn-item span { color: var(--text-muted); font-size: 14.5px; }

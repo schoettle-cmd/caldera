@@ -71,3 +71,24 @@ test("setup prompt covers installing Obsidian when missing; installed variant sk
   assert.ok(fresh.indexOf("## 0.") < fresh.indexOf("## 1. Install the plugin"));
   assert.ok(!agentPrompt({ installed: true }).includes("## 0. Obsidian itself"));
 });
+
+test("public text filter: blocks people, places, meetings, times, secrets, money, family; keeps public work", async () => {
+  const { publicTextFilter } = await import("../dist/index.js");
+  const f = publicTextFilter(["Mike Jones", "Human Architecture", "Inbox Hero", "Kitse"]);
+  const keep = ["Rebuilt Human Architecture's daily readings and turned my Obsidian vault into dashboards", "Organizing my Obsidian vault into clear dashboards with Claude",
+    "Making Human Architecture's daily readings the best in the category", "Shipped a new win-back sequence, ready to turn on once the copy is approved",
+    "Launched a living profile page built from my Obsidian notes and GitHub activity", "Fixed bugs in Inbox Hero", "Building"];
+  const drop = ["Coffee with Sarah at 10am to talk about the new app", "Met with the team in Santa Monica", "Call with investors about the term sheet", "Working on a stealth project",
+    "Helped Peter Pham with a deck", "Closed a $2M round", "Lunch at Gjelina", "Took my daughter to school", "Prepared for the 3:30 board meeting", "Sent the draft to jane@acme.com",
+    "Flew to Aspen", "Spoke with the lawyer about the contract", "Reviewed the confidential plan", "Office on 2nd Street"];
+  for (const t of keep) assert.ok(f(t), "should keep: " + t + " (" + f.why(t) + ")");
+  for (const t of drop) assert.ok(!f(t), "should drop: " + t);
+});
+
+test("all three prompts carry the full privacy policy", async () => {
+  const { agentPrompt, richerPrompt, editPrompt, PRIVACY_RULES } = await import("../dist/index.js");
+  for (const t of [agentPrompt(), agentPrompt({ installed: true }), richerPrompt(), editPrompt()]) {
+    assert.ok(t.includes(PRIVACY_RULES));
+    for (const k of ["Other people", "Meetings", "Times and places", "Secret or sensitive work", "get someone in trouble", "data.json"]) assert.ok(t.includes(k), k);
+  }
+});
