@@ -16,10 +16,13 @@ Your vault becomes a **living profile** that updates itself, and vaults can **be
 
 ## Use it (Obsidian)
 
-1. Install **Caldera** from Community Plugins (until listed: copy `main.js`, `manifest.json`, `styles.css` into `<vault>/.obsidian/plugins/caldera/`).
-2. Settings -> Caldera: pick a handle, name, photo, and which sections are public.
-3. Command palette -> **Caldera: Preview my public profile**, then **Publish my profile**.
-4. Open the Caldera panel (flame icon) to add friends, accept requests, and give gravity. Use **Share this note with a friend** on any note.
+**Fastest:** copy the setup prompt at https://caldera.social/#install into Claude Code, Codex or Cursor. Your AI installs the plugin; restart Obsidian, pick a handle in the Welcome window, and your page opens in the browser.
+
+**By hand:** download [caldera-latest.zip](https://caldera.social/download/caldera-latest.zip) (or the files from the latest [GitHub release](https://github.com/schoettle-cmd/caldera/releases)) into `<vault>/.obsidian/plugins/caldera/`, restart Obsidian, turn on Caldera.
+
+**Beta testers (BRAT):** add `schoettle-cmd/caldera` in the BRAT plugin.
+
+Change your page by editing the note `Caldera/profile.md` (or ask your AI to); it republishes itself. Guide: https://caldera.social/guide.html
 
 Conventions (all optional): `caldera: public` on a note lists it publicly; daily notes named `YYYY-MM-DD` can carry `caldera_headline`, `caldera_focus`, `caldera_wins`, `caldera_themes` for the daily journal; `Caldera/activity.json` lets outside tools (calendar, email, git) add daily counts.
 
