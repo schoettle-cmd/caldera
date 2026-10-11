@@ -268,6 +268,10 @@ export function createHub(opts: HubOptions) {
   const server = http.createServer(async (req, res) => {
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
     try {
+      if (req.method === "HEAD") {   // link checkers (e.g. the Obsidian directory) probe with HEAD: answer like GET, without a body
+        req.method = "GET"; const end = res.end.bind(res);
+        (res as any).write = () => true; (res as any).end = (..._a: unknown[]) => end();
+      }
       if (limited(req)) return json(res, 429, { error: "slow down" });
       const url = new URL(req.url || "/", "http://hub");
       // ids arrive percent-encoded ("cal%3A...") when a proxy passes the raw URI through; API routes match the decoded form

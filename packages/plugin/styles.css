@@ -19,3 +19,5 @@
 .caldera-release h3 { margin: 4px 0 6px; }
 .caldera-release ul { margin: 0; padding-left: 20px; }
 .caldera-release-howto { margin: 8px 0 0; color: var(--text-muted); font-size: var(--font-ui-small); }
+
+.caldera-prompt { width: 100%; }

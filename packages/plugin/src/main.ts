@@ -33,8 +33,8 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "open", name: "Open my public profile", callback: () => this.openProfile() });
     this.addCommand({ id: "profile-file", name: "Edit my profile (open Caldera/profile.md)", callback: () => this.openProfileFile() });
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
-    this.addCommand({ id: "whats-new", name: "What's new in Caldera", callback: () => this.checkReleases(true) });
-    this.addCommand({ id: "guide", name: "Open the Caldera guide", callback: () => window.open(this.settings.hubUrl.replace(/\/$/, "") + "/guide.html") });
+    this.addCommand({ id: "whats-new", name: "What's new", callback: () => this.checkReleases(true) });
+    this.addCommand({ id: "guide", name: "Open the guide", callback: () => window.open(this.settings.hubUrl.replace(/\/$/, "") + "/guide.html") });
     this.registerEvent(this.app.metadataCache.on("changed", f => { if (f.path === PROFILE_FILE) this.queuePublish("profile"); }));
     this.registerEvent(this.app.vault.on("modify", f => { if (f.path === this.settings.activityFile) this.queuePublish("activity"); }));
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
@@ -403,7 +403,7 @@ class PromptModal extends Modal {
   onOpen() {
     this.titleEl.setText("AI agent setup prompt");
     const ta = this.contentEl.createEl("textarea", { cls: "caldera-prompt" });
-    ta.value = this.text; ta.rows = 18; ta.style.width = "100%"; ta.readOnly = true; ta.select();
+    ta.value = this.text; ta.rows = 18; ta.readOnly = true; ta.select();
   }
   onClose() { this.contentEl.empty(); }
 }
