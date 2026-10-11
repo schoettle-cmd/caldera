@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.3.8",
+      "date": "2026-10-11",
+      "title": "Activity heatmap you can read: hover any day",
+      "items": [
+        "Hover or tap any square on the Activity heatmap to see its date and count instantly. The line under the chart shows the day you're on and rolls back to today when you move away.",
+        "Click a day to pin it; arrow keys move between days, Escape returns to today.",
+        "Month and weekday labels, and today is outlined."
+      ]
+    },
+    {
       "version": "0.3.7",
       "date": "2026-10-11",
       "title": "A richer Timeline: chapters, detail lines and a connected rail",
