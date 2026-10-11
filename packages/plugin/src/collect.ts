@@ -69,6 +69,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     daily.push({
       date,
       counts: { notes: Math.max(created.get(date) || 0, changed.get(date) || 0), meetings: ext.meetings, emails: ext.emails, prompts: ext.prompts, commits: ext.commits, docs: ext.docs },
+      tokens: Number(ext.tokens) || undefined,
       headline: j.headline || ext.headline, focus: j.focus?.length ? j.focus : asList(ext.focus), wins: j.wins?.length ? j.wins : asList(ext.wins),
       themes: j.themes?.length ? j.themes : asList(ext.themes),
     });
@@ -134,6 +135,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     summary: s.summary || undefined, now: s.now, timeline: s.timeline, projects, heat, growth, knows,
     inbox: extra.inbox && Array.isArray(extra.inbox.kinds) ? extra.inbox : undefined,
     code: extra.code && typeof extra.code.commits === "number" ? extra.code : undefined,
+    ai: extra.ai && typeof extra.ai.total === "number" && Array.isArray(extra.ai.models) ? extra.ai : undefined,
     extraNumbers: Array.isArray(extra.numbers) ? extra.numbers.filter((x: any) => Array.isArray(x)).map((x: any) => [String(x[0]), String(x[1])]) : undefined,
     tree, graph, graphLabel: s.graph?.length ? "Local graph / sized by linked notes" : "Topics / sized by notes",
     backlinks, backlinkLabel: s.backlinks?.length ? `Backlinks / ${fmtN(linkCount(s.name || ""))} notes link here` : "Public notes",

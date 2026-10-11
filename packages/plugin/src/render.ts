@@ -8,7 +8,7 @@ import THEME_CSS from "./assets/theme.css";
 import { PROFILE_CSS } from "./profile.css";
 import { activityScore, ACTIVITY_WEIGHTS, type DailyCounts } from "@caldera/core";
 
-export interface DailyEntry { date: string; counts: DailyCounts; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
+export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
 export interface ProfileData {
   name: string; handle?: string; headline?: string; theme?: "dark" | "light";
   avatar?: string; banner?: string;                       // relative paths inside the bundle, e.g. img/avatar.jpg
@@ -38,7 +38,11 @@ export interface ProfileData {
   inbox?: { total?: number; note?: string; kinds: [string, number][]; series?: { label: string; weeks: [string, number][] } };
   code?: { commits: number; repos: number; languages?: string[]; weekly?: number[]; url?: string; start?: string };
   extraNumbers?: [string, string][];                        // [value, label] appended to the number strip
+  ai?: { total: number; window_days?: number; models: [string, number][]; providers?: [string, number][]; note?: string };   // AI tokens, counts only
 }
+
+/** 7675123642 -> 7.68B, 456865 -> 457K */
+const big = (n: number) => n >= 1e9 ? (n / 1e9).toFixed(2).replace(/\.?0+$/, "") + "B" : n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1e3 ? Math.round(n / 1e3) + "K" : String(n);
 
 /** Inline text: [[Label|https://url]], [Label](https://url) and **bold**. Everything else escaped; only http(s) links. */
 function inline(t: string): string {
@@ -165,6 +169,12 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   if (s.code !== false && p.code && p.code.commits > 0) {
     const c = p.code, wk = c.weekly || [], f = Math.max(0, wk.findIndex(x => x > 0)), w2 = wk.slice(f), peak = Math.max(1, ...w2);
     parts.push(`<h2>Code</h2><p class="small"><b>${fmt(c.commits)}</b> commits across <b>${fmt(c.repos)}</b> repositories in the last year.${c.languages?.length ? ` Mostly ${esc(c.languages.slice(0, -1).join(", "))}${c.languages.length > 1 ? " and " : ""}${esc(c.languages[c.languages.length - 1])}.` : ""}${c.url && /^https?:\/\//.test(c.url) ? ` <a href="${esc(c.url)}" rel="noopener">${esc(c.url.replace(/^https?:\/\//, ""))}</a>` : ""}</p>${w2.length ? `<div class="bars" role="img" aria-label="Commits per week">${w2.map(x => `<span class="${x >= peak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x / peak * 100).toFixed(1)}%" title="${x}"></span>`).join("")}</div><div class="bars-legend"><span>${esc(c.start || "")}</span><span>peak week: ${fmt(peak)}</span><span>this week</span></div>` : ""}`);
+  }
+  if (s.ai !== false && p.ai && p.ai.total > 0) {
+    const a = p.ai, td = days.map(d => ({ date: d.date, n: d.tokens || 0 })), tpeak = Math.max(1, ...td.map(x => x.n));
+    const share = (n: number) => a.total ? Math.round(n / a.total * 1000) / 10 : 0;
+    const bars = (rows: [string, number][], alt = false) => { const m = Math.max(1, ...rows.map(r => r[1])); return rows.map(([l, n]) => `<div class="hbar"><span>${esc(l)}</span><span class="track"><span class="fill${alt ? " alt" : ""}" style="width:${(n / m * 100).toFixed(1)}%"></span></span><span class="num" title="${fmt(n)} tokens">${share(n) >= 0.1 ? share(n) + "%" : "&lt;0.1%"}</span></div>`).join(""); };
+    parts.push(`<h2>AI usage</h2><p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc(a.note)}</span>` : ""}</p>${td.some(x => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map(x => `<span class="${x.n >= tpeak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>`);
   }
   if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${p.timeline.map(([y, t]) => `<div class="row"><span class="year">${esc(y)}</span><span>${inline(t)}</span></div>`).join("")}</div>`);
   if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map(n => `<div class="pnote"><div class="pn-title">${esc(n.title)}</div><div class="pn-ex">${esc(n.excerpt)}</div><div class="pn-date">${esc(n.updated.slice(0, 10))}</div></div>`).join("")}`);

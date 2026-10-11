@@ -88,3 +88,13 @@ test("full page: summary/now/activity/growth/knows/inbox/projects/code/timeline;
   const off = renderProfile({ ...p, sections: { ...p.sections, code: false, timeline: false, inbox: false } })["index.html"];
   assert.ok(!off.includes("<h2>Code</h2>") && !off.includes("<h2>Timeline</h2>") && !off.includes("Inbox to knowledge"));
 });
+
+test("AI usage: totals, per-day bars, model and provider shares; hidden when off or empty", () => {
+  const p = { ...sample(), daily: sample().daily.map((d, i) => ({ ...d, tokens: i * 1e8 })),
+    ai: { total: 7_675_123_642, window_days: 45, models: [["Claude Opus 5.5", 5_930_000_000], ["GPT-5 <x>", 256_000]], providers: [["Anthropic", 7_674_000_000], ["OpenAI", 712_069]], note: "Counts only." } };
+  const html = renderProfile(p)["index.html"];
+  assert.ok(html.includes("<h2>AI usage</h2>") && html.includes("<b>7.68B</b> tokens") && html.includes("Models / share of tokens") && html.includes("Providers"));
+  assert.ok(html.includes("77.3%") && html.includes("&lt;0.1%") && !html.includes("GPT-5 <x>"), "shares + escaping");
+  assert.ok(!renderProfile({ ...p, sections: { ...p.sections, ai: false } })["index.html"].includes("AI usage"));
+  assert.ok(!renderProfile(sample())["index.html"].includes("AI usage"));
+});

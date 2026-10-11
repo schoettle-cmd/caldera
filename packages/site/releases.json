@@ -3,12 +3,13 @@
     {
       "version": "0.3.0",
       "date": "2026-10-10",
-      "title": "Full living profile: three columns, activity, growth, projects, code and timeline",
+      "title": "Full living profile: three columns, AI usage, activity, growth, projects, code and timeline",
       "items": [
         "Three-column layout: a Vault sidebar on the left, a local graph and backlinks on the right. Choose what they show in Caldera/profile.md (sidebar, graph, backlinks), or leave them empty to show your topics and public notes.",
         "New sections: Summary, Now, Timeline and Projects, written in Caldera/profile.md. Links like [[Label|https://...]] and **bold** work.",
         "Activity heatmap (26 weeks) and Growth chart, computed from your vault. Counts only.",
         "What it knows, Inbox to knowledge and Code (GitHub) sections, filled from Caldera/activity.json by your own tools or AI agent.",
+        "AI usage: total tokens, tokens per day, and your model and provider mix as charts. Your AI agent fills it from local Claude Code and Codex logs - counts only, never prompts or costs.",
         "Scoreboard now shows a leaderboard and your best other days.",
         "Fixes: dates use your local day (not UTC), and link counts wait until Obsidian has finished indexing."
       ],

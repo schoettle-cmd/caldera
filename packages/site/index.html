@@ -89,8 +89,12 @@ A. Journal entry. Open (or create) yesterday's daily note, named YYYY-MM-DD.md, 
    Write them from my notes, calendar, sent email, commits and AI sessions for that day - whatever you can access.
 
 B. Activity counts. Update "&lt;ABSOLUTE PATH TO MY OBSIDIAN VAULT&gt;/Caldera/activity.json" (create it if missing). Format:
-   { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0 } ] }
-   One object per date: replace that date's object if it exists, keep the last 60 days, and only include counts you can actually measure (omit the rest - never guess). meetings = calendar events attended, emails = emails I sent, prompts = AI prompts I sent, commits = git commits I authored, docs = documents/attachments I produced or filed. Notes are counted by the plugin itself.
+   { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0, "tokens": 0 } ],
+     "ai": { "total": 0, "window_days": 45, "models": [["Claude Opus 5.5", 0]], "providers": [["Anthropic", 0]] },
+     "code": { "commits": 0, "repos": 0, "languages": ["Python"], "weekly": [0], "url": "https://github.com/&lt;me&gt;", "start": "Mon YYYY" } }
+   One object per date: replace that date's object if it exists, keep the last 60 days, and only include counts you can actually measure (omit the rest - never guess). meetings = calendar events attended, emails = emails I sent, prompts = AI prompts I sent, commits = git commits I authored, docs = documents/attachments I produced or filed, tokens = AI tokens processed for me that day. Notes are counted by the plugin itself.
+   AI usage ("tokens" per day and the "ai" block, last 45 days): read the usage logs of the AI tools on this computer - Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -&gt; last_token_usage.total_tokens, model from turn_context). Add other tools only if they keep local usage logs. Group by model (readable names) and by provider. Never include prompts, file names or costs.
+   Code ("code" block, optional): if I use GitHub, count my commits in the last 52 weeks per week across my repositories (the gh CLI or the GitHub API), number of repos, and top 4 languages. Counts only - never repository names that are private.
 
 C. Publish. If Caldera auto-publish is on (Settings -&gt; Caldera -&gt; Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
 
@@ -169,11 +173,13 @@ Work through these one at a time. Anything that would become PUBLIC needs my exp
    { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0 } ] }
    Use the sources I actually have: calendar events attended, emails I sent, AI prompts I sent, git commits I authored, documents I produced. Only numbers - never titles, subjects, names or contents. Tell me which sources you connected and which you could not. If a daily journal routine already writes this file, extend it instead of adding a second writer.
 
-5. Backfill the journal. For each of the last 14 days that has activity, add caldera_headline, caldera_focus, caldera_wins and caldera_themes to that day's daily note (YYYY-MM-DD.md), following the privacy rules below. Show me the 14 entries before writing them.
+5. My page text. Draft, for Caldera/profile.md: "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (Year | milestone, only things already public), and "projects" (Name | status | https://link, only public projects). Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context). Show me everything first; write only what I approve.
 
-6. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I will post the ones I like with the commands "Caldera: Post an ask" and "Caldera: Post an offer".
+6. Backfill the journal. For each of the last 14 days that has activity, add caldera_headline, caldera_focus, caldera_wins and caldera_themes to that day's daily note (YYYY-MM-DD.md), following the privacy rules below. Show me the 14 entries before writing them.
 
-7. Finish. Tell me to run "Caldera: Preview my public profile", check it, then "Caldera: Publish my profile".
+7. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I will post the ones I like with the commands "Caldera: Post an ask" and "Caldera: Post an offer".
+
+8. Finish. Tell me to run "Caldera: Preview my public profile", check it, then "Caldera: Publish my profile".
 
 Privacy rules (these override everything above):
 - Never put names of people, companies, clients, investors, deals or unannounced products into anything public.
