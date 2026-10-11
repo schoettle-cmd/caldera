@@ -133,3 +133,9 @@ test("tab icon: round avatar when present, Caldera logo otherwise", () => {
   const b = renderProfile({ ...sample() });
   assert.ok(b["index.html"].includes('<link rel="icon" href="assets/favicon.svg"') && b["assets/favicon.svg"].startsWith("<svg"));
 });
+
+test("AI usage: token sources shown when there is more than one", () => {
+  const ai = { total: 100, models: [["M", 100]], sources: [["Coding agents (5 machines)", 90], ["Product APIs", 10]] };
+  assert.ok(renderProfile({ ...sample(), ai })["index.html"].includes("Where the tokens come from"));
+  assert.ok(!renderProfile({ ...sample(), ai: { ...ai, sources: [["Coding agents", 100]] } })["index.html"].includes("Where the tokens come from"));
+});

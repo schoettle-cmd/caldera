@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.3.12",
+      "date": "2026-10-11",
+      "title": "AI usage shows where your tokens come from",
+      "items": [
+        "When your AI agent reports more than one source (for example coding agents on several machines and your apps' APIs), the AI usage section shows the split. Counts only."
+      ]
+    },
+    {
       "version": "0.3.11",
       "date": "2026-10-11",
       "title": "One-tap invites, and your photo as the browser-tab icon",
