@@ -12,6 +12,7 @@ export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number
 export interface ProfileData {
   name: string; handle?: string; headline?: string; theme?: "dark" | "light";
   avatar?: string; banner?: string;                       // relative paths inside the bundle, e.g. img/avatar.jpg
+  icon?: string;                                           // browser-tab icon (round avatar PNG); default: Caldera logo
   links: [string, string][];
   properties: [string, string][];
   sections: Record<string, boolean>;                      // journal, scoreboard, numbers, topics, notes, asks, social, links
@@ -129,6 +130,7 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <meta name="robots" content="noindex, nofollow"><meta name="generator" content="Caldera for Obsidian">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
 <link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css"></head><body>
 <div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
@@ -215,7 +217,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   const seen = new Set<string>();
   let html = parts.join("\n").replace(/<h2>([^<]+)<\/h2>/g, (_m, t: string) => { let id = slug(t); while (seen.has(id)) id += "-2"; seen.add(id); toc.push([id, t]); return `<h2 id="${id}">${t}</h2>`; });
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
-  return { "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS };
+  return { "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
 }
 
 /** Vault groups: collapsible (native <details>, works without script), linked items, optional note count. */
@@ -257,6 +259,9 @@ function timelineRows(rows: [string, string][]): string {
     return `<div class="row${same ? " same" : ""}"><span class="year">${same ? "" : esc(y)}</span><span class="dot" aria-hidden="true"></span><div class="what"><div>${inline(main)}</div>${detail ? `<div class="detail">${inline(detail)}</div>` : ""}</div></div>`;
   }).join("");
 }
+
+/** Caldera mark, the tab icon for pages without a photo. Same as caldera.social/favicon.svg. */
+const LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#1C1C1F"/><path d="M4 25 L12 10 L15 15 L18 8 L28 25 Z" fill="#8B6CF6"/><circle cx="16" cy="21" r="2.4" fill="#4FB89A"/></svg>';
 
 /** Tiny client script: "synced ago" + flippable journal. */
 /** Activity heatmap: instant date tooltip, readout that rolls back to today, month labels, click to pin, arrow keys. */

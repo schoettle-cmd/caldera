@@ -1,12 +1,13 @@
 {
   "releases": [
     {
-      "version": "0.3.10",
+      "version": "0.3.11",
       "date": "2026-10-11",
-      "title": "One-tap invites from your leaderboard",
+      "title": "One-tap invites, and your photo as the browser-tab icon",
       "items": [
         "'Invite a friend' on your leaderboard now opens an invite panel: copy your personal invite link, or send it by email, text or your phone's share sheet.",
-        "Friends who use your link land on the install page and see who invited them."
+        "Friends who use your link land on the install page and see who invited them.",
+        "Your page's browser tab now shows your photo as a round icon (and on phone home screens). Pages without a photo show the Caldera mark instead of a blank globe."
       ]
     },
     {

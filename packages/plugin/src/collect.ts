@@ -149,9 +149,21 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   const pc = extra.projects && typeof extra.projects === "object" ? extra.projects : {};
   const projects = (s.projects || []).map(([name, rest]) => { const [status = "", url = ""] = rest.split("|").map(x => x.trim()); return { name, status, url, commits: Number(pc[name]) || undefined }; });
 
+  // browser-tab icon: the avatar cut to a circle, zoomed to the upper middle where a portrait's face usually is
+  const avatarPath = await img(s.avatarPath, "avatar");
+  let icon: string | undefined;
+  if (avatarPath) try {
+    const bmp = await createImageBitmap(new Blob([files[avatarPath]]));
+    const N = 128, side = Math.min(bmp.width, bmp.height) * 0.75, sx = (bmp.width - side) / 2, sy = (bmp.height - side) * 0.12;   // zoom toward the face: tabs are 16-32px
+    const cv = new OffscreenCanvas(N, N), cx = cv.getContext("2d")!;
+    cx.beginPath(); cx.arc(N / 2, N / 2, N / 2, 0, Math.PI * 2); cx.clip();
+    cx.drawImage(bmp, sx, sy, side, side, 0, 0, N, N);
+    files["img/icon.png"] = await (await cv.convertToBlob({ type: "image/png" })).arrayBuffer(); icon = "img/icon.png";
+  } catch { /* the renderer falls back to the Caldera logo */ }
+
   const data: ProfileData = {
     name: s.name || "Untitled", handle: s.handle || undefined, headline: s.headline, theme: s.theme,
-    avatar: await img(s.avatarPath, "avatar"), banner: await img(s.bannerPath, "banner"),
+    avatar: avatarPath, icon, banner: await img(s.bannerPath, "banner"),
     links: s.links.filter(l => l[0] && l[1]), properties: s.properties.filter(p => p[0] && p[1]),
     sections: s.sections,
     stats: { notes: md.length, words, links, activeDays },

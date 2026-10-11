@@ -22,7 +22,7 @@ const sample = () => ({
 
 test("renders a complete static profile and escapes user text", () => {
   const files = renderProfile(sample());
-  assert.deepEqual(Object.keys(files).sort(), ["assets/profile.css", "assets/theme.css", "index.html"]);
+  assert.deepEqual(Object.keys(files).sort(), ["assets/favicon.svg", "assets/profile.css", "assets/theme.css", "index.html"]);
   const html = files["index.html"];
   assert.ok(!html.includes("<script>alert(1)</script>"), "name is escaped");
   assert.ok(html.includes("Need a designer") && html.includes("Why local-first") && html.includes('id="journal-data"'));
@@ -125,4 +125,11 @@ test("leaderboard invite: buttons open one invite panel with the inviter's link"
   assert.equal((html.match(/data-invite href=/g) || []).length, 3);
   assert.equal((html.match(/class="invite-pop"/g) || []).length, 1);
   assert.ok(html.includes('data-url="https://caldera.social/?invite=ana#install"') && html.includes("Copy link"));
+});
+
+test("tab icon: round avatar when present, Caldera logo otherwise", () => {
+  const a = renderProfile({ ...sample(), icon: "img/icon.png" });
+  assert.ok(a["index.html"].includes('<link rel="icon" href="img/icon.png" type="image/png">') && a["index.html"].includes('rel="apple-touch-icon"'));
+  const b = renderProfile({ ...sample() });
+  assert.ok(b["index.html"].includes('<link rel="icon" href="assets/favicon.svg"') && b["assets/favicon.svg"].startsWith("<svg"));
 });
