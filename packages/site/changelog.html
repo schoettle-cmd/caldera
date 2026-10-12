@@ -39,8 +39,14 @@
   <h1>What's new</h1>
   <p class="lead-in">Every Caldera release. When something ships, Caldera also shows its owner a short alert inside Obsidian. Follow along with the <a href="releases.xml">RSS feed</a>.</p>
   <!-- RELEASES_START -->
+  <article class="release" id="v0.5.1">
+    <div class="release-meta"><span class="tag">0.5.1</span><time datetime="2026-10-12">2026-10-12</time><span>latest</span></div>
+    <h2>Fix: the Activity heatmap fills its column, without a stray scrollbar</h2>
+    <ul><li>The Activity heatmap could show a bright scrollbar under the grid, because hovering a day zoomed it past the edge. The scrollbar is gone, and the zoom has room.</li><li>Day squares now size themselves to the page: larger on a wide screen, smaller on a phone, so all 26 weeks fit without scrolling. Month labels move with them when the window is resized.</li><li>Pages published with an older version get the fix automatically on caldera.social.</li></ul>
+    <p class="howto">Nothing to do. Your page picks it up on its next publish (and already shows it on caldera.social).</p>
+  </article>
   <article class="release" id="v0.5.0">
-    <div class="release-meta"><span class="tag">0.5.0</span><time datetime="2026-10-12">2026-10-12</time><span>latest</span></div>
+    <div class="release-meta"><span class="tag">0.5.0</span><time datetime="2026-10-12">2026-10-12</time></div>
     <h2>Gardens: grow notes in public, linked to other people's gardens</h2>
     <ul><li>Plant any note in your garden and it becomes a full public page on your profile. Put it in a Garden folder, or run 'Caldera: Plant this note in my garden'. Nothing else in your vault is published.</li><li>Every garden note shows how finished it is: seedling, budding or evergreen (frontmatter stage:). Your profile gets a Garden section and a garden index you can filter by stage.</li><li>Choose a license per note (license:). The default is all rights reserved and not licensed for AI training; cc-by, cc-by-nc, cc0 and ai-licensable are available.</li><li>Signed authorship: every published note is hashed and listed in your signed profile manifest, so anyone can check who wrote it and when.</li><li>Link to a friend's note with [[@handle/Their note]]. Their note shows 'Linked from other gardens' with a link back to yours.</li><li>Private by default: email addresses and phone numbers are removed, %% comments %% never leave your vault, and links to notes outside the garden show as plain text. 'Caldera: Preview my garden' lists every line the privacy check flags before anything goes public.</li><li>New: caldera.social/gardens shows notes recently planted or tended across all listed gardens. Already have a garden on Quartz or Obsidian Publish? Add garden_url to Caldera/profile.md and your page links to it.</li></ul>
     <p class="howto">Create a folder called Garden in your vault (or run 'Caldera: Plant this note in my garden' on a note), then run 'Caldera: Preview my garden' and 'Caldera: Publish my profile'.</p>

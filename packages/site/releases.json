@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "0.5.1",
+      "date": "2026-10-12",
+      "title": "Fix: the Activity heatmap fills its column, without a stray scrollbar",
+      "items": [
+        "The Activity heatmap could show a bright scrollbar under the grid, because hovering a day zoomed it past the edge. The scrollbar is gone, and the zoom has room.",
+        "Day squares now size themselves to the page: larger on a wide screen, smaller on a phone, so all 26 weeks fit without scrolling. Month labels move with them when the window is resized.",
+        "Pages published with an older version get the fix automatically on caldera.social."
+      ],
+      "howto": "Nothing to do. Your page picks it up on its next publish (and already shows it on caldera.social)."
+    },
+    {
       "version": "0.5.0",
       "date": "2026-10-12",
       "title": "Gardens: grow notes in public, linked to other people's gardens",

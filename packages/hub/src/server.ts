@@ -33,6 +33,10 @@ function calderaBar(hub: string, handle: string): string {
     + `</div><style>@media (max-width:520px){#caldera-bar .cb-tag{display:none}}</style>`;
 }
 
+/** Heatmap fix for profiles built before plugin 0.5.1 (their profile.css is frozen in the bundle): cells fill the column,
+ *  room for the hover zoom, no stray scrollbar. Same rules as profile.css "Heatmap sizing (2026-10-12)". */
+const HEAT_FIX = `<style>/* Heatmap sizing (2026-10-12) */.heat-box{container-type:inline-size}.heat-frame{--gap:3px;--cell:clamp(8px,calc((100cqw - 46px - 25 * var(--gap)) / 26),18px)}@container (max-width:460px){.heat-frame{--gap:2px}}.heat,.heat-days{gap:var(--gap,3px)}.heat-days{grid-template-rows:repeat(7,var(--cell,12px));line-height:var(--cell,12px)}.heat-wrap{overflow-x:auto;overflow-y:hidden;padding:4px;margin:-4px;scrollbar-width:none}.heat-wrap::-webkit-scrollbar{display:none}.heat{grid-template-rows:repeat(7,var(--cell,12px));grid-auto-columns:var(--cell,12px)}.heat i{width:var(--cell,12px);height:var(--cell,12px);border-radius:3px}.heat i[data-d]:hover,.heat i.is-sel{transform:scale(1.18)}</style>`;
+
 /** caldera.social/gardens: the stream that serves the gardens - notes recently planted or tended, across every listed profile. */
 function gardensPage(notes: { handle: string; name: string; slug: string; title: string; stage: string; updated: string; excerpt: string; words: number }[], hub: string): string {
   const e = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -409,6 +413,7 @@ export function createHub(opts: HubOptions) {
           let html = fs.readFileSync(file, "utf8"); const bar = calderaBar(opts.publicUrl || "https://caldera.social", m[1]);
           const note = rel.match(/^n\/([a-z0-9-]+)\.html$/);
           if (note) html = html.replace("<!--caldera:xlinks-->", xlinksBlock(m[1], note[1]));
+          if (!html.includes("Heatmap sizing (2026-10-12)") && html.includes('class="heat-box"')) html = html.replace(/<\/head>/i, HEAT_FIX + "</head>");   // pages built before 0.5.1
           const out = /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, b => b + bar) : bar + html;
           res.writeHead(200, headers); return res.end(out);
         }
