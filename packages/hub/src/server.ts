@@ -321,6 +321,9 @@ export function createHub(opts: HubOptions) {
         return json(res, 200, { ok: true, url: `${opts.publicUrl || ""}/@${handle}/` });
       }
 
+      // /@mike (no slash, any case) 301s to /@mike/ so the page's relative img/ and assets/ paths resolve
+      m = p.match(/^\/@([A-Za-z0-9-]+)$/);
+      if (req.method === "GET" && m) { res.writeHead(301, { location: `/@${m[1].toLowerCase()}/${url.search}` }); return res.end(); }
       m = p.match(/^\/@([a-z0-9-]+)(\/.*)?$/);
       if (req.method === "GET" && m) {
         if (modOf(m[1])) { res.writeHead(410, { "content-type": "text/plain" }); return res.end("This profile is not available."); }
