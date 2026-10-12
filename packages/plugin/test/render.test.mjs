@@ -5,7 +5,6 @@ import os from "node:os";
 import path from "node:path";
 import { renderProfile, scored } from "./render.build.mjs";
 import * as C from "@caldera/core";
-import { createHub } from "../../hub/dist/server.js";
 
 const day = (i) => new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
 const sample = () => ({
@@ -42,19 +41,6 @@ test("journal scores and day-over-day deltas", () => {
   assert.equal(d[1].score, 0.25 * 4 + 6 * 1 + 2 * 2);
 });
 
-test("end to end: plugin-style publish to a real hub, page is served", async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "caldera-e2e-"));
-  const hub = createHub({ dataDir: dir }); const base = "http://127.0.0.1:" + await hub.listen(0);
-  const me = C.newIdentity(); const p = sample();
-  const files = {}; for (const [k, v] of Object.entries(renderProfile(p))) files[k] = Buffer.from(v).toString("base64");
-  const manifest = C.sign(me, "profile.manifest", { name: p.name, handle: "ana", boxKey: me.boxPublic, daily: p.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts) })) });
-  const r = await fetch(`${base}/v1/profiles/${me.id}/bundle`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ manifest, files }) }).then(r => r.json());
-  assert.equal(r.url, "/@ana/");
-  const page = await fetch(base + "/@ana/").then(r => r.text());
-  assert.ok(page.includes("Shipped the beta"));
-  const css = await fetch(base + "/@ana/assets/theme.css"); assert.equal(css.headers.get("content-type"), "text/css");
-  hub.server.close(); fs.rmSync(dir, { recursive: true, force: true });
-});
 
 test("three columns: vault sidebar, graph + backlinks rail; switchable; escaped", () => {
   const p = { ...sample(), tree: [{ name: "People", child: false }, { name: "Ana", child: true, current: true }, { name: "Projects <b>", child: false }],

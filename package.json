@@ -5,14 +5,12 @@
   "license": "MIT",
   "workspaces": [
     "packages/core",
-    "packages/hub",
-    "packages/plugin",
-    "packages/cli"
+    "packages/plugin"
   ],
   "scripts": {
-    "build": "npm run build -w packages/core && npm run build -w packages/hub && npm run build -w packages/plugin && npm run build -w packages/cli",
-    "test": "npm test -w packages/core && npm test -w packages/hub && npm test -w packages/plugin",
-    "typecheck": "tsc -p packages/core && tsc -p packages/hub --noEmit && tsc -p packages/plugin --noEmit"
+    "build": "npm run build -w packages/core && npm run build -w packages/plugin",
+    "test": "npm test -w packages/core && npm test -w packages/plugin",
+    "typecheck": "tsc -p packages/core && tsc -p packages/plugin --noEmit"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",

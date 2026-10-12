@@ -6,13 +6,13 @@ Your vault becomes a **living profile** that updates itself, and vaults can **be
 
 ## What's here
 
+The hub, the caldera.social website and the `caldera` CLI live in [schoettle-cmd/caldera-hub](https://github.com/schoettle-cmd/caldera-hub).
+
 | Package | What it is | License |
 |---|---|---|
 | `spec/PROTOCOL.md` | The open Caldera protocol (signed envelopes, friends, cards, asks/offers, gravity, credits, hub API) | CC-BY-4.0 |
 | `packages/core` | Identity (Ed25519/X25519), signing, encryption, scoring. Pure JS, runs on desktop, mobile and Node | MIT |
 | `packages/plugin` | The Obsidian plugin: build/preview/publish your profile, friends panel, share note as card, asks, offers, gravity | MIT |
-| `packages/hub` | Reference hub: stores signed envelopes, hosts pages, delivers encrypted cards, enforces gravity/credit rules, leaderboards, discovery. Node 22, zero frameworks, SQLite | AGPL-3.0 |
-| `packages/cli` | `caldera publish --vault <path>` - publish without opening Obsidian (servers, cron, CI) using the plugin's own code | MIT |
 
 ## Use it (Obsidian)
 
@@ -24,11 +24,11 @@ Your vault becomes a **living profile** that updates itself, and vaults can **be
 
 Change your page by editing the note `Caldera/profile.md` (or ask your AI to); it republishes itself. Guide: https://caldera.social/guide.html
 
-Conventions (all optional): `caldera: public` on a note lists it publicly; daily notes named `YYYY-MM-DD` can carry `caldera_headline`, `caldera_focus`, `caldera_wins`, `caldera_themes` for the daily journal; `Caldera/activity.json` lets outside tools (calendar, email, git) add daily counts.
+Conventions (all optional): notes in a `Garden` folder (or `caldera: garden`) become full public pages with `stage:` and `license:`; `caldera: public` on a note lists its first paragraph; daily notes named `YYYY-MM-DD` can carry `caldera_headline`, `caldera_focus`, `caldera_wins`, `caldera_themes` for the daily journal; `Caldera/activity.json` lets outside tools (calendar, email, git) add daily counts.
 
 ## Privacy and terms
 
-Hosted service: [Privacy Policy](packages/site/privacy.html) and [Terms of Service](packages/site/terms.html). Delete your hub profile anytime with **Caldera: Delete my profile from the hub**.
+Hosted service: [Privacy Policy](https://caldera.social/privacy) and [Terms of Service](https://caldera.social/terms). Delete your hub profile anytime with **Caldera: Delete my profile from the hub**.
 
 ## Network use (disclosure)
 
@@ -36,17 +36,14 @@ The plugin contacts only the hub you configure, and only when you publish, sync 
 
 ## Run a hub
 
-```
-npm install && npm run build
-CALDERA_DATA=./data PORT=8787 node --no-warnings packages/hub/dist/server.js
-```
+See [schoettle-cmd/caldera-hub](https://github.com/schoettle-cmd/caldera-hub).
 
 ## Develop
 
 ```
 npm install
 npm run build
-npm test          # core (6), hub end-to-end (7), plugin render + publish end-to-end (4)
+npm test          # core + plugin (render, garden)
 ```
 
 ## Principles
