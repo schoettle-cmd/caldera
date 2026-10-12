@@ -72,6 +72,7 @@ A. Journal entry. Open (or create) yesterday's daily note, named YYYY-MM-DD.md, 
    caldera_wins: 1-3 short items, what got done
    caldera_themes: 1-3 single words
    Write them from my notes, calendar, sent email, commits and AI sessions for that day - whatever you can access.
+   Name my projects the way they appear in Caldera/profile.md "projects" when they come up: Caldera grows a garden page for each project (and each distinctive theme) from these journal lines, adding a dated entry whenever it comes up.
 
 B. Activity counts. Update "${vault}/${activity}" (create it if missing). Format:
    { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0, "tokens": 0 } ],

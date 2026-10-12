@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mdToHtml, renderGarden, redact, parseXLink, excerptOf, gardenManifest, normStage, normLicense } from "./garden.build.mjs";
+import { mdToHtml, renderGarden, redact, parseXLink, excerptOf, gardenManifest, normStage, normLicense, journalGarden } from "./garden.build.mjs";
 import { renderProfile } from "./render.build.mjs";
 
 const note = (title, markdown, extra = {}) => ({ slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"), title, stage: "seedling", license: "all-rights",
@@ -48,4 +48,26 @@ test("profile gets a Garden section and ships the garden pages", () => {
   assert.ok(files["garden.html"] && files["n/gardens.html"]);
   p.sections.garden = false; const off = renderProfile(p);
   assert.ok(!off["index.html"].includes("Garden</h2>") && !off["garden.html"]);
+});
+
+test("journal garden: project and theme pages grow from public journal lines, newest first, stage by frequency", () => {
+  const day = (i) => new Date(Date.UTC(2026, 9, 1 + i)).toISOString().slice(0, 10);
+  const days = Array.from({ length: 6 }, (_, i) => ({ date: day(i), headline: i % 2 ? `Shipped Caldera gardens part ${i}` : `Quiet day ${i}`,
+    focus: [`Testing Inbox Hero with Caldera ${i}`], wins: i === 5 ? ["Inbox Hero passed review"] : [], themes: ["Building"] }));
+  const pages = journalGarden(days, ["Caldera", "Inbox Hero", "Kitse"]);
+  const byT = Object.fromEntries(pages.map(p => [p.title, p]));
+  assert.ok(byT["Caldera"] && byT["Inbox Hero"] && byT["Building"] && !byT["Kitse"], "projects that come up 2+ days and themes 5+ days");
+  assert.equal(byT["Caldera"].days, 6); assert.equal(byT["Caldera"].stage, "budding"); assert.equal(byT["Inbox Hero"].days, 6);
+  const md = byT["Inbox Hero"].markdown;
+  assert.ok(md.indexOf("Oct 6") > -1 && md.indexOf("Oct 6") < md.indexOf("Oct 1") && md.indexOf("passed review") < md.indexOf("Testing Inbox Hero with [[Caldera]] 0"), "newest first");
+  assert.ok(md.includes("[[Caldera]]") && !md.includes("[[Inbox Hero]]"), "other projects become links, not itself");
+  assert.equal(byT["Caldera"].updated.slice(0, 10), day(5)); assert.equal(byT["Caldera"].created.slice(0, 10), day(0));
+  assert.equal(journalGarden(days.slice(0, 1), ["Caldera"]).length, 0, "one mention is not a page yet");
+});
+
+test("journal garden: themes on nearly every day, or copies of another theme, get no page", () => {
+  const day = (i) => new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10);
+  const days = Array.from({ length: 20 }, (_, i) => ({ date: day(i), headline: `Day ${i}`, themes: ["Building", "AI", ...(i < 6 ? ["Hiring"] : []), ...(i < 6 ? ["Recruiting"] : []), ...(i >= 10 && i < 16 ? ["Design"] : [])] }));
+  const titles = journalGarden(days, []).map(p => p.title).sort();
+  assert.deepEqual(titles, ["Design", "Hiring"]);
 });

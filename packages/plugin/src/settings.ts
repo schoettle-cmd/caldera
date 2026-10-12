@@ -18,6 +18,7 @@ export interface CalderaSettings {
   welcomed: boolean;                  // first-run welcome finished
   listed: boolean;                    // shown in the public directory at hub/people
   lastSeenRelease: string;            // newest release the owner has been shown (What's new)
+  lastPublished: number;              // ms epoch of the last successful publish (catch-up publish on start)
   tree: [string, string, string?][];  // left sidebar: [group, "item, item", folder to count]; empty = topics + public notes
   graph: string[];                    // right rail graph: note names, sized by how many notes link to each; empty = topics
   backlinks: [string, string][];      // right rail list: [title, context]; empty = public notes
@@ -27,6 +28,7 @@ export interface CalderaSettings {
   knows: [string, string][];          // [label, vault folder] -> note counts
   tabs: string[];                     // extra tab labels in the page's top bar
   gardenFolder: string;               // notes in this folder are published as full pages ("" = only caldera: garden)
+  gardenJournal: boolean;             // grow garden pages from the public daily journal (projects + recurring themes)
   gardenUrl: string;                  // an existing garden elsewhere (Quartz, Obsidian Publish...), linked from the profile
 }
 
@@ -39,9 +41,9 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
-  asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true, lastSeenRelease: "",
+  asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true, lastSeenRelease: "", lastPublished: 0,
   tree: [], graph: [], backlinks: [], summary: "", now: [], timeline: [], projects: [], knows: [], tabs: [],
-  gardenFolder: "Garden", gardenUrl: "",
+  gardenFolder: "Garden", gardenUrl: "", gardenJournal: true,
 };
 
 const SECTION_LABELS: Record<string, string> = {
@@ -88,6 +90,8 @@ export class CalderaSettingTab extends PluginSettingTab {
       new Setting(containerEl).setName(label).addToggle(t => t.setValue(s.sections[k] !== undefined ? !!s.sections[k] : k === "garden").onChange(async v => { s.sections[k] = v; await this.plugin.saveSettings(); }));
     }
     this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", v => v.replace(/^\/+|\/+$/g, ""));
+    new Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.")
+      .addToggle(t => t.setValue(s.gardenJournal !== false).onChange(async v => { s.gardenJournal = v; await this.plugin.saveSettings(); }));
     this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", v => /^https:\/\//.test(v) ? v : "");
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");

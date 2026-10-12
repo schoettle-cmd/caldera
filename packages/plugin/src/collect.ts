@@ -16,7 +16,7 @@ import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
 import { aiUsage, githubCode, vaultKinds } from "./auto";
-import { excerptOf, normLicense, normStage, parseXLink, redact, type GardenNote } from "./garden";
+import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
 
 const DAY = 86_400_000;
 const fmtN = (n: number) => n.toLocaleString("en-US");
@@ -99,6 +99,9 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
       themes: clean(j.themes?.length ? j.themes : asList(ext.themes)),
     });
   }
+  // the garden also grows on its own from the public journal (text above already passed the privacy filter)
+  if (s.gardenJournal !== false && s.sections.garden !== false) await growGardenFromJournal(app, s, daily, garden, gardenReport);
+
   let activeDays = 0;
   for (let i = 0; i < 182; i++) { const d = iso(today - i * DAY); if ((created.get(d) || 0) + (changed.get(d) || 0) > 0) activeDays++; }
 
@@ -278,4 +281,42 @@ export async function collectGarden(app: App, s: CalderaSettings, md: TFile[]) {
     gardenReport.push({ path: f.path, title: f.basename, slug: note.slug, stage: note.stage, license: note.license, words: note.words, removed, flags });
   }
   return { garden, gardenImages, gardenFiles, gardenReport };
+}
+
+/** Journal entries are kept in the plugin's data folder so journal-grown garden pages keep growing past the history window. */
+async function growGardenFromJournal(app: App, s: CalderaSettings, daily: DailyEntry[], garden: GardenNote[], report: GardenReport[]) {
+  const fresh: JournalDay[] = daily.filter(d => d.headline || d.focus?.length || d.wins?.length)
+    .map(d => ({ date: d.date, headline: d.headline, focus: d.focus, wins: d.wins, themes: d.themes }));
+  const path = `${app.vault.configDir}/plugins/caldera/journal-garden.json`;
+  let kept: Record<string, JournalDay> = {};
+  try { if (await app.vault.adapter.exists(path)) kept = JSON.parse(await app.vault.adapter.read(path)).days || {}; } catch { kept = {}; }
+  for (const d of fresh) kept[d.date] = d;
+  const dates = Object.keys(kept).sort().slice(-3650);
+  kept = Object.fromEntries(dates.map(k => [k, kept[k]]));
+  try { await app.vault.adapter.write(path, JSON.stringify({ days: kept })); } catch { /* read-only vault: pages still build from this run */ }
+
+  const pages = journalGarden(Object.values(kept), (s.projects || []).map(p => p[0]));
+  const used = new Set(garden.map(n => n.slug));
+  for (const pg of pages) {
+    const planted = garden.find(n => n.title.toLowerCase() === pg.title.toLowerCase());
+    if (planted) {   // a note you wrote yourself keeps your words on top; the journal log goes underneath
+      planted.markdown += `\n\n## From my journal\n\n${pg.markdown.replace(/^\*[^\n]*\*\n\n/, "").replace(/^## /gm, "### ")}`;
+      planted.sha256 = await sha256hex(planted.markdown); planted.words = (planted.markdown.match(/\S+/g) || []).length;
+      if (pg.updated > planted.updated) planted.updated = pg.updated;
+      continue;
+    }
+    let sl = slug(pg.title), k = 2; while (used.has(sl)) sl = `${slug(pg.title)}-${k++}`; used.add(sl);
+    const note: GardenNote = { slug: sl, title: pg.title, stage: pg.stage, license: "all-rights", created: pg.created, updated: pg.updated,
+      markdown: pg.markdown, sha256: await sha256hex(pg.markdown), words: (pg.markdown.match(/\S+/g) || []).length,
+      excerpt: excerptOf(pg.markdown.replace(/^\*[^\n]*\*\n\n/, "").replace(/^## .*$/gm, "")), out: [], xlinks: [], tags: ["journal"] };
+    garden.push(note);
+    report.push({ path: "(grown from your journal)", title: note.title, slug: note.slug, stage: note.stage, license: note.license, words: note.words, removed: 0, flags: [] });
+  }
+  // links between garden notes, now that journal pages exist
+  const byTitle = new Map(garden.map(n => [n.title.toLowerCase(), n.slug]));
+  for (const n of garden) {
+    const out = new Set(n.out);
+    for (const m of n.markdown.matchAll(/(?<!!)\[\[([^\]|#]+)/g)) { const t = m[1].trim(); if (parseXLink(t)) continue; const sl = byTitle.get(t.split("/").pop()!.replace(/\.md$/i, "").toLowerCase()); if (sl && sl !== n.slug) out.add(sl); }
+    n.out = [...out];
+  }
 }

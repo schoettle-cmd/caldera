@@ -266,3 +266,58 @@ export const GARDEN_CSS = `/* Caldera garden: note pages + index. Tokens come fr
 .g-foot code { font-family: var(--font-mono); }
 @media (max-width: 600px) { .g-main { padding: 22px 16px 48px; } .g-title { font-size: 1.7rem; } .g-body { font-size: 1.04rem; } }
 `;
+
+// ------------------------------------------------------------------ journal garden
+export interface JournalDay { date: string; headline?: string; focus?: string[]; wins?: string[]; themes?: string[] }
+
+/** Garden pages grown automatically from the public daily journal (already privacy-filtered text only):
+ *  one page per public project the journal keeps mentioning, one per recurring journal theme.
+ *  Stage follows how often it comes up: seedling, then budding (5+ days), then evergreen (20+ days). */
+export function journalGarden(days: JournalDay[], projects: string[], o: { minProjectDays?: number; minThemeDays?: number } = {}): { title: string; markdown: string; days: number; created: string; updated: string; stage: Stage }[] {
+  const minP = o.minProjectDays ?? 2, minT = o.minThemeDays ?? 5;
+  const sorted = [...days].filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d.date)).sort((a, b) => b.date.localeCompare(a.date));
+  const names = projects.map(p => p.trim()).filter(p => p.length >= 3);
+  const rx = (n: string) => new RegExp(`(^|[^\\w])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w])`, "i");
+  const linkify = (line: string, self: string) => {
+    let out = line;
+    for (const n of names) {
+      if (n.toLowerCase() === self.toLowerCase()) continue;
+      const m = out.match(rx(n)); if (!m || out.includes("[[")) continue;
+      const i = (m.index || 0) + m[1].length; out = out.slice(0, i) + `[[${n}]]` + out.slice(i + n.length);
+    }
+    return out;
+  };
+  const label = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  const page = (title: string, hits: { date: string; lines: [string, string][] }[]) => {
+    const body = hits.map(h => `## ${label(h.date)}\n${h.lines.map(([k, t]) => `- ${k ? `**${k}:** ` : ""}${linkify(t, title)}`).join("\n")}`).join("\n\n");
+    const n = hits.length, stage: Stage = n >= 20 ? "evergreen" : n >= 5 ? "budding" : "seedling";
+    return { title, days: n, stage, created: hits[n - 1].date + "T12:00:00.000Z", updated: hits[0].date + "T12:00:00.000Z",
+      markdown: `*Grown automatically from my daily journal: each day ${title} comes up, it gets a new entry. Newest first.*\n\n${body}\n` };
+  };
+  const out: ReturnType<typeof page>[] = [];
+  for (const p of names) {
+    const r = rx(p), hits: { date: string; lines: [string, string][] }[] = [];
+    for (const d of sorted) {
+      const lines: [string, string][] = [];
+      if (d.headline && r.test(d.headline)) lines.push(["", d.headline]);
+      for (const f of d.focus || []) if (r.test(f)) lines.push(["Focus", f]);
+      for (const w of d.wins || []) if (r.test(w)) lines.push(["Win", w]);
+      if (lines.length) hits.push({ date: d.date, lines });
+    }
+    if (hits.length >= minP) out.push(page(p, hits));
+  }
+  const themes = new Map<string, JournalDay[]>();
+  for (const d of sorted) for (const t of d.themes || []) { const k = String(t).trim(); if (k) themes.set(k, [...(themes.get(k) || []), d]); }
+  // a theme earns a page only when it says something: not on (nearly) every day, and not a copy of another theme's days
+  const total = sorted.filter(d => d.headline || d.focus?.length || d.wins?.length).length;
+  const picked: Set<string>[] = [];
+  for (const [t, ds] of [...themes].sort((a, b) => b[1].length - a[1].length)) {
+    if (names.some(n => n.toLowerCase() === t.toLowerCase())) continue;
+    if (total >= 10 && ds.length > total * 0.7) continue;
+    const set = new Set(ds.map(d => d.date));
+    if (picked.some(p => { let both = 0; for (const x of set) if (p.has(x)) both++; return both / (set.size + p.size - both) >= 0.8; })) continue;
+    const hits = ds.map(d => ({ date: d.date, lines: ([["", d.headline || ""], ...(d.wins || []).slice(0, 2).map(w => ["Win", w])] as [string, string][]).filter(([, x]) => x) })).filter(h => h.lines.length);
+    if (hits.length >= minT) { out.push(page(t, hits)); picked.push(set); }
+  }
+  return out;
+}

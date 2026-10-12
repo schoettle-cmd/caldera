@@ -37,7 +37,11 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
     this.addCommand({ id: "whats-new", name: "What's new", callback: () => this.checkReleases(true) });
     this.addCommand({ id: "guide", name: "Open the guide", callback: () => window.open(this.settings.hubUrl.replace(/\/$/, "") + "/guide.html") });
-    this.registerEvent(this.app.metadataCache.on("changed", f => { if (f.path === PROFILE_FILE) this.queuePublish("profile"); }));
+    this.registerEvent(this.app.metadataCache.on("changed", (f, _d, cache) => {
+      if (f.path === PROFILE_FILE) this.queuePublish("profile");
+      // a daily note's public journal fields feed the journal and the journal-grown garden
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(f.basename) && cache?.frontmatter && Object.keys(cache.frontmatter).some(k => k.startsWith("caldera_"))) this.queuePublish("activity");
+    }));
     this.registerEvent(this.app.vault.on("modify", f => { if (f.path === this.settings.activityFile) this.queuePublish("activity"); }));
     this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
     this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
@@ -59,6 +63,8 @@ export default class CalderaPlugin extends Plugin {
       if (this.settings.identity && this.settings.handle) void this.syncInbox(false);
       else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
       window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
+      // catch up after Obsidian was closed: the daily journal (and the garden it grows) may have changed meanwhile
+      window.setTimeout(() => { if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 3600_000) void this.publish(true); }, 20_000);
     });
     this.timers.push(window.setInterval(() => { if (this.settings.identity) void this.syncInbox(false); }, 10 * 60_000));
     this.scheduleAutoPublish();
@@ -199,6 +205,7 @@ export default class CalderaPlugin extends Plugin {
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
       for (const [p, b] of Object.entries(binaries)) files[p] = C.b64.enc(new Uint8Array(b));
       await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files });
+      this.settings.lastPublished = Date.now(); await this.saveSettings();
       const url = this.profileUrl();
       if (!quiet) new Notice(`Published: ${url}`);
       return url;
