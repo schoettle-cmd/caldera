@@ -33,7 +33,7 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
     this.addCommand({ id: "open", name: "Open my public profile", callback: () => this.openProfile() });
-    this.addCommand({ id: "profile-file", name: "Edit my profile (open Caldera/profile.md)", callback: () => this.openProfileFile() });
+    this.addCommand({ id: "profile-file", name: "Edit my profile (open profile.md)", callback: () => this.openProfileFile() });
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
     this.addCommand({ id: "whats-new", name: "What's new", callback: () => this.checkReleases(true) });
     this.addCommand({ id: "guide", name: "Open the guide", callback: () => window.open(this.settings.hubUrl.replace(/\/$/, "") + "/guide.html") });
@@ -41,13 +41,13 @@ export default class CalderaPlugin extends Plugin {
     this.registerEvent(this.app.vault.on("modify", f => { if (f.path === this.settings.activityFile) this.queuePublish("activity"); }));
     this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
     this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
-      const f = this.app.workspace.getActiveFile(); if (!f || f.extension !== "md") return false; if (!check) this.plantNote(f); return true; } });
+      const f = this.app.workspace.getActiveFile(); if (!f || f.extension !== "md") return false; if (!check) void this.plantNote(f); return true; } });
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
     this.addCommand({ id: "sync", name: "Sync inbox now", callback: () => this.syncInbox(true) });
     this.addCommand({ id: "share", name: "Share this note with a friend", checkCallback: (check) => {
-      const f = this.app.workspace.getActiveFile(); if (!f) return false; if (!check) this.shareNote(f); return true; } });
+      const f = this.app.workspace.getActiveFile(); if (!f) return false; if (!check) void this.shareNote(f); return true; } });
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try { await this.send("profile.delete", {}); new Notice("Your Caldera profile was deleted from the hub."); } catch (e: any) { new Notice(e.message); } }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy AI agent setup prompt (daily journal + activity)", callback: () => this.copyPrompt("setup") });
@@ -56,11 +56,11 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
     this.app.workspace.onLayoutReady(() => {
-      if (this.settings.identity && this.settings.handle) this.syncInbox(false);
+      if (this.settings.identity && this.settings.handle) void this.syncInbox(false);
       else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
-      window.setTimeout(() => this.checkReleases(false), 8_000);
+      window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
     });
-    this.timers.push(window.setInterval(() => this.settings.identity && this.syncInbox(false), 10 * 60_000));
+    this.timers.push(window.setInterval(() => { if (this.settings.identity) void this.syncInbox(false); }, 10 * 60_000));
     this.scheduleAutoPublish();
   }
 
@@ -78,7 +78,7 @@ export default class CalderaPlugin extends Plugin {
   scheduleAutoPublish() {
     if ((this as any)._auto) window.clearInterval((this as any)._auto);
     const h = this.settings.autoPublishHours;
-    if (h > 0) (this as any)._auto = window.setInterval(() => this.publish(true), h * 3600_000);
+    if (h > 0) (this as any)._auto = window.setInterval(() => { void this.publish(true); }, h * 3600_000);
   }
 
   // ---------------------------------------------------------------- hub client
@@ -134,10 +134,9 @@ export default class CalderaPlugin extends Plugin {
   queuePublish(reason: "profile" | "activity") {
     if (!this.settings.identity || !this.settings.handle) return;
     if (this.publishTimer) window.clearTimeout(this.publishTimer);
-    this.publishTimer = window.setTimeout(async () => {
+    this.publishTimer = window.setTimeout(() => {
       this.publishTimer = null;
-      const url = await this.publish(true);
-      if (url && reason === "profile") new Notice("Caldera: your public page was updated.");
+      void this.publish(true).then(url => { if (url && reason === "profile") new Notice("Caldera: your public page was updated."); });
     }, 45_000);
   }
 
@@ -151,7 +150,7 @@ export default class CalderaPlugin extends Plugin {
       if (!this.settings.lastSeenRelease && !manual) { this.settings.lastSeenRelease = list[0].version; await this.saveSettings(); return; }
       const unseen = manual ? list.slice(0, 3) : list.slice(0, seen === -1 ? 1 : seen);
       if (!unseen.length) return;
-      const open = () => { new WhatsNewModal(this.app, this, unseen).open(); this.settings.lastSeenRelease = list[0].version; this.saveSettings(); };
+      const open = () => { new WhatsNewModal(this.app, this, unseen).open(); this.settings.lastSeenRelease = list[0].version; void this.saveSettings(); };
       if (manual) return open();
       const frag = createFragment(f => { f.createEl("b", { text: `Caldera ${unseen[0].version}: ` }); f.appendText(unseen[0].title + " "); f.createEl("u", { text: "See what's new" }); });
       const n = new Notice(frag, 20_000); n.noticeEl.addEventListener("click", open);
@@ -199,7 +198,7 @@ export default class CalderaPlugin extends Plugin {
       const files: Record<string, string> = {};
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
       for (const [p, b] of Object.entries(binaries)) files[p] = C.b64.enc(new Uint8Array(b));
-      const r = await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files });
+      await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files });
       const url = this.profileUrl();
       if (!quiet) new Notice(`Published: ${url}`);
       return url;
@@ -314,7 +313,7 @@ export default class CalderaPlugin extends Plugin {
   async openPanel() {
     let leaf = this.app.workspace.getLeavesOfType(VIEW)[0];
     if (!leaf) { leaf = this.app.workspace.getRightLeaf(false)!; await leaf.setViewState({ type: VIEW, active: true }); }
-    this.app.workspace.revealLeaf(leaf);
+    void this.app.workspace.revealLeaf(leaf);
   }
   refreshPanel() { for (const l of this.app.workspace.getLeavesOfType(VIEW)) (l.view as CalderaView).render(); }
 }
@@ -325,14 +324,14 @@ class CalderaView extends ItemView {
   getViewType() { return VIEW; }
   getDisplayText() { return "Caldera"; }
   getIcon() { return "flame"; }
-  async onOpen() { this.render(); this.plugin.syncInbox(false); }
+  async onOpen() { this.render(); await this.plugin.syncInbox(false); }
 
   render() {
     const el = this.contentEl; el.empty(); el.addClass("caldera-panel");
     const p = this.plugin, s = p.settings;
     el.createEl("h3", { text: "Caldera" });
     if (!s.identity || !s.handle) {
-      el.createEl("p", { text: "Set your name and handle in Settings, then publish your profile to join." });
+      el.createEl("p", { text: "Set your name and handle in settings, then publish your profile to join." });
       new Setting(el).addButton(b => b.setButtonText("Open settings").setCta().onClick(() => { (this.app as any).setting.open(); (this.app as any).setting.openTabById("caldera"); }));
       return;
     }
@@ -362,7 +361,7 @@ class CalderaView extends ItemView {
     for (const f of p.friends) {
       const row = el.createDiv("caldera-row");
       row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") });
-      row.createEl("button", { text: "+ Gravity" }).onclick = () => new GravityModal(this.app, f, r => p.giveGravity(f, r)).open();
+      row.createEl("button", { text: "+ gravity" }).onclick = () => new GravityModal(this.app, f, r => p.giveGravity(f, r)).open();
     }
   }
 }
@@ -374,34 +373,34 @@ class PreviewModal extends Modal {
     this.modalEl.addClass("caldera-preview-modal");
     this.titleEl.setText("Public profile preview (exactly what visitors will see)");
     const frame = this.contentEl.createEl("iframe", { cls: "caldera-preview" });
-    frame.setAttr("sandbox", "allow-scripts"); (frame as HTMLIFrameElement).srcdoc = this.html;
+    frame.setAttr("sandbox", "allow-scripts"); frame.srcdoc = this.html;
   }
 }
 
 class FriendPicker extends SuggestModal<Friend> {
-  constructor(app: App, private list: Friend[], private pick: (f: Friend) => void) { super(app); this.setPlaceholder("Share with which friend?"); }
+  constructor(app: App, private list: Friend[], private pick: (f: Friend) => unknown) { super(app); this.setPlaceholder("Share with which friend?"); }
   getSuggestions(q: string) { return this.list.filter(f => (f.handle || f.name || f.id).toLowerCase().includes(q.toLowerCase())); }
   renderSuggestion(f: Friend, el: HTMLElement) { el.setText("@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "")); }
-  onChooseSuggestion(f: Friend) { this.pick(f); }
+  onChooseSuggestion(f: Friend) { void this.pick(f); }
 }
 
 class GravityModal extends Modal {
-  constructor(app: App, private f: Friend, private done: (reason: string) => void) { super(app); }
+  constructor(app: App, private f: Friend, private done: (reason: string) => unknown) { super(app); }
   onOpen() {
     this.titleEl.setText(`Add gravity to @${this.f.handle || "friend"}`);
     this.contentEl.createEl("p", { text: "Gravity is positive only. Say what they helped with (optional)." });
     let reason = "";
     new Setting(this.contentEl).addText(t => t.setPlaceholder("They found me an operator").onChange(v => reason = v))
-      .addButton(b => b.setButtonText("Add gravity").setCta().onClick(() => { this.done(reason); this.close(); }));
+      .addButton(b => b.setButtonText("Add gravity").setCta().onClick(() => { void this.done(reason); this.close(); }));
   }
 }
 
 class ConfirmModal extends Modal {
-  constructor(app: App, private msg: string, private yes: () => void) { super(app); }
+  constructor(app: App, private msg: string, private yes: () => unknown) { super(app); }
   onOpen() {
     this.titleEl.setText("Are you sure?"); this.contentEl.createEl("p", { text: this.msg });
     new Setting(this.contentEl).addButton(b => b.setButtonText("Cancel").onClick(() => this.close()))
-      .addButton(b => b.setButtonText("Delete").setWarning().onClick(() => { this.yes(); this.close(); }));
+      .addButton(b => b.setButtonText("Delete").setWarning().onClick(() => { void this.yes(); this.close(); }));
   }
 }
 
@@ -445,7 +444,7 @@ class WelcomeModal extends Modal {
     this.titleEl.setText("Welcome to Caldera");
     this.contentEl.createEl("p", { text: "Pick a name and a handle. Caldera creates your identity on this device, publishes your profile, and opens it in your browser. Nothing private leaves your vault." });
     let name = s.name, handle = s.handle, headline = s.headline;
-    const status = createEl("div", { cls: "caldera-welcome-status" });
+    const status = createDiv({ cls: "caldera-welcome-status" });
     const clean = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
     new Setting(this.contentEl).setName("Your name").addText(t => t.setPlaceholder("Ada Lovelace").setValue(name).onChange(v => name = v.trim()));
     new Setting(this.contentEl).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`)
@@ -507,7 +506,7 @@ class WhatsNewModal extends Modal {
     this.titleEl.setText("What's new in Caldera");
     for (const r of this.releases) {
       const box = this.contentEl.createDiv({ cls: "caldera-release" });
-      box.createEl("div", { cls: "caldera-release-meta", text: `${r.version} \u00b7 ${r.date}` });
+      box.createDiv({ cls: "caldera-release-meta", text: `${r.version} \u00b7 ${r.date}` });
       box.createEl("h3", { text: r.title });
       const ul = box.createEl("ul"); for (const it of r.items) ul.createEl("li", { text: it });
       if (r.howto) box.createEl("p", { cls: "caldera-release-howto", text: r.howto });
@@ -536,10 +535,10 @@ class GardenPreviewModal extends Modal {
     for (const r of this.report) {
       const box = c.createDiv({ cls: "caldera-garden-row" });
       box.createEl("h4", { text: `${r.title}  (${r.stage}, ${LICENSES[r.license]?.short || r.license}, ${r.words} words)` });
-      box.createEl("div", { text: r.path, cls: "setting-item-description" });
-      if (r.removed) box.createEl("div", { text: `${r.removed} email/phone value(s) will be removed.` });
-      if (!r.flags.length) box.createEl("div", { text: "No flagged lines.", cls: "setting-item-description" });
-      for (const fl of r.flags) box.createEl("div", { text: `[${fl.why}] ${fl.line}` });
+      box.createDiv({ text: r.path, cls: "setting-item-description" });
+      if (r.removed) box.createDiv({ text: `${r.removed} email/phone value(s) will be removed.` });
+      if (!r.flags.length) box.createDiv({ text: "No flagged lines.", cls: "setting-item-description" });
+      for (const fl of r.flags) box.createDiv({ text: `[${fl.why}] ${fl.line}` });
     }
   }
 }

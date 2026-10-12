@@ -93,7 +93,7 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
 
     new Setting(containerEl).setName("Publishing").setHeading();
-    new Setting(containerEl).setName("Auto-publish every N hours").setDesc("0 = only when you click Publish")
+    new Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually")
       .addText(t => t.setValue(String(s.autoPublishHours)).onChange(async v => { s.autoPublishHours = Math.max(0, Number(v) || 0); await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish(); }));
   }
 

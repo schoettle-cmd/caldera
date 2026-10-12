@@ -74,7 +74,7 @@ export function mdToHtml(md: string, link: (target: string) => string | null, im
 
   function inl(t: string): string {
     const tokens: string[] = [];
-    const keep = (html: string) => { tokens.push(html); return `\u0000${tokens.length - 1}\u0000`; };
+    const keep = (html: string) => { tokens.push(html); return `\uE000${tokens.length - 1}\uE000`; };
     t = t.replace(/`([^`]+)`/g, (_m, c) => keep(`<code>${esc(c)}</code>`));
     t = t.replace(/!\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, (_m, tgt) => { const src = image(tgt.trim()); return src ? keep(`<img src="${esc(src)}" alt="${esc(tgt.trim())}" loading="lazy">`) : ""; });
     t = t.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(\|([^\]]+))?\]\]/g, (_m, tgt, _h, _p, label) => {
@@ -91,7 +91,7 @@ export function mdToHtml(md: string, link: (target: string) => string | null, im
     h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>")
       .replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>").replace(/(^|[^_\w])_([^_\s][^_]*)_/g, "$1<em>$2</em>")
       .replace(/~~([^~]+)~~/g, "<del>$1</del>").replace(/==([^=]+)==/g, "<mark>$1</mark>");
-    return h.replace(/\u0000(\d+)\u0000/g, (_m, i) => tokens[Number(i)]);
+    return h.replace(/\uE000(\d+)\uE000/g, (_m, i) => tokens[Number(i)]);
   }
 
   for (let i = 0; i < lines.length; i++) {

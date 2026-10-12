@@ -39,8 +39,14 @@
   <h1>What's new</h1>
   <p class="lead-in">Every Caldera release. When something ships, Caldera also shows its owner a short alert inside Obsidian. Follow along with the <a href="releases.xml">RSS feed</a>.</p>
   <!-- RELEASES_START -->
+  <article class="release" id="v0.5.2">
+    <div class="release-meta"><span class="tag">0.5.2</span><time datetime="2026-10-12">2026-10-12</time><span>latest</span></div>
+    <h2>Under the hood: cleaner code for Obsidian's plugin review</h2>
+    <ul><li>Background work (inbox sync, release check, auto-publish) now handles errors instead of leaving them unhandled.</li><li>Commands and settings use Obsidian's own helpers and wording conventions.</li><li>No change to what is published or how your page looks.</li></ul>
+    <p class="howto">Nothing to do.</p>
+  </article>
   <article class="release" id="v0.5.1">
-    <div class="release-meta"><span class="tag">0.5.1</span><time datetime="2026-10-12">2026-10-12</time><span>latest</span></div>
+    <div class="release-meta"><span class="tag">0.5.1</span><time datetime="2026-10-12">2026-10-12</time></div>
     <h2>Fix: the Activity heatmap fills its column, without a stray scrollbar</h2>
     <ul><li>The Activity heatmap could show a bright scrollbar under the grid, because hovering a day zoomed it past the edge. The scrollbar is gone, and the zoom has room.</li><li>Day squares now size themselves to the page: larger on a wide screen, smaller on a phone, so all 26 weeks fit without scrolling. Month labels move with them when the window is resized.</li><li>Pages published with an older version get the fix automatically on caldera.social.</li></ul>
     <p class="howto">Nothing to do. Your page picks it up on its next publish (and already shows it on caldera.social).</p>
