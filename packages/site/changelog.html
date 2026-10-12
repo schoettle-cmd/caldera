@@ -25,12 +25,13 @@
 
 
 
+
 <link rel="canonical" href="https://caldera.social/changelog">
 </head>
 <body>
 <header class="nav">
   <a class="brand" href="./"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M3 26 L11 10 L14 15 L17 8 L29 26 Z" fill="var(--accent)"/><path d="M11 10 L14 15 L17 8" fill="none" stroke="var(--text-strong)" stroke-width="1.2"/><circle cx="16" cy="21" r="2.4" fill="var(--accent-2)"/></svg>Caldera</a>
-  <nav><a href="./#how">How it works</a><a href="people.html">People</a><a href="guide.html">Guide</a><a href="changelog.html" aria-current="page">What's new</a><a href="./#faq">FAQ</a></nav>
+  <nav><a href="./#how">How it works</a><a href="people.html">People</a><a href="/gardens">Gardens</a><a href="guide.html">Guide</a><a href="changelog.html" aria-current="page">What's new</a><a href="./#faq">FAQ</a></nav>
   <a class="btn small" href="./#install">Get the plugin</a>
 </header>
 <main class="legal changelog">
@@ -38,8 +39,14 @@
   <h1>What's new</h1>
   <p class="lead-in">Every Caldera release. When something ships, Caldera also shows its owner a short alert inside Obsidian. Follow along with the <a href="releases.xml">RSS feed</a>.</p>
   <!-- RELEASES_START -->
+  <article class="release" id="v0.5.0">
+    <div class="release-meta"><span class="tag">0.5.0</span><time datetime="2026-10-12">2026-10-12</time><span>latest</span></div>
+    <h2>Gardens: grow notes in public, linked to other people's gardens</h2>
+    <ul><li>Plant any note in your garden and it becomes a full public page on your profile. Put it in a Garden folder, or run 'Caldera: Plant this note in my garden'. Nothing else in your vault is published.</li><li>Every garden note shows how finished it is: seedling, budding or evergreen (frontmatter stage:). Your profile gets a Garden section and a garden index you can filter by stage.</li><li>Choose a license per note (license:). The default is all rights reserved and not licensed for AI training; cc-by, cc-by-nc, cc0 and ai-licensable are available.</li><li>Signed authorship: every published note is hashed and listed in your signed profile manifest, so anyone can check who wrote it and when.</li><li>Link to a friend's note with [[@handle/Their note]]. Their note shows 'Linked from other gardens' with a link back to yours.</li><li>Private by default: email addresses and phone numbers are removed, %% comments %% never leave your vault, and links to notes outside the garden show as plain text. 'Caldera: Preview my garden' lists every line the privacy check flags before anything goes public.</li><li>New: caldera.social/gardens shows notes recently planted or tended across all listed gardens. Already have a garden on Quartz or Obsidian Publish? Add garden_url to Caldera/profile.md and your page links to it.</li></ul>
+    <p class="howto">Create a folder called Garden in your vault (or run 'Caldera: Plant this note in my garden' on a note), then run 'Caldera: Preview my garden' and 'Caldera: Publish my profile'.</p>
+  </article>
   <article class="release" id="v0.4.0">
-    <div class="release-meta"><span class="tag">0.4.0</span><time datetime="2026-10-12">2026-10-12</time><span>latest</span></div>
+    <div class="release-meta"><span class="tag">0.4.0</span><time datetime="2026-10-12">2026-10-12</time></div>
     <h2>Fuller pages out of the box: AI usage, Code, What it knows and a vault graph</h2>
     <ul><li>AI usage fills in by itself on desktop: tokens per day and your model mix, read from your local Claude Code and Codex logs. Counts only, never prompts.</li><li>Code: add your GitHub profile to your links and your page shows commits per week from your public contribution graph.</li><li>What it knows: how many people, projects, sources, ideas and daily notes your vault holds, using generic labels only (a private folder name never appears).</li><li>No tags or public notes yet? The sidebar and graph now show your vault's categories instead of staying empty.</li><li>After you create your profile, one button copies a prompt that has your AI fill out the rest: summary, timeline in chapters, projects, links, photo and a daily journal.</li></ul>
     <p class="howto">Run 'Caldera: Copy AI prompt: make my profile richer' and paste it into Claude Code, Codex or Cursor. Turn AI usage or Code off in Settings -&gt; Caldera -&gt; sections if you prefer.</p>
@@ -107,7 +114,7 @@
   </article>
   <!-- RELEASES_END -->
 </main>
-<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
+<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

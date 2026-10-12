@@ -25,12 +25,13 @@
 
 
 
+
 <link rel="canonical" href="https://caldera.social/guide">
 </head>
 <body>
 <header class="nav">
   <a class="brand" href="./"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M3 26 L11 10 L14 15 L17 8 L29 26 Z" fill="var(--accent)"/><path d="M11 10 L14 15 L17 8" fill="none" stroke="var(--text-strong)" stroke-width="1.2"/><circle cx="16" cy="21" r="2.4" fill="var(--accent-2)"/></svg>Caldera</a>
-  <nav><a href="./#how">How it works</a><a href="people.html">People</a><a href="guide.html" aria-current="page">Guide</a><a href="changelog.html">What's new</a><a href="./#faq">FAQ</a></nav>
+  <nav><a href="./#how">How it works</a><a href="people.html">People</a><a href="/gardens">Gardens</a><a href="guide.html" aria-current="page">Guide</a><a href="changelog.html">What's new</a><a href="./#faq">FAQ</a></nav>
   <a class="btn small" href="./#install">Get the plugin</a>
 </header>
 <main class="legal guide">
@@ -97,14 +98,27 @@ What I want to change: &lt;DESCRIBE THE CHANGE&gt;<!-- EDIT_PROMPT_END --></pre>
       <tr><td><code>topics</code></td><td>Which tags may be counted publicly</td><td><code>- "design | Design"</code></td></tr>
       <tr><td><code>sections</code></td><td>Switch parts of the page on or off</td><td><code>journal: false</code></td></tr>
       <tr><td><code>listed</code></td><td>Show your card on the People page</td><td><code>listed: true</code></td></tr>
+      <tr><td><code>garden</code>, <code>garden_url</code></td><td>Your garden folder; a garden you host elsewhere</td><td><code>garden: "Garden"</code></td></tr>
     </tbody>
   </table></div>
   <p>Notes and journal come from the rest of your vault:</p>
   <ul>
-    <li><code>caldera: public</code> in a note's properties lists it on your page (title and first paragraph). Remove it to take it down.</li>
+    <li><code>caldera: public</code> in a note's properties lists it on your page (title and first paragraph). Remove it to take it down. For the full note as its own page, plant it in your <a href="#garden">garden</a>.</li>
     <li><code>caldera: friends</code> marks a note you can share with friends as an encrypted card.</li>
     <li>Daily notes named <code>YYYY-MM-DD</code> can carry <code>caldera_headline</code>, <code>caldera_focus</code>, <code>caldera_wins</code>, <code>caldera_themes</code> for your journal.</li>
     <li><code>Caldera/activity.json</code> adds daily counts (meetings, emails sent, AI prompts, commits, documents) to your score, plus optional blocks your AI agent can fill: <code>ai</code> (tokens by model and provider, for the AI usage charts), <code>code</code> (GitHub commits per week), <code>knows</code> and <code>inbox</code>. Counts only.</li>
+  </ul>
+
+  <h2 id="garden">Your garden</h2>
+  <p>A garden is a set of full notes you grow in public. Only notes you plant are published; the rest of your vault stays private.</p>
+  <ul>
+    <li><b>Plant a note:</b> put it in a folder called <code>Garden</code>, add <code>caldera: garden</code> to its properties, or run <b>Caldera: Plant this note in my garden</b>. <code>caldera: private</code> always keeps a note out.</li>
+    <li><b>Stage:</b> <code>stage: seedling</code>, <code>budding</code> or <code>evergreen</code> says how finished the thinking is.</li>
+    <li><b>License:</b> <code>license: all-rights</code> (default, not licensed for AI training), <code>cc-by</code>, <code>cc-by-nc</code>, <code>cc0</code> or <code>ai-licensable</code>.</li>
+    <li><b>Links:</b> <code>[[Another garden note]]</code> becomes a link; links to notes outside your garden show as plain text. <code>[[@handle/Their note]]</code> links into a friend's garden, and their note shows the link back.</li>
+    <li><b>Privacy:</b> email addresses and phone numbers are removed and <code>%% comments %%</code> never leave your vault. Run <b>Caldera: Preview my garden</b> to see every line the privacy check flags before you publish.</li>
+    <li><b>Proof you wrote it:</b> every note's text is hashed and listed in your signed profile, so anyone can check the author and date.</li>
+    <li>Already publish a garden with Quartz or Obsidian Publish? Add <code>garden_url: "https://..."</code> to Caldera/profile.md and your page links to it. Recently tended notes from every listed garden: <a href="/gardens">caldera.social/gardens</a>.</li>
   </ul>
 
   <h2 id="commands">3. Commands</h2>
@@ -119,6 +133,8 @@ What I want to change: &lt;DESCRIBE THE CHANGE&gt;<!-- EDIT_PROMPT_END --></pre>
       <tr><td>Copy AI prompt: change my profile</td><td>The prompt above, filled in for you</td></tr>
       <tr><td>Copy AI prompt: make my profile richer</td><td>Suggests notes, topics, activity sources and a journal backfill</td></tr>
       <tr><td>Copy AI agent setup prompt</td><td>The daily journal and activity routine</td></tr>
+      <tr><td>Preview my garden</td><td>Lists the notes that will be public as full pages, with any lines the privacy check flags</td></tr>
+      <tr><td>Plant this note in my garden</td><td>Makes the open note a public garden page (seedling, all rights reserved)</td></tr>
       <tr><td>Open friends panel</td><td>Friends, requests, gravity (or click the flame icon)</td></tr>
       <tr><td>Share this note with a friend</td><td>Sends an encrypted copy to a friend's vault</td></tr>
       <tr><td>Post an ask / Post an offer</td><td>The help exchange</td></tr>
@@ -139,7 +155,7 @@ What I want to change: &lt;DESCRIBE THE CHANGE&gt;<!-- EDIT_PROMPT_END --></pre>
   <h2 id="help">Help</h2>
   <p>Email <a href="mailto:hello@caldera.social">hello@caldera.social</a>. New features land on <a href="changelog.html">What's new</a>, and Caldera shows you a short alert inside Obsidian when something ships.</p>
 </main>
-<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
+<footer class="footer"><span>&copy; 2026 mjonesone, LLC</span><span><a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/learn">Learn</a> &middot; <a href="guide.html">Guide</a> &middot; <a href="changelog.html">What's new</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></span></footer>
 <script src="assets/site.js"></script>
 </body>
 </html>
