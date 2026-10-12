@@ -65,8 +65,9 @@ Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault
 My public page: ${page}
 
 ${install}
-## 2. Daily routine (run once a day, in the morning, for YESTERDAY's date; I will schedule you)
-A. Journal entry. Open (or create) yesterday's daily note, named YYYY-MM-DD.md, wherever my daily notes live. Add these frontmatter properties, keeping everything already in the note:
+## 2. Routine (4 times per workday: 9am, 12pm, 3pm and 6pm my local time, Monday to Friday)
+Schedule this as a job on my computer (cron, launchd, Task Scheduler, or your own scheduler) at those four times. Nothing overnight and nothing on weekends; Monday's first run catches up the weekend. Keep it light on AI tokens: compute counts with code that reads logs, not with an AI call; read a calendar connector at most once a day and cache the result; and never rewrite a journal entry that already exists.
+A. Journal entry (first run of each workday only, for YESTERDAY; on Monday also Saturday and Sunday if they had activity; skip any day that already has caldera_headline). Open (or create) that day's daily note, named YYYY-MM-DD.md, wherever my daily notes live. Add these frontmatter properties, keeping everything already in the note:
    caldera_headline: one sentence, the shape of the day
    caldera_focus: 2-4 short items, what I worked on
    caldera_wins: 1-3 short items, what got done
@@ -74,7 +75,7 @@ A. Journal entry. Open (or create) yesterday's daily note, named YYYY-MM-DD.md, 
    Write them from my notes, calendar, sent email, commits and AI sessions for that day - whatever you can access.
    Name my projects the way they appear in Caldera/profile.md "projects" when they come up: Caldera grows a garden page for each project (and each distinctive theme) from these journal lines, adding a dated entry whenever it comes up.
 
-B. Activity counts. Update "${vault}/${activity}" (create it if missing). Format:
+B. Activity counts (every run, for today and yesterday). Update "${vault}/${activity}" (create it if missing). Format:
    { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0, "tokens": 0 } ],
      "ai": { "total": 0, "window_days": 45, "models": [["Claude Opus 5.5", 0]], "providers": [["Anthropic", 0]] },
      "code": { "commits": 0, "repos": 0, "languages": ["Python"], "weekly": [0], "url": "https://github.com/<me>", "start": "Mon YYYY" } }
@@ -113,13 +114,13 @@ Work through these one at a time. Anything that would become PUBLIC needs my exp
 
 3. Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I will add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.
 
-4. Activity sources. Set up a daily scheduled job (cron, launchd, Task Scheduler, or your own scheduler) that writes COUNTS ONLY for yesterday into "${vault}/${activity}" in this format, replacing that date's entry and keeping 60 days:
+4. Activity sources. Set up a scheduled job (cron, launchd, Task Scheduler, or your own scheduler) that runs 4 times per workday - 9am, 12pm, 3pm and 6pm local, Monday to Friday, nothing overnight or on weekends - and writes COUNTS ONLY for today and yesterday into "${vault}/${activity}" in this format, replacing that date's entry and keeping 60 days:
    { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0 } ] }
    Use the sources I actually have: calendar events attended, emails I sent, AI prompts I sent, git commits I authored, documents I produced. Only numbers - never titles, subjects, names or contents. Tell me which sources you connected and which you could not. If a daily journal routine already writes this file, extend it instead of adding a second writer.
 
 5. My page text. Draft, for Caldera/profile.md: "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context). Show me everything first; write only what I approve.
 
-6. Daily journal. If nothing writes my journal yet, extend the daily job from step 4 so that each morning it also opens yesterday's daily note (YYYY-MM-DD.md) and adds caldera_headline (one line), caldera_focus (up to 3), caldera_wins (up to 3) and caldera_themes (1-3 words), written from what I did that day, following the privacy rules below. Then backfill: For each of the last 14 days that has activity, add caldera_headline, caldera_focus, caldera_wins and caldera_themes to that day's daily note (YYYY-MM-DD.md), following the privacy rules below. Show me the 14 entries before writing them.
+6. Daily journal. If nothing writes my journal yet, extend the job from step 4 so that on its first run each workday it also opens yesterday's daily note (on Monday, also the weekend days with activity; skip days already written) (YYYY-MM-DD.md) and adds caldera_headline (one line), caldera_focus (up to 3), caldera_wins (up to 3) and caldera_themes (1-3 words), written from what I did that day, following the privacy rules below. Then backfill: For each of the last 14 days that has activity, add caldera_headline, caldera_focus, caldera_wins and caldera_themes to that day's daily note (YYYY-MM-DD.md), following the privacy rules below. Show me the 14 entries before writing them.
 
 7. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I will post the ones I like with the commands "Caldera: Post an ask" and "Caldera: Post an offer".
 
