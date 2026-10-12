@@ -65,6 +65,24 @@ Published at `https://<host>/.well-known/caldera.json` (self-hosted) or `https:/
 
 Only aggregate counts and text the owner marked public may appear. The plugin builds the manifest **and** a static page (`index.html` + `theme.css` + `profile.css`) so a profile works with zero server logic.
 
+## 3a. Garden (`profile.manifest` body field `garden`, protocol v1, optional)
+
+A digital garden is a set of full notes the owner plants in public, note by note (a garden folder, default `Garden/`, or frontmatter `caldera: garden`; `caldera: private` always wins). Each note is published as `n/<slug>.html` plus its exact published text `n/<slug>.md`, and listed in the signed manifest:
+
+```json
+"garden": [ { "slug": "the-ai-gardener", "title": "The AI gardener", "stage": "seedling | budding | evergreen",
+              "license": "all-rights | cc-by | cc-by-nc | cc0 | ai-licensable", "created": "ISO", "updated": "ISO",
+              "sha256": "hex sha256 of n/<slug>.md", "words": 199, "excerpt": "<= 200 chars",
+              "xlinks": ["ana/tools-for-thought"] } ],
+"gardenUrl": "https://an-existing-garden.example (optional)"
+```
+
+- **Provenance:** because the manifest is signed, `sha256` proves who published that exact text and when. Anyone can fetch `n/<slug>.md`, hash it and compare.
+- **License:** default `all-rights` (no AI training without permission). Pages for non-AI licenses carry `<meta name="robots" content="noai, noimageai">`.
+- **Cross-garden links:** `[[@handle/Note title]]` in a note links to `/@handle/n/<slug(title)>.html`. Hubs index `xlinks` and show "Linked from other gardens" on the target note.
+- **Privacy:** contact details (emails, phone numbers) are removed before hashing; Obsidian comments `%% ... %%` never leave the vault; links to non-garden notes render as plain text.
+- **Hub API:** `GET /v1/gardens/recent` (listed profiles only) and the page `/gardens`.
+
 ## 4. Friends
 
 ```

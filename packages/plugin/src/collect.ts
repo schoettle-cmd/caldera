@@ -16,13 +16,14 @@ import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
 import { aiUsage, githubCode, vaultKinds } from "./auto";
+import { excerptOf, normLicense, normStage, parseXLink, redact, type GardenNote } from "./garden";
 
 const DAY = 86_400_000;
 const fmtN = (n: number) => n.toLocaleString("en-US");
 // the owner's local calendar day (UTC would roll 'today' over hours early for anyone west of Greenwich)
 const iso = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
-export async function collectProfile(app: App, s: CalderaSettings, social?: ProfileData["social"]): Promise<{ data: ProfileData; files: Record<string, ArrayBuffer> }> {
+export async function collectProfile(app: App, s: CalderaSettings, social?: ProfileData["social"]): Promise<{ data: ProfileData; files: Record<string, ArrayBuffer>; gardenReport: GardenReport[] }> {
   const md = app.vault.getMarkdownFiles();
   let words = 0, links = 0;
   const created = new Map<string, number>(), changed = new Map<string, number>();
@@ -53,6 +54,8 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
       journal.set(dm[1], { headline: fm.caldera_headline, focus: asList(fm.caldera_focus), wins: asList(fm.caldera_wins), themes: asList(fm.caldera_themes) });
     }
   }
+
+  const { garden, gardenImages, gardenFiles, gardenReport } = await collectGarden(app, s, md);
 
   // outside activity (calendar, email, git, AI sessions ...) written by your own scripts
   const external = new Map<string, any>();
@@ -124,6 +127,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   const hrefFor = (it: string): string | undefined => {
     const k = it.toLowerCase(), u = projUrl.get(k);
     if (u !== undefined) return /^https?:\/\//.test(u) ? u : "#projects";
+    const g = garden.find(n => n.title.toLowerCase() === k); if (g) return `n/${g.slug}.html`;
     if (noteIds.has(k)) return "#" + slug("note-" + it);
     if (topTopics.some(t => t[0].toLowerCase() === k)) return "#topics";
     return undefined;
@@ -138,6 +142,10 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     if (!items.length && !count) continue;              // an empty group is noise
     tree.push({ name: g, child: false, count });
     for (const it of items) tree.push({ name: it, child: true, href: hrefFor(it) });
+  }
+  if (garden.length && s.sections.garden !== false && !tree.some(t => !t.child && t.name.toLowerCase() === "garden")) {
+    tree.push({ name: "Garden", child: false, count: garden.length });
+    for (const n of [...garden].sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 6)) tree.push({ name: n.title, child: true, href: `n/${n.slug}.html` });
   }
   const graph = (s.graph?.length ? s.graph.map(n => ({ t: n, n: linkCount(n) })) : (topTopics.length ? topTopics : kinds).slice(0, 12).map(([t, n]) => ({ t, n }))).slice(0, 16);
   const backlinks: [string, string][] = s.backlinks?.length ? s.backlinks : notesSorted.slice(0, 6).map(n => [n.title, n.excerpt.slice(0, 70)]);
@@ -195,8 +203,10 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     tree, graph, graphLabel: s.graph?.length ? "Local graph / sized by linked notes" : topTopics.length ? "Topics / sized by notes" : "The vault / sized by notes",
     backlinks, backlinkLabel: s.backlinks?.length ? `Backlinks / ${fmtN(linkCount(s.name || ""))} notes link here` : "Public notes",
     asks: s.asks, offers: s.offers, social, updated: new Date().toISOString(),
+    garden: garden.length ? garden : undefined, gardenExternal: s.gardenUrl || undefined, gardenImages,
   };
-  return { data, files };
+  Object.assign(files, gardenFiles);
+  return { data, files, gardenReport };
 }
 
 function asList(v: unknown): string[] {
@@ -205,3 +215,67 @@ function asList(v: unknown): string[] {
   return [];
 }
 
+
+export interface GardenReport { path: string; title: string; slug: string; stage: string; license: string; words: number; removed: number; flags: { line: string; why: string }[] }
+
+const IMG_EXT = new Set(["png", "jpg", "jpeg", "webp"]);
+const IMG_MAX = 2_000_000, IMG_TOTAL = 6_000_000;
+
+/** Is this note in the public garden? Folder or `caldera: garden`; `caldera: private` always wins; Caldera's own files never. */
+export function inGarden(path: string, fm: Record<string, unknown>, folder: string): boolean {
+  const flag = String(fm?.caldera ?? "").toLowerCase().trim();
+  if (flag === "private" || flag === "friends") return false;
+  if (path.startsWith("Caldera/")) return false;
+  if (flag === "garden") return true;
+  const pre = (folder || "").replace(/^\/+|\/+$/g, "");
+  return !!pre && path.startsWith(pre + "/");
+}
+
+async function sha256hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Full garden notes (opted in note by note), their embedded images, and a privacy report for the owner's preview. */
+export async function collectGarden(app: App, s: CalderaSettings, md: TFile[]) {
+  const picked = md.filter(f => inGarden(f.path, app.metadataCache.getFileCache(f)?.frontmatter || {}, s.gardenFolder ?? "Garden"));
+  const garden: GardenNote[] = [], gardenReport: GardenReport[] = [];
+  const gardenFiles: Record<string, ArrayBuffer> = {}, gardenImages: Record<string, string> = {};
+  if (!picked.length) return { garden, gardenImages, gardenFiles, gardenReport };
+  const titles = new Map(picked.map(f => [f.basename.toLowerCase(), f]));
+  const used = new Set<string>(), slugOf = new Map<TFile, string>();
+  for (const f of picked) { let sl = slug(f.basename), k = 2; while (used.has(sl)) sl = `${slug(f.basename)}-${k++}`; used.add(sl); slugOf.set(f, sl); }
+  const ownerPublic = [s.name, ...(s.links || []).map(l => l[0]), ...(s.publicTopics || []).map(t => t[1]), ...(s.projects || []).map(p => p[0]), ...picked.map(f => f.basename)].filter(Boolean).map(String);
+  const check = publicTextFilter(ownerPublic);
+  let imgTotal = 0;
+  for (const f of picked) {
+    const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
+    const raw = (await app.vault.cachedRead(f)).replace(/^---[\s\S]*?\n---\s*/, "").replace(/%%[\s\S]*?%%/g, "").trim();
+    const { text, removed } = redact(raw);
+    const out = new Set<string>(); const xlinks = new Map<string, { handle: string; title: string; slug: string }>();
+    for (const m of text.matchAll(/(?<!!)\[\[([^\]|#]+)/g)) {
+      const t = m[1].trim(), x = parseXLink(t);
+      if (x) { xlinks.set(`${x.handle}/${x.slug}`, x); continue; }
+      const hit = titles.get(t.split("/").pop()!.replace(/\.md$/i, "").toLowerCase()); if (hit && hit !== f) out.add(slugOf.get(hit)!);
+    }
+    for (const m of text.matchAll(/!\[\[([^\]|#]+)/g)) {
+      const t = m[1].trim(); if (gardenImages[t]) continue;
+      const dest = (app.metadataCache as any).getFirstLinkpathDest?.(t, f.path) as TFile | null
+        ?? (app.vault.getAbstractFileByPath(t) as TFile | null);
+      if (!(dest instanceof TFile) || !IMG_EXT.has(dest.extension.toLowerCase()) || dest.stat.size > IMG_MAX || imgTotal + dest.stat.size > IMG_TOTAL) continue;
+      const outPath = `n/img/${slug(dest.basename)}-${slug(String(dest.stat.size))}.${dest.extension.toLowerCase()}`;
+      gardenFiles[outPath] = await app.vault.readBinary(dest); imgTotal += dest.stat.size; gardenImages[t] = outPath;
+    }
+    const created = Date.parse(String(fm.created || fm.date || "")) || f.stat.ctime;
+    const note: GardenNote = {
+      slug: slugOf.get(f)!, title: f.basename, stage: normStage(fm.stage ?? fm.status), license: normLicense(fm.license),
+      created: new Date(Math.min(created, f.stat.mtime)).toISOString(), updated: new Date(f.stat.mtime).toISOString(),
+      markdown: text, sha256: await sha256hex(text), words: (text.match(/\S+/g) || []).length, excerpt: excerptOf(text),
+      out: [...out], xlinks: [...xlinks.values()], tags: asList(fm.tags).map(t => t.replace(/^#/, "")),
+    };
+    garden.push(note);
+    const flags = text.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("```")).map(line => ({ line: line.slice(0, 160), why: check.why(line) || "" })).filter(x => x.why && x.why !== "name").slice(0, 12);
+    gardenReport.push({ path: f.path, title: f.basename, slug: note.slug, stage: note.stage, license: note.license, words: note.words, removed, flags });
+  }
+  return { garden, gardenImages, gardenFiles, gardenReport };
+}

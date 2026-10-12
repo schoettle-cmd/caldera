@@ -33,6 +33,33 @@ function calderaBar(hub: string, handle: string): string {
     + `</div><style>@media (max-width:520px){#caldera-bar .cb-tag{display:none}}</style>`;
 }
 
+/** caldera.social/gardens: the stream that serves the gardens - notes recently planted or tended, across every listed profile. */
+function gardensPage(notes: { handle: string; name: string; slug: string; title: string; stage: string; updated: string; excerpt: string; words: number }[], hub: string): string {
+  const e = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  const icon: Record<string, string> = { seedling: "&#127793;", budding: "&#127807;", evergreen: "&#127795;" };
+  const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const gardens = new Set(notes.map(n => n.handle)).size;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recently tended - Caldera gardens</title><meta name="robots" content="noindex"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>:root{--bg:#111113;--raised:#18181B;--line:#2A2A2F;--text:#E6E6EA;--muted:#8A8A93;--strong:#F7F7FA;--accent:#8B6CF6;--accent-text:#B9A6FF}
+@media (prefers-color-scheme: light){:root{--bg:#FAFAF7;--raised:#FFF;--line:#E4E4DF;--text:#26262B;--muted:#6B6B73;--strong:#111;--accent:#6E4FE0;--accent-text:#5A3CD0}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 'IBM Plex Sans',system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:28px 16px 64px}a{color:var(--accent-text);text-decoration:none}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}.top a.home{color:var(--strong);font:600 17px 'Source Serif 4',Georgia,serif}
+h1{font:600 2rem/1.15 'Source Serif 4',Georgia,serif;color:var(--strong);margin:0 0 8px}p.lede{color:var(--muted);margin:0 0 24px}
+.card{display:block;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--raised);margin-bottom:10px;color:var(--text)}
+.card:hover{border-color:var(--accent)}.t{font:600 1.08rem 'Source Serif 4',Georgia,serif;color:var(--strong)}.x{color:var(--muted);font-size:14px;margin:4px 0 6px}
+.m{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}.who{color:var(--accent-text)}.st{text-transform:capitalize}
+.empty{color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:24px;text-align:center}</style></head><body><main>
+<div class="top"><a class="home" href="${e(hub)}/">Caldera</a><a href="${e(hub)}/people">People</a></div>
+<h1>Recently tended</h1>
+<p class="lede">Notes planted or updated in public gardens on Caldera${notes.length ? ` - ${notes.length} notes from ${gardens} garden${gardens === 1 ? "" : "s"}` : ""}. A garden is a set of notes grown in the open: seedlings are rough, evergreens are worked through.</p>
+${notes.length ? notes.map(n => `<a class="card" href="/@${e(n.handle)}/n/${e(n.slug)}.html"><div class="t">${e(n.title)}</div>${n.excerpt ? `<div class="x">${e(n.excerpt)}</div>` : ""}<div class="m"><span class="who">@${e(n.handle)}</span><span class="st">${icon[n.stage] || ""} ${e(n.stage)}</span><span>Tended ${day(n.updated)}</span><span>${Number(n.words).toLocaleString("en-US")} words</span></div></a>`).join("\n")
+    : `<div class="empty">No public gardens yet. Plant a note: put it in your vault's Garden folder.</div>`}
+</main></body></html>`;
+}
+
 export function createHub(opts: HubOptions) {
   fs.mkdirSync(path.join(opts.dataDir, "profiles"), { recursive: true });
   const db = new DatabaseSync(path.join(opts.dataDir, "hub.sqlite"));
@@ -51,6 +78,11 @@ export function createHub(opts: HubOptions) {
     CREATE TABLE IF NOT EXISTS challenges (id TEXT, nonce TEXT, expires INTEGER);
     CREATE TABLE IF NOT EXISTS tokens (token TEXT PRIMARY KEY, id TEXT, expires INTEGER);
     CREATE TABLE IF NOT EXISTS moderation (handle TEXT PRIMARY KEY, id TEXT, action TEXT, reason TEXT, at TEXT);
+    CREATE TABLE IF NOT EXISTS garden_notes (owner TEXT, handle TEXT, slug TEXT, title TEXT, stage TEXT, license TEXT, updated TEXT, excerpt TEXT,
+      words INTEGER, sha256 TEXT, PRIMARY KEY (owner, slug));
+    CREATE INDEX IF NOT EXISTS garden_recent ON garden_notes(updated);
+    CREATE TABLE IF NOT EXISTS garden_links (owner TEXT, src_handle TEXT, src_slug TEXT, src_title TEXT, dst_handle TEXT, dst_slug TEXT);
+    CREATE INDEX IF NOT EXISTS garden_dst ON garden_links(dst_handle, dst_slug);
   `);
   const q = (sql: string) => db.prepare(sql);
   const now = () => new Date().toISOString();
@@ -105,6 +137,7 @@ export function createHub(opts: HubOptions) {
            headline=excluded.headline, manifest=excluded.manifest, updated=excluded.updated`)
           .run(e.from, handle || null, b.boxKey || "", b.name || "", b.headline || "", JSON.stringify(e), e.ts, existing?.created || now());
         storeEnvelope(e, null);
+        indexGarden(e.from, handle, b.garden);
         if (!existing) emit({ type: "signup", handle, name: b.name || "", total: (q("SELECT COUNT(*) c FROM profiles").get() as any).c });
         return { status: 200, body: { ok: true, id: e.from, handle } };
       }
@@ -187,13 +220,46 @@ export function createHub(opts: HubOptions) {
     }
   }
 
+  /** The garden listed in a signed manifest: note index (for the feed) + links into other gardens (for their backlinks). */
+  function indexGarden(owner: string, handle: string, garden: unknown) {
+    q("DELETE FROM garden_notes WHERE owner=?").run(owner); q("DELETE FROM garden_links WHERE owner=?").run(owner);
+    if (!handle || !Array.isArray(garden)) return;
+    const str = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+    for (const g of garden.slice(0, 2000)) {
+      const sl = str(g?.slug, 120); if (!/^[a-z0-9][a-z0-9-]*$/.test(sl)) continue;
+      const stage = ["seedling", "budding", "evergreen"].includes(g.stage) ? g.stage : "seedling";
+      const upd = Date.parse(g.updated) ? new Date(g.updated).toISOString() : now();
+      q("INSERT OR REPLACE INTO garden_notes VALUES (?,?,?,?,?,?,?,?,?,?)").run(owner, handle, sl, str(g.title, 200), stage, str(g.license, 20), upd, str(g.excerpt, 240), Number(g.words) || 0, str(g.sha256, 64));
+      for (const x of Array.isArray(g.xlinks) ? g.xlinks.slice(0, 100) : []) {
+        const m = String(x).match(/^([a-z0-9][a-z0-9-]{1,30})\/([a-z0-9][a-z0-9-]*)$/);
+        if (m && m[1] !== handle) q("INSERT INTO garden_links VALUES (?,?,?,?,?,?)").run(owner, handle, sl, str(g.title, 200), m[1], m[2]);
+      }
+    }
+  }
+
+  /** "Linked from other gardens" block injected into a hosted note page (static pages can't query the hub themselves). */
+  function xlinksBlock(handle: string, slug: string): string {
+    const rows = (q(`SELECT l.src_handle, l.src_slug, l.src_title, p.name, p.id, p.manifest FROM garden_links l JOIN profiles p ON p.id=l.owner
+      WHERE l.dst_handle=? AND l.dst_slug=? LIMIT 50`).all(handle, slug) as any[]).filter(r => !modOf(r.src_handle, r.id));
+    if (!rows.length) return "";
+    const e = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+    return `<section class="g-xlinks"><h2>Linked from other gardens</h2>${rows.map(r => `<a class="g-card" href="../../@${e(r.src_handle)}/n/${e(r.src_slug)}.html"><span class="g-card-t">${e(r.src_title)}</span><span class="g-card-m"><span class="g-who">@${e(r.src_handle)}</span>${r.name ? `<span>${e(r.name)}</span>` : ""}</span></a>`).join("")}</section>`;
+  }
+
+  function recentGardenNotes(limit = 60) {
+    return (q(`SELECT g.handle, g.slug, g.title, g.stage, g.license, g.updated, g.excerpt, g.words, p.name, p.id, p.manifest FROM garden_notes g
+      JOIN profiles p ON p.id=g.owner WHERE p.handle IS NOT NULL ORDER BY g.updated DESC LIMIT ?`).all(Math.min(200, limit * 3)) as any[])
+      .filter(r => listed(r) || false).slice(0, limit)
+      .map(r => ({ handle: r.handle, name: r.name, slug: r.slug, title: r.title, stage: r.stage, license: r.license, updated: r.updated, excerpt: r.excerpt, words: r.words }));
+  }
+
   const emit = (ev: Parameters<NonNullable<HubOptions["onEvent"]>>[0]) => { try { opts.onEvent?.(ev); } catch { /* never let a notifier break a request */ } };
 
   function erase(id: string) {
     const pr = profile(id);
     if (pr?.handle) fs.rmSync(path.join(opts.dataDir, "profiles", pr.handle), { recursive: true, force: true });
     for (const sql of ["DELETE FROM profiles WHERE id=?", "DELETE FROM friends WHERE a=? OR b=?", "DELETE FROM asks WHERE author=?", "DELETE FROM offers WHERE author=?",
-      "DELETE FROM gravity WHERE sender=? OR recipient=?", "DELETE FROM ledger WHERE who=?", "DELETE FROM envelopes WHERE sender=? OR recipient=?", "DELETE FROM tokens WHERE id=?"]) {
+      "DELETE FROM gravity WHERE sender=? OR recipient=?", "DELETE FROM ledger WHERE who=?", "DELETE FROM envelopes WHERE sender=? OR recipient=?", "DELETE FROM tokens WHERE id=?", "DELETE FROM garden_notes WHERE owner=?", "DELETE FROM garden_links WHERE owner=?"]) {
       const n = (sql.match(/\?/g) || []).length; q(sql).run(...Array(n).fill(id));
     }
   }
@@ -279,6 +345,11 @@ export function createHub(opts: HubOptions) {
       if (req.method === "OPTIONS") return json(res, 204, {});
 
       if (req.method === "GET" && p === "/v1/info") return json(res, 200, { name: "Caldera Hub", protocol: C.PROTOCOL_VERSION, profiles: (q("SELECT COUNT(*) c FROM profiles").get() as any).c });
+      if (req.method === "GET" && p === "/v1/gardens/recent") return json(res, 200, { notes: recentGardenNotes(Math.max(1, Math.min(100, Number(url.searchParams.get("limit")) || 60))) });
+      if (req.method === "GET" && (p === "/gardens" || p === "/gardens/")) {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache", "x-robots-tag": "noindex" });
+        return res.end(gardensPage(recentGardenNotes(80), opts.publicUrl || "https://caldera.social"));
+      }
       if (req.method === "GET" && opts.siteDir && !p.startsWith("/v1/") && !p.startsWith("/@")) {
         let rel = p === "/" ? "index.html" : decodeURIComponent(p.slice(1));
         if (rel.endsWith("/")) rel += "index.html";
@@ -334,8 +405,10 @@ export function createHub(opts: HubOptions) {
         if (!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end("not found"); }
         res.removeHeader("x-frame-options");
         const headers = { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "x-robots-tag": "noindex", "content-security-policy": PROFILE_CSP, "cache-control": "no-cache" };
-        if (rel === "index.html") {   // every hosted profile gets the Caldera bar, whatever plugin version built it
-          const html = fs.readFileSync(file, "utf8"), bar = calderaBar(opts.publicUrl || "https://caldera.social", m[1]);
+        if (path.extname(file).toLowerCase() === ".html") {   // every hosted page gets the Caldera bar, whatever plugin version built it
+          let html = fs.readFileSync(file, "utf8"); const bar = calderaBar(opts.publicUrl || "https://caldera.social", m[1]);
+          const note = rel.match(/^n\/([a-z0-9-]+)\.html$/);
+          if (note) html = html.replace("<!--caldera:xlinks-->", xlinksBlock(m[1], note[1]));
           const out = /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, b => b + bar) : bar + html;
           res.writeHead(200, headers); return res.end(out);
         }

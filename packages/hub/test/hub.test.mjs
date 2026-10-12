@@ -171,3 +171,29 @@ test("every hosted profile page gets the Caldera bar linking home with the owner
   const css = await fetch(base + "/@mike/caldera.json").then(r => r.text());
   assert.ok(!css.includes("caldera-bar"), "only HTML pages are touched");
 });
+
+test("gardens: signed garden index, cross-garden backlinks injected into note pages, recent feed", async () => {
+  const gdir = fs.mkdtempSync(path.join(os.tmpdir(), "caldera-garden-"));
+  const gh = createHub({ dataDir: gdir, publicUrl: "" }); const gbase = "http://127.0.0.1:" + await gh.listen(0);
+  const post = (p, body) => fetch(gbase + p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async r => ({ status: r.status, body: await r.json() }));
+  const get = (p) => fetch(gbase + p).then(async r => ({ status: r.status, body: r.headers.get("content-type")?.includes("json") ? await r.json() : await r.text() }));
+  const g1 = C.newIdentity(), g2 = C.newIdentity();
+  const note = (slug, title, extra = {}) => ({ slug, title, stage: "budding", license: "cc-by", created: new Date().toISOString(), updated: new Date().toISOString(), sha256: "a".repeat(64), words: 120, excerpt: title + " excerpt", xlinks: [], ...extra });
+  const page = (s) => Buffer.from(`<html><body><article>${s}<!--caldera:xlinks--></article></body></html>`).toString("base64");
+  const m1 = C.sign(g1, "profile.manifest", { name: "Gardener One", handle: "gone", boxKey: g1.boxPublic, garden: [note("tools-for-thought", "Tools for thought"), note("bad slug!", "x")] });
+  assert.equal((await post(`/v1/profiles/${g1.id}/bundle`, { manifest: m1, files: { "index.html": page("one"), "n/tools-for-thought.html": page("tft") } })).status, 200);
+  const m2 = C.sign(g2, "profile.manifest", { name: "Gardener Two", handle: "gtwo", boxKey: g2.boxPublic, garden: [note("reply", "My reply <b>", { xlinks: ["gone/tools-for-thought", "gtwo/self", "../evil"] })] });
+  assert.equal((await post(`/v1/profiles/${g2.id}/bundle`, { manifest: m2, files: { "index.html": page("two"), "n/reply.html": page("r") } })).status, 200);
+  const html = (await get("/@gone/n/tools-for-thought.html")).body;
+  assert.ok(html.includes("Linked from other gardens") && html.includes("/@gtwo/n/reply.html") && html.includes("My reply &lt;b&gt;"), "backlink from another garden, escaped");
+  assert.ok(html.includes('id="caldera-bar"'), "bar on note pages too");
+  const feed = (await get("/v1/gardens/recent")).body.notes;
+  assert.ok(feed.some(n => n.handle === "gone" && n.slug === "tools-for-thought") && !feed.some(n => n.slug === "bad slug!"));
+  assert.ok((await get("/gardens")).body.includes("Tools for thought"));
+  // republishing without the link removes the backlink; deleting the profile removes its garden
+  await post(`/v1/profiles/${g2.id}/bundle`, { manifest: C.sign(g2, "profile.manifest", { name: "Gardener Two", handle: "gtwo", boxKey: g2.boxPublic, garden: [note("reply", "My reply")] }), files: { "index.html": page("two") } });
+  assert.ok(!(await get("/@gone/n/tools-for-thought.html")).body.includes("Linked from other gardens"));
+  await post("/v1/envelopes", C.sign(g1, "profile.delete", {}));
+  assert.ok(!(await get("/v1/gardens/recent")).body.notes.some(n => n.handle === "gone"));
+  gh.server.close(); fs.rmSync(gdir, { recursive: true, force: true });
+});

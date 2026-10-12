@@ -4,3 +4,5 @@ packages/plugin/main.js
 packages/plugin/test/render.build.mjs
 data/
 *.sqlite
+packages/plugin/test/garden.build.mjs
+.DS_Store

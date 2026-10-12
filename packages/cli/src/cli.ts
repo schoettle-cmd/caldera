@@ -8,6 +8,7 @@ import * as C from "@caldera/core";
 import { App } from "./obsidian-shim";
 import { collectProfile } from "../../plugin/src/collect";
 import { renderProfile } from "../../plugin/src/render";
+import { gardenManifest } from "../../plugin/src/garden";
 
 const args = process.argv.slice(2);
 const flag = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
@@ -26,6 +27,7 @@ try {
   social = { friends: fr.friends?.length || 0, gravity: gr.gravity || 0, credits: cr.balance || 0 };
 } catch { social = undefined; }
 const { data, files: bins } = await collectProfile(app, s, s.sections.social ? social : undefined);
+data.hub = hub; data.id = me.id;
 const text = renderProfile(data);
 
 const out = flag("--out");
@@ -34,13 +36,14 @@ if (out) {
   for (const [p, b] of Object.entries(bins)) { fs.mkdirSync(path.dirname(path.join(out, p)), { recursive: true }); fs.writeFileSync(path.join(out, p), Buffer.from(b)); }
   console.log("wrote", out);
 }
-if (args.includes("--dry-run")) { console.log(`dry run: ${data.stats.notes} notes, ${data.daily.length} days, ${data.publicNotes.length} public notes`); process.exit(0); }
+if (args.includes("--dry-run")) { console.log(`dry run: ${data.stats.notes} notes, ${data.daily.length} days, ${data.publicNotes.length} public notes, ${data.garden?.length || 0} garden notes`); process.exit(0); }
 
 const manifest = C.sign(me, "profile.manifest", {
   name: data.name, handle: s.handle, boxKey: me.boxPublic, headline: data.headline || "", photos: { avatar: data.avatar, banner: data.banner },
   links: data.links, sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
   daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
-  topics: data.topics, asks: data.asks, offers: data.offers, page: "index.html", updated: data.updated,
+  topics: data.topics, asks: data.asks, offers: data.offers, listed: s.listed !== false, page: "index.html", updated: data.updated,
+  garden: data.garden?.length ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
 });
 const payload: Record<string, string> = {};
 for (const [p, t] of Object.entries(text)) payload[p] = Buffer.from(t).toString("base64");

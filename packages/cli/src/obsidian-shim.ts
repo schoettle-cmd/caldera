@@ -42,12 +42,16 @@ export class App {
     const byPath = new Map(files.map(f => [f.path, f]));
     const cache = new Map<string, any>();
     this.vault = {
+      adapter: { getBasePath: () => root }, configDir: ".obsidian",
       getMarkdownFiles: () => files.filter(f => f.extension === "md"),
       getAbstractFileByPath: (p: string) => byPath.get(p) || null,
       cachedRead: async (f: TFile) => fs.readFileSync(f.abs, "utf8"),
       readBinary: async (f: TFile) => { const b = fs.readFileSync(f.abs); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); },
     };
+    const byBase = new Map(files.flatMap(f => [[f.basename.toLowerCase(), f], [path.basename(f.path).toLowerCase(), f]] as [string, TFile][]));
     this.metadataCache = {
+      resolvedLinks: {}, unresolvedLinks: {},
+      getFirstLinkpathDest: (link: string) => byPath.get(link) || byBase.get(link.split("/").pop()!.toLowerCase()) || byBase.get(link.split("/").pop()!.replace(/\.md$/i, "").toLowerCase()) || null,
       getFileCache: (f: TFile) => {
         if (cache.has(f.path)) return cache.get(f.path);
         const text = fs.readFileSync(f.abs, "utf8");
@@ -59,4 +63,15 @@ export class App {
       },
     };
   }
+}
+
+export const Platform = { isDesktop: true, isDesktopApp: true, isMobile: false, isMobileApp: false, isMacOS: process.platform === "darwin" };
+
+/** Obsidian's requestUrl, on Node's fetch (enough for collect.ts / auto.ts). */
+export async function requestUrl(o: { url: string; method?: string; headers?: Record<string, string>; body?: string; throw?: boolean }) {
+  const r = await fetch(o.url, { method: o.method || "GET", headers: o.headers, body: o.body });
+  const text = await r.text();
+  if (o.throw !== false && r.status >= 400) throw new Error(`request failed ${r.status}`);
+  let json: any; try { json = JSON.parse(text); } catch { json = undefined; }
+  return { status: r.status, text, json, headers: Object.fromEntries(r.headers) };
 }

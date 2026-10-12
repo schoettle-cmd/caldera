@@ -8,6 +8,8 @@ import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS } from "./settings";
 import { collectProfile } from "./collect";
 import { renderProfile } from "./render";
+import { gardenManifest, LICENSES } from "./garden";
+import type { GardenReport } from "./collect";
 import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-file";
 
 const VIEW = "caldera-panel";
@@ -37,6 +39,9 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "guide", name: "Open the guide", callback: () => window.open(this.settings.hubUrl.replace(/\/$/, "") + "/guide.html") });
     this.registerEvent(this.app.metadataCache.on("changed", f => { if (f.path === PROFILE_FILE) this.queuePublish("profile"); }));
     this.registerEvent(this.app.vault.on("modify", f => { if (f.path === this.settings.activityFile) this.queuePublish("activity"); }));
+    this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
+    this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
+      const f = this.app.workspace.getActiveFile(); if (!f || f.extension !== "md") return false; if (!check) this.plantNote(f); return true; } });
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
@@ -113,10 +118,10 @@ export default class CalderaPlugin extends Plugin {
   private async build() {
     await this.linksResolved();
     const eff = effectiveSettings(this.app, this.settings);   // Caldera/profile.md wins over settings
-    const { data, files } = await collectProfile(this.app, eff, eff.sections.social ? this.social : undefined);
-    data.hub = this.settings.hubUrl;
+    const { data, files, gardenReport } = await collectProfile(this.app, eff, eff.sections.social ? this.social : undefined);
+    data.hub = this.settings.hubUrl; data.id = this.settings.identity?.id;
     const text = renderProfile(data);
-    return { data, text, binaries: files, eff };
+    return { data, text, binaries: files, eff, gardenReport };
   }
 
   async openProfileFile() {
@@ -188,6 +193,8 @@ export default class CalderaPlugin extends Plugin {
         sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
         topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, page: "index.html", updated: data.updated,
+        // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
+        garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
       });
       const files: Record<string, string> = {};
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
@@ -199,6 +206,19 @@ export default class CalderaPlugin extends Plugin {
     } catch (e: any) { this.lastPublishError = e.message; if (!quiet) new Notice("Caldera publish failed: " + e.message); else console.warn("Caldera publish failed:", e.message); return null; }
   }
   lastPublishError = "";
+
+  async previewGarden() {
+    const { gardenReport, eff } = await this.build();
+    new GardenPreviewModal(this.app, gardenReport, eff.gardenFolder ?? "Garden", this.settings.handle ? `${this.profileUrl()}garden.html` : "").open();
+  }
+
+  /** Opt a note into the garden: caldera: garden + stage + license (only fills what is missing). */
+  async plantNote(f: TFile) {
+    await this.app.fileManager.processFrontMatter(f, (fm: any) => {
+      fm.caldera = "garden"; if (!fm.stage) fm.stage = "seedling"; if (!fm.license) fm.license = "all-rights";
+    });
+    new Notice(`"${f.basename}" is now in your garden as a seedling. It goes public on the next publish; run "Preview my garden" to check it first.`);
+  }
 
   profileUrl() { return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`; }
   openProfile() { if (this.settings.handle) window.open(this.profileUrl()); else new WelcomeModal(this.app, this).open(); }
@@ -499,4 +519,27 @@ class WhatsNewModal extends Modal {
       .addButton(b => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() { this.contentEl.empty(); }
+}
+
+/** What the garden will publish, note by note, with lines the privacy filter would flag. Nothing is sent from here. */
+class GardenPreviewModal extends Modal {
+  constructor(app: App, private report: GardenReport[], private folder: string, private url: string) { super(app); }
+  onOpen() {
+    const c = this.contentEl; c.empty();
+    c.createEl("h2", { text: "Your garden" });
+    if (!this.report.length) {
+      c.createEl("p", { text: `No garden notes yet. Put notes in the "${this.folder || "(no folder set)"}" folder, or run "Plant this note in my garden" on any note. Nothing is published until you do.` });
+      return;
+    }
+    const words = this.report.reduce((a, r) => a + r.words, 0);
+    c.createEl("p", { text: `${this.report.length} notes (${words.toLocaleString()} words) will be public as full pages${this.url ? ` at ${this.url}` : ""}. Email addresses and phone numbers are removed automatically. Lines below were flagged as possibly private: edit them, or add "caldera: private" to keep a note out.` });
+    for (const r of this.report) {
+      const box = c.createDiv({ cls: "caldera-garden-row" });
+      box.createEl("h4", { text: `${r.title}  (${r.stage}, ${LICENSES[r.license]?.short || r.license}, ${r.words} words)` });
+      box.createEl("div", { text: r.path, cls: "setting-item-description" });
+      if (r.removed) box.createEl("div", { text: `${r.removed} email/phone value(s) will be removed.` });
+      if (!r.flags.length) box.createEl("div", { text: "No flagged lines.", cls: "setting-item-description" });
+      for (const fl of r.flags) box.createEl("div", { text: `[${fl.why}] ${fl.line}` });
+    }
+  }
 }

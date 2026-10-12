@@ -7,6 +7,7 @@
 import THEME_CSS from "./assets/theme.css";
 import { PROFILE_CSS } from "./profile.css";
 import { activityScore, ACTIVITY_WEIGHTS, type DailyCounts } from "@caldera/core";
+import { gardenSection, renderGarden, type GardenNote } from "./garden";
 
 export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
 export interface ProfileData {
@@ -40,6 +41,10 @@ export interface ProfileData {
   code?: { commits: number; repos: number; languages?: string[]; weekly?: number[]; url?: string; start?: string };
   extraNumbers?: [string, string][];                        // [value, label] appended to the number strip
   tabs?: string[];                                          // extra (decorative) tabs next to the page tab
+  garden?: GardenNote[];                                   // full public notes (Garden/ folder or caldera: garden)
+  gardenExternal?: string;                                 // an existing garden elsewhere (Quartz, Obsidian Publish...)
+  gardenImages?: Record<string, string>;                   // embed target -> bundle path
+  id?: string;                                             // cal: id, shown in note provenance
   ai?: { total: number; window_days?: number; models: [string, number][]; providers?: [string, number][]; sources?: [string, number][]; note?: string };   // AI tokens, counts only
 }
 
@@ -131,7 +136,7 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
-<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css"></head><body>
+<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
 <div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
@@ -200,6 +205,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     parts.push(`<h2>AI usage</h2><p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc(a.note)}</span>` : ""}</p>${td.some(x => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map(x => `<span class="${x.n >= tpeak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>${a.sources && a.sources.length > 1 ? `<div style="margin-top:var(--space-4)"><div class="label">Where the tokens come from</div>${bars(a.sources, true)}</div>` : ""}`);
   }
   if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${timelineRows(p.timeline)}</div>`);
+  if (s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
   if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map(n => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc(n.title)}</div><div class="pn-ex">${esc(n.excerpt)}</div><div class="pn-date">${esc(n.updated.slice(0, 10))}</div></div>`).join("")}`);
   if (s.asks && (p.asks.length || p.offers.length)) parts.push(`<h2>Help exchange</h2><div class="hx-grid">
 <div class="hx-card"><div class="label">I could use help with</div>${p.asks.map(a => `<div class="hx-row"><span>${esc(a.title)}</span><span class="bounty">+${a.bounty}</span></div>`).join("") || '<div class="muted">Nothing right now</div>'}</div>
@@ -217,7 +223,9 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   const seen = new Set<string>();
   let html = parts.join("\n").replace(/<h2>([^<]+)<\/h2>/g, (_m, t: string) => { let id = slug(t); while (seen.has(id)) id += "-2"; seen.add(id); toc.push([id, t]); return `<h2 id="${id}">${t}</h2>`; });
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
-  return { "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  const garden = s.garden !== false && p.garden?.length
+    ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal }, p.garden, p.gardenImages) : {};
+  return { ...garden, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
 }
 
 /** Vault groups: collapsible (native <details>, works without script), linked items, optional note count. */
@@ -225,7 +233,7 @@ function sidebarTree(rows: NonNullable<ProfileData["tree"]>): string {
   const out: string[] = []; let open = false;
   const item = (r: (typeof rows)[number]) => {
     const cls = `tree-row child${r.current ? " is-current" : ""}${r.href ? " is-link" : ""}`;
-    if (!r.href || !/^(https?:\/\/|#[\w-]+$)/.test(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc(r.name)}</span></div>`;
+    if (!r.href || !/^(https?:\/\/|#[\w-]+$|garden\.html$|n\/[a-z0-9-]+\.html$)/.test(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc(r.name)}</span></div>`;
     const ext = /^https?:\/\//.test(r.href);
     return `<a class="${cls}" href="${esc(r.href)}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc(r.name)}</span>${ext ? '<span class="ext" aria-hidden="true">&#8599;</span>' : ""}</a>`;
   };
