@@ -86,7 +86,7 @@ C. Publish. If Caldera auto-publish is on (Settings -> Caldera -> Auto-publish e
 ## 3. Privacy rules (these override everything above)
 ${PRIVACY_RULES}
 Themes and topics: only use topics among ${topics}.
-Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / friends), never touch .obsidian/plugins/caldera/data.json.
+Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / garden / friends / private) or move notes into or out of the Garden folder, never touch .obsidian/plugins/caldera/data.json.
 
 ## 4. Check your work
 After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.
