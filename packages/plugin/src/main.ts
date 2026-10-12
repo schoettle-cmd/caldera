@@ -465,13 +465,15 @@ class WelcomeModal extends Modal {
     const link = this.contentEl.createEl("p").createEl("a", { text: url, href: url });
     link.addEventListener("click", e => { e.preventDefault(); window.open(url); });
     this.contentEl.createEl("p", { text: "It updates itself from your vault. To change your name, headline, photo, links or sections, edit the note Caldera/profile.md - or ask your AI agent to. The page republishes about a minute after you save." });
+    this.contentEl.createEl("p", { text: "Fill out your page: your AI agent (Claude Code, Codex, Cursor...) can draft your summary, timeline and projects, add a photo and links, and start your daily journal. Copy one prompt, paste it into your AI, and approve what it suggests. AI usage, activity and what your vault knows fill in by themselves." });
+    new Setting(this.contentEl).addButton(b => b.setButtonText("Copy AI prompt: fill out my page").setCta().onClick(() => this.plugin.copyPrompt("richer")));
     this.contentEl.createEl("p", { text: "Your login is a key stored in this vault - no password. Save a copy so you can recover your profile on another device:", cls: "caldera-welcome-key" });
     new Setting(this.contentEl)
       .addButton(b => b.setButtonText("Copy recovery key").onClick(async () => {
         await navigator.clipboard.writeText(btoa(JSON.stringify(this.plugin.settings.identity)));
         new Notice("Recovery key copied. Paste it into your password manager. Anyone with it can act as you.");
       }))
-      .addButton(b => b.setButtonText("Open my profile").setCta().onClick(() => window.open(url)))
+      .addButton(b => b.setButtonText("Open my profile").onClick(() => window.open(url)))
       .addButton(b => b.setButtonText("Done").onClick(() => this.close()));
   }
   onClose() { this.contentEl.empty(); }

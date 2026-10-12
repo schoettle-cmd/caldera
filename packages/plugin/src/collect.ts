@@ -15,6 +15,7 @@ import { App, TFile, getAllTags } from "obsidian";
 import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
+import { aiUsage, githubCode, vaultKinds } from "./auto";
 
 const DAY = 86_400_000;
 const fmtN = (n: number) => n.toLocaleString("en-US");
@@ -60,6 +61,19 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   if (actFile instanceof TFile) {
     try { extra = JSON.parse(await app.vault.cachedRead(actFile)) || {}; for (const d of extra.days || []) external.set(d.date, d); } catch { /* ignore malformed */ }
   }
+  // sections every install gets on its own (owner tools in activity.json win): AI usage, Code
+  if (s.sections.ai !== false && !(extra.ai && typeof extra.ai.total === "number")) {
+    const base = (app.vault.adapter as any).getBasePath?.();
+    const ai = base ? await aiUsage(`${base}/${app.vault.configDir}/plugins/caldera/ai-cache.json`).catch(() => undefined) : undefined;
+    if (ai) {
+      extra.ai = ai;
+      for (const [d, n] of Object.entries(ai.days)) { const e = external.get(d) || { date: d }; if (!e.tokens) e.tokens = n; external.set(d, e); }
+    }
+  }
+  if (s.sections.code !== false && !(extra.code && typeof extra.code.commits === "number")) {
+    const code = await githubCode(s.links || []).catch(() => undefined);
+    if (code) extra.code = code;
+  }
 
   const today = Date.now();
   const daily: DailyEntry[] = [];
@@ -100,6 +114,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   const linkCount = (name: string) => inbound.get(name.toLowerCase()) || 0;
 
   const topTopics = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const kinds = vaultKinds(app, md);   // generic note categories: the graph / sidebar fallback when there are no public topics
   const notesSorted = publicNotes.sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 12);
   // left sidebar: owner-chosen groups. Items become links when they match a project (its URL), a public note or a page
   // section; a group's optional folder shows a note count (count only, file names never leave the vault).
@@ -116,13 +131,15 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   const folderCount = (folder?: string) => { if (!folder) return undefined; const pre = folder.replace(/^\/+|\/+$/g, "") + "/"; const n = md.filter(f => f.path.startsWith(pre)).length; return n || undefined; };
   const groups: [string, string[], string?][] = s.tree?.length ? s.tree.map(([g, items, folder]) => [g, items.split(",").map(x => x.trim()).filter(Boolean), folder])
     : [["Topics", topTopics.slice(0, 5).map(t => t[0])], ["Notes", notesSorted.slice(0, 5).map(n => n.title)]];
+  if (!s.tree?.length && !topTopics.length && !notesSorted.length)
+    for (const [label, n] of kinds) tree.push({ name: label, child: false, count: n });
   for (const [g, items, folder] of groups) {
     const count = folderCount(folder);
     if (!items.length && !count) continue;              // an empty group is noise
     tree.push({ name: g, child: false, count });
     for (const it of items) tree.push({ name: it, child: true, href: hrefFor(it) });
   }
-  const graph = (s.graph?.length ? s.graph.map(n => ({ t: n, n: linkCount(n) })) : topTopics.slice(0, 12).map(([t, n]) => ({ t, n }))).slice(0, 16);
+  const graph = (s.graph?.length ? s.graph.map(n => ({ t: n, n: linkCount(n) })) : (topTopics.length ? topTopics : kinds).slice(0, 12).map(([t, n]) => ({ t, n }))).slice(0, 16);
   const backlinks: [string, string][] = s.backlinks?.length ? s.backlinks : notesSorted.slice(0, 6).map(n => [n.title, n.excerpt.slice(0, 70)]);
 
   // 26-week activity (notes created + changed per day, plus outside counts) and cumulative growth
@@ -145,7 +162,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   }
   const knows: [string, number][] = s.knows?.length
     ? s.knows.map(([label, folder]) => { const pre = folder.replace(/^\/+|\/+$/g, "") + "/"; return [label, md.filter(f => f.path.startsWith(pre)).length]; })
-    : (Array.isArray(extra.knows) ? extra.knows.filter((k: any) => Array.isArray(k) && typeof k[1] === "number").map((k: any) => [String(k[0]), k[1]]) : []);
+    : (Array.isArray(extra.knows) ? extra.knows.filter((k: any) => Array.isArray(k) && typeof k[1] === "number").map((k: any) => [String(k[0]), k[1]]) : kinds);
   const pc = extra.projects && typeof extra.projects === "object" ? extra.projects : {};
   const projects = (s.projects || []).map(([name, rest]) => { const [status = "", url = ""] = rest.split("|").map(x => x.trim()); return { name, status, url, commits: Number(pc[name]) || undefined }; });
 
@@ -175,7 +192,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     code: extra.code && typeof extra.code.commits === "number" ? extra.code : undefined,
     ai: extra.ai && typeof extra.ai.total === "number" && Array.isArray(extra.ai.models) ? extra.ai : undefined,
     extraNumbers: Array.isArray(extra.numbers) ? extra.numbers.filter((x: any) => Array.isArray(x)).map((x: any) => [String(x[0]), String(x[1])]) : undefined,
-    tree, graph, graphLabel: s.graph?.length ? "Local graph / sized by linked notes" : "Topics / sized by notes",
+    tree, graph, graphLabel: s.graph?.length ? "Local graph / sized by linked notes" : topTopics.length ? "Topics / sized by notes" : "The vault / sized by notes",
     backlinks, backlinkLabel: s.backlinks?.length ? `Backlinks / ${fmtN(linkCount(s.name || ""))} notes link here` : "Public notes",
     asks: s.asks, offers: s.offers, social, updated: new Date().toISOString(),
   };

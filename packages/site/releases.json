@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.4.0",
+      "date": "2026-10-12",
+      "title": "Fuller pages out of the box: AI usage, Code, What it knows and a vault graph",
+      "items": [
+        "AI usage fills in by itself on desktop: tokens per day and your model mix, read from your local Claude Code and Codex logs. Counts only, never prompts.",
+        "Code: add your GitHub profile to your links and your page shows commits per week from your public contribution graph.",
+        "What it knows: how many people, projects, sources, ideas and daily notes your vault holds, using generic labels only (a private folder name never appears).",
+        "No tags or public notes yet? The sidebar and graph now show your vault's categories instead of staying empty.",
+        "After you create your profile, one button copies a prompt that has your AI fill out the rest: summary, timeline in chapters, projects, links, photo and a daily journal."
+      ],
+      "howto": "Run 'Caldera: Copy AI prompt: make my profile richer' and paste it into Claude Code, Codex or Cursor. Turn AI usage or Code off in Settings -> Caldera -> sections if you prefer."
+    },
+    {
       "version": "0.3.13",
       "date": "2026-10-11",
       "title": "Fix: first profile publishes in about a second (was up to 90 seconds)",
