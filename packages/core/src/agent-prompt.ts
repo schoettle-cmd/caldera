@@ -20,6 +20,7 @@ export const PRIVACY_RULES = `Everything public is on the open internet, can be 
 - Times and places: no times of day, schedules, travel, cities, venues, addresses, offices, home or "where I am".
 - Secret or sensitive work: no unannounced, stealth, confidential or NDA projects, codenames, deals, fundraising, investors, acquisitions, valuations, hiring, firing or anything said in confidence.
 - Things that can get someone in trouble: legal, medical, health, HR, money, salaries, debts, relationships, family, children, politics, religion.
+- Proprietary methods: no trading strategies, signals, indicators, thresholds, regime or risk rules, entry/exit logic, win rates, model weights, prompts, data sources or other trade secrets - in the journal, the garden or anywhere public. Name the theme only ("worked on the trading system").
 - Contact details and links: no emails, phone numbers or links to private documents. No money amounts at all.
 Describe work only by its public theme ("shipped a release", "wrote about design") and only name things I have already made public on my page (my own public projects, topics and links). If you are unsure, leave it out - an empty field is fine. Caldera also drops any journal line that looks sensitive before publishing.`;
 
