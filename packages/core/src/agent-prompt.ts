@@ -95,7 +95,10 @@ Also: never write to any other part of the vault, never change notes' privacy ma
 After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.
 
 ## 5. When I ask you to change my page
-My name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed in the directory all live in the frontmatter of "${vault}/Caldera/profile.md". Edit that file (keep its format; the same privacy rules apply) and the page republishes itself within about a minute. Guide: ${hub}/guide.html`;
+My name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed in the directory all live in the frontmatter of "${vault}/Caldera/profile.md". Edit that file (keep its format; the same privacy rules apply) and the page republishes itself within about a minute. Guide: ${hub}/guide.html
+
+## 6. My garden home
+Once I have planted notes, my garden home is ${hub}/@<my handle>/garden.html: it shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank. After the first publish, tell me that link and offer to draft 2 asks and 2 offers (I post them with "Caldera: Post an ask" / "Caldera: Post an offer").`;
 }
 
 /** Second copy-paste prompt: an agent session that makes an existing profile richer, with the user approving anything that becomes public. */
@@ -123,7 +126,7 @@ Work through these one at a time. Anything that would become PUBLIC needs my exp
 
 6. Daily journal. If nothing writes my journal yet, extend the job from step 4 so that on its first run each workday it also opens yesterday's daily note (on Monday, also the weekend days with activity; skip days already written) (YYYY-MM-DD.md) and adds caldera_headline (one line), caldera_focus (up to 3), caldera_wins (up to 3) and caldera_themes (1-3 words), written from what I did that day, following the privacy rules below. Then backfill: For each of the last 14 days that has activity, add caldera_headline, caldera_focus, caldera_wins and caldera_themes to that day's daily note (YYYY-MM-DD.md), following the privacy rules below. Show me the 14 entries before writing them.
 
-7. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I will post the ones I like with the commands "Caldera: Post an ask" and "Caldera: Post an offer".
+7. Asks, offers and my garden home. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I will post the ones I like with the commands "Caldera: Post an ask" and "Caldera: Post an offer". Then set up my garden home - the hub page at ${hub}/@<my handle>/garden.html that shows, live: notes planted, links from other gardens, gravity, help credits, my open asks and offers, friends and my weekly rank, with a plain explanation of each. Check that "sections" in Caldera/profile.md turns on garden, asks and social (ask me before changing it). Explain the economy to me in 3 short lines: gravity = goodwill friends give with the "+ gravity" button in the Caldera panel (positive only, fades over a 30-day half-life, worth a bit more from people who have more of it); help credits = everyone starts with 100, an ask's bounty is held until I award it to whoever helped and returns after 30 days if nobody does, no cash value; links = other gardens can link my notes with [[@<my handle>/note-slug]]. Suggest 2-3 people I could invite as friends (by role, not by name, unless I name them).
 
 8. Finish. Tell me to run "Caldera: Preview my public profile", check it, then "Caldera: Publish my profile".
 
