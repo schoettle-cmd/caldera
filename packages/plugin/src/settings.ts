@@ -12,6 +12,8 @@ export interface CalderaSettings {
   publicTopics: [string, string][];   // [tag, label] - only these tags are ever counted
   activityFile: string; historyDays: number;
   inboxFolder: string; lastInboxSync: string;
+  ownerLastLooked?: string;   // when the owner last opened the My profile tab (drives 'Since you last looked')
+  openProfileOnStartup?: boolean;
   pendingRequests?: { request: string; from: string; handle?: string; note?: string; ts: string }[];   // friend requests survive a restart
   asks: { id: string; title: string; bounty: number }[];
   offers: { id: string; title: string }[];
@@ -96,6 +98,11 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", v => /^https:\/\//.test(v) ? v : "");
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
+
+    new Setting(containerEl).setName("My profile tab").setHeading();
+    new Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.")
+      .addToggle(t => t.setValue(!!s.openProfileOnStartup).onChange(async v => { s.openProfileOnStartup = v; await this.plugin.saveSettings(); }))
+      .addButton(b => b.setButtonText("Open now").onClick(() => this.plugin.openProfileTab()));
 
     new Setting(containerEl).setName("Publishing").setHeading();
     new Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually")

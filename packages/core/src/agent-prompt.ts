@@ -98,7 +98,10 @@ After each run, tell me in two lines what you wrote for that day, and anything y
 My name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed in the directory all live in the frontmatter of "${vault}/Caldera/profile.md". Edit that file (keep its format; the same privacy rules apply) and the page republishes itself within about a minute. Guide: ${hub}/guide.html
 
 ## 6. My garden home
-Once I have planted notes, my garden home is ${hub}/@<my handle>/garden.html: it shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank. After the first publish, tell me that link and offer to draft 2 asks and 2 offers (I post them with "Caldera: Post an ask" / "Caldera: Post an offer").`;
+Once I have planted notes, my garden home is ${hub}/@<my handle>/garden.html: it shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank. After the first publish, tell me that link and offer to draft 2 asks and 2 offers (I post them with "Caldera: Post an ask" / "Caldera: Post an offer").
+
+## 7. My profile inside Obsidian
+The ribbon icon "My Caldera profile" (or the command "Caldera: Open my profile in Obsidian") opens my page as a tab. "My view" is built from my vault right now and adds private sections only I see: since I last looked (visits, gravity, new friends, links in), today as it happens, on this day a week/month/year ago, a note brought back, patterns, and goals from "${vault}/Caldera/Goals.md" (checkboxes under ## headings). Nothing in those sections is published. "Public view" shows the live page exactly as visitors see it. If I want, create Caldera/Goals.md with my current goals, and switch on "Open my profile when Obsidian starts" in Caldera settings.`;
 }
 
 /** Second copy-paste prompt: an agent session that makes an existing profile richer, with the user approving anything that becomes public. */

@@ -6,3 +6,4 @@ data/
 *.sqlite
 packages/plugin/test/garden.build.mjs
 .DS_Store
+packages/plugin/test/owner.build.mjs

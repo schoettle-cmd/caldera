@@ -21,3 +21,11 @@
 .caldera-release-howto { margin: 8px 0 0; color: var(--text-muted); font-size: var(--font-ui-small); }
 
 .caldera-prompt { width: 100%; }
+/* My profile tab */
+.caldera-profile-view { padding: 0 !important; display: flex; flex-direction: column; overflow: hidden !important; }
+.caldera-pv-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--background-modifier-border); flex-wrap: wrap; }
+.caldera-pv-seg { display: inline-flex; background: var(--background-secondary); border-radius: 8px; padding: 2px; }
+.caldera-pv-seg button { background: transparent; box-shadow: none; padding: 4px 12px; font-size: var(--font-ui-small); color: var(--text-muted); }
+.caldera-pv-seg button.is-on { background: var(--interactive-accent); color: var(--text-on-accent); }
+.caldera-pv-status { flex: 1; min-width: 120px; font-size: var(--font-ui-smaller); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caldera-pv-frame { flex: 1; width: 100%; border: 0; background: #1C1C1F; }

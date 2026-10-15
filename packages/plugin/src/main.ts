@@ -11,6 +11,7 @@ import { renderProfile } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
 import type { GardenReport } from "./collect";
 import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-file";
+import { ProfileView, PROFILE_VIEW } from "./view";
 
 const VIEW = "caldera-panel";
 interface Friend { id: string; handle?: string; name?: string; box_key?: string; }
@@ -28,21 +29,19 @@ export default class CalderaPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.addSettingTab(new CalderaSettingTab(this.app, this));
     this.registerView(VIEW, leaf => new CalderaView(leaf, this));
+    this.registerView(PROFILE_VIEW, leaf => new ProfileView(leaf, this));
     this.addRibbonIcon("flame", "Caldera", () => this.openPanel());
+    this.addRibbonIcon("user-round", "My Caldera profile", () => this.openProfileTab());
     this.pending = [...(this.settings.pendingRequests || [])];
     // obsidian://caldera?friend=<handle> - the "Add as friend" button on every Caldera profile and garden page
     this.registerObsidianProtocolHandler("caldera", params => {
-      const h = String(params.friend || "").replace(/^@/, "").trim();
-      if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
-      if (!this.settings.identity || !this.settings.handle) { new Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`); return void new WelcomeModal(this.app, this).open(); }
-      if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
-      new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
-        try { await this.requestFriend(h); } catch (e: any) { new Notice(e.message); } }, "Send request", "Add a friend").open();
+      void this.confirmFriend(String(params.friend || ""));
     });
 
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
     this.addCommand({ id: "open", name: "Open my public profile", callback: () => this.openProfile() });
+    this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
     this.addCommand({ id: "profile-file", name: "Edit my profile (open profile.md)", callback: () => this.openProfileFile() });
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
     this.addCommand({ id: "whats-new", name: "What's new", callback: () => this.checkReleases(true) });
@@ -70,6 +69,7 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
     this.app.workspace.onLayoutReady(() => {
+      if (this.settings.openProfileOnStartup) void this.openProfileTab();
       if (this.settings.identity && this.settings.handle) void this.syncInbox(false);
       else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
       window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
@@ -131,7 +131,7 @@ export default class CalderaPlugin extends Plugin {
     });
   }
 
-  private async build() {
+  async build() {
     await this.linksResolved();
     const eff = effectiveSettings(this.app, this.settings);   // Caldera/profile.md wins over settings
     const { data, files, gardenReport } = await collectProfile(this.app, eff, eff.sections.social ? this.social : undefined);
@@ -294,6 +294,29 @@ export default class CalderaPlugin extends Plugin {
     await this.syncInbox(false); new Notice("Friend added");
   }
 
+  /** "Add as friend" from a profile page (obsidian://caldera?friend=) or the My profile tab: confirm, then request. */
+  async confirmFriend(raw: string) {
+    const h = raw.replace(/^@/, "").trim();
+    if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
+    if (!this.settings.identity || !this.settings.handle) { new Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`); return void new WelcomeModal(this.app, this).open(); }
+    if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
+    new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
+      try { await this.requestFriend(h); } catch (e: any) { new Notice(e.message); } }, "Send request", "Add a friend").open();
+  }
+
+  /** Private activity for the My view tab: visits, gravity, friends, links in. Signed in with the vault's key. */
+  async ownerActivity(since: string) {
+    const me = await this.ensureIdentity();
+    return this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/activity?since=${encodeURIComponent(since)}`, undefined, true);
+  }
+
+  async openProfileTab() {
+    const ws = this.app.workspace;
+    const existing = ws.getLeavesOfType(PROFILE_VIEW)[0];
+    if (existing) return void ws.revealLeaf(existing);
+    const leaf = ws.getLeaf("tab"); await leaf.setViewState({ type: PROFILE_VIEW, active: true }); ws.revealLeaf(leaf);
+  }
+
   async requestFriend(handleOrId: string, note = "") {
     const h = handleOrId.trim().replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "").replace(/^@/, "");
     if (!h) throw new Error("Enter a handle, like @orion, or their profile link");
@@ -365,7 +388,7 @@ class CalderaView extends ItemView {
       const st = stats.createDiv({ cls: "caldera-stat" }); st.createEl("b", { text: String(v) }); st.createSpan({ text: String(l) });
     }
     const actions = el.createDiv("caldera-actions");
-    actions.createEl("button", { text: "Preview" }).onclick = () => p.preview();
+    actions.createEl("button", { text: "My profile" }).onclick = () => p.openProfileTab();
     actions.createEl("button", { text: "Publish", cls: "mod-cta" }).onclick = () => p.publish();
     actions.createEl("button", { text: "Sync" }).onclick = () => p.syncInbox(true);
 
