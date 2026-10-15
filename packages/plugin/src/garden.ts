@@ -37,6 +37,7 @@ export interface GardenNote {
 export interface GardenSite {
   name: string; handle?: string; hub?: string; icon?: string; theme?: "dark" | "light"; id?: string;
   external?: string;                                // an existing garden elsewhere (Quartz, Obsidian Publish...)
+  nav?: (depth: number, current: string) => string;  // the profile's standard left nav, so every page navigates the same
 }
 
 export const normStage = (v: unknown): Stage => { const s = String(v ?? "").toLowerCase().trim(); return (STAGES as readonly string[]).includes(s) ? s as Stage : "seedling"; };
@@ -175,7 +176,7 @@ export function renderGarden(site: GardenSite, notes: GardenNote[], images: Reco
     const bl = back.get(n.slug) || [];
     const L = LICENSES[n.license] || LICENSES["all-rights"];
     const html = `${tabs("note").replace("%%TITLE%%", esc(n.title))}
-<main class="g-main"><article class="g-note">
+<div class="shell">${site.nav ? site.nav(1, `n/${n.slug}.html`) : ""}<main class="note"><div class="g-main"><article class="g-note">
 <div class="g-crumbs"><a href="../index.html">${esc(who)}</a> / <a href="../garden.html">Garden</a></div>
 <h1 class="g-title">${esc(n.title)}</h1>
 <div class="g-meta">${stageBadge(n.stage)}<span>Planted ${fmtDate(n.created)}</span><span>Tended ${fmtDate(n.updated)}</span><span>${n.words.toLocaleString("en-US")} words</span></div>
@@ -184,7 +185,7 @@ ${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map(b =>
 <!--caldera:xlinks-->
 <footer class="g-foot"><div><b>License:</b> ${licenseLine(n.license)}. ${esc(L.label)}</div>
 <div class="g-prov"><b>Provenance:</b> sha256 <code title="${n.sha256}">${n.sha256.slice(0, 16)}</code> of <a href="${n.slug}.md">the published text</a>, listed in <a href="../caldera.json">${esc(who)}'s signed manifest</a>${site.id ? ` (key <code>${esc(site.id.slice(0, 14))}&hellip;</code>)` : ""}. Anyone can check the author and date.</div></footer>
-</article></main>`;
+</article></div></main></div>`;
     files[`n/${n.slug}.html`] = page(site, `${n.title} - ${site.name}`, html, 1,
       `\n<meta name="description" content="${esc(n.excerpt)}">${L.ai ? "" : `\n<meta name="robots" content="noai, noimageai">`}${L.url ? `\n<link rel="license" href="${L.url}">` : ""}`);
     files[`n/${n.slug}.md`] = n.markdown;
@@ -193,13 +194,13 @@ ${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map(b =>
   const counts = STAGES.map(s => [s, notes.filter(n => n.stage === s).length] as const);
   const sorted = [...notes].sort((a, b) => b.updated.localeCompare(a.updated));
   const idx = `${tabs("garden")}
-<main class="g-main"><div class="g-index">
+<div class="shell">${site.nav ? site.nav(0, "garden.html") : ""}<main class="note"><div class="g-main"><div class="g-index">
 <div class="g-crumbs"><a href="index.html">${esc(who)}</a> / Garden</div>
 <h1 class="g-title">${esc(site.name)}'s garden</h1>
 <p class="g-lede">Notes grown in public from an Obsidian vault. Some are seedlings, some are evergreen; all of them keep changing.${site.external ? ` More at <a href="${esc(site.external)}" rel="noopener" target="_blank">${esc(site.external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>.` : ""}</p>
 <!--caldera:gardenhome--><div class="g-filter" role="toolbar" aria-label="Filter by stage"><button class="is-on" data-stage="all">All <span>${notes.length}</span></button>${counts.filter(([, c]) => c).map(([s, c]) => `<button data-stage="${s}">${STAGE_ICON[s]} ${s} <span>${c}</span></button>`).join("")}</div>
 <div class="g-list">${sorted.map(n => `<a class="g-card" data-stage="${n.stage}" href="n/${n.slug}.html"><span class="g-card-t">${esc(n.title)}</span><span class="g-card-x">${esc(n.excerpt)}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span>${n.xlinks.length ? `<span>${n.xlinks.length} link${n.xlinks.length === 1 ? "" : "s"} to other gardens</span>` : ""}</span></a>`).join("")}</div>
-</div></main>
+</div></div></main></div>
 <script>(function(){var b=[].slice.call(document.querySelectorAll('.g-filter button')),c=[].slice.call(document.querySelectorAll('.g-list .g-card'));b.forEach(function(x){x.onclick=function(){b.forEach(function(y){y.classList.toggle('is-on',y===x)});var s=x.getAttribute('data-stage');c.forEach(function(k){k.hidden=s!=='all'&&k.getAttribute('data-stage')!==s})}})})();</script>`;
   files["garden.html"] = page(site, `${site.name}'s garden`, idx, 0);
   files["garden.json"] = JSON.stringify({ name: site.name, handle: site.handle, external: site.external,
@@ -225,6 +226,9 @@ export function gardenSection(notes: GardenNote[], external?: string): string {
 export const GARDEN_CSS = `/* Caldera garden: note pages + index. Tokens come from theme.css. */
 .tabs a.tab { color: var(--text-muted); text-decoration: none; }
 .tabs a.tab:hover { color: var(--text); }
+.tree-row.group .g-link { color: inherit; text-decoration: none; }
+.tree-row.group .g-link:hover { color: var(--accent); text-decoration: underline; }
+.shell > .note > .g-main { width: 100%; }
 .g-main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
 .g-crumbs { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: 10px; }
 .g-crumbs a { color: var(--text-muted); }

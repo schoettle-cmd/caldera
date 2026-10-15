@@ -12,6 +12,7 @@ export interface CalderaSettings {
   publicTopics: [string, string][];   // [tag, label] - only these tags are ever counted
   activityFile: string; historyDays: number;
   inboxFolder: string; lastInboxSync: string;
+  pendingRequests?: { request: string; from: string; handle?: string; note?: string; ts: string }[];   // friend requests survive a restart
   asks: { id: string; title: string; bounty: number }[];
   offers: { id: string; title: string }[];
   autoPublishHours: number;           // 0 = manual only

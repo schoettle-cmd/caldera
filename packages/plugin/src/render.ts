@@ -140,7 +140,9 @@ ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="a
 <div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
-  if (sideOn) parts.push(`<nav class="sidebar tree" aria-label="Vault"><div class="side-inner">%%TOC%%<span class="label">Vault</span>${sidebarTree(p.tree!)}</div></nav>`);
+  const gardenOn = s.garden !== false && !!p.garden?.length;
+  const nav = (depth: number, current: string, toc = "") => s.sidebar === false ? "" : navSidebar(p, sideOn, gardenOn, depth, current, toc);
+  parts.push(nav(0, "index.html", "%%TOC%%"));
   parts.push(`<main class="note">`);
   if (p.banner || p.avatar) parts.push(`<div class="banner">${p.banner ? `<img class="cover" src="${esc(p.banner)}" alt="">` : ""}${p.avatar ? `<img class="avatar" src="${esc(p.avatar)}" alt="${esc(p.name)}">` : ""}</div>`);
   parts.push(`<div class="page"><div class="crumb">People / ${esc(p.name)}.md${p.handle ? " / @" + esc(p.handle) : ""}</div>
@@ -224,27 +226,45 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   let html = parts.join("\n").replace(/<h2>([^<]+)<\/h2>/g, (_m, t: string) => { let id = slug(t); while (seen.has(id)) id += "-2"; seen.add(id); toc.push([id, t]); return `<h2 id="${id}">${t}</h2>`; });
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
   const garden = s.garden !== false && p.garden?.length
-    ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal }, p.garden, p.gardenImages) : {};
+    ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   return { ...garden, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
 }
 
-/** Vault groups: collapsible (native <details>, works without script), linked items, optional note count. */
-function sidebarTree(rows: NonNullable<ProfileData["tree"]>): string {
+/** The standard left nav, identical on the profile, the garden home and every garden note: a Pages block (profile,
+ * garden home) then the vault tree. depth = how many folders below the profile root the page sits (n/ pages = 1);
+ * current = the page's own href from the root ("index.html", "garden.html", "n/<slug>.html"). */
+export function navSidebar(p: ProfileData, sideOn: boolean, gardenOn: boolean, depth: number, current: string, toc = ""): string {
+  const up = "../".repeat(depth), onProfile = current === "index.html";
+  // hrefs in the tree are written from the profile root; rebase them for this page
+  const fix = (h: string) => /^https?:\/\//.test(h) ? h : h.startsWith("#") ? (onProfile ? h : `${up}index.html${h}`) : up + h;
+  const pages: [string, string][] = [["index.html", p.name || "Profile"]];
+  if (gardenOn) pages.push(["garden.html", "Garden home"]);
+  const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc(l)}</a>`).join("");
+  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="obsidian://caldera?friend=${encodeURIComponent(p.handle)}" target="_blank" rel="noopener" title="Opens Obsidian and sends @${esc(p.handle)} a friend request (needs the Caldera plugin)">+ Add @${esc(p.handle)} as friend</a>` : "";
+  const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map(r => ({ ...r, current: (r.href === "#top" && onProfile) || (!!r.href && r.href === current) })), fix)}` : "";
+  return `<nav class="sidebar tree" aria-label="Navigation"><div class="side-inner"><span class="label">Pages</span><div class="toc pages">${pageRows}${friend}</div>${toc}${tree}</div></nav>`;
+}
+
+/** Vault groups: collapsible (native <details>, works without script), linked items, optional note count.
+ * A group row with an href (e.g. Garden -> garden.html) links its name; the caret still opens and closes it. */
+function sidebarTree(rows: NonNullable<ProfileData["tree"]>, fix: (h: string) => string = h => h): string {
   const out: string[] = []; let open = false;
+  const ok = (h?: string) => !!h && /^(https?:\/\/|#[\w-]+$|garden\.html$|n\/[a-z0-9-]+\.html$)/.test(h);
   const item = (r: (typeof rows)[number]) => {
     const cls = `tree-row child${r.current ? " is-current" : ""}${r.href ? " is-link" : ""}`;
-    if (!r.href || !/^(https?:\/\/|#[\w-]+$|garden\.html$|n\/[a-z0-9-]+\.html$)/.test(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc(r.name)}</span></div>`;
-    const ext = /^https?:\/\//.test(r.href);
-    return `<a class="${cls}" href="${esc(r.href)}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc(r.name)}</span>${ext ? '<span class="ext" aria-hidden="true">&#8599;</span>' : ""}</a>`;
+    if (!ok(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc(r.name)}</span></div>`;
+    const ext = /^https?:\/\//.test(r.href!);
+    return `<a class="${cls}" href="${esc(fix(r.href!))}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc(r.name)}</span>${ext ? '<span class="ext" aria-hidden="true">&#8599;</span>' : ""}</a>`;
   };
+  const gname = (r: (typeof rows)[number]) => ok(r.href) && !/^https?:/.test(r.href!) ? `<a class="g-name g-link" href="${esc(fix(r.href!))}">${esc(r.name)}</a>` : `<span class="g-name">${esc(r.name)}</span>`;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     if (r.child) { out.push(item(r)); continue; }
     if (open) { out.push(`</details>`); open = false; }
     const kids = rows.slice(i + 1).findIndex(x => !x.child), n = kids < 0 ? rows.length - i - 1 : kids;
     const count = r.count != null ? `<span class="count" title="${r.count} notes">${fmt(r.count)}</span>` : n ? `<span class="count">${n}</span>` : "";
-    if (!n) { out.push(`<div class="tree-row group leaf"><span class="caret" aria-hidden="true"></span><span class="g-name">${esc(r.name)}</span>${count}</div>`); open = false; continue; }
-    out.push(`<details class="tree-group" open><summary class="tree-row group"><span class="caret" aria-hidden="true"></span><span class="g-name">${esc(r.name)}</span>${count}</summary>`);
+    if (!n) { out.push(`<div class="tree-row group leaf"><span class="caret" aria-hidden="true"></span>${gname(r)}${count}</div>`); open = false; continue; }
+    out.push(`<details class="tree-group" open><summary class="tree-row group"><span class="caret" aria-hidden="true"></span>${gname(r)}${count}</summary>`);
     open = true;
   }
   if (open) out.push(`</details>`);
@@ -278,7 +298,7 @@ const HEAT_JS = "(function(){var g=document.querySelector('.heat');if(!g)return;
 /** Invite panel behaviour (see invitePop). */
 const INVITE_JS = "(function(){var pop=document.querySelector('.invite-pop');if(!pop)return;var btns=[].slice.call(document.querySelectorAll('[data-invite]'));if(!btns.length)return;\nvar url=pop.getAttribute('data-url'),msg=pop.getAttribute('data-msg'),subj=pop.getAttribute('data-subject')||'Join me on Caldera';\nvar inp=pop.querySelector('.inv-url'),cp=pop.querySelector('.inv-copy'),em=pop.querySelector('.inv-email'),tx=pop.querySelector('.inv-text'),sh=pop.querySelector('.inv-share'),st=pop.querySelector('.inv-status'),x=pop.querySelector('.inv-close');\ninp.value=url;var body=msg+'\\n\\n'+url;em.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);tx.href='sms:?&body='+encodeURIComponent(msg+' '+url);\nvar canShare=!!(navigator.share&&(!navigator.canShare||navigator.canShare({url:url})));if(!canShare)sh.hidden=true;\nvar host=pop.parentNode,from=null;\nfunction say(t){st.textContent=t;clearTimeout(say.t);say.t=setTimeout(function(){st.textContent=''},2600)}\nfunction open(b){from=b;pop.hidden=false;var hr=host.getBoundingClientRect(),r=b.getBoundingClientRect();pop.style.top=(r.bottom-hr.top+8)+'px';var l=r.left-hr.left;pop.style.left=Math.max(0,Math.min(hr.width-pop.offsetWidth,l))+'px';btns.forEach(function(x){x.setAttribute('aria-expanded',x===b?'true':'false')});cp.focus()}\nfunction close(back){if(pop.hidden)return;pop.hidden=true;btns.forEach(function(x){x.setAttribute('aria-expanded','false')});if(back&&from)from.focus()}\nbtns.forEach(function(b){b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-expanded','false');b.addEventListener('click',function(e){e.preventDefault();if(!pop.hidden&&from===b)close(true);else open(b)})});\nfunction fallback(){inp.focus();inp.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}say(ok?'Link copied':'Press Ctrl/Cmd+C to copy')}\ncp.addEventListener('click',function(){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(function(){say('Link copied')},fallback)}else fallback()});\ninp.addEventListener('focus',function(){inp.select()});\nsh.addEventListener('click',function(){navigator.share({title:subj,text:msg,url:url}).catch(function(e){if(e&&e.name!=='AbortError'){sh.hidden=true;say('Sharing is not available here. Copy the link instead.')}})});\nx.addEventListener('click',function(){close(true)});\ndocument.addEventListener('keydown',function(e){if(e.key==='Escape'&&!pop.hidden){e.stopPropagation();close(true)}},true);\ndocument.addEventListener('click',function(e){if(!pop.hidden&&!pop.contains(e.target)&&!(e.target.closest&&e.target.closest('[data-invite]')))close(false)});\nwindow.addEventListener('resize',function(){close(false)})})();";
 
-const CLIENT_JS = INVITE_JS + "\n" + HEAT_JS + "\n" + `(function(){var L=[].slice.call(document.querySelectorAll('.toc a'));if(!L.length||!window.IntersectionObserver)return;var by={};L.forEach(function(a){by[a.getAttribute('href').slice(1)]=a});var cur;var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){if(cur)cur.classList.remove('is-active');cur=by[e.target.id];if(cur){cur.classList.add('is-active');var t=cur.parentNode;if(t.scrollWidth>t.clientWidth)t.scrollLeft=cur.offsetLeft-t.clientWidth/2+cur.offsetWidth/2}}})},{rootMargin:'0px 0px -70% 0px'});Object.keys(by).forEach(function(id){var el=document.getElementById(id);if(el)io.observe(el)})})();
+const CLIENT_JS = INVITE_JS + "\n" + HEAT_JS + "\n" + `(function(){var L=[].slice.call(document.querySelectorAll('.toc:not(.pages) a'));if(!L.length||!window.IntersectionObserver)return;var by={};L.forEach(function(a){by[a.getAttribute('href').slice(1)]=a});var cur;var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){if(cur)cur.classList.remove('is-active');cur=by[e.target.id];if(cur){cur.classList.add('is-active');var t=cur.parentNode;if(t.scrollWidth>t.clientWidth)t.scrollLeft=cur.offsetLeft-t.clientWidth/2+cur.offsetWidth/2}}})},{rootMargin:'0px 0px -70% 0px'});Object.keys(by).forEach(function(id){var el=document.getElementById(id);if(el)io.observe(el)})})();
 (function(){var a=document.getElementById('ago');if(a){var t=Date.parse(a.dataset.ts);var f=function(){var m=Math.max(0,Math.round((Date.now()-t)/60000));a.textContent=m<60?m+'m ago':Math.floor(m/60)+'h '+(m%60)+'m ago'};f();setInterval(f,30000)}
 var el=document.getElementById('journal-data');if(!el)return;var days=JSON.parse(el.textContent);if(!days.length)return;var i=Math.max(0,days.length-2);
 var body=document.getElementById('jbody'),dt=document.getElementById('jdate'),pv=document.getElementById('jprev'),nx=document.getElementById('jnext');

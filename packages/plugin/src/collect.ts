@@ -147,7 +147,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     for (const it of items) tree.push({ name: it, child: true, href: hrefFor(it) });
   }
   if (garden.length && s.sections.garden !== false && !tree.some(t => !t.child && t.name.toLowerCase() === "garden")) {
-    tree.push({ name: "Garden", child: false, count: garden.length });
+    tree.push({ name: "Garden", child: false, count: garden.length, href: "garden.html" });
     for (const n of [...garden].sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 6)) tree.push({ name: n.title, child: true, href: `n/${n.slug}.html` });
   }
   const graph = (s.graph?.length ? s.graph.map(n => ({ t: n, n: linkCount(n) })) : (topTopics.length ? topTopics : kinds).slice(0, 12).map(([t, n]) => ({ t, n }))).slice(0, 16);

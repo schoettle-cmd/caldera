@@ -14,7 +14,7 @@ import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-fi
 
 const VIEW = "caldera-panel";
 interface Friend { id: string; handle?: string; name?: string; box_key?: string; }
-interface Pending { request: string; from: string; note?: string; ts: string; }
+interface Pending { request: string; from: string; handle?: string; note?: string; ts: string; }
 
 export default class CalderaPlugin extends Plugin {
   settings!: CalderaSettings;
@@ -29,6 +29,16 @@ export default class CalderaPlugin extends Plugin {
     this.addSettingTab(new CalderaSettingTab(this.app, this));
     this.registerView(VIEW, leaf => new CalderaView(leaf, this));
     this.addRibbonIcon("flame", "Caldera", () => this.openPanel());
+    this.pending = [...(this.settings.pendingRequests || [])];
+    // obsidian://caldera?friend=<handle> - the "Add as friend" button on every Caldera profile and garden page
+    this.registerObsidianProtocolHandler("caldera", params => {
+      const h = String(params.friend || "").replace(/^@/, "").trim();
+      if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
+      if (!this.settings.identity || !this.settings.handle) { new Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`); return void new WelcomeModal(this.app, this).open(); }
+      if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
+      new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
+        try { await this.requestFriend(h); } catch (e: any) { new Notice(e.message); } }, "Send request", "Add a friend").open();
+    });
 
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
@@ -248,12 +258,18 @@ export default class CalderaPlugin extends Plugin {
       let cards = 0;
       for (const e of envelopes as C.Envelope<any>[]) {
         if (!C.verify(e)) continue;
-        if (e.type === "friend.request" && !this.friends.some(f => f.id === e.from)) this.pending.push({ request: C.envelopeHash(e), from: e.from, note: e.body.note, ts: e.ts });
+        if (e.type === "friend.request" && !this.friends.some(f => f.id === e.from) && !this.pending.some(x => x.from === e.from)) {
+          let handle: string | undefined; try { handle = (await this.api("GET", `/v1/profiles/${encodeURIComponent(e.from)}`)).handle; } catch { /* unpublished sender */ }
+          this.pending.push({ request: C.envelopeHash(e), from: e.from, handle, note: e.body.note, ts: e.ts });
+          new Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
+        }
         if (e.type === "friend.accept") new Notice("Caldera: a friend request was accepted");
         if (e.type === "gravity") new Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
         if (e.type === "card") { if (await this.receiveCard(e)) cards++; }
         if (e.ts > this.settings.lastInboxSync) this.settings.lastInboxSync = e.ts;
       }
+      this.pending = this.pending.filter(x => !this.friends.some(f => f.id === x.from));
+      this.settings.pendingRequests = this.pending;
       await this.saveSettings();
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -274,12 +290,14 @@ export default class CalderaPlugin extends Plugin {
 
   async acceptFriend(p: Pending) {
     await this.send("friend.accept", { request: p.request, to: p.from });
-    this.pending = this.pending.filter(x => x !== p);
+    this.pending = this.pending.filter(x => x !== p); this.settings.pendingRequests = this.pending;
     await this.syncInbox(false); new Notice("Friend added");
   }
 
   async requestFriend(handleOrId: string, note = "") {
-    const pr = await this.api("GET", `/v1/profiles/${encodeURIComponent(handleOrId.replace(/^@/, ""))}`);
+    const h = handleOrId.trim().replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "").replace(/^@/, "");
+    if (!h) throw new Error("Enter a handle, like @orion, or their profile link");
+    const pr = await this.api("GET", `/v1/profiles/${encodeURIComponent(h)}`);
     await this.send("friend.request", { to: pr.id, note }); new Notice(`Friend request sent to @${pr.handle || pr.id}`);
   }
 
@@ -355,15 +373,21 @@ class CalderaView extends ItemView {
       el.createEl("h4", { text: "Friend requests" });
       for (const r of p.pending) {
         const row = el.createDiv("caldera-row");
-        row.createSpan({ text: r.from.slice(0, 14) + (r.note ? ` - "${r.note}"` : "") });
+        row.createSpan({ text: (r.handle ? "@" + r.handle : r.from.slice(0, 14)) + (r.note ? ` - "${r.note}"` : "") });
         row.createEl("button", { text: "Accept", cls: "mod-cta" }).onclick = () => p.acceptFriend(r);
       }
     }
     el.createEl("h4", { text: "Add a friend" });
+    el.createEl("p", { cls: "setting-item-description", text: "Already on Caldera: enter their handle or paste their profile link. Or click \"Add as friend\" on their profile page." });
     let handle = "";
-    new Setting(el).addText(t => t.setPlaceholder("@handle").onChange(v => handle = v)).addButton(b => b.setButtonText("Request").onClick(async () => {
+    new Setting(el).addText(t => t.setPlaceholder("@handle or profile link").onChange(v => handle = v)).addButton(b => b.setButtonText("Request").onClick(async () => {
       try { await p.requestFriend(handle.trim()); } catch (e: any) { new Notice(e.message); }
     }));
+    el.createEl("h4", { text: "Invite someone new" });
+    el.createEl("p", { cls: "setting-item-description", text: "Not on Caldera yet: send them this link. It walks them through installing, then they add you with one click." });
+    const inv = `${s.hubUrl.replace(/\/$/, "")}/?invite=${encodeURIComponent(s.handle)}#install`;
+    new Setting(el).addText(t => { t.setValue(inv); t.inputEl.readOnly = true; t.inputEl.onfocus = () => t.inputEl.select(); })
+      .addButton(b => b.setButtonText("Copy").setCta().onClick(async () => { await navigator.clipboard.writeText(inv); new Notice("Invite link copied"); }));
     el.createEl("h4", { text: `Friends (${p.friends.length})` });
     for (const f of p.friends) {
       const row = el.createDiv("caldera-row");
@@ -403,11 +427,11 @@ class GravityModal extends Modal {
 }
 
 class ConfirmModal extends Modal {
-  constructor(app: App, private msg: string, private yes: () => unknown) { super(app); }
+  constructor(app: App, private msg: string, private yes: () => unknown, private label = "Delete", private title = "Are you sure?") { super(app); }
   onOpen() {
-    this.titleEl.setText("Are you sure?"); this.contentEl.createEl("p", { text: this.msg });
+    this.titleEl.setText(this.title); this.contentEl.createEl("p", { text: this.msg });
     new Setting(this.contentEl).addButton(b => b.setButtonText("Cancel").onClick(() => this.close()))
-      .addButton(b => b.setButtonText("Delete").setWarning().onClick(() => { void this.yes(); this.close(); }));
+      .addButton(b => { b.setButtonText(this.label).onClick(() => { void this.yes(); this.close(); }); if (this.label === "Delete") b.setWarning(); else b.setCta(); });
   }
 }
 

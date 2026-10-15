@@ -71,3 +71,20 @@ test("journal garden: themes on nearly every day, or copies of another theme, ge
   const titles = journalGarden(days, []).map(p => p.title).sort();
   assert.deepEqual(titles, ["Design", "Hiring"]);
 });
+
+test("navigation standard: profile, garden home and every note share one left nav, links rebased per page", () => {
+  const p = { name: "Mike", handle: "mike", links: [], properties: [], sections: { notes: true }, stats: { notes: 1, words: 1, links: 1, activeDays: 1 }, topics: [], daily: [],
+    publicNotes: [], asks: [], offers: [], updated: new Date().toISOString(), garden: [note("Gardens", "Gardens beat streams, every time.")],
+    tree: [{ name: "People", child: false }, { name: "Mike", child: true, current: true, href: "#top" }, { name: "Garden", child: false, count: 1, href: "garden.html" }, { name: "Gardens", child: true, href: "n/gardens.html" }] };
+  const f = renderProfile(p);
+  for (const [k, up] of [["index.html", ""], ["garden.html", ""], ["n/gardens.html", "../"]]) {
+    const h = f[k];
+    assert.ok(h.includes('class="sidebar tree"') && h.includes('class="toc pages"'), k + " has the nav");
+    assert.ok(h.includes(`href="${up}garden.html">Garden home</a>`) || h.includes(`href="${up}garden.html" aria-current`) || h.includes('aria-current="page">Garden home'), k + " links garden home");
+    assert.ok(h.includes(`class="g-name g-link" href="${up}garden.html"`), k + " Garden group is clickable");
+    assert.ok(h.includes('href="obsidian://caldera?friend=mike"'), k + " add-friend");
+  }
+  assert.ok(f["garden.html"].includes('href="index.html#top"') && f["n/gardens.html"].includes('href="../index.html#top"'));
+  assert.ok(f["n/gardens.html"].includes('href="../n/gardens.html"') && f["n/gardens.html"].includes('aria-current="page"'));
+  assert.ok(f["garden.html"].includes('page-row is-active" href="garden.html"'));
+});
