@@ -82,7 +82,9 @@ export default class CalderaPlugin extends Plugin {
     this.scheduleAutoPublish();
   }
 
-  onunload() { this.timers.forEach(t => window.clearInterval(t)); }
+  // every repeating timer is cleared on unload: an update or reload must not leave the old code publishing in the background
+  onunload() { this.timers.forEach(t => window.clearInterval(t)); for (const k of ["_auto", "_priv"]) if ((this as any)[k]) window.clearInterval((this as any)[k]); this.unloaded = true; }
+  private unloaded = false;
   async saveSettings() { await this.saveData(this.settings); }
 
   /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
@@ -223,6 +225,7 @@ export default class CalderaPlugin extends Plugin {
   }
 
   async publish(quiet = false): Promise<string | null> {
+    if (this.unloaded) return null;
     this.lastPublishError = "";
     try {
       if (!this.settings.handle) throw new Error("Set a handle in Caldera settings first");
@@ -240,7 +243,7 @@ export default class CalderaPlugin extends Plugin {
       const files: Record<string, string> = {};
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
       for (const [p, b] of Object.entries(binaries)) files[p] = C.b64.enc(new Uint8Array(b));
-      await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files });
+      await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files, v: this.manifest.version });
       this.settings.lastPublished = Date.now(); await this.saveSettings();
       if (this.settings.privateWeb) void this.pushPrivate(false);
       void this.syncSites(cityPrivate, data.city?.districts.map(d => d.name) || []);
@@ -360,7 +363,7 @@ export default class CalderaPlugin extends Plugin {
 
   /** Private web address (Tailscale): push the owner layer, encrypted at rest on the hub, served only to the owner's tailnet login. */
   async pushPrivate(loud = false): Promise<string | null> {
-    if (!this.settings.privateWeb || !this.settings.identity || !this.settings.handle) return null;
+    if (this.unloaded || !this.settings.privateWeb || !this.settings.identity || !this.settings.handle) return null;
     try {
       const { data, cityPrivate } = await this.build();
       const vault = encodeURIComponent(this.app.vault.getName());
@@ -372,7 +375,7 @@ export default class CalderaPlugin extends Plugin {
         .replace(/<a href="#"[^>]*data-action="[^"]*"[^>]*>([\s\S]*?)<\/a>/g, "$1")
         .replace("Built from your vault inside Obsidian. None of it is published.", "Pushed from your vault. Only your Tailscale account can see this page.");
       const me = await this.ensureIdentity();
-      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/private`, { html, pages, built: new Date().toISOString() }, true);
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/private`, { html, pages, built: new Date().toISOString(), v: this.manifest.version }, true);
       if (r.url && r.url !== this.settings.privateUrl) { this.settings.privateUrl = r.url; await this.saveSettings(); }
       if (loud) new Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
       return r.url;
