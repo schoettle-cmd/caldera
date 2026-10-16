@@ -4,6 +4,21 @@ Your vault becomes a **living profile** that updates itself, and vaults can **be
 
 **Private by default.** Nothing leaves your vault unless you switch a section on, mark a note `caldera: public`, or share it with a named friend. Every publish can be previewed first.
 
+## Your work as a city
+
+![Your repos as a neon city, with live visitors and AI agents](https://raw.githubusercontent.com/schoettle-cmd/caldera/main/docs/img/1-city-live.jpg)
+
+- **Every GitHub repo is a tower** on a Tron-style grid: taller = more commits this year, lit windows = this week, a crane = being built right now. Districts are your projects. Day, Dusk and Night modes too.
+- **Live traffic:** paste a one-line snippet into your own sites and every visitor drives through their project's district in real time; signups pulse pink, sales fire a gold beam.
+- **Your AI agents as drones:** each Claude Code session flies over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you.
+- **The Underground:** your vault beneath the streets. Notes are glowing nodes (bigger = more links in), links are tunnels, depth is age, and roots run up to the project each note is about.
+
+![The Underground: your vault as a network under the city](https://raw.githubusercontent.com/schoettle-cmd/caldera/main/docs/img/3-underground.jpg)
+
+Visitors see private repos as padlocked buildings, live traffic only as activity levels, agents as anonymous drones, and your notes only as shapes. The details are yours: in the My profile tab in Obsidian.
+
+**No Obsidian?** Sign up on [caldera.social](https://caldera.social) with GitHub: your repos become your city, and you can move the profile into a vault any time.
+
 ## What's here
 
 The hub, the caldera.social website and the `caldera` CLI live in [schoettle-cmd/caldera-hub](https://github.com/schoettle-cmd/caldera-hub).
