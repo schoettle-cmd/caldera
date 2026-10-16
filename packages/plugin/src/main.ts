@@ -611,6 +611,15 @@ class WhatsNewModal extends Modal {
   constructor(app: App, private plugin: CalderaPlugin, private releases: Release[]) { super(app); }
   onOpen() {
     this.titleEl.setText("What's new in Caldera");
+    // the notes come from the hub, so they can be ahead of what's installed: say how to get the update
+    const have = this.plugin.manifest.version, newest = this.releases[0]?.version;
+    const older = (a: string, b: string) => { const x = a.split(".").map(Number), y = b.split(".").map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
+    if (newest && older(have, newest)) {
+      const up = this.contentEl.createDiv({ cls: "caldera-release-howto" });
+      up.createEl("p", { text: `You have Caldera ${have}. Version ${newest} is out: open Community plugins, click "Check for updates", then update Caldera.` });
+      new Setting(up).addButton(b => b.setButtonText("Open Community plugins").setCta().onClick(() => {
+        const st = (this.app as any).setting; if (st) { st.open(); st.openTabById("community-plugins"); } this.close(); }));
+    }
     for (const r of this.releases) {
       const box = this.contentEl.createDiv({ cls: "caldera-release" });
       box.createDiv({ cls: "caldera-release-meta", text: `${r.version} \u00b7 ${r.date}` });
