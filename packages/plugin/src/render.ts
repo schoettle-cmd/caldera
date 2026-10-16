@@ -8,6 +8,7 @@ import THEME_CSS from "./assets/theme.css";
 import { PROFILE_CSS } from "./profile.css";
 import { activityScore, ACTIVITY_WEIGHTS, type DailyCounts } from "@caldera/core";
 import { gardenSection, renderGarden, type GardenNote } from "./garden";
+import { renderCity, type CityData } from "./city";
 
 export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
 export interface ProfileData {
@@ -45,6 +46,7 @@ export interface ProfileData {
   gardenExternal?: string;                                 // an existing garden elsewhere (Quartz, Obsidian Publish...)
   gardenImages?: Record<string, string>;                   // embed target -> bundle path
   id?: string;                                             // cal: id, shown in note provenance
+  city?: CityData;                                         // public subset only (see city.ts publicCity)
   ai?: { total: number; window_days?: number; models: [string, number][]; providers?: [string, number][]; sources?: [string, number][]; note?: string };   // AI tokens, counts only
 }
 
@@ -227,7 +229,9 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
   const garden = s.garden !== false && p.garden?.length
     ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
-  return { ...garden, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  const city: Record<string, string> = s.city !== false && p.city?.districts.length
+    ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, nav: (d, cur) => nav(d, cur) }, p.city) } : {};
+  return { ...garden, ...city, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
 }
 
 /** The standard left nav, identical on the profile, the garden home and every garden note: a Pages block (profile,
@@ -239,6 +243,7 @@ export function navSidebar(p: ProfileData, sideOn: boolean, gardenOn: boolean, d
   const fix = (h: string) => /^https?:\/\//.test(h) ? h : h.startsWith("#") ? (onProfile ? h : `${up}index.html${h}`) : up + h;
   const pages: [string, string][] = [["index.html", p.name || "Profile"]];
   if (gardenOn) pages.push(["garden.html", "Garden home"]);
+  if (p.sections?.city !== false && p.city?.districts.length) pages.push(["city.html", "City"]);
   const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc(l)}</a>`).join("");
   const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="obsidian://caldera?friend=${encodeURIComponent(p.handle)}" target="_blank" rel="noopener" title="Opens Obsidian and sends @${esc(p.handle)} a friend request (needs the Caldera plugin)">+ Add @${esc(p.handle)} as friend</a>` : "";
   const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map(r => ({ ...r, current: (r.href === "#top" && onProfile) || (!!r.href && r.href === current) })), fix)}` : "";
@@ -313,3 +318,10 @@ if(d.chips.length)h+='<div class="j-chips">'+d.chips.map(function(c){return'<div
 if(d.focus.length||d.wins.length){h+='<div class="two-col j-lists">';if(d.focus.length)h+='<div><div class="label">Focus</div><ul class="bullets">'+d.focus.map(function(x){return'<li>'+esc(x)+'</li>'}).join('')+'</ul></div>';if(d.wins.length)h+='<div><div class="label">Wins</div><ul class="bullets">'+d.wins.map(function(x){return'<li>'+esc(x)+'</li>'}).join('')+'</ul></div>';h+='</div>'}
 body.innerHTML=h;body.classList.remove('flip-l','flip-r');void body.offsetWidth;if(dir)body.classList.add(dir<0?'flip-l':'flip-r');pv.disabled=i===0;nx.disabled=i===L-1}
 pv.onclick=function(){if(i>0){i--;r(-1)}};nx.onclick=function(){if(i<days.length-1){i++;r(1)}};document.addEventListener('keydown',function(e){if(e.key==='ArrowLeft')pv.onclick();if(e.key==='ArrowRight')nx.onclick()});r(0)})();`;
+
+/** The owner's city (every repo, private ones included) with the same nav as the public pages. Never published. */
+export function renderPrivateCity(p: ProfileData, city: CityData, openBase = ""): string {
+  const q = { ...p, city: p.city?.districts.length ? p.city : city };   // the nav shows City even when nothing is public
+  const sideOn = p.sections.sidebar !== false && !!p.tree?.length, gardenOn = p.sections.garden !== false && !!p.garden?.length;
+  return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q, sideOn, gardenOn, d, cur) }, city);
+}

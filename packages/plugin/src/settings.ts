@@ -54,6 +54,7 @@ const SECTION_LABELS: Record<string, string> = {
   journal: "Daily journal (flip through days)", scoreboard: "Scoreboard (streak, rank, 30-day bars)", properties: "Properties",
   numbers: "Vault numbers (notes, words, links, active days)", topics: "Topics (allow-listed tags only)", notes: "Notes marked caldera: public",
   asks: "Help exchange (asks and offers)", social: "Friends, gravity and credits", links: "Links elsewhere", garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
+  city: "City (your GitHub as a little city, from Caldera/city.json; private repos only in your private views)",
 };
 
 export class CalderaSettingTab extends PluginSettingTab {
@@ -91,7 +92,7 @@ export class CalderaSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("What is public").setHeading();
     for (const [k, label] of Object.entries(SECTION_LABELS)) {
-      new Setting(containerEl).setName(label).addToggle(t => t.setValue(s.sections[k] !== undefined ? !!s.sections[k] : k === "garden").onChange(async v => { s.sections[k] = v; await this.plugin.saveSettings(); }));
+      new Setting(containerEl).setName(label).addToggle(t => t.setValue(s.sections[k] !== undefined ? !!s.sections[k] : k === "garden" || k === "city").onChange(async v => { s.sections[k] = v; await this.plugin.saveSettings(); }));
     }
     this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", v => v.replace(/^\/+|\/+$/g, ""));
     new Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.")

@@ -8,7 +8,7 @@ import { ItemView, Notice, TFile, WorkspaceLeaf, setIcon, type App } from "obsid
 import * as C from "@caldera/core";
 import type CalderaPlugin from "./main";
 import { renderOwner, type OwnerData, type VaultRef } from "./owner";
-import type { ProfileData } from "./render";
+import { renderPrivateCity, type ProfileData } from "./render";
 
 export const PROFILE_VIEW = "caldera-profile";
 const DAY = 86_400_000;
@@ -26,7 +26,7 @@ addEventListener('load',function(){var H=%%HASH%%,Y=%%Y%%;var el=H&&document.get
 export class ProfileView extends ItemView {
   private mode: "mine" | "public" = "mine";
   private current = "index.html";
-  private built: { text: Record<string, string>; data: ProfileData; uris: Map<string, string> } | null = null;
+  private built: { text: Record<string, string>; data: ProfileData; uris: Map<string, string>; city?: string } | null = null;
   private owner = "";
   private frame!: HTMLIFrameElement;
   private status!: HTMLElement;
@@ -80,13 +80,13 @@ export class ProfileView extends ItemView {
     if (this.busy) return; this.busy = true;
     try {
       this.status.setText("Building from your vault...");
-      const { data, text, binaries } = await this.plugin.build();
+      const { data, text, binaries, cityPrivate } = await this.plugin.build();
       const uris = new Map<string, string>();
       for (const [p, buf] of Object.entries(binaries)) {
         const mime = p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : p.endsWith(".svg") ? "image/svg+xml" : "image/jpeg";
         uris.set(p, `data:${mime};base64,${C.b64.enc(new Uint8Array(buf))}`);
       }
-      this.built = { text, data, uris };
+      this.built = { text, data, uris, city: cityPrivate?.districts.length ? renderPrivateCity(data, cityPrivate) : undefined };
       this.owner = renderOwner(await collectOwner(this.app, this.plugin, data, this.shownLooked));
       await this.show();
       if (loud) new Notice("Profile refreshed");
@@ -110,7 +110,7 @@ export class ProfileView extends ItemView {
 
   private page(path: string, hash: string): string {
     const { text, uris } = this.built!;
-    let html = text[path] ?? text["index.html"];
+    let html = path === "city.html" && this.built!.city ? this.built!.city : text[path] ?? text["index.html"];
     html = html.replace(/<link rel="stylesheet" href="(?:\.\.\/)*(assets\/[\w-]+\.css)">/g, (m, a) => text[a] ? `<style>${text[a]}</style>` : m)
       .replace(/<link rel="(?:icon|apple-touch-icon)"[^>]*>/g, "")
       .replace(/(src|href)="(?:\.\.\/)*([^"#?]+\.(?:png|jpe?g|webp|svg))"/g, (m, k, p) => uris.has(p) ? `${k}="${uris.get(p)}"` : m);
@@ -138,7 +138,7 @@ export class ProfileView extends ItemView {
     if (d.caldera === "nav" && d.href && this.built) {
       const u = new URL(d.href, "https://profile.local/" + this.current.split("#")[0]);
       let p = decodeURIComponent(u.pathname.slice(1)); if (!p || p.endsWith("/")) p += "index.html";
-      if (this.built.text[p] !== undefined && p.endsWith(".html")) { this.current = p + (u.hash ? u.hash : ""); this.scrollY = 0; void this.show(); }
+      if ((this.built.text[p] !== undefined || (p === "city.html" && this.built.city)) && p.endsWith(".html")) { this.current = p + (u.hash ? u.hash : ""); this.scrollY = 0; void this.show(); }
       else if (this.plugin.settings.handle) window.open(this.plugin.profileUrl() + p);
     }
   }

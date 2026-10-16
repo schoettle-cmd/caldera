@@ -7,7 +7,7 @@ import { App, FileSystemAdapter, ItemView, Modal, Notice, Plugin, Setting, Sugge
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS } from "./settings";
 import { collectProfile } from "./collect";
-import { renderProfile } from "./render";
+import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
 import type { GardenReport } from "./collect";
 import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-file";
@@ -136,10 +136,10 @@ export default class CalderaPlugin extends Plugin {
   async build() {
     await this.linksResolved();
     const eff = effectiveSettings(this.app, this.settings);   // Caldera/profile.md wins over settings
-    const { data, files, gardenReport } = await collectProfile(this.app, eff, eff.sections.social ? this.social : undefined);
+    const { data, files, gardenReport, cityPrivate } = await collectProfile(this.app, eff, eff.sections.social ? this.social : undefined);
     data.hub = this.settings.hubUrl; data.id = this.settings.identity?.id;
     const text = renderProfile(data);
-    return { data, text, binaries: files, eff, gardenReport };
+    return { data, text, binaries: files, eff, gardenReport, cityPrivate };
   }
 
   async openProfileFile() {
@@ -317,15 +317,17 @@ export default class CalderaPlugin extends Plugin {
   async pushPrivate(loud = false): Promise<string | null> {
     if (!this.settings.privateWeb || !this.settings.identity || !this.settings.handle) return null;
     try {
-      const { data } = await this.build();
+      const { data, cityPrivate } = await this.build();
       const vault = encodeURIComponent(this.app.vault.getName());
+      const pages: Record<string, string> = {};
+      if (cityPrivate?.districts.length) pages["city.html"] = renderPrivateCity(data, cityPrivate, `obsidian://open?vault=${vault}&file=`);
       const html = renderOwner(await collectOwner(this.app, this, data, this.settings.ownerLastLooked))
         // on the web, vault links open the note in Obsidian; in-app actions become plain text
         .replace(/href="#"((?: [\w-]+="[^"]*")*?) data-open="([^"]*)"/g, (_m, attrs, p) => `${attrs.trim()} href="obsidian://open?vault=${vault}&amp;file=${encodeURIComponent(p.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">"))}" target="_blank" rel="noopener"`)
         .replace(/<a href="#"[^>]*data-action="[^"]*"[^>]*>([\s\S]*?)<\/a>/g, "$1")
         .replace("Built from your vault inside Obsidian. None of it is published.", "Pushed from your vault. Only your Tailscale account can see this page.");
       const me = await this.ensureIdentity();
-      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/private`, { html, built: new Date().toISOString() }, true);
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/private`, { html, pages, built: new Date().toISOString() }, true);
       if (r.url && r.url !== this.settings.privateUrl) { this.settings.privateUrl = r.url; await this.saveSettings(); }
       if (loud) new Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
       return r.url;

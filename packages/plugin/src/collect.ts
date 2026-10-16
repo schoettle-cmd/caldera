@@ -16,6 +16,7 @@ import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
 import { aiUsage, githubCode, vaultKinds } from "./auto";
+import { cityData, parseCityRepos, publicCity, type CityData } from "./city";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
 
 const DAY = 86_400_000;
@@ -23,7 +24,7 @@ const fmtN = (n: number) => n.toLocaleString("en-US");
 // the owner's local calendar day (UTC would roll 'today' over hours early for anyone west of Greenwich)
 const iso = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
-export async function collectProfile(app: App, s: CalderaSettings, social?: ProfileData["social"]): Promise<{ data: ProfileData; files: Record<string, ArrayBuffer>; gardenReport: GardenReport[] }> {
+export async function collectProfile(app: App, s: CalderaSettings, social?: ProfileData["social"]): Promise<{ data: ProfileData; files: Record<string, ArrayBuffer>; gardenReport: GardenReport[]; cityPrivate?: CityData }> {
   const md = app.vault.getMarkdownFiles();
   let words = 0, links = 0;
   const created = new Map<string, number>(), changed = new Map<string, number>();
@@ -209,7 +210,30 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     garden: garden.length ? garden : undefined, gardenExternal: s.gardenUrl || undefined, gardenImages,
   };
   Object.assign(files, gardenFiles);
-  return { data, files, gardenReport };
+  // Caldera City: Caldera/city.json (repos + commit counts, written by the owner's tools). Houses = notes linking to the project's note.
+  let cityPrivate: CityData | undefined;
+  if (s.sections.city !== false) {
+    try {
+      const path = "Caldera/city.json";
+      if (await app.vault.adapter.exists(path)) {
+        const raw = JSON.parse(await app.vault.adapter.read(path));
+        const repos = parseCityRepos(raw);
+        if (repos.length) {
+          const byName = new Map(md.map(f => [f.basename.toLowerCase(), f.path] as const));
+          const resolved = app.metadataCache.resolvedLinks;
+          const notes = (project: string) => {
+            const target = byName.get(project.toLowerCase()); if (!target) return { n: 0, paths: [] as string[] };
+            const src = md.filter(f => resolved[f.path]?.[target]).sort((a, b) => b.stat.mtime - a.stat.mtime);
+            return { n: src.length, paths: [target, ...src.slice(0, 5).map(f => f.path)] };
+          };
+          cityPrivate = cityData(repos, notes, typeof raw.generated === "string" ? raw.generated : undefined);
+          const pub = publicCity(cityPrivate, (s.projects || []).map(p => p[0]));
+          if (pub.districts.length) data.city = pub;
+        }
+      }
+    } catch (e) { console.warn("Caldera city.json unreadable:", e); }
+  }
+  return { data, files, gardenReport, cityPrivate };
 }
 
 function asList(v: unknown): string[] {
