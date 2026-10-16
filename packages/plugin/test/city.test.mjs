@@ -21,16 +21,21 @@ test("city: parse, district grouping, notes per project", () => {
   assert.equal(c.districts.find(d => d.name === "Caldera").notes, 12);
 });
 
-test("city: public view hides private repo names and unlisted projects", () => {
+test("city: public view shows every building but locks private repos (no names, details or exact numbers)", () => {
   const c = cityData(parseCityRepos(raw), () => ({ n: 3, paths: ["secret/note.md"] }));
   const pub = publicCity(c, ["Caldera", "Human Architecture"]);
-  const names = pub.districts.flatMap(d => d.repos.map(r => r.name));
-  assert.ok(names.includes("caldera") && names.includes("Human Architecture"), "private repos of a listed project fold into one tower named after it");
-  assert.ok(!names.includes("ha-secret-backend") && !names.includes("grid-live") && !pub.districts.some(d => d.name === "Quant"));
-  assert.equal(pub.districts.find(d => d.name === "Human Architecture").repos[0].commits, 600);
+  const all = pub.districts.flatMap(d => d.repos);
+  assert.equal(all.length, 5, "every repo is a building");
+  assert.deepEqual(pub.districts.map(d => d.name).sort(), ["Caldera", "Human Architecture", "Private"], "unlisted projects (Quant) lose their name");
+  const lockedOnes = all.filter(r => r.locked);
+  assert.equal(lockedOnes.length, 2);
+  for (const r of lockedOnes) { assert.equal(r.name, ""); assert.equal(r.language, "Private"); assert.deepEqual(r.weeks, []); assert.ok(!r.url && !r.description && !r.pushed); }
+  assert.equal(lockedOnes.find(r => r.project === "Private").commits, 1000, "1200 commits round down to a coarse step");
+  assert.equal(pub.totals.commits, 2291);
   const html = renderCity({ name: "Mike", handle: "mike" }, pub);
-  for (const bad of ["ha-secret-backend", "grid-live", "Quant", "secret/note.md", "<script>alert(1)</script>"]) assert.ok(!html.includes(bad), bad);
+  for (const bad of ["ha-secret-backend", "grid-live", "Quant", "secret/note.md", "internal", "<script>alert(1)</script>", '"1200"', ":1200"]) assert.ok(!html.includes(bad), bad);
   assert.ok(html.includes("\\u003cscript>alert(1)\\u003c/script>"), "names are escaped inside the data block");
+  assert.ok(html.includes("padlock are private repos"));
 });
 
 test("city: a published profile ships city.html and a City link only when there is a public city", () => {

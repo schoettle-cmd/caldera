@@ -12,9 +12,10 @@ export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;
   pushed?: string; created?: string; size?: number; url?: string; description?: string;
+  locked?: boolean;                                   // a private repo on the public page: shape only, no details
 }
 export interface CityDistrict { name: string; notes: number; notePaths?: string[]; repos: CityRepo[] }
-export interface CityData { generated?: string; districts: CityDistrict[]; private: boolean }
+export interface CityData { generated?: string; districts: CityDistrict[]; private: boolean; totals?: { commits: number; active: number } }
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const num = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
@@ -41,31 +42,30 @@ export function cityData(repos: CityRepo[], notes: (project: string) => { n: num
   return { generated, districts, private: true };
 }
 
-/** What visitors may see: public repos by name; a public project's private repos fold into one tower named after the project. */
+/** What visitors may see: the whole city, but private repos are locked buildings (no name, language, history, link
+ * or exact numbers: commits are rounded to a coarse step, activity to busy / not busy). Projects that aren't on the
+ * public profile lose their names: their repos move into one district called "Private". */
+const LOCKED_STEPS = [1, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+const coarse = (n: number) => n <= 0 ? 0 : LOCKED_STEPS.reduce((b, s) => n >= s ? s : b, 1);
+const locked = (r: CityRepo, project: string): CityRepo => ({ name: "", project, public: false, locked: true, language: "Private", commits: coarse(r.commits), weeks: [], week: r.week > 0 ? 1 : 0, today: 0 });
 export function publicCity(c: CityData, publicProjects: string[]): CityData {
   const pub = new Set(publicProjects.map(p => p.toLowerCase()));
-  const districts: CityDistrict[] = [];
+  const districts: CityDistrict[] = [], hidden: CityRepo[] = [];
   for (const d of c.districts) {
-    const open = d.repos.filter(r => r.public), closed = d.repos.filter(r => !r.public);
-    const listed = pub.has(d.name.toLowerCase());
-    const repos: CityRepo[] = [...open];
-    if (listed && closed.length) {
-      const langs = new Map<string, number>(); for (const r of closed) langs.set(r.language, (langs.get(r.language) || 0) + r.commits);
-      const weeks = Array.from({ length: 12 }, (_, i) => closed.reduce((s, r) => s + (r.weeks[r.weeks.length - 12 + i] || 0), 0));
-      repos.push({ name: d.name, project: d.name, public: false, language: [...langs].sort((a, b) => b[1] - a[1])[0]?.[0] || "Other",
-        commits: closed.reduce((s, r) => s + r.commits, 0), week: closed.reduce((s, r) => s + r.week, 0), today: closed.reduce((s, r) => s + r.today, 0),
-        weeks, pushed: closed.map(r => r.pushed || "").sort().pop() || undefined });
-    }
-    if (repos.length && (listed || open.length)) districts.push({ name: d.name, notes: listed ? d.notes : 0, repos: repos.sort((a, b) => b.commits - a.commits) });
+    const listed = pub.has(d.name.toLowerCase()) || d.repos.some(r => r.public);   // a public repo already names its project
+    if (!listed) { hidden.push(...d.repos.map(r => locked(r, "Private"))); continue; }
+    districts.push({ name: d.name, notes: pub.has(d.name.toLowerCase()) ? d.notes : 0, repos: d.repos.map(r => r.public ? r : locked(r, d.name)) });
   }
-  return { generated: c.generated, districts, private: false };
+  if (hidden.length) districts.push({ name: "Private", notes: 0, repos: hidden.sort((a, b) => b.commits - a.commits) });
+  const all = c.districts.flatMap(d => d.repos);
+  return { generated: c.generated, districts, private: false, totals: { commits: all.reduce((s, r) => s + r.commits, 0), active: all.filter(r => r.week > 0).length } };
 }
 
 export interface CitySite { name: string; handle?: string; theme?: "dark" | "light"; icon?: string; nav?: (depth: number, current: string) => string; openBase?: string }
 
 export function renderCity(site: CitySite, city: CityData): string {
   const repos = city.districts.flatMap(d => d.repos);
-  const total = repos.reduce((s, r) => s + r.commits, 0), active = repos.filter(r => r.week > 0).length, notes = city.districts.reduce((s, d) => s + d.notes, 0);
+  const total = city.totals?.commits ?? repos.reduce((s, r) => s + r.commits, 0), active = city.totals?.active ?? repos.filter(r => r.week > 0).length, notes = city.districts.reduce((s, d) => s + d.notes, 0);
   const json = JSON.stringify({ ...city, openBase: site.openBase || "" }).replace(/</g, "\\u003c");
   const icon = site.icon ? `<link rel="icon" href="${esc(site.icon)}" type="image/png">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`;
   const rows = city.districts.map(d => `<tr><td>${esc(d.name)}</td><td>${d.repos.length}</td><td>${d.repos.reduce((s, r) => s + r.commits, 0).toLocaleString("en-US")}</td><td>${d.repos.reduce((s, r) => s + r.week, 0)}</td><td>${d.notes}</td></tr>`).join("");
@@ -79,12 +79,12 @@ ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" hre
 <div class="shell">${site.nav ? site.nav(0, "city.html") : ""}<main class="note"><div class="c-main">
 <div class="g-crumbs c-crumbs"><a href="index.html">${esc(site.handle ? "@" + site.handle : site.name)}</a> / City</div>
 <h1 class="c-title">${esc(site.name)}'s city</h1>
-<p class="c-lede">Every project is a district and every GitHub repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : ""}</p>
+<p class="c-lede">Every project is a district and every GitHub repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some(r => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}</p>
 <div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>commits this year</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${notes.toLocaleString("en-US")}</b><span>notes in town</span></div></div>
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
 <div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Night</button><button id="t-reset">Reset</button></div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
-<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span><span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
+<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some(r => r.locked) ? '<span><i style="background:#5C6B86"></i>&#128274; Private</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
 ${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.generated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}.</p>` : ""}
 </div></main></div>
@@ -194,10 +194,12 @@ function draw(){T=performance.now();cx.setTransform(dpr,0,0,dpr,0,0);
     if(t.t==='h')house(p.x,p.y,t.n,hash(t.d.name));
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),col=dm?'#7C7F88':(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,lit=dm?0:Math.min(.95,.12+(r.week/(Math.max(wk,1)))*.8);
-      box(p.x,p.y+4,.82,h,col,lit,hash(r.name),true);if(r.week>0&&!dm)crane(p.x,p.y+4,h,T+hash(r.name));
+      if(r.locked){col='#5C6B86';lit=r.week?.35:.05}
+      box(p.x,p.y+4,.82,h,col,lit,hash(r.name||(i+'_'+j)),true);
+      if(r.locked){cx.fillStyle=night?'#C9D2E6':'#2B3346';cx.font='11px sans-serif';cx.textAlign='center';cx.fillText('\uD83D\uDD12',p.x,p.y+4-h-TH/2-2)}if(r.week>0&&!dm)crane(p.x,p.y+4,h,T+hash(r.name));
       if(sel===r){cx.strokeStyle='#B9A6FF';cx.lineWidth=2/cam.z;cx.strokeRect(p.x-TW*.45,p.y-h-TH*.5,TW*.9,h+TH)}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:p.y-h-TH*.45,y1:p.y+TH*.45});
-      if(labels&&(cam.z>1.05||sel===r||topSet.indexOf(r)>=0)){var lb=r.name.length>18?r.name.slice(0,17)+'…':r.name;cx.font='600 11px IBM Plex Sans,Arial,sans-serif';var tw=cx.measureText(lb).width;
+      if(labels&&!r.locked&&(cam.z>1.05||sel===r||topSet.indexOf(r)>=0)){var lb=r.name.length>18?r.name.slice(0,17)+'…':r.name;cx.font='600 11px IBM Plex Sans,Arial,sans-serif';var tw=cx.measureText(lb).width;
         cx.fillStyle='rgba(14,19,32,.78)';cx.fillRect(p.x-tw/2-5,p.y-h-30,tw+10,16);cx.fillStyle='#F2F2F5';cx.textAlign='center';cx.fillText(lb,p.x,p.y-h-18)}}}
   // district signs
   if(labels)blocks.forEach(function(b){var p=iso(b.x+b.k,b.y+b.k);cx.font='700 12px IBM Plex Sans,Arial,sans-serif';var lb=b.d.name,tw=cx.measureText(lb).width;cx.fillStyle='rgba(139,108,246,.92)';cx.fillRect(p.x-tw/2-7,p.y+4,tw+14,18);cx.fillStyle='#fff';cx.textAlign='center';cx.fillText(lb,p.x,p.y+17)});
@@ -210,6 +212,7 @@ function ago(iso){if(!iso)return '';var d=Math.round((now-Date.parse(iso))/DAY);
 function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function show(h){sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
+  if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private repo</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">The details of this building are private. Its size and lights show roughly how much work goes on inside.</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':'')+'</div>'
    +(r.description?'<p style="margin:6px 0 0">'+e(r.description)+'</p>':'')
    +'<div class="sp" title="Commits, last 12 weeks">'+(r.weeks||[]).map(function(w){return '<i style="height:'+Math.max(4,Math.round(w/mx*100))+'%"></i>'}).join('')+'</div><div class="k">Commits, last 12 weeks</div>'
