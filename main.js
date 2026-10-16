@@ -3486,14 +3486,14 @@ function agentsIn(list){var tn=performance.now(),seen={};list.slice(0,40).forEac
   for(var id in AG)if(!seen[id]&&!AG[id].gone)AG[id].gone=tn}
 function agentSpot(g,tn,slot,nslot){var a=g.a,b=null;
   if(a.state==='working'||a.state==='thinking'){b=(a.repo&&BREPO[String(a.repo).toLowerCase()])||null;if(!b&&a.d&&BDIST[a.d]){var l=BDIST[a.d];b=l[g.seed%l.length]}}
-  if(!b)return {x:HQP.x+(slot-(nslot-1)/2)*16,y:HQP.y-34+Math.sin(tn/600+g.seed)*1.5,roof:null};
+  if(!b)return {x:HQP.x+(slot-(nslot-1)/2)*24,y:HQP.y-34+Math.sin(tn/600+g.seed)*1.5,roof:null,hq:true};
   var p=iso(b.i,b.j),h=bh(b.r),y=p.y-h-24;
   if(a.state==='thinking')return {x:p.x+Math.cos(tn/900+g.seed)*14,y:y+Math.sin(tn/900+g.seed)*7,roof:null};
   return {x:p.x+Math.sin(tn/1300+g.seed)*3,y:y+Math.sin(tn/500+g.seed)*2,roof:p.y-h}}
 function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var parked=ids.filter(function(id){var s=AG[id].a.state;return !(s==='working'||s==='thinking')}),k=0;
   // HQ pad
-  c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,176,32,.55)';c.lineWidth=1.5;c.shadowColor='#FFB020';c.shadowBlur=8;c.beginPath();c.ellipse(HQP.x,HQP.y,Math.max(22,parked.length*9+10),Math.max(11,parked.length*4.5+5),0,0,7);c.stroke();c.restore();
-  if(labels)tronPill(c,HQP.x,HQP.y+22,'AGENT HQ','#FFB020','600 9px ui-monospace,monospace');
+  c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,176,32,.55)';c.lineWidth=1.5;c.shadowColor='#FFB020';c.shadowBlur=8;c.beginPath();c.ellipse(HQP.x,HQP.y,Math.max(22,parked.length*12+10),Math.max(11,parked.length*6+5),0,0,7);c.stroke();c.restore();
+  var nw=parked.filter(function(id){return AG[id].a.state==='waiting'}).length;if(labels)tronPill(c,HQP.x,HQP.y+22,'AGENT HQ'+(nw?' \u00b7 '+nw+' waiting on you':''),'#FFB020','600 9px ui-monospace,monospace');
   ids.forEach(function(id){var g=AG[id],a=g.a,sp=agentSpot(g,tn,parked.indexOf(id)<0?0:parked.indexOf(id),parked.length);
     g.x+=(sp.x-g.x)*.05;g.y+=(sp.y-g.y)*.05;var f=g.gone?Math.max(0,1-(tn-g.gone)/1500):Math.min(1,(tn-g.born)/600);if(f<=0){delete AG[id];return}
     var col=AGC[a.state]||AGC.working,blink=a.state==='waiting'?(.55+.45*Math.abs(Math.sin(tn/380))):1;
@@ -3503,7 +3503,7 @@ function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var park
     c.strokeStyle=col;c.lineWidth=1.4;c.shadowColor=col;c.shadowBlur=8;c.setLineDash([4,3]);c.lineDashOffset=-tn/40;c.beginPath();c.ellipse(g.x,g.y,11,5.5,0,0,7);c.stroke();c.setLineDash([]);
     c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(g.x,g.y-6);c.lineTo(g.x+5,g.y);c.lineTo(g.x,g.y+3.5);c.lineTo(g.x-5,g.y);c.closePath();c.fill();c.restore();
     g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;
-    if(labels&&a.label&&(cam.z>.55||ids.length<=8)&&!(sel&&sel.agent===id))tronPill(c,g.x,g.y-15,a.label,col,'600 9px ui-monospace,monospace')})}
+    if(labels&&a.label&&!sp.hq&&(cam.z>.55||ids.length<=8))tronPill(c,g.x,g.y-15,a.label,col,'600 9px ui-monospace,monospace')})}
 // one car per person on the site right now (private: exact count from the last 5 minutes; public: a coarse level)
 function reconcile(){var tn=performance.now(),total=0;blocks.forEach(function(b){var x=LV.d[b.d.name],want=!x?0:LV.mode==='private'?Math.min(30,+x.now||0):([0,2,4,7,11][+x.level||0]||0);
   if(total+want>120)want=Math.max(0,120-total);total+=want;
