@@ -82,7 +82,7 @@ ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" hre
 <p class="c-lede">Every project is a district and every GitHub repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some(r => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}</p>
 <div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>commits this year</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${notes.toLocaleString("en-US")}</b><span>notes in town</span></div></div>
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
-<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Day</button><button id="t-reset">Reset</button></div>
+<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Day</button><button id="t-reset">Reset</button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
 <div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some(r => r.locked) ? '<span><i style="background:#5C6B86"></i>&#128274; Private</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -105,6 +105,8 @@ const CITY_CSS = `
 .c-tools{position:absolute;top:10px;right:10px;display:flex;gap:6px}
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
+.c-stage.c-full{position:fixed;inset:0;z-index:9999;height:100%;min-height:0;border-radius:0;border:0}
+.c-stage:fullscreen{height:100%;border-radius:0;border:0}
 .c-hint{position:absolute;left:10px;bottom:10px;font:12px var(--font-sans,sans-serif);color:rgba(232,232,238,.75);background:rgba(14,19,32,.6);padding:4px 8px;border-radius:6px;pointer-events:none}
 .c-card{position:absolute;left:10px;top:10px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,22,34,.94);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px 14px;color:#E8E8EE;font:13px/1.45 var(--font-sans,'IBM Plex Sans',sans-serif);box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .c-card h3{margin:0 0 2px;font-size:15px;color:#fff}.c-card .k{color:#9A9AA6;font-size:12px}.c-card a{color:#B9A6FF}
@@ -120,8 +122,9 @@ const CITY_CSS = `
 .c-live .r{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-top:1px solid rgba(61,242,255,.12)}.c-live .r span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.c-live .r b{color:#fff;font-weight:600;white-space:nowrap}
 .c-live .m{color:#7FA6B8}.c-live .s{font-size:11px;padding-bottom:2px}.c-live .bar{display:inline-block;height:6px;border-radius:3px;background:#3DF2FF;box-shadow:0 0 6px #3DF2FF;vertical-align:1px}.c-live .lg i{display:inline-block;width:7px;height:7px;border-radius:50%;margin:0 4px 0 8px;vertical-align:0}.c-live .lg i:first-child{margin-left:0}
 @keyframes clive{50%{opacity:.35}}
+.c-live .h{cursor:pointer}.c-live.c-min>:not(.h){display:none}.c-live.c-min .h{margin:0}
 .c-live .q{font-size:11px;padding-top:3px;border-top:1px solid rgba(61,242,255,.12)}
-@media (max-width:600px){.c-live{max-height:none;font-size:11px}.c-hint{display:none}}
+@media (max-width:600px){.c-live{max-height:none;font-size:11px}.c-hint{display:none}.c-tools .t-txt{display:none}}
 @media (max-width:600px){.c-main{padding:20px 16px 48px}.c-title{font-size:1.7rem}.c-stage{height:62vh;min-height:360px}}
 `;
 
@@ -224,7 +227,8 @@ function reconcile(){var tn=performance.now(),total=0;blocks.forEach(function(b)
 function fa(c,tn){return c.gone?Math.max(0,1-(tn-c.gone)/1500):c.born?Math.min(1,(tn-c.born)/800):1}
 function agentLine(){var n={},ids=Object.keys(AG).filter(function(id){return !AG[id].gone});if(!ids.length)return '';ids.forEach(function(id){var s=AG[id].a.state;n[s]=(n[s]||0)+1});
   return '<div class="q"><span style="color:#fff">AI agents</span> '+['working','thinking','waiting','idle'].filter(function(s){return n[s]}).map(function(s){return '<span style="color:'+AGC[s]+'">'+n[s]+' '+(s==='waiting'?'waiting on you':s)+'</span>'}).join(' &middot; ')+'</div>'}
-var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');liveEl.className='c-live';liveEl.setAttribute('aria-live','polite');st.appendChild(liveEl)}
+var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');liveEl.className='c-live'+(st.clientWidth<600?' c-min':'');liveEl.setAttribute('aria-live','polite');st.appendChild(liveEl);
+    liveEl.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('.h'))liveEl.classList.toggle('c-min')})}
   var ks=Object.keys(LV.d).filter(function(k){return byName[k]});
   if(LV.mode==='private'){ks.sort(function(a,b){return (LV.d[b].now-LV.d[a].now)||(LV.d[b].views-LV.d[a].views)});var tot=ks.reduce(function(s,k){return s+(+LV.d[k].now||0)},0);
     // busy districts get a row (at most 5); the rest share one quiet line so the panel never needs to scroll
@@ -498,6 +502,13 @@ var bl=document.getElementById('t-labels'),bs=document.getElementById('t-sky');
 bl.onclick=function(){labels=!labels;bl.setAttribute('aria-pressed',String(labels));draw()};
 var SKIES=['grid','day','dusk','night'],NAMES={grid:'Grid',day:'Day',dusk:'Dusk',night:'Night'};function skyLabel(){bs.textContent=NAMES[SKIES[(SKIES.indexOf(sky)+1)%4]]}skyLabel();bs.onclick=function(){sky=SKIES[(SKIES.indexOf(sky)+1)%4];P=PAL[sky];night=sky==='night'||sky==='grid';skyLabel();cars.forEach(function(c){c.trail=[]});draw()};
 document.getElementById('t-reset').onclick=function(){fit();show(null)};
+// full screen: the real Fullscreen API where the page is allowed it, otherwise the stage fills the window (Esc exits)
+var bf=document.getElementById('t-full');function fsLabel(){var on=!!document.fullscreenElement||st.classList.contains('c-full');bf.innerHTML=on?'&#x2715;<span class="t-txt"> Exit</span>':'&#x26F6;<span class="t-txt"> Full screen</span>';bf.setAttribute('aria-label',on?'Exit full screen':'Full screen')}
+function cssFull(on){st.classList.toggle('c-full',on);document.body.style.overflow=on?'hidden':'';setTimeout(function(){fit();draw()},30);fsLabel()}
+bf.onclick=function(){if(document.fullscreenElement){document.exitFullscreen();return}if(st.classList.contains('c-full'))return cssFull(false);
+  var r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null;if(r&&r.catch)r.catch(function(){cssFull(true)});else cssFull(true)};
+document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
 window.addEventListener('resize',function(){fit();draw()});
 fit();if(reduce)frame();else requestAnimationFrame(tick);
 })();`;

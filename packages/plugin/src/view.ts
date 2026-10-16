@@ -57,7 +57,7 @@ export class ProfileView extends ItemView {
     btn("upload-cloud", "Publish now", async () => { const u = await this.plugin.publish(); if (u && this.mode === "public") void this.show(); });
 
     this.frame = root.createEl("iframe", { cls: "caldera-pv-frame" });
-    this.frame.setAttr("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
+    this.frame.setAttr("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox"); this.frame.setAttr("allow", "fullscreen"); this.frame.setAttr("allowfullscreen", "true");
     this.registerDomEvent(window, "message", e => this.onMessage(e));
     this.registerEvent(this.app.workspace.on("active-leaf-change", leaf => { if (leaf === this.leaf) this.markLooked(false); }));
     this.markLooked(true);
