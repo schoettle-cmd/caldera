@@ -3561,22 +3561,22 @@ function onLive(data){if(!data||typeof data!=='object'||!data.districts||typeof 
 var AG={},AGC={working:'#3DF2FF',thinking:'#B58CFF',waiting:'#FFB020',idle:'#6F7C8F',done:'#6F7C8F'},BREPO={},BDIST={};
 for(var bk in tiles){var tb=tiles[bk];if(tb.t!=='b')continue;var bij=bk.split(','),bo={i:+bij[0],j:+bij[1],r:tb.r};if(tb.r.name)BREPO[tb.r.name.toLowerCase()]=bo;(BDIST[tb.d.name]=BDIST[tb.d.name]||[]).push(bo)}
 var HQP=iso(1.2,H-1.2);
-function agentsIn(list){var tn=performance.now(),seen={};list.slice(0,40).forEach(function(a){if(!a||!a.id)return;seen[a.id]=1;var g=AG[a.id];
+function agentsIn(list){var tn=performance.now(),seen={};list.slice(0,80).forEach(function(a){if(!a||!a.id)return;seen[a.id]=1;var g=AG[a.id];
     if(!g){var h0=HQP;g=AG[a.id]={x:h0.x,y:h0.y-40,born:tn,seed:hash(String(a.id))}}g.a=a;g.gone=0});
   for(var id in AG)if(!seen[id]&&!AG[id].gone)AG[id].gone=tn}
 function agentSpot(g,tn,slot,nslot){var a=g.a,b=null;
   if(a.state==='working'||a.state==='thinking'){b=(a.repo&&BREPO[String(a.repo).toLowerCase()])||null;if(!b&&a.d&&BDIST[a.d]){var l=BDIST[a.d];b=l[g.seed%l.length]}}
-  if(!b)return {x:HQP.x+(slot-(nslot-1)/2)*24,y:HQP.y-34+Math.sin(tn/600+g.seed)*1.5,roof:null,hq:true};
+  if(!b){var cols=Math.min(8,Math.max(1,Math.ceil(Math.sqrt(nslot*2)))),row=Math.floor(slot/cols),col=slot%cols,inRow=Math.min(cols,nslot-row*cols);return {x:HQP.x+(col-(inRow-1)/2)*20+row*6,y:HQP.y-30-row*13+Math.sin(tn/600+g.seed)*1.2,roof:null,hq:true}}
   var p=iso(b.i,b.j),h=bh(b.r),y=p.y-h-24;
   if(a.state==='thinking')return {x:p.x+Math.cos(tn/900+g.seed)*14,y:y+Math.sin(tn/900+g.seed)*7,roof:null};
   return {x:p.x+Math.sin(tn/1300+g.seed)*3,y:y+Math.sin(tn/500+g.seed)*2,roof:p.y-h}}
 function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var parked=ids.filter(function(id){var s=AG[id].a.state;return !(s==='working'||s==='thinking')}),k=0;
   // HQ pad
-  c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,176,32,.55)';c.lineWidth=1.5;c.shadowColor='#FFB020';c.shadowBlur=8;c.beginPath();c.ellipse(HQP.x,HQP.y,Math.max(22,parked.length*12+10),Math.max(11,parked.length*6+5),0,0,7);c.stroke();c.restore();
-  var nw=parked.filter(function(id){return AG[id].a.state==='waiting'}).length;if(labels)tronPill(c,HQP.x,HQP.y+22,'AGENT HQ'+(nw?' \u00b7 '+nw+' waiting on you':''),'#FFB020','600 9px ui-monospace,monospace');
+  c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,176,32,.55)';c.lineWidth=1.5;c.shadowColor='#FFB020';c.shadowBlur=8;var pw=Math.min(8,Math.max(1,Math.ceil(Math.sqrt(parked.length*2))));c.beginPath();c.ellipse(HQP.x,HQP.y,Math.max(22,pw*11+12),Math.max(11,pw*5.5+6),0,0,7);c.stroke();c.restore();
+  var nw=parked.filter(function(id){return AG[id].a.state==='waiting'}).length;var ni=parked.length-nw;if(labels)tronPill(c,HQP.x,HQP.y+22,'AGENT HQ'+(ni?' \u00b7 '+ni+' parked':'')+(nw?' \u00b7 '+nw+' waiting on you':''),'#FFB020','600 9px ui-monospace,monospace');
   ids.forEach(function(id){var g=AG[id],a=g.a,sp=agentSpot(g,tn,parked.indexOf(id)<0?0:parked.indexOf(id),parked.length);
     g.x+=(sp.x-g.x)*.05;g.y+=(sp.y-g.y)*.05;var f=g.gone?Math.max(0,1-(tn-g.gone)/1500):Math.min(1,(tn-g.born)/600);if(f<=0){delete AG[id];return}
-    var col=AGC[a.state]||AGC.working,blink=a.state==='waiting'?(.55+.45*Math.abs(Math.sin(tn/380))):1;
+    var col=AGC[a.state]||AGC.working,blink=a.state==='waiting'?(.55+.45*Math.abs(Math.sin(tn/380))):(a.state==='idle'||a.state==='done')?.45:1;
     c.save();c.globalAlpha=f;c.globalCompositeOperation='lighter';
     if(sp.roof!=null&&Math.abs(g.x-sp.x)<6){var gb=c.createLinearGradient(0,g.y,0,sp.roof);gb.addColorStop(0,col);gb.addColorStop(1,'rgba(61,242,255,0)');c.fillStyle=gb;c.globalAlpha=f*(.55+.25*Math.sin(tn/160));c.beginPath();c.moveTo(g.x-2,g.y);c.lineTo(g.x+2,g.y);c.lineTo(g.x+9,sp.roof);c.lineTo(g.x-9,sp.roof);c.closePath();c.fill();c.globalAlpha=f}
     var gl=c.createRadialGradient(g.x,g.y,0,g.x,g.y,22);gl.addColorStop(0,col);gl.addColorStop(1,'rgba(0,0,0,0)');c.globalAlpha=f*.6*blink;c.fillStyle=gl;c.beginPath();c.arc(g.x,g.y,22,0,7);c.fill();c.globalAlpha=f*blink;
