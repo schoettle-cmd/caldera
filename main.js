@@ -3469,7 +3469,7 @@ var CITY_CSS = `
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
 .c-under{position:absolute;left:10px;bottom:10px;width:min(300px,calc(100% - 20px));background:rgba(2,6,12,.86);border:1px solid rgba(181,140,255,.45);border-radius:10px;padding:8px 10px;color:#E3DAFF;font:12px/1.45 var(--font-mono,'IBM Plex Mono',monospace)}
-.c-under b{color:#fff}.c-under .lg{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:4px;color:#A99BD0}.c-under .lg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
+.c-under b{color:#fff}.c-under{cursor:pointer}.c-under.c-min>:not(.uh){display:none}.c-under.c-min,.c-live.c-min{width:auto}.c-under .chev,.c-live .chev{float:right;opacity:.7;margin-left:8px}.c-under .lg{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:4px;color:#A99BD0}.c-under .lg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
 .c-stage.c-dig .c-hint{display:none}
 .c-stage.c-full{position:fixed;inset:0;z-index:9999;height:100%;min-height:0;border-radius:0;border:0}
 .c-stage:fullscreen{height:100%;border-radius:0;border:0}
@@ -3632,9 +3632,10 @@ function drawUnderLive(c,tn){c.save();c.globalCompositeOperation='lighter';
     if(u.ring!=null){var p=UP[u.ring];c.strokeStyle='#FFFFFF';c.globalAlpha=Math.max(0,1-t);c.lineWidth=2;c.beginPath();c.arc(p.x,p.y,p.r+4+t*26,0,7);c.stroke();return}
     var a=UP[u.a],b=UP[u.b];if(t>1)return;var mx=(a.x+b.x)/2,my=(a.y+b.y)/2+14,x=(1-t)*(1-t)*a.x+2*(1-t)*t*mx+t*t*b.x,y=(1-t)*(1-t)*a.y+2*(1-t)*t*my+t*t*b.y;
     c.globalAlpha=1;c.fillStyle='#FFFFFF';c.beginPath();c.arc(x,y,2,0,7);c.fill()});c.restore()}
-var underEl=null;function underPanel(){if(!underEl){underEl=document.createElement('div');underEl.className='c-under';st.appendChild(underEl)}underEl.hidden=!under;if(!under)return;
+var underEl=null;function underPanel(){if(!underEl){underEl=document.createElement('div');underEl.className='c-under'+(st.clientWidth<600?' c-min':'');underEl.setAttribute('role','button');underEl.title='Tap to fold or unfold';st.appendChild(underEl);
+    underEl.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('a'))return;underEl.classList.toggle('c-min');var c=underEl.querySelector('.chev');if(c)c.textContent=underEl.classList.contains('c-min')?'\u25B4':'\u25BE'})}underEl.hidden=!under;if(!under)return;
   var ks=['concept','entity','source','day','garden','note'].filter(function(k){return U.nodes.some(function(n){return n.k===k})});
-  underEl.innerHTML='<b>THE UNDERGROUND</b><br>'+U.total.toLocaleString('en-US')+' notes &middot; '+U.links.toLocaleString('en-US')+' links &middot; '+U.orphans+' unconnected'+(U.editedToday?' &middot; '+U.editedToday+' edited today':'')
+  underEl.innerHTML='<div class="uh"><b>THE UNDERGROUND</b><span class="chev">'+(underEl.classList.contains('c-min')?'\u25B4':'\u25BE')+'</span></div><div>'+U.total.toLocaleString('en-US')+' notes &middot; '+U.links.toLocaleString('en-US')+' links &middot; '+U.orphans+' unconnected'+(U.editedToday?' &middot; '+U.editedToday+' edited today':'')+'</div>'
     +'<div class="lg">'+ks.map(function(k){return '<span><i style="background:'+UK[k]+'"></i>'+UKN[k]+'</span>'}).join('')+'</div><div style="margin-top:4px;color:#A99BD0">Bigger = more notes link to it. Deeper = older. Roots go up to the project the notes are about.</div>'}
 function noteCard(ix){var n=U.nodes[ix];usel=ix;UDIRTY=true;var open='';
   if(n.p)open=D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(n.p))+'" target="_blank" rel="noopener">Open in Obsidian &#8599;</a>':'<a href="#" data-open="'+e(n.p)+'">Open note</a>';
