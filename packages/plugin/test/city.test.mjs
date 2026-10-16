@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseCityRepos, cityData, publicCity, renderCity } from "./city.build.mjs";
+import { parseCityRepos, cityData, publicCity, renderCity, underground, publicUnderground } from "./city.build.mjs";
 import { renderProfile } from "./render.build.mjs";
 
 const raw = { generated: "2026-10-16T10:00:00Z", repos: [
@@ -45,4 +45,22 @@ test("city: a published profile ships city.html and a City link only when there 
   const f = renderProfile({ ...base, city: pub });
   assert.ok(f["city.html"] && f["index.html"].includes('href="city.html">City</a>') && !f["city.html"].includes("grid-live"));
   assert.ok(!renderProfile({ ...base, city: pub, sections: { notes: true, city: false } })["city.html"]);
+});
+
+test("underground: notes under their project, plumbing left out, public keeps only the shape (and garden titles)", () => {
+  const now = Date.parse("2026-10-16T12:00:00Z"), d = 864e5;
+  const N = (path, out, age = 10) => ({ path, title: path.split("/").pop().replace(/\.md$/, ""), ctime: now - age * d, mtime: now - d, out });
+  const notes = [N("wiki/Shop.md", ["wiki/entities/Ann.md"]), N("wiki/entities/Ann.md", ["wiki/Shop.md"]), N("wiki/concepts/Pricing.md", ["wiki/Shop.md", "wiki/Lab.md"], 400),
+    N("wiki/Lab.md", []), N("wiki/entities/Secret Fund.md", ["wiki/Lab.md"]), N("wiki/hot.md", ["wiki/Shop.md", "wiki/Lab.md", "wiki/entities/Ann.md"]), N("wiki/Essay.md", ["wiki/Shop.md"]), N("raw/orphan.md", [])];
+  const u = underground(notes, { Shop: "wiki/Shop.md", Lab: "wiki/Lab.md" }, t => t === "Essay" ? "essay" : undefined, now);
+  const by = Object.fromEntries(u.nodes.map(n => [n.t, n]));
+  assert.equal(by.hot, undefined, "index pages are plumbing");
+  assert.equal(by.Ann.d, "Shop"); assert.equal(by["Secret Fund"].d, "Lab"); assert.equal(by.Pricing.d, undefined, "links to two projects: stays central");
+  assert.equal(by.Ann.k, "entity"); assert.equal(by.Pricing.k, "concept"); assert.equal(by.Essay.k, "garden"); assert.equal(by.Pricing.a, 400);
+  assert.ok(u.orphans >= 1 && u.total === 7 && u.edges.length > 0);
+  const pub = publicUnderground(u, ["Shop"]);
+  const s = JSON.stringify(pub);
+  for (const w of ["Ann", "Secret Fund", "Pricing", "wiki/", "Lab"]) assert.ok(!s.includes(w), "public leaks " + w);
+  assert.ok(pub.nodes.some(n => n.t === "Essay" && n.g === "essay"), "garden notes keep their title");
+  assert.equal(pub.nodes.find(n => n.k === "entity" && n.d === "Shop") !== undefined, true);
 });

@@ -15,7 +15,65 @@ export interface CityRepo {
   locked?: boolean;                                   // a private repo on the public page: shape only, no details
 }
 export interface CityDistrict { name: string; notes: number; notePaths?: string[]; repos: CityRepo[] }
-export interface CityData { generated?: string; districts: CityDistrict[]; private: boolean; totals?: { commits: number; active: number } }
+export interface CityData { generated?: string; districts: CityDistrict[]; private: boolean; totals?: { commits: number; active: number }; under?: Underground }
+
+/** The Underground: the Obsidian vault under the city. Notes are nodes (size = notes linking in), links are tunnels,
+ *  depth = age, and notes about a project sit under its district with light roots up into the buildings. */
+export type NoteKind = "concept" | "entity" | "source" | "day" | "garden" | "note";
+export interface UNode { t?: string; p?: string; k: NoteKind; n: number; o: number; a: number; m: number; d?: string; g?: string }
+export interface Underground { nodes: UNode[]; edges: [number, number][]; total: number; links: number; orphans: number; sediment: Partial<Record<NoteKind, number>>; editedToday: number }
+export interface VaultNote { path: string; title: string; ctime: number; mtime: number; out: string[] }
+
+export function noteKind(path: string, garden: boolean): NoteKind {
+  if (garden) return "garden";
+  const p = path.toLowerCase();
+  if (/(^|\/)(daily|digest|journal|daily-digest)|(^|\/)\d{4}-\d{2}-\d{2}/.test(p)) return "day";
+  if (/(^|\/)concepts?\//.test(p)) return "concept";
+  if (/(^|\/)(entities|people|companies|orgs?|contacts)\//.test(p)) return "entity";
+  if (/(^|\/)(sources?|raw|clippings?|emails?|inbox|transcripts?|meetings?)\//.test(p)) return "source";
+  return "note";
+}
+
+/** Pure: vault notes + project hub notes -> the Underground (top ~320 notes, links among them, the rest as sediment). */
+const PLUMBING = /^(_?index|hot|log|logs?|readme|home|start here|moc|maps? of content|toc|table of contents|inbox|dashboard|overview)$/i;   // vault plumbing, not knowledge
+export function underground(all: VaultNote[], hubs: Record<string, string>, gardenSlug: (title: string) => string | undefined, now = Date.now(), max = 320): Underground {
+  const notes = all.filter(n => !PLUMBING.test(n.title.trim()));
+  const byPath = new Map(notes.map(n => [n.path, n]));
+  const inb = new Map<string, number>(), DAY = 86_400_000;
+  let links = 0;
+  for (const n of notes) for (const t of new Set(n.out)) if (byPath.has(t) && t !== n.path) { inb.set(t, (inb.get(t) || 0) + 1); links++; }
+  // a note belongs under a district when it links to (or is linked from) that project's hub note
+  const anchor = new Map<string, string>(), hubOf = new Map(Object.entries(hubs).map(([proj, path]) => [path, proj]));
+  for (const [proj, hp] of Object.entries(hubs)) anchor.set(hp, proj);
+  // strongest: the note links to exactly one project's note. Weaker: a minor note (<= 3 links in) that one project links to.
+  for (const n of notes) if (!anchor.has(n.path)) { const hs = [...new Set(n.out.filter(t => hubOf.has(t)))]; if (hs.length === 1 && (inb.get(n.path) || 0) <= 40) anchor.set(n.path, hubOf.get(hs[0])!); }
+  for (const [proj, hp] of Object.entries(hubs)) for (const t of byPath.get(hp)?.out || []) if (byPath.has(t) && !anchor.has(t) && (inb.get(t) || 0) <= 3) anchor.set(t, proj);
+  const outN = (n: VaultNote) => new Set(n.out.filter(t => byPath.has(t) && t !== n.path)).size;
+  const score = (n: VaultNote) => (inb.get(n.path) || 0) * 2 + outN(n) * 0.5 + (anchor.has(n.path) ? 3 : 0) + (hubOf.has(n.path) ? 1000 : 0) + (now - n.mtime < 2 * DAY ? 4 : 0);
+  const picked = [...notes].sort((a, b) => score(b) - score(a)).slice(0, max);
+  const idx = new Map(picked.map((n, i) => [n.path, i]));
+  const nodes: UNode[] = picked.map(n => {
+    const g = gardenSlug(n.title);
+    return { t: n.title, p: n.path, k: noteKind(n.path, !!g), n: inb.get(n.path) || 0, o: outN(n), a: Math.max(0, Math.round((now - n.ctime) / DAY)), m: Math.max(0, Math.round((now - n.mtime) / DAY)), d: anchor.get(n.path), g };
+  });
+  const seen = new Set<string>(), edges: [number, number][] = [];
+  const deg = (i: number) => nodes[i].n + nodes[i].o;
+  const cand: [number, number][] = [];
+  for (const n of picked) for (const t of n.out) { const a = idx.get(n.path)!, b = idx.get(t); if (b === undefined || a === b) continue; const k = a < b ? a + ":" + b : b + ":" + a; if (!seen.has(k)) { seen.add(k); cand.push([a, b]); } }
+  cand.sort((x, y) => deg(y[0]) + deg(y[1]) - deg(x[0]) - deg(x[1]));
+  edges.push(...cand.slice(0, 1600));
+  const sediment: Partial<Record<NoteKind, number>> = {};
+  for (const n of notes) if (!idx.has(n.path)) { const k = noteKind(n.path, false); sediment[k] = (sediment[k] || 0) + 1; }
+  const orphans = notes.filter(n => !inb.get(n.path) && !outN(n)).length;
+  return { nodes, edges, total: notes.length, links, orphans, sediment, editedToday: notes.filter(n => now - n.mtime < DAY).length };
+}
+
+/** Public projection: the shape only. Titles and paths go, except notes already published to the garden; notes under
+ *  projects that aren't public move under "Private" (or nowhere). */
+export function publicUnderground(u: Underground, publicDistricts: string[]): Underground {
+  const pub = new Set(publicDistricts);
+  return { ...u, nodes: u.nodes.map(n => ({ k: n.g ? "garden" : n.k, n: n.n, o: n.o, a: n.a, m: n.m, d: n.d ? (pub.has(n.d) ? n.d : pub.has("Private") ? "Private" : undefined) : undefined, ...(n.g ? { t: n.t, g: n.g } : {}) })) };
+}
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const num = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
@@ -58,7 +116,8 @@ export function publicCity(c: CityData, publicProjects: string[]): CityData {
   }
   if (hidden.length) districts.push({ name: "Private", notes: 0, repos: hidden.sort((a, b) => b.commits - a.commits) });
   const all = c.districts.flatMap(d => d.repos);
-  return { generated: c.generated, districts, private: false, totals: { commits: all.reduce((s, r) => s + r.commits, 0), active: all.filter(r => r.week > 0).length } };
+  return { generated: c.generated, districts, private: false, totals: { commits: all.reduce((s, r) => s + r.commits, 0), active: all.filter(r => r.week > 0).length },
+    under: c.under ? publicUnderground(c.under, districts.map(d => d.name)) : undefined };
 }
 
 export interface CitySite { name: string; handle?: string; theme?: "dark" | "light"; icon?: string; nav?: (depth: number, current: string) => string; openBase?: string }
@@ -82,7 +141,7 @@ ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" hre
 <p class="c-lede">Every project is a district and every GitHub repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some(r => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}</p>
 <div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>commits this year</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${notes.toLocaleString("en-US")}</b><span>notes in town</span></div></div>
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
-<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Day</button><button id="t-reset">Reset</button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
+<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Day</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-reset">Reset</button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
 <div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some(r => r.locked) ? '<span><i style="background:#5C6B86"></i>&#128274; Private</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -105,6 +164,9 @@ const CITY_CSS = `
 .c-tools{position:absolute;top:10px;right:10px;display:flex;gap:6px}
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
+.c-under{position:absolute;left:10px;bottom:10px;width:min(300px,calc(100% - 20px));background:rgba(2,6,12,.86);border:1px solid rgba(181,140,255,.45);border-radius:10px;padding:8px 10px;color:#E3DAFF;font:12px/1.45 var(--font-mono,'IBM Plex Mono',monospace)}
+.c-under b{color:#fff}.c-under .lg{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:4px;color:#A99BD0}.c-under .lg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
+.c-stage.c-dig .c-hint{display:none}
 .c-stage.c-full{position:fixed;inset:0;z-index:9999;height:100%;min-height:0;border-radius:0;border:0}
 .c-stage:fullscreen{height:100%;border-radius:0;border:0}
 .c-hint{position:absolute;left:10px;bottom:10px;font:12px var(--font-sans,sans-serif);color:rgba(232,232,238,.75);background:rgba(14,19,32,.6);padding:4px 8px;border-radius:6px;pointer-events:none}
@@ -169,7 +231,9 @@ var dpr=1,vw=0,vh=0,cam={x:0,y:0,z:1};
 function iso(i,j){return {x:(i-j)*TW/2,y:(i+j)*TH/2}}
 function fit(){var r=st.getBoundingClientRect();dpr=window.devicePixelRatio||1;vw=r.width;vh=r.height;cv.width=vw*dpr;cv.height=vh*dpr;
   var spanX=(W+H)*TW/2+TW,spanY=(W+H)*TH/2+maxH+40;cam.z=Math.min(1.6,Math.max(.3,Math.min(vw/spanX,vh/spanY)*.98));
-  var c=iso(W/2,H/2);cam.x=vw/2-c.x*cam.z;cam.y=vh/2-c.y*cam.z+(maxH/2)*cam.z;dirty=true}
+  var c=iso(W/2,H/2);cam.x=vw/2-c.x*cam.z;cam.y=vh/2-c.y*cam.z+(maxH/2)*cam.z;
+  if(under){var y0=iso(0,0).y-maxH*.6,y1=iso(W,H).y+DROP+DSPAN+20;cam.z=Math.min(1.4,Math.max(.25,Math.min(vw/spanX,vh/(y1-y0))*.96));cam.x=vw/2-c.x*cam.z;cam.y=vh/2-((y0+y1)/2)*cam.z}
+  dirty=true;UDIRTY=true}
 // ---- cars wander the roads
 var roads=[];for(var k in tiles)if(tiles[k].t==='r'){var p=k.split(',');roads.push([+p[0],+p[1]])}
 var traffic=D.districts.reduce(function(s,d){return s+d.repos.reduce(function(a,r){return a+r.week},0)},0);
@@ -218,6 +282,68 @@ function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var park
     c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(g.x,g.y-6);c.lineTo(g.x+5,g.y);c.lineTo(g.x,g.y+3.5);c.lineTo(g.x-5,g.y);c.closePath();c.fill();c.restore();
     g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;
     if(labels&&a.label&&!sp.hq&&(cam.z>.55||ids.length<=8))tronPill(c,g.x,g.y-15,a.label,col,'600 9px ui-monospace,monospace')})}
+// ---- the Underground: the vault under the city. Notes = nodes (size = notes linking in), links = tunnels,
+// depth = age, notes about a project sit under its district with roots up into it. Toggle with the Underground button.
+var U=D.under||null,under=false,UL=document.createElement('canvas'),uc=UL.getContext('2d'),UP=[],upulse=[],UDIRTY=true;
+var UK={concept:'#3DF2FF',entity:'#B58CFF',source:'#4F7BFF',day:'#FF9E3D',garden:'#4FF2A0',note:'#9FB4FF'},UKN={concept:'Concepts',entity:'People & companies',source:'Sources',day:'Daily notes',garden:'Garden (public)',note:'Notes'};
+var DROP=0,DSPAN=0;
+if(U){DROP=Math.max(140,maxH*.7+70);DSPAN=Math.max(160,(W+H)*TH/2*.45);
+  var KA={concept:[.5,.5],entity:[.25,.75],source:[.8,.8],note:[.75,.25],garden:[.5,.18]};
+  U.nodes.forEach(function(n,ix){var h1=rnd(hash((n.p||'')+ix)+1),h2=rnd(hash((n.p||'')+ix)+7),b=n.d&&byName[n.d],i,j;
+    if(b){i=b.x-.3+h1*(b.k+.6);j=b.y-.3+h2*(b.k+.6)}
+    else if(n.k==='day'){var t=1-Math.min(1,n.a/365);i=1+t*(W-2)+(h1-.5)*1.5;j=1+t*(H-2)+(h2-.5)*1.5}
+    else{var ka=KA[n.k]||KA.note,ang=h1*6.283,rad=Math.sqrt(h2)*Math.min(W,H)*.2;i=ka[0]*W+Math.cos(ang)*rad;j=ka[1]*H+Math.sin(ang)*rad}
+    var age=Math.min(1,Math.log(1+n.a)/Math.log(731)),q=iso(i,j);UP[ix]={x:q.x,y:q.y+DROP+age*DSPAN,r:Math.min(12,1.6+Math.sqrt(n.n)*.9),c:UK[n.k]||UK.note}});
+  U.adj=U.nodes.map(function(){return []});U.edges.forEach(function(e){if(U.adj[e[0]]&&U.adj[e[1]]){U.adj[e[0]].push(e[1]);U.adj[e[1]].push(e[0])}});
+  U.byPath={};U.nodes.forEach(function(n,ix){if(n.p)U.byPath[n.p]=ix})}
+function ustrata(c){var lv=[[7,'this week'],[30,'this month'],[365,'this year'],[2000,'older']];
+  lv.forEach(function(l){var age=Math.min(1,Math.log(1+l[0])/Math.log(731)),dy=DROP+age*DSPAN,a=iso(0,0),b=iso(W,0),d=iso(W,H),e2=iso(0,H);
+    c.strokeStyle='rgba(181,140,255,.13)';c.lineWidth=1;c.setLineDash([3,6]);c.beginPath();c.moveTo(a.x,a.y+dy);c.lineTo(b.x,b.y+dy);c.lineTo(d.x,d.y+dy);c.lineTo(e2.x,e2.y+dy);c.closePath();c.stroke();c.setLineDash([]);
+    c.font='600 9px ui-monospace,monospace';c.fillStyle='rgba(181,140,255,.55)';c.textAlign='right';c.fillText(l[1].toUpperCase(),e2.x-8,e2.y+dy+3);c.textAlign='left'})}
+function drawUnder(){var c=uc;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,UL.width,UL.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
+  ustrata(c);
+  // sediment: the notes not drawn one by one
+  var sed=0;for(var sk in U.sediment)sed+=U.sediment[sk];var ns=Math.min(500,Math.round(sed/3)),kinds=Object.keys(U.sediment),acc=0,cum=kinds.map(function(k){acc+=U.sediment[k];return acc});
+  for(var z=0;z<ns;z++){var r1=rnd(z*3+1),r2=rnd(z*7+2),r3=rnd(z*11+3),q=iso(r1*W,r2*H),kk=kinds[cum.findIndex(function(v){return v>=r3*acc})]||'note';c.fillStyle=UK[kk]||UK.note;c.globalAlpha=.16;c.fillRect(q.x,q.y+DROP+DSPAN*(.55+r3*.45),1.4,1.4)}
+  c.globalAlpha=1;c.globalCompositeOperation='lighter';
+  // roots: each district's notes hang from the middle of its block
+  blocks.forEach(function(b){var top=iso(b.x+b.k/2-.5,b.y+b.k/2-.5),kids=[];U.nodes.forEach(function(n,ix){if(n.d===b.d.name)kids.push(ix)});if(!kids.length)return;
+    kids.sort(function(a,b2){return U.nodes[b2].n-U.nodes[a].n}).slice(0,14).forEach(function(ix){var p=UP[ix],g=c.createLinearGradient(0,top.y,0,p.y);g.addColorStop(0,'rgba(255,255,255,.5)');g.addColorStop(1,'rgba(181,140,255,.05)');
+      c.strokeStyle=g;c.lineWidth=1.1;c.beginPath();c.moveTo(top.x,top.y);c.bezierCurveTo(top.x,top.y+(p.y-top.y)*.5,p.x,p.y-(p.y-top.y)*.4,p.x,p.y);c.stroke()});
+    c.fillStyle='rgba(255,255,255,.8)';c.beginPath();c.ellipse(top.x,top.y,6,3,0,0,7);c.fill()});
+  // tunnels
+  c.lineWidth=.8;U.edges.forEach(function(e){var a=UP[e[0]],b=UP[e[1]];if(!a||!b)return;var hi=usel!=null&&(e[0]===usel||e[1]===usel);
+    c.strokeStyle=hi?'#FFFFFF':a.c;c.globalAlpha=hi?.85:.14;c.lineWidth=hi?1.4:.8;c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo((a.x+b.x)/2,(a.y+b.y)/2+14,b.x,b.y);c.stroke()});
+  c.globalAlpha=1;
+  U.nodes.forEach(function(n,ix){var p=UP[ix];if(p.r>3.5){var g=c.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*2.6);g.addColorStop(0,p.c);g.addColorStop(1,'rgba(0,0,0,0)');c.globalAlpha=.55;c.fillStyle=g;c.beginPath();c.arc(p.x,p.y,p.r*2.6,0,7);c.fill()}
+    c.globalAlpha=1;c.fillStyle=p.c;c.beginPath();c.arc(p.x,p.y,p.r*.55,0,7);c.fill();if(ix===usel){c.strokeStyle='#fff';c.lineWidth=1.5;c.beginPath();c.arc(p.x,p.y,p.r+3,0,7);c.stroke()}});
+  c.globalCompositeOperation='source-over';
+  if(labels){var top=U.nodes.map(function(n,ix){return ix}).filter(function(ix){return U.nodes[ix].t}).sort(function(a,b){return U.nodes[b].n-U.nodes[a].n}).slice(0,cam.z>1.1?40:16);
+    var placed=[];c.font='600 9px ui-monospace,monospace';
+    top.forEach(function(ix){var n=U.nodes[ix],p=UP[ix],tx=n.t.length>22?n.t.slice(0,21)+'\u2026':n.t,w=c.measureText(tx).width+16,y=p.y-p.r-6,bx=[p.x-w/2,y-18,p.x+w/2,y+2];
+      if(placed.some(function(q){return bx[0]<q[2]&&bx[2]>q[0]&&bx[1]<q[3]&&bx[3]>q[1]}))return;placed.push(bx);tronPill(c,p.x,y,tx,UK[n.k]||UK.note,'600 9px ui-monospace,monospace')})}}
+var usel=null;
+function upulseFrom(ix){if(ix==null||!UP[ix])return;var tn=performance.now();upulse.push({ring:ix,born:tn});(U.adj[ix]||[]).slice(0,10).forEach(function(j,k){upulse.push({a:ix,b:j,born:tn+k*90})})}
+function drawUnderLive(c,tn){c.save();c.globalCompositeOperation='lighter';
+  U.nodes.forEach(function(n,ix){if(n.m>1)return;var p=UP[ix],pr=((tn/1600)+ix*.13)%1;c.strokeStyle=p.c;c.globalAlpha=(1-pr)*.7;c.lineWidth=1.2;c.beginPath();c.arc(p.x,p.y,p.r+2+pr*10,0,7);c.stroke()});
+  upulse=upulse.filter(function(u){return tn-u.born<1800});upulse.forEach(function(u){var t=(tn-u.born)/1400;if(t<0)return;
+    if(u.ring!=null){var p=UP[u.ring];c.strokeStyle='#FFFFFF';c.globalAlpha=Math.max(0,1-t);c.lineWidth=2;c.beginPath();c.arc(p.x,p.y,p.r+4+t*26,0,7);c.stroke();return}
+    var a=UP[u.a],b=UP[u.b];if(t>1)return;var mx=(a.x+b.x)/2,my=(a.y+b.y)/2+14,x=(1-t)*(1-t)*a.x+2*(1-t)*t*mx+t*t*b.x,y=(1-t)*(1-t)*a.y+2*(1-t)*t*my+t*t*b.y;
+    c.globalAlpha=1;c.fillStyle='#FFFFFF';c.beginPath();c.arc(x,y,2,0,7);c.fill()});c.restore()}
+var underEl=null;function underPanel(){if(!underEl){underEl=document.createElement('div');underEl.className='c-under';st.appendChild(underEl)}underEl.hidden=!under;if(!under)return;
+  var ks=['concept','entity','source','day','garden','note'].filter(function(k){return U.nodes.some(function(n){return n.k===k})});
+  underEl.innerHTML='<b>THE UNDERGROUND</b><br>'+U.total.toLocaleString('en-US')+' notes &middot; '+U.links.toLocaleString('en-US')+' links &middot; '+U.orphans+' unconnected'+(U.editedToday?' &middot; '+U.editedToday+' edited today':'')
+    +'<div class="lg">'+ks.map(function(k){return '<span><i style="background:'+UK[k]+'"></i>'+UKN[k]+'</span>'}).join('')+'</div><div style="margin-top:4px;color:#A99BD0">Bigger = more notes link to it. Deeper = older. Roots go up to the project the notes are about.</div>'}
+function noteCard(ix){var n=U.nodes[ix];usel=ix;UDIRTY=true;var open='';
+  if(n.p)open=D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(n.p))+'" target="_blank" rel="noopener">Open in Obsidian &#8599;</a>':'<a href="#" data-open="'+e(n.p)+'">Open note</a>';
+  else if(n.g)open='<a href="n/'+e(n.g)+'.html">Read it in the garden &#8599;</a>';
+  var ago=function(d){return d<=0?'today':d===1?'yesterday':d<60?d+' days ago':Math.round(d/30)+' months ago'};
+  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+(n.t?e(n.t):'A note')+'</h3><div class="k" style="color:'+(UK[n.k]||UK.note)+'">'+e(UKN[n.k]||'Note')+(n.d?' &middot; under '+e(n.d):'')+'</div>'
+    +'<div class="row"><span>Notes linking here</span><b>'+n.n+'</b></div><div class="row"><span>Links out</span><b>'+n.o+'</b></div>'
+    +'<div class="row"><span>Created</span><b>'+ago(n.a)+'</b></div><div class="row"><span>Last edited</span><b>'+ago(n.m)+'</b></div>'
+    +(n.t?'':'<p style="margin:6px 0 0">What this note says is private.</p>')+(open?'<p style="margin:8px 0 0">'+open+'</p>':'');
+  card.hidden=false;card.querySelector('.x').onclick=function(){usel=null;UDIRTY=true;card.hidden=true};upulseFrom(ix)}
+window.addEventListener('message',function(ev){var m=ev.data;if(ev.source===parent&&m&&m.caldera==='note'&&U&&typeof m.p==='string'){var ix=U.byPath[m.p];if(ix!=null){U.nodes[ix].m=0;upulseFrom(ix)}}});
 // one car per person on the site right now (private: exact count from the last 5 minutes; public: a coarse level)
 function reconcile(){var tn=performance.now(),total=0;blocks.forEach(function(b){var x=LV.d[b.d.name],want=!x?0:LV.mode==='private'?Math.min(30,+x.now||0):([0,2,4,7,11][+x.level||0]||0);
   if(total+want>120)want=Math.max(0,120-total);total+=want;
@@ -459,10 +585,15 @@ function drawLive(){var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dp
   if(sky==='grid'){c.globalCompositeOperation='lighter';beacons.forEach(function(b){var pr=(T%2400)/2400,g=c.createRadialGradient(b.x,b.y,0,b.x,b.y,30*pr+4);g.addColorStop(0,'rgba(255,255,255,.0)');g.addColorStop(.8,'rgba(61,242,255,'+(.5*(1-pr))+')');g.addColorStop(1,'rgba(61,242,255,0)');c.fillStyle=g;c.beginPath();c.ellipse(b.x,b.y,30*pr+4,(30*pr+4)*.5,0,0,7);c.fill()});c.globalCompositeOperation='source-over';return}
   beacons.forEach(function(b){if(Math.floor(T/900)%2){c.fillStyle='#FF3B30';c.beginPath();c.arc(b.x,b.y,2,0,7);c.fill();if(sky!=='day'){c.globalCompositeOperation='lighter';var g=c.createRadialGradient(b.x,b.y,0,b.x,b.y,10);g.addColorStop(0,'rgba(255,60,48,.6)');g.addColorStop(1,'rgba(255,60,48,0)');c.fillStyle=g;c.beginPath();c.arc(b.x,b.y,10,0,7);c.fill();c.globalCompositeOperation='source-over'}}})}
 function frame(){T=performance.now();if(L1.width!==cv.width||L1.height!==cv.height){L1.width=L2.width=cv.width;L1.height=L2.height=cv.height;dirty=true}
+  if(under){if(UL.width!==cv.width||UL.height!==cv.height){UL.width=cv.width;UL.height=cv.height;UDIRTY=true}
+    if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false;UDIRTY=true}if(UDIRTY){drawUnder();UDIRTY=false}
+    cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#03020A';cx.fillRect(0,0,cv.width,cv.height);
+    cx.globalAlpha=.32;cx.drawImage(L1,0,0);cx.globalAlpha=.22;cx.drawImage(L2,0,0);cx.globalAlpha=1;cx.drawImage(UL,0,0);
+    cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false}
   drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawCars();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawLive();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh)}
-function draw(){dirty=true;if(reduce)frame()}
+function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
 var last=0;function tick(ts){if(!document.hidden&&ts-last>30){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
   if(LV.on){var tg=performance.now();cars=cars.filter(function(c){return !c.gone||tg-c.gone<1500})}
   if(vis.length){var tn=performance.now();vis=vis.filter(function(v){return tn-v.born<v.life});vis.forEach(function(v){v.t+=v.sp;if(v.t>=1)step(v);var p=carPos(v);(v.trail=v.trail||[]).push([p.x,p.y-1]);if(v.trail.length>26)v.trail.shift()})}frame()}requestAnimationFrame(tick)}
@@ -476,7 +607,7 @@ function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={workin
      +'<div class="row"><span>Where</span><b>'+(a.repo?e(a.repo)+' &middot; ':'')+where+'</b></div>'+(a.tokens?'<div class="row"><span>Tokens today</span><b>'+(+a.tokens).toLocaleString('en-US')+'</b></div>':'')
     :'<h3>AI agent</h3><p style="margin:6px 0 0">An agent is '+st+(a.d?' in the '+where:'')+'. What it is working on is private.</p>');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
-function show(h){if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
+function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
   if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private repo</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">The details of this building are private. Its size and lights show roughly how much work goes on inside.</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':'')+'</div>'
@@ -487,7 +618,8 @@ function show(h){if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){c
    +'<div class="row"><span>Notes about '+e(d.name)+'</span><b>'+d.notes+'</b></div>'+(notes?'<div class="k" style="margin-top:6px">'+notes+'</div>':'')
    +(r.url?'<p style="margin:8px 0 0"><a href="'+e(r.url)+'" target="_blank" rel="noopener">Open on GitHub &#8599;</a></p>':'');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
-function at(px,py){for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
+function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=null,bd=1e9;UP.forEach(function(p,ix){var d=Math.hypot(p.x-wx0,p.y-wy0);if(d<Math.max(p.r+3,7/cam.z)&&d<bd){bd=d;best=ix}});return best==null?null:{note:best}}
+  for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
 var ptr={},moved=false,pinch=0;
 cv.addEventListener('pointerdown',function(ev){cv.setPointerCapture(ev.pointerId);ptr[ev.pointerId]={x:ev.clientX,y:ev.clientY};moved=false;cv.classList.add('drag');var ks=Object.keys(ptr);if(ks.length===2){var a=ptr[ks[0]],b=ptr[ks[1]];pinch=Math.hypot(a.x-b.x,a.y-b.y)}});
 cv.addEventListener('pointermove',function(ev){var p=ptr[ev.pointerId];if(!p)return;var ks=Object.keys(ptr);
@@ -502,6 +634,9 @@ var bl=document.getElementById('t-labels'),bs=document.getElementById('t-sky');
 bl.onclick=function(){labels=!labels;bl.setAttribute('aria-pressed',String(labels));draw()};
 var SKIES=['grid','day','dusk','night'],NAMES={grid:'Grid',day:'Day',dusk:'Dusk',night:'Night'};function skyLabel(){bs.textContent=NAMES[SKIES[(SKIES.indexOf(sky)+1)%4]]}skyLabel();bs.onclick=function(){sky=SKIES[(SKIES.indexOf(sky)+1)%4];P=PAL[sky];night=sky==='night'||sky==='grid';skyLabel();cars.forEach(function(c){c.trail=[]});draw()};
 document.getElementById('t-reset').onclick=function(){fit();show(null)};
+var bu=document.getElementById('t-under');if(bu)bu.onclick=function(){under=!under;bu.setAttribute('aria-pressed',String(under));bu.innerHTML=under?'&#x2B06;<span class="t-txt"> City</span>':'&#x2B07;<span class="t-txt"> Underground</span>';
+  st.classList.toggle('c-dig',under);if(liveEl)liveEl.hidden=under;usel=null;card.hidden=true;underPanel();fit();draw()};
+if(U&&/[#&]underground\b/.test(location.hash))setTimeout(function(){bu&&bu.onclick()},50);
 // full screen: the real Fullscreen API where the page is allowed it, otherwise the stage fills the window (Esc exits)
 var bf=document.getElementById('t-full');function fsLabel(){var on=!!document.fullscreenElement||st.classList.contains('c-full');bf.innerHTML=on?'&#x2715;<span class="t-txt"> Exit</span>':'&#x26F6;<span class="t-txt"> Full screen</span>';bf.setAttribute('aria-label',on?'Exit full screen':'Full screen')}
 function cssFull(on){st.classList.toggle('c-full',on);document.body.style.overflow=on?'hidden':'';setTimeout(function(){fit();draw()},30);fsLabel()}

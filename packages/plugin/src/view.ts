@@ -65,6 +65,12 @@ export class ProfileView extends ItemView {
     this.timer = window.setInterval(() => { if (this.mode === "mine" && this.contentEl.isShown()) void this.refresh(false); }, 10 * 60_000);
     this.liveTimer = window.setInterval(() => void this.pushLive(), 10_000);
     this.frame.addEventListener("load", () => window.setTimeout(() => void this.pushLive(), 400));
+    // the Underground: a note you edit lights up and pulses through its links
+    let lastPulse = 0;
+    this.registerEvent(this.app.vault.on("modify", f => {
+      if (this.mode !== "mine" || !this.current.startsWith("city.html") || Date.now() - lastPulse < 1500) return;
+      lastPulse = Date.now(); this.frame.contentWindow?.postMessage({ caldera: "note", p: f.path }, "*");
+    }));
   }
 
   async onClose() { if (this.timer) window.clearInterval(this.timer); if (this.liveTimer) window.clearInterval(this.liveTimer); }

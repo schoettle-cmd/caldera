@@ -16,7 +16,7 @@ import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
 import { aiUsage, githubCode, vaultKinds } from "./auto";
-import { cityData, parseCityRepos, publicCity, type CityData } from "./city";
+import { cityData, parseCityRepos, publicCity, underground, type CityData } from "./city";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
 
 const DAY = 86_400_000;
@@ -227,6 +227,22 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
             return { n: src.length, paths: [target, ...src.slice(0, 5).map(f => f.path)] };
           };
           cityPrivate = cityData(repos, notes, typeof raw.generated === "string" ? raw.generated : undefined);
+          // the Underground: the vault itself, under the city
+          // a note's real age: the earliest date it carries (created / date / notion_edited / ingested, or a date in its
+          // name), else the file's own; imported and synced files often have fresh file dates
+          const bornAt = (f: TFile) => {
+            const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
+            const ts = [fm.created, fm.date, fm.notion_created, fm.notion_edited, fm.ingested, f.basename.match(/\b(20\d\d-\d\d-\d\d)\b/)?.[1]]
+              .map(v => typeof v === "string" || typeof v === "number" ? Date.parse(String(v)) : NaN).filter(t => t > 946684800000 && t < Date.now() + 864e5);
+            return Math.min(f.stat.ctime, f.stat.mtime, ...ts);
+          };
+          const hubs: Record<string, string> = {};
+          for (const d of cityPrivate.districts) { const h = byName.get(d.name.toLowerCase()); if (h) hubs[d.name] = h; }
+          const gslug = new Map(garden.map(g => [g.title.toLowerCase(), g.slug] as const));
+          const vault = md.filter(f => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path))
+            .map(f => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
+          const priv = new Set(md.filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map(f => f.path));
+          cityPrivate.under = underground(vault.filter(v => !priv.has(v.path)), hubs, t => gslug.get(t.toLowerCase()));
           const pub = publicCity(cityPrivate, (s.projects || []).map(p => p[0]));
           if (pub.districts.length) data.city = pub;
         }
