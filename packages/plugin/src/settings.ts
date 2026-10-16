@@ -16,7 +16,8 @@ export interface CalderaSettings {
   openProfileOnStartup?: boolean;
   privateWeb?: boolean; privateUrl?: string;   // private web address (Tailscale) for the owner layer
   pendingRequests?: { request: string; from: string; handle?: string; note?: string; ts: string }[];   // friend requests survive a restart
-  traffic?: { key: string; project: string; public: number | boolean; secret?: string }[];   // live traffic: one site key per city district
+  traffic?: { key: string; project: string; public: number | boolean; secret?: string }[];
+  agentKey?: { key: string; secret: string };   // AI agents report what they're working on (drones in the city)   // live traffic: one site key per city district
   asks: { id: string; title: string; bounty: number }[];
   offers: { id: string; title: string }[];
   autoPublishHours: number;           // 0 = manual only
@@ -128,6 +129,14 @@ export class CalderaSettingTab extends PluginSettingTab {
           await navigator.clipboard.writeText(site.secret); new Notice("Server key copied. Keep it secret: it lets a server send events for this site."); }));
     }
 
+    new Setting(containerEl).setName("AI agents on your city").setHeading();
+    new Setting(containerEl).setName("Show your AI agents working in your city")
+      .setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (My view and your private address); your public city only shows anonymous drones."
+        : "Publish once (with a city) to get your agent key.")
+      .addButton(b => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
+        await navigator.clipboard.writeText(agentSetupPrompt(hub, s.agentKey!)); new Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
+      }));
+
     new Setting(containerEl).setName("Publishing").setHeading();
     new Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually")
       .addText(t => t.setValue(String(s.autoPublishHours)).onChange(async v => { s.autoPublishHours = Math.max(0, Number(v) || 0); await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish(); }));
@@ -147,4 +156,16 @@ export class CalderaSettingTab extends PluginSettingTab {
       });
     });
   }
+}
+
+/** A prompt the owner pastes into Claude Code: installs the Caldera agent hook (one small script, no dependencies). */
+export function agentSetupPrompt(hub: string, k: { key: string; secret: string }): string {
+  return `Set up the Caldera agent hook on this computer, so my Caldera city shows what my AI agents are working on.
+
+1. Download ${hub}/agent-hook.mjs to ~/.caldera/agent-hook.mjs (create the folder). Read it first: it reads the hook event from stdin, works out the repo (git remote name) and a short task title, and posts only that to my Caldera hub, with a 1.5 second timeout. It never blocks or changes anything.
+2. Write ~/.caldera/agent.json (chmod 600): {"hub": "${hub}", "key": "${k.key}", "secret": "${k.secret}", "machine": "<a short name for this computer>"}
+3. In ~/.claude/settings.json, add hooks (keep any existing ones) that run \`node ~/.caldera/agent-hook.mjs\` for UserPromptSubmit, PostToolUse, Stop, Notification and SessionEnd.
+4. Test it: echo '{"hook_event_name":"UserPromptSubmit","session_id":"caldera-test-1","cwd":"'$PWD'","prompt":"Testing the Caldera agent hook"}' | node ~/.caldera/agent-hook.mjs and confirm it exits quietly, then send SessionEnd for the same session to clear the test drone.
+
+Keep the key and secret out of any repo.`;
 }

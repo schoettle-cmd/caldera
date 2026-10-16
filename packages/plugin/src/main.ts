@@ -309,15 +309,18 @@ export default class CalderaPlugin extends Plugin {
   }
 
   /** Live traffic: one site key per city district, registered with the hub (which hands back each site's server key). */
-  async syncSites(city: { districts: { name: string }[] } | undefined, publicNames: string[]) {
+  async syncSites(city: { districts: { name: string; repos?: { name: string }[] }[] } | undefined, publicNames: string[]) {
     if (!city?.districts.length || !this.settings.identity) return;
     try {
       const have = new Map((this.settings.traffic || []).map(t => [t.project, t.key]));
       const rnd = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("") + Date.now().toString(36).slice(-4);
       const sites = city.districts.filter(d => d.name && d.name !== "Private").map(d => ({ key: have.get(d.name) || rnd(), project: d.name, public: publicNames.includes(d.name) }));
       const me = await this.ensureIdentity();
-      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/sites`, { sites }, true);
-      if (Array.isArray(r.sites)) { this.settings.traffic = r.sites; await this.saveSettings(); }
+      // repo -> district, hashed: the hub places agent drones without ever holding private repo names
+      const repos: Record<string, string> = {};
+      for (const d of city.districts) for (const rp of d.repos || []) if (rp.name) repos[await sha16(rp.name.toLowerCase())] = d.name;
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/sites`, { sites, repos }, true);
+      if (Array.isArray(r.sites)) { this.settings.traffic = r.sites; if (r.agent?.key) this.settings.agentKey = r.agent; await this.saveSettings(); }
     } catch (e: any) { console.warn("Caldera live-traffic sites:", e.message); }
   }
   async ownerLive() {
@@ -645,4 +648,9 @@ class GardenPreviewModal extends Modal {
       for (const fl of r.flags) box.createDiv({ text: `[${fl.why}] ${fl.line}` });
     }
   }
+}
+
+async function sha16(t: string): Promise<string> {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  return Array.from(new Uint8Array(h), b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
 }
