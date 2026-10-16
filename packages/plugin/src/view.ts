@@ -63,9 +63,18 @@ export class ProfileView extends ItemView {
     this.markLooked(true);
     await this.refresh(false);
     this.timer = window.setInterval(() => { if (this.mode === "mine" && this.contentEl.isShown()) void this.refresh(false); }, 10 * 60_000);
+    this.liveTimer = window.setInterval(() => void this.pushLive(), 10_000);
+    this.frame.addEventListener("load", () => window.setTimeout(() => void this.pushLive(), 400));
   }
 
-  async onClose() { if (this.timer) window.clearInterval(this.timer); }
+  async onClose() { if (this.timer) window.clearInterval(this.timer); if (this.liveTimer) window.clearInterval(this.liveTimer); }
+
+  /** Live traffic for the city in My view: polled from the hub (signed in) and posted into the sandboxed page. */
+  private liveTimer: number | null = null;
+  private async pushLive() {
+    if (this.mode !== "mine" || !this.current.startsWith("city.html") || !this.plugin.settings.traffic?.length || !this.contentEl.isShown()) return;
+    try { const data = await this.plugin.ownerLive(); this.frame.contentWindow?.postMessage({ caldera: "live", data }, "*"); } catch { /* offline: the city just stays quiet */ }
+  }
 
   /** "Since you last looked" moves forward when you come back after 30+ minutes away, not on every refresh. */
   private markLooked(first: boolean) {

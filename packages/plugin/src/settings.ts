@@ -16,6 +16,7 @@ export interface CalderaSettings {
   openProfileOnStartup?: boolean;
   privateWeb?: boolean; privateUrl?: string;   // private web address (Tailscale) for the owner layer
   pendingRequests?: { request: string; from: string; handle?: string; note?: string; ts: string }[];   // friend requests survive a restart
+  traffic?: { key: string; project: string; public: number | boolean; secret?: string }[];   // live traffic: one site key per city district
   asks: { id: string; title: string; bounty: number }[];
   offers: { id: string; title: string }[];
   autoPublishHours: number;           // 0 = manual only
@@ -112,6 +113,20 @@ export class CalderaSettingTab extends PluginSettingTab {
         if (v && !(await this.plugin.pushPrivate(true))) { s.privateWeb = false; await this.plugin.saveSettings(); this.plugin.schedulePrivatePush(); }
         this.display();
       }));
+
+    new Setting(containerEl).setName("Live traffic on your city").setHeading();
+    const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
+    new Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length
+      ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in My view and your private address."
+      : "Each city district gets a tracking snippet after your next publish (you need a city: Caldera/city.json).");
+    for (const site of sites) {
+      const snippet = `<script async src="${hub}/t.js" data-site="${site.key}"></script>`;
+      new Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)"))
+        .addButton(b => b.setButtonText("Copy snippet").onClick(async () => { await navigator.clipboard.writeText(snippet); new Notice(`Snippet for ${site.project} copied`); }))
+        .addExtraButton(b => b.setIcon("key-round").setTooltip("Copy server key (for sending events from your own server: POST " + hub + "/v1/t/" + site.key + "/events)").onClick(async () => {
+          if (!site.secret) return void new Notice("Publish once to get the server key");
+          await navigator.clipboard.writeText(site.secret); new Notice("Server key copied. Keep it secret: it lets a server send events for this site."); }));
+    }
 
     new Setting(containerEl).setName("Publishing").setHeading();
     new Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually")

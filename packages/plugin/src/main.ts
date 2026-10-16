@@ -203,7 +203,7 @@ export default class CalderaPlugin extends Plugin {
     try {
       if (!this.settings.handle) throw new Error("Set a handle in Caldera settings first");
       const me = await this.ensureIdentity();
-      const { data, text, binaries, eff } = await this.build();
+      const { data, text, binaries, eff, cityPrivate } = await this.build();
       const manifest = C.sign(me, "profile.manifest", {
         name: data.name, handle: this.settings.handle, boxKey: me.boxPublic, headline: data.headline || "",
         photos: { avatar: data.avatar, banner: data.banner }, links: data.links,
@@ -219,6 +219,7 @@ export default class CalderaPlugin extends Plugin {
       await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files });
       this.settings.lastPublished = Date.now(); await this.saveSettings();
       if (this.settings.privateWeb) void this.pushPrivate(false);
+      void this.syncSites(cityPrivate, data.city?.districts.map(d => d.name) || []);
       const url = this.profileUrl();
       if (!quiet) new Notice(`Published: ${url}`);
       return url;
@@ -305,6 +306,23 @@ export default class CalderaPlugin extends Plugin {
     if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
     new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
       try { await this.requestFriend(h); } catch (e: any) { new Notice(e.message); } }, "Send request", "Add a friend").open();
+  }
+
+  /** Live traffic: one site key per city district, registered with the hub (which hands back each site's server key). */
+  async syncSites(city: { districts: { name: string }[] } | undefined, publicNames: string[]) {
+    if (!city?.districts.length || !this.settings.identity) return;
+    try {
+      const have = new Map((this.settings.traffic || []).map(t => [t.project, t.key]));
+      const rnd = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("") + Date.now().toString(36).slice(-4);
+      const sites = city.districts.filter(d => d.name && d.name !== "Private").map(d => ({ key: have.get(d.name) || rnd(), project: d.name, public: publicNames.includes(d.name) }));
+      const me = await this.ensureIdentity();
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/sites`, { sites }, true);
+      if (Array.isArray(r.sites)) { this.settings.traffic = r.sites; await this.saveSettings(); }
+    } catch (e: any) { console.warn("Caldera live-traffic sites:", e.message); }
+  }
+  async ownerLive() {
+    const me = await this.ensureIdentity();
+    return this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/live`, undefined, true);
   }
 
   /** Private activity for the My view tab: visits, gravity, friends, links in. Signed in with the vault's key. */
