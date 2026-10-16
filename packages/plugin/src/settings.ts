@@ -77,6 +77,11 @@ export class CalderaSettingTab extends PluginSettingTab {
         await navigator.clipboard.writeText(btoa(JSON.stringify(s.identity))); new Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
       }));
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", v => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+    let claim = "";
+    new Setting(containerEl).setName("Import a GitHub sign-up")
+      .setDesc("Started your Caldera profile with GitHub on the website? Get a code on your account page (caldera.social/me) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.")
+      .addText(t => t.setPlaceholder("CAL-...").onChange(v => { claim = v.trim(); }))
+      .addButton(b => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then(ok => { if (ok) this.display(); })));
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
     new Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.")
       .addToggle(t => t.setValue(s.listed !== false).onChange(async v => { s.listed = v; await this.plugin.saveSettings(); }));

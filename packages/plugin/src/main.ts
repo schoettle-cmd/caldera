@@ -85,6 +85,30 @@ export default class CalderaPlugin extends Plugin {
   onunload() { this.timers.forEach(t => window.clearInterval(t)); }
   async saveSettings() { await this.saveData(this.settings); }
 
+  /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
+  async importGithub(code: string): Promise<boolean> {
+    if (!/^CAL-[\w-]{6,}$/.test(code)) { new Notice("Paste the code from your account page (it starts with CAL-)."); return false; }
+    const go = async () => {
+      try {
+        const r = await this.api("POST", "/v1/github/claim", { code });
+        if (!r?.identity?.id || !r.handle) throw new Error("the hub didn't return the profile");
+        if (this.settings.identity && this.settings.identity.id !== r.identity.id) (this.settings as any).previousIdentity = this.settings.identity;   // kept, in case
+        this.settings.identity = r.identity; this.settings.handle = r.handle;
+        if (!this.settings.name && r.name) this.settings.name = r.name;
+        if (!this.settings.headline && r.headline) this.settings.headline = r.headline;
+        await this.saveSettings();
+        new Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
+        const url = await this.publish(true); if (url) new Notice("Published: " + url);
+        return true;
+      } catch (e: any) { new Notice("Couldn't import: " + e.message); return false; }
+    };
+    if (this.settings.identity && this.settings.handle) {
+      return new Promise<boolean>(res => new ConfirmModal(this.app, `This vault is already @${this.settings.handle}. Importing switches it to the GitHub profile (your current key is kept in settings as a backup, but @${this.settings.handle} stops updating). Continue?`,
+        async () => res(await go()), "Import", "Switch profiles?").open());
+    }
+    return go();
+  }
+
   async ensureIdentity(quiet = false): Promise<C.Identity> {
     if (!this.settings.identity) {
       this.settings.identity = C.newIdentity(); await this.saveSettings();

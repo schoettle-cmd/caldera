@@ -2719,6 +2719,12 @@ var CalderaSettingTab = class extends import_obsidian.PluginSettingTab {
       new import_obsidian.Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
     }));
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+    let claim = "";
+    new import_obsidian.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your account page (caldera.social/me) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
+      claim = v.trim();
+    })).addButton((b) => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then((ok) => {
+      if (ok) this.display();
+    })));
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
     new import_obsidian.Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.").addToggle((t) => t.setValue(s.listed !== false).onChange(async (v) => {
       s.listed = v;
@@ -4046,7 +4052,7 @@ function renderProfile(p) {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 ${p.icon ? `<link rel="icon" href="${esc3(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc3(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
 <link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
-<div class="tabs"><span class="tab is-active">${esc3(p.name)}.md</span>${(p.tabs || []).map((t) => `<span class="tab">${esc3(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc3(p.updated)}">just now</span></span></div>
+<div class="tabs"><span class="tab is-active">${esc3(p.name)}.md</span>${(p.tabs || []).map((t) => `<span class="tab">${esc3(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc3(p.source || "vault")} <span id="ago" data-ts="${esc3(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
   const gardenOn = s.garden !== false && !!p.garden?.length;
@@ -5513,6 +5519,42 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+  /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
+  async importGithub(code) {
+    if (!/^CAL-[\w-]{6,}$/.test(code)) {
+      new import_obsidian6.Notice("Paste the code from your account page (it starts with CAL-).");
+      return false;
+    }
+    const go = async () => {
+      try {
+        const r = await this.api("POST", "/v1/github/claim", { code });
+        if (!r?.identity?.id || !r.handle) throw new Error("the hub didn't return the profile");
+        if (this.settings.identity && this.settings.identity.id !== r.identity.id) this.settings.previousIdentity = this.settings.identity;
+        this.settings.identity = r.identity;
+        this.settings.handle = r.handle;
+        if (!this.settings.name && r.name) this.settings.name = r.name;
+        if (!this.settings.headline && r.headline) this.settings.headline = r.headline;
+        await this.saveSettings();
+        new import_obsidian6.Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
+        const url = await this.publish(true);
+        if (url) new import_obsidian6.Notice("Published: " + url);
+        return true;
+      } catch (e) {
+        new import_obsidian6.Notice("Couldn't import: " + e.message);
+        return false;
+      }
+    };
+    if (this.settings.identity && this.settings.handle) {
+      return new Promise((res) => new ConfirmModal(
+        this.app,
+        `This vault is already @${this.settings.handle}. Importing switches it to the GitHub profile (your current key is kept in settings as a backup, but @${this.settings.handle} stops updating). Continue?`,
+        async () => res(await go()),
+        "Import",
+        "Switch profiles?"
+      ).open());
+    }
+    return go();
   }
   async ensureIdentity(quiet = false) {
     if (!this.settings.identity) {

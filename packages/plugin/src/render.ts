@@ -42,6 +42,7 @@ export interface ProfileData {
   code?: { commits: number; repos: number; languages?: string[]; weekly?: number[]; url?: string; start?: string };
   extraNumbers?: [string, string][];                        // [value, label] appended to the number strip
   tabs?: string[];                                          // extra (decorative) tabs next to the page tab
+  source?: string;                                          // where the page comes from ("vault" by default; "GitHub" for GitHub sign-ups)
   garden?: GardenNote[];                                   // full public notes (Garden/ folder or caldera: garden)
   gardenExternal?: string;                                 // an existing garden elsewhere (Quartz, Obsidian Publish...)
   gardenImages?: Record<string, string>;                   // embed target -> bundle path
@@ -139,7 +140,7 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
 <link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
-<div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from vault <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
+<div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc(p.source || "vault")} <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
   const gardenOn = s.garden !== false && !!p.garden?.length;
