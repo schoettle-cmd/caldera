@@ -53,6 +53,7 @@ export class ProfileView extends ItemView {
     const btn = (icon: string, label: string, fn: () => unknown) => { const b = bar.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label } }); setIcon(b, icon); b.onclick = () => fn(); };
     btn("refresh-cw", "Refresh", () => this.refresh(true));
     btn("external-link", "Open in browser", () => this.plugin.settings.handle ? window.open(this.plugin.profileUrl() + (this.current === "index.html" ? "" : this.current)) : new Notice("Publish your profile first"));
+    if (this.plugin.settings.privateUrl) btn("lock", "Open my private web view (Tailscale)", async () => { await this.plugin.pushPrivate(false); window.open(this.plugin.settings.privateUrl!); });
     btn("upload-cloud", "Publish now", async () => { const u = await this.plugin.publish(); if (u && this.mode === "public") void this.show(); });
 
     this.frame = root.createEl("iframe", { cls: "caldera-pv-frame" });

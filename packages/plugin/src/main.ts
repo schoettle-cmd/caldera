@@ -11,7 +11,8 @@ import { renderProfile } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
 import type { GardenReport } from "./collect";
 import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-file";
-import { ProfileView, PROFILE_VIEW } from "./view";
+import { ProfileView, PROFILE_VIEW, collectOwner } from "./view";
+import { renderOwner } from "./owner";
 
 const VIEW = "caldera-panel";
 interface Friend { id: string; handle?: string; name?: string; box_key?: string; }
@@ -70,6 +71,7 @@ export default class CalderaPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => {
       if (this.settings.openProfileOnStartup) void this.openProfileTab();
+      this.schedulePrivatePush(); if (this.settings.privateWeb) window.setTimeout(() => { void this.pushPrivate(false); }, 30_000);
       if (this.settings.identity && this.settings.handle) void this.syncInbox(false);
       else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
       window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
@@ -216,6 +218,7 @@ export default class CalderaPlugin extends Plugin {
       for (const [p, b] of Object.entries(binaries)) files[p] = C.b64.enc(new Uint8Array(b));
       await this.api("POST", `/v1/profiles/${encodeURIComponent(me.id)}/bundle`, { manifest, files });
       this.settings.lastPublished = Date.now(); await this.saveSettings();
+      if (this.settings.privateWeb) void this.pushPrivate(false);
       const url = this.profileUrl();
       if (!quiet) new Notice(`Published: ${url}`);
       return url;
@@ -308,6 +311,33 @@ export default class CalderaPlugin extends Plugin {
   async ownerActivity(since: string) {
     const me = await this.ensureIdentity();
     return this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/activity?since=${encodeURIComponent(since)}`, undefined, true);
+  }
+
+  /** Private web address (Tailscale): push the owner layer, encrypted at rest on the hub, served only to the owner's tailnet login. */
+  async pushPrivate(loud = false): Promise<string | null> {
+    if (!this.settings.privateWeb || !this.settings.identity || !this.settings.handle) return null;
+    try {
+      const { data } = await this.build();
+      const vault = encodeURIComponent(this.app.vault.getName());
+      const html = renderOwner(await collectOwner(this.app, this, data, this.settings.ownerLastLooked))
+        // on the web, vault links open the note in Obsidian; in-app actions become plain text
+        .replace(/href="#"((?: [\w-]+="[^"]*")*?) data-open="([^"]*)"/g, (_m, attrs, p) => `${attrs.trim()} href="obsidian://open?vault=${vault}&amp;file=${encodeURIComponent(p.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">"))}" target="_blank" rel="noopener"`)
+        .replace(/<a href="#"[^>]*data-action="[^"]*"[^>]*>([\s\S]*?)<\/a>/g, "$1")
+        .replace("Built from your vault inside Obsidian. None of it is published.", "Pushed from your vault. Only your Tailscale account can see this page.");
+      const me = await this.ensureIdentity();
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/private`, { html, built: new Date().toISOString() }, true);
+      if (r.url && r.url !== this.settings.privateUrl) { this.settings.privateUrl = r.url; await this.saveSettings(); }
+      if (loud) new Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
+      return r.url;
+    } catch (e: any) {
+      if (loud) new Notice("Couldn't push the private view: " + e.message); else console.warn("Caldera private push failed:", e.message);
+      return null;
+    }
+  }
+
+  schedulePrivatePush() {
+    if ((this as any)._priv) window.clearInterval((this as any)._priv);
+    if (this.settings.privateWeb) (this as any)._priv = window.setInterval(() => { void this.pushPrivate(false); }, 10 * 60_000);
   }
 
   async openProfileTab() {

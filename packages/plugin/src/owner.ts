@@ -48,8 +48,10 @@ export function renderOwner(o: OwnerData): string {
       const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"]]
         .concat(o.pending ? [[o.pending, o.pending === 1 ? "friend request" : "friend requests"]] : []);
       body += `<div class="ow-tiles">${tiles.map(([n, l]) => `<div class="ow-tile${Number(n) ? " is-up" : ""}"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`;
-      const max = Math.max(1, ...a.days.map(d => d[1]));
-      if (a.days.length) body += `<div class="ow-spark" title="Page views, last 14 days">${a.days.map(d => `<i style="height:${Math.max(6, Math.round(d[1] / max * 100))}%" title="${esc(d[0])}: ${d[1]} views, ${d[2]} visitors"></i>`).join("")}</div><div class="ow-muted ow-small">Page views, last 14 days &middot; ${a.totalViews.toLocaleString("en-US")} all time</div>`;
+      const byDay = new Map(a.days.map(d => [d[0], d] as const)), t0 = Date.parse(o.now);
+      const days14 = Array.from({ length: 14 }, (_, i) => { const k = new Date(t0 - (13 - i) * 86_400_000).toISOString().slice(0, 10); return byDay.get(k) || [k, 0, 0] as [string, number, number]; });
+      const max = Math.max(1, ...days14.map(d => d[1]));
+      if (a.days.length) body += `<div class="ow-spark" title="Page views, last 14 days">${days14.map(d => `<i style="height:${d[1] ? Math.max(6, Math.round(d[1] / max * 100)) : 2}%;${d[1] ? "" : "opacity:.25"}" title="${esc(d[0])}: ${d[1]} views, ${d[2]} visitors"></i>`).join("")}</div><div class="ow-muted ow-small">Page views, last 14 days &middot; ${a.totalViews.toLocaleString("en-US")} all time</div>`;
       const lines: string[] = [];
       if (a.pages.length) lines.push(`<li>Most read: ${a.pages.slice(0, 4).map(([p, n]) => `${esc(pageName(p))} (${n})`).join(", ")}</li>`);
       for (const g of a.gravity.slice(0, 5)) lines.push(`<li><b>${g.from ? "@" + esc(g.from) : "Someone"}</b> gave you gravity${g.reason ? `: &ldquo;${esc(g.reason)}&rdquo;` : ""} <span class="ow-muted">${ago(g.ts, o.now)}</span></li>`);

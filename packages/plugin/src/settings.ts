@@ -14,6 +14,7 @@ export interface CalderaSettings {
   inboxFolder: string; lastInboxSync: string;
   ownerLastLooked?: string;   // when the owner last opened the My profile tab (drives 'Since you last looked')
   openProfileOnStartup?: boolean;
+  privateWeb?: boolean; privateUrl?: string;   // private web address (Tailscale) for the owner layer
   pendingRequests?: { request: string; from: string; handle?: string; note?: string; ts: string }[];   // friend requests survive a restart
   asks: { id: string; title: string; bounty: number }[];
   offers: { id: string; title: string }[];
@@ -103,6 +104,13 @@ export class CalderaSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.")
       .addToggle(t => t.setValue(!!s.openProfileOnStartup).onChange(async v => { s.openProfileOnStartup = v; await this.plugin.saveSettings(); }))
       .addButton(b => b.setButtonText("Open now").onClick(() => this.plugin.openProfileTab()));
+    new Setting(containerEl).setName("Private web address (Tailscale)")
+      .setDesc(createFragment(f => { f.appendText("See your private sections in a browser, on any of your Tailscale devices. Every 10 minutes Obsidian pushes them to your hub, which stores them encrypted and shows them only to your own Tailscale account, never on your public page. Needs a hub with a private address set up for you (self-hosted, or the operator's own profile)."); if (s.privateUrl) { f.createEl("br"); f.appendText("Your private address: "); f.createEl("a", { text: s.privateUrl, href: s.privateUrl }); } }))
+      .addToggle(t => t.setValue(!!s.privateWeb).onChange(async v => {
+        s.privateWeb = v; await this.plugin.saveSettings(); this.plugin.schedulePrivatePush();
+        if (v && !(await this.plugin.pushPrivate(true))) { s.privateWeb = false; await this.plugin.saveSettings(); this.plugin.schedulePrivatePush(); }
+        this.display();
+      }));
 
     new Setting(containerEl).setName("Publishing").setHeading();
     new Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually")
