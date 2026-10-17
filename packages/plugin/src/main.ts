@@ -44,11 +44,13 @@ export default class CalderaPlugin extends Plugin {
       if (friend && /^[a-z0-9][a-z0-9-]{1,30}$/.test(friend) && !this.settings.handle && !this.settings.invitedBy) { this.settings.invitedBy = friend; void this.saveSettings(); }   // came from their invite
       if (params.group) void this.joinGroup(String(params.group));
       if (friend) void this.confirmFriend(friend);
+      if (params.open === "private") void this.openPrivate();   // "Private view in Obsidian" on your own public page
     });
 
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
-    this.addCommand({ id: "open", name: "Open my public profile", callback: () => this.openProfile() });
+    this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
+    this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
     this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
     this.addCommand({ id: "profile-file", name: "Edit my profile (open profile.md)", callback: () => this.openProfileFile() });
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
@@ -281,7 +283,19 @@ export default class CalderaPlugin extends Plugin {
   }
 
   profileUrl() { return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`; }
-  openProfile() { if (this.settings.handle) window.open(this.profileUrl()); else new WelcomeModal(this.app, this).open(); }
+  /** Open the public page in the browser signed in as its owner (a one-time link sets an owner cookie on the hub), so the
+   *  page shows a "Private view" button instead of the sign-up pitch, and the owner's own visits aren't counted. */
+  async openProfile(sub = "") {
+    if (!this.settings.handle || !this.settings.identity) return void new WelcomeModal(this.app, this).open();
+    try { const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/link`, {}, true); if (r?.url) return void window.open(sub ? `${r.url}&to=${encodeURIComponent(sub)}` : r.url); }
+    catch (e: any) { console.warn("Caldera owner link failed:", e.message); }
+    window.open(this.profileUrl() + sub);
+  }
+  /** The private view: the Tailscale web address when this hub gives you one, otherwise My view inside Obsidian. */
+  async openPrivate() {
+    if (this.settings.privateUrl) { void this.pushPrivate(false); return void window.open(this.settings.privateUrl); }
+    await this.openProfileTab();
+  }
 
   async exportToFolder() {
     const { text, binaries } = await this.build();
@@ -741,7 +755,7 @@ class WelcomeModal extends Modal {
         await navigator.clipboard.writeText(btoa(JSON.stringify(this.plugin.settings.identity)));
         new Notice("Recovery key copied. Paste it into your password manager. Anyone with it can act as you.");
       }))
-      .addButton(b => b.setButtonText("Open my profile").onClick(() => window.open(url)))
+      .addButton(b => b.setButtonText("Open my profile").onClick(() => void this.plugin.openProfile()))
       .addButton(b => b.setButtonText("Share my page").onClick(() => { this.close(); this.plugin.settings.sharePrompted = true; void this.plugin.saveSettings(); this.plugin.openShare(); }))
       .addButton(b => b.setButtonText("Done").onClick(() => this.close()));
   }

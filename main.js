@@ -5435,7 +5435,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
       b.onclick = () => fn();
     };
     btn("refresh-cw", "Refresh", () => this.refresh(true));
-    btn("external-link", "Open in browser", () => this.plugin.settings.handle ? window.open(this.plugin.profileUrl() + (this.current === "index.html" ? "" : this.current)) : new import_obsidian5.Notice("Publish your profile first"));
+    btn("external-link", "Open in browser (signed in as you)", () => this.plugin.settings.handle ? void this.plugin.openProfile(this.current === "index.html" ? "" : this.current) : new import_obsidian5.Notice("Publish your profile first"));
     if (this.plugin.settings.privateUrl) btn("lock", "Open my private web view (Tailscale)", async () => {
       await this.plugin.pushPrivate(false);
       window.open(this.plugin.settings.privateUrl);
@@ -5776,10 +5776,12 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
       }
       if (params.group) void this.joinGroup(String(params.group));
       if (friend) void this.confirmFriend(friend);
+      if (params.open === "private") void this.openPrivate();
     });
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
-    this.addCommand({ id: "open", name: "Open my public profile", callback: () => this.openProfile() });
+    this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
+    this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
     this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
     this.addCommand({ id: "profile-file", name: "Edit my profile (open profile.md)", callback: () => this.openProfileFile() });
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
@@ -6097,9 +6099,25 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   profileUrl() {
     return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`;
   }
-  openProfile() {
-    if (this.settings.handle) window.open(this.profileUrl());
-    else new WelcomeModal(this.app, this).open();
+  /** Open the public page in the browser signed in as its owner (a one-time link sets an owner cookie on the hub), so the
+   *  page shows a "Private view" button instead of the sign-up pitch, and the owner's own visits aren't counted. */
+  async openProfile(sub = "") {
+    if (!this.settings.handle || !this.settings.identity) return void new WelcomeModal(this.app, this).open();
+    try {
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/link`, {}, true);
+      if (r?.url) return void window.open(sub ? `${r.url}&to=${encodeURIComponent(sub)}` : r.url);
+    } catch (e) {
+      console.warn("Caldera owner link failed:", e.message);
+    }
+    window.open(this.profileUrl() + sub);
+  }
+  /** The private view: the Tailscale web address when this hub gives you one, otherwise My view inside Obsidian. */
+  async openPrivate() {
+    if (this.settings.privateUrl) {
+      void this.pushPrivate(false);
+      return void window.open(this.settings.privateUrl);
+    }
+    await this.openProfileTab();
   }
   async exportToFolder() {
     const { text, binaries } = await this.build();
@@ -6737,7 +6755,7 @@ var WelcomeModal = class extends import_obsidian6.Modal {
     new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText("Copy recovery key").onClick(async () => {
       await navigator.clipboard.writeText(btoa(JSON.stringify(this.plugin.settings.identity)));
       new import_obsidian6.Notice("Recovery key copied. Paste it into your password manager. Anyone with it can act as you.");
-    })).addButton((b) => b.setButtonText("Open my profile").onClick(() => window.open(url))).addButton((b) => b.setButtonText("Share my page").onClick(() => {
+    })).addButton((b) => b.setButtonText("Open my profile").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Share my page").onClick(() => {
       this.close();
       this.plugin.settings.sharePrompted = true;
       void this.plugin.saveSettings();
