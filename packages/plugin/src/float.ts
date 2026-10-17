@@ -27,9 +27,15 @@ export class CityFloatView extends ItemView {
     this.frame.addEventListener("load", () => window.setTimeout(() => void this.pushLive(), 400));
     this.liveTimer = window.setInterval(() => void this.pushLive(), 10_000);
     this.showSpec(this.plugin.floatSpec);
-    // the window around this view: just the city (no tab bar), on top, small, lower-left
-    const win = this.containerEl.win, doc = this.containerEl.doc;
-    if (win !== window) { doc.body.addClass("caldera-float-window"); doc.title = TITLE; window.setTimeout(() => pinWindow(), 250); }
+    // the window around this view: just the city (no tab bar), on top, small, lower-left. The leaf moves into its pop-out
+    // window after it opens, so check for a few seconds.
+    let tries = 0;
+    const dress = () => {
+      const doc = this.containerEl.doc;
+      if (this.containerEl.win !== window) { doc.body.addClass("caldera-float-window"); pinWindow(); return; }
+      if (++tries < 20) window.setTimeout(dress, 150);
+    };
+    window.setTimeout(dress, 100);
   }
 
   /** Show a new build of the city (the My profile tab rebuilds it every 10 minutes). */
@@ -53,7 +59,7 @@ function pinWindow() {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron window controls exist only on desktop
     const remote = (window as unknown as { require: (m: string) => any }).require("@electron/remote");
-    const bw = remote.BrowserWindow.getAllWindows().find((w: { getTitle(): string }) => w.getTitle() === TITLE);
+    const bw = remote.BrowserWindow.getAllWindows().find((w: { getTitle(): string }) => w.getTitle().startsWith(TITLE));   // Obsidian titles it "Caldera city - vault - Obsidian"
     if (!bw) return;
     const wa = remote.screen.getDisplayMatching(bw.getBounds()).workArea;
     bw.setAlwaysOnTop(true, "floating"); bw.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true });

@@ -5991,12 +5991,17 @@ var CityFloatView = class extends import_obsidian6.ItemView {
     this.frame.addEventListener("load", () => window.setTimeout(() => void this.pushLive(), 400));
     this.liveTimer = window.setInterval(() => void this.pushLive(), 1e4);
     this.showSpec(this.plugin.floatSpec);
-    const win = this.containerEl.win, doc = this.containerEl.doc;
-    if (win !== window) {
-      doc.body.addClass("caldera-float-window");
-      doc.title = TITLE;
-      window.setTimeout(() => pinWindow(), 250);
-    }
+    let tries = 0;
+    const dress = () => {
+      const doc = this.containerEl.doc;
+      if (this.containerEl.win !== window) {
+        doc.body.addClass("caldera-float-window");
+        pinWindow();
+        return;
+      }
+      if (++tries < 20) window.setTimeout(dress, 150);
+    };
+    window.setTimeout(dress, 100);
   }
   /** Show a new build of the city (the My profile tab rebuilds it every 10 minutes). */
   showSpec(spec) {
@@ -6025,7 +6030,7 @@ function pinWindow() {
   if (!import_obsidian6.Platform.isDesktopApp) return;
   try {
     const remote = window.require("@electron/remote");
-    const bw = remote.BrowserWindow.getAllWindows().find((w) => w.getTitle() === TITLE);
+    const bw = remote.BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith(TITLE));
     if (!bw) return;
     const wa = remote.screen.getDisplayMatching(bw.getBounds()).workArea;
     bw.setAlwaysOnTop(true, "floating");
