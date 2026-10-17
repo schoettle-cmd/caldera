@@ -104,6 +104,13 @@ export class CalderaSettingTab extends PluginSettingTab {
         if (/^[A-Za-z0-9-]{1,39}$/.test(u)) s.links.push(["GitHub", `https://github.com/${u}`]);
         await this.plugin.saveSettings();
       }));
+    new Setting(containerEl).setName("Forgejo or Codeberg profile").setDesc("Code on Codeberg or your own Forgejo / Gitea server instead? Paste your profile address. Your public repos become your city, and your contributions your code chart. Used when no GitHub username is set.")
+      .addText(t => t.setPlaceholder("https://codeberg.org/you").setValue((s.links || []).find(l => l[0] === "Forgejo")?.[1] || "").onChange(async v => {
+        const m = v.trim().replace(/^http:/, "https:").replace(/\/+$/, "").match(/^(https:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})$/);
+        s.links = (s.links || []).filter(l => l[0] !== "Forgejo");
+        if (m) s.links.push(["Forgejo", `${m[1]}/${m[2]}`]);
+        await this.plugin.saveSettings();
+      }));
     this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
 
     new Setting(containerEl).setName("What is public").setHeading();

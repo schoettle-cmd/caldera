@@ -156,6 +156,80 @@ export async function githubCity(user: string, prev?: any): Promise<any | undefi
   return repos.length ? { generated: new Date().toISOString(), source: `caldera github ${user}`, repos } : undefined;
 }
 
+/** Where the owner's code lives, from their Links: GitHub (github.com/user) or a Forgejo / Gitea server such as
+ * Codeberg (codeberg.org/user, or any https://host/user line labelled Forgejo, Gitea or Codeberg). */
+export type Forge = { kind: "github" | "forgejo"; host: string; user: string; url: string };
+export function forgeOf(links: [string, string][]): Forge | undefined {
+  const gh = githubUser(links); if (gh) return { kind: "github", host: "github.com", user: gh, url: `https://github.com/${gh}` };
+  for (const [label, url] of links) {
+    const m = url.match(/^(https?:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})\/?$/);
+    if (m && (/forgejo|gitea|codeberg/i.test(label) || /^https?:\/\/(www\.)?codeberg\.org$/i.test(m[1]))) return { kind: "forgejo", host: m[1].replace(/^http:/, "https:"), user: m[2], url: `${m[1]}/${m[2]}` };
+  }
+  return undefined;
+}
+export const forgeSource = (f: Forge) => f.kind === "github" ? `caldera github ${f.user}` : `caldera forgejo ${f.url}`;
+
+const fj = async (f: Forge, path: string) => {
+  const r = await requestUrl({ url: `${f.host}/api/v1${path}`, headers: { Accept: "application/json" }, throw: false });
+  return r.status === 200 ? r : undefined;
+};
+
+/** Forgejo / Gitea contribution heatmap -> commits per week for the last year. Public data, no token. */
+export async function forgejoCode(f: Forge): Promise<{ commits: number; repos: number; weekly: number[]; url: string; start: string } | undefined> {
+  try {
+    const h = await fj(f, `/users/${encodeURIComponent(f.user)}/heatmap`);
+    if (!h || !Array.isArray(h.json)) return undefined;
+    const now = Date.now(), WEEK = 7 * 864e5, weekly = Array(53).fill(0);
+    for (const x of h.json) { const age = now - Number(x.timestamp) * 1000; if (age >= 0 && age < 53 * WEEK) weekly[52 - Math.floor(age / WEEK)] += Number(x.contributions) || 0; }
+    const commits = weekly.reduce((a, b) => a + b, 0); if (!commits) return undefined;
+    const u = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50`);
+    const repos = Array.isArray(u?.json) ? u!.json.filter((r: any) => !r.fork && !r.private).length : 0;
+    const start = new Date(now - 52 * WEEK).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return { commits, repos, weekly, url: f.url, start };
+  } catch { return undefined; }
+}
+
+/** Caldera/city.json from a Forgejo / Gitea server: same shape as githubCity. Commit counts come from each repo's
+ * commit list, counted by author date over the last year. */
+export async function forgejoCity(f: Forge, prev?: any): Promise<any | undefined> {
+  const own: any[] = [];
+  for (let pg = 1; pg <= 4; pg++) {
+    const r = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50&page=${pg}`);
+    if (!r || !Array.isArray(r.json)) { if (pg === 1) return undefined; break; }
+    own.push(...r.json); if (r.json.length < 50) break;
+  }
+  const old = new Map<string, any>((Array.isArray(prev?.repos) ? prev.repos : []).map((r: any) => [r.name, r]));
+  const live = own.filter(r => !r.fork && !r.private && !r.archived && !r.mirror).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const repos = live.slice(0, 120).map(r => {
+    const o = old.get(r.name);
+    return { name: r.name, owner: r.owner?.login || f.user, project: r.language || "Other", public: true, language: r.language || "Other", size: r.size, pushed: r.updated_at, created: r.created_at,
+      url: r.html_url, description: (r.description || "").slice(0, 200), commits: o?.commits || (r.size ? 1 : 0), weeks: o?.weeks || [], week: o?.week || 0, today: 0 };
+  });
+  // Commit lists come newest first and Forgejo ignores "since" here, so page back until a year ago (up to 500).
+  const now = Date.now(), WEEK = 7 * 864e5, YEAR = 365 * 864e5, q = "&stat=false&verification=false&files=false";
+  for (const r of repos.slice(0, 20)) {
+    try {
+      const base = `/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}/commits?limit=50${q}`;
+      const weeks = Array(12).fill(0); let year = 0, ok = false;
+      for (let pg = 1; pg <= 10; pg++) {
+        const w = await fj(f, `${base}&page=${pg}`);
+        if (!w || !Array.isArray(w.json)) break;
+        ok = true; let older = false;
+        for (const c of w.json) {
+          const age = now - Date.parse(c.commit?.author?.date || c.created);
+          if (!(age >= 0)) continue; if (age >= YEAR) { older = true; continue; }
+          year++; if (age < 12 * WEEK) weeks[11 - Math.floor(age / WEEK)]++;
+        }
+        if (older || w.json.length < 50) break;
+      }
+      if (!ok) continue;
+      r.weeks = weeks; r.week = weeks[11]; r.commits = Math.max(1, year);
+    } catch { /* keep the last numbers */ }
+  }
+  for (const r of repos) delete (r as any).owner;
+  return repos.length ? { generated: new Date().toISOString(), source: forgeSource(f), repos } : undefined;
+}
+
 /** Generic categories only. Labels come from this list, never from the vault, so nothing private can leak. */
 const KINDS: [RegExp, string][] = [
   [/^(person|people|contact|contacts)$/, "People"], [/^(company|companies|organization|organisation|org|orgs|organizations)$/, "Companies"],

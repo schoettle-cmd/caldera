@@ -2331,7 +2331,7 @@ Check each source below on this computer and tell me which you can reach. Use th
 - Calendar: events I attended (a calendar connector, or a calendar app's local data).
 - Email: emails I sent (a mail connector, or the mail app's local data).
 - AI usage: Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -> last_token_usage.total_tokens, model from turn_context). Prompts = user messages I typed in those sessions. Add other tools only if they keep local usage logs.
-- Code: git commits I authored, in repositories on this computer, plus GitHub (the gh CLI or the GitHub API) if I use it.
+- Code: git commits I authored, in repositories on this computer, plus my code host if I use one: GitHub (the gh CLI or the GitHub API), or Forgejo / Gitea / Codeberg (the tea CLI or the /api/v1 REST API on that server, with my access token if I have one).
 - Documents: files I produced or filed (for example new files in Documents/Downloads I saved, or attachments filed into the vault).
 Then write a small script for the routine below that computes these counts with code (no AI call per run).
 
@@ -2354,7 +2354,7 @@ B. Activity counts (every run, for today and yesterday). Update "${vault}/${acti
    AI usage ("tokens" per day and the "ai" block, last 45 days): group by model (readable names) and by provider. Never include prompts, file names or costs.
    Code ("code" block): count my commits in the last 52 weeks per week across my repositories, number of repos, and top 4 languages. Counts only - never names of private repositories.
 
-C. City (every run, only if I use GitHub). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>", "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. Use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos, and private ones only as locked glass buildings (no names); full details only in my own My view. If you cannot reach GitHub's API, instead make sure my GitHub is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>") - Caldera then builds the city from my public repos itself.
+C. City (every run, only if I use GitHub, Forgejo, Gitea or Codeberg). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>" (or "forgejo <https://server/my login>"), "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. On GitHub use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. On Forgejo / Gitea / Codeberg use GET /api/v1/user/repos (or /api/v1/users/<me>/repos) and page through /api/v1/repos/<owner>/<repo>/commits?limit=50, counting by commit.author.date yourself (that endpoint ignores "since"). Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos, and private ones only as locked glass buildings (no names); full details only in my own My view. If you cannot reach the API, instead make sure my profile is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>", or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg) - Caldera then builds the city from my public repos itself. With no code host at all, Caldera builds the city from my vault folders.
 
 D. Publish. If Caldera auto-publish is on (Settings -> Caldera -> Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
 
@@ -2848,6 +2848,104 @@ async function githubCity(user, prev) {
   }
   return repos.length ? { generated: (/* @__PURE__ */ new Date()).toISOString(), source: `caldera github ${user}`, repos } : void 0;
 }
+function forgeOf(links) {
+  const gh = githubUser(links);
+  if (gh) return { kind: "github", host: "github.com", user: gh, url: `https://github.com/${gh}` };
+  for (const [label, url] of links) {
+    const m = url.match(/^(https?:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})\/?$/);
+    if (m && (/forgejo|gitea|codeberg/i.test(label) || /^https?:\/\/(www\.)?codeberg\.org$/i.test(m[1]))) return { kind: "forgejo", host: m[1].replace(/^http:/, "https:"), user: m[2], url: `${m[1]}/${m[2]}` };
+  }
+  return void 0;
+}
+var forgeSource = (f) => f.kind === "github" ? `caldera github ${f.user}` : `caldera forgejo ${f.url}`;
+var fj = async (f, path) => {
+  const r = await (0, import_obsidian.requestUrl)({ url: `${f.host}/api/v1${path}`, headers: { Accept: "application/json" }, throw: false });
+  return r.status === 200 ? r : void 0;
+};
+async function forgejoCode(f) {
+  try {
+    const h = await fj(f, `/users/${encodeURIComponent(f.user)}/heatmap`);
+    if (!h || !Array.isArray(h.json)) return void 0;
+    const now = Date.now(), WEEK = 7 * 864e5, weekly = Array(53).fill(0);
+    for (const x of h.json) {
+      const age = now - Number(x.timestamp) * 1e3;
+      if (age >= 0 && age < 53 * WEEK) weekly[52 - Math.floor(age / WEEK)] += Number(x.contributions) || 0;
+    }
+    const commits = weekly.reduce((a, b) => a + b, 0);
+    if (!commits) return void 0;
+    const u = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50`);
+    const repos = Array.isArray(u?.json) ? u.json.filter((r) => !r.fork && !r.private).length : 0;
+    const start = new Date(now - 52 * WEEK).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return { commits, repos, weekly, url: f.url, start };
+  } catch {
+    return void 0;
+  }
+}
+async function forgejoCity(f, prev) {
+  const own = [];
+  for (let pg = 1; pg <= 4; pg++) {
+    const r = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50&page=${pg}`);
+    if (!r || !Array.isArray(r.json)) {
+      if (pg === 1) return void 0;
+      break;
+    }
+    own.push(...r.json);
+    if (r.json.length < 50) break;
+  }
+  const old = new Map((Array.isArray(prev?.repos) ? prev.repos : []).map((r) => [r.name, r]));
+  const live = own.filter((r) => !r.fork && !r.private && !r.archived && !r.mirror).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const repos = live.slice(0, 120).map((r) => {
+    const o = old.get(r.name);
+    return {
+      name: r.name,
+      owner: r.owner?.login || f.user,
+      project: r.language || "Other",
+      public: true,
+      language: r.language || "Other",
+      size: r.size,
+      pushed: r.updated_at,
+      created: r.created_at,
+      url: r.html_url,
+      description: (r.description || "").slice(0, 200),
+      commits: o?.commits || (r.size ? 1 : 0),
+      weeks: o?.weeks || [],
+      week: o?.week || 0,
+      today: 0
+    };
+  });
+  const now = Date.now(), WEEK = 7 * 864e5, YEAR = 365 * 864e5, q2 = "&stat=false&verification=false&files=false";
+  for (const r of repos.slice(0, 20)) {
+    try {
+      const base = `/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}/commits?limit=50${q2}`;
+      const weeks = Array(12).fill(0);
+      let year = 0, ok = false;
+      for (let pg = 1; pg <= 10; pg++) {
+        const w = await fj(f, `${base}&page=${pg}`);
+        if (!w || !Array.isArray(w.json)) break;
+        ok = true;
+        let older = false;
+        for (const c of w.json) {
+          const age = now - Date.parse(c.commit?.author?.date || c.created);
+          if (!(age >= 0)) continue;
+          if (age >= YEAR) {
+            older = true;
+            continue;
+          }
+          year++;
+          if (age < 12 * WEEK) weeks[11 - Math.floor(age / WEEK)]++;
+        }
+        if (older || w.json.length < 50) break;
+      }
+      if (!ok) continue;
+      r.weeks = weeks;
+      r.week = weeks[11];
+      r.commits = Math.max(1, year);
+    } catch {
+    }
+  }
+  for (const r of repos) delete r.owner;
+  return repos.length ? { generated: (/* @__PURE__ */ new Date()).toISOString(), source: forgeSource(f), repos } : void 0;
+}
 var KINDS = [
   [/^(person|people|contact|contacts)$/, "People"],
   [/^(company|companies|organization|organisation|org|orgs|organizations)$/, "Companies"],
@@ -2981,6 +3079,12 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       const u = v.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\/.*$/, "");
       s.links = (s.links || []).filter((l) => !/^https?:\/\/(?:www\.)?github\.com\/[A-Za-z0-9-]{1,39}\/?$/.test(l[1]));
       if (/^[A-Za-z0-9-]{1,39}$/.test(u)) s.links.push(["GitHub", `https://github.com/${u}`]);
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Forgejo or Codeberg profile").setDesc("Code on Codeberg or your own Forgejo / Gitea server instead? Paste your profile address. Your public repos become your city, and your contributions your code chart. Used when no GitHub username is set.").addText((t) => t.setPlaceholder("https://codeberg.org/you").setValue((s.links || []).find((l) => l[0] === "Forgejo")?.[1] || "").onChange(async (v) => {
+      const m = v.trim().replace(/^http:/, "https:").replace(/\/+$/, "").match(/^(https:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})$/);
+      s.links = (s.links || []).filter((l) => l[0] !== "Forgejo");
+      if (m) s.links.push(["Forgejo", `${m[1]}/${m[2]}`]);
       await this.plugin.saveSettings();
     }));
     this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
@@ -3703,7 +3807,7 @@ ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" hre
 <div class="shell">${site.nav ? site.nav(0, "city.html") : ""}<main class="note"><div class="c-main">
 <div class="g-crumbs c-crumbs"><a href="index.html">${esc2(site.handle ? "@" + site.handle : site.name)}</a> / City</div>
 <h1 class="c-title">${esc2(site.name)}'s city</h1>
-<p class="c-lede">${city.kind === "vault" ? `Built from ${esc2(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every GitHub repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some((r) => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}`}</p>
+<p class="c-lede">${city.kind === "vault" ? `Built from ${esc2(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some((r) => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}`}</p>
 <div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes edited this year" : "commits this year"}</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${(city.kind === "vault" ? city.under?.total ?? notes : notes).toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes in the vault" : "notes in town"}</span></div></div>
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
 <div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Day</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-reset">Reset</button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
@@ -4635,7 +4739,8 @@ async function collectProfile(app, s, social) {
     }
   }
   if (s.sections.code !== false && !(extra.code && typeof extra.code.commits === "number")) {
-    const code = await githubCode(s.links || []).catch(() => void 0);
+    const fg = forgeOf(s.links || []);
+    const code = await (fg?.kind === "forgejo" ? forgejoCode(fg) : githubCode(s.links || [])).catch(() => void 0);
     if (code) extra.code = code;
   }
   const today = Date.now();
@@ -4812,15 +4917,16 @@ async function collectProfile(app, s, social) {
   if (s.sections.city !== false) {
     try {
       const path = "Caldera/city.json";
-      const ghUser = githubUser(s.links || []);
+      const fg = forgeOf(s.links || []), src = fg && forgeSource(fg);
       let cur;
       try {
         if (await app.vault.adapter.exists(path)) cur = JSON.parse(await app.vault.adapter.read(path));
       } catch {
       }
-      const ours = !cur || String(cur.source || "").startsWith("caldera github ");
-      if (ghUser && ours && (cur?.source !== `caldera github ${ghUser}` || Date.now() - Date.parse(cur?.generated || 0) > 6 * 36e5)) {
-        const fresh = await githubCity(ghUser, cur?.source === `caldera github ${ghUser}` ? cur : void 0).catch(() => void 0);
+      const ours = !cur || /^caldera (github|forgejo) /.test(String(cur.source || ""));
+      if (fg && ours && (cur?.source !== src || Date.now() - Date.parse(cur?.generated || 0) > 6 * 36e5)) {
+        const prev = cur?.source === src ? cur : void 0;
+        const fresh = await (fg.kind === "github" ? githubCity(fg.user, prev) : forgejoCity(fg, prev)).catch(() => void 0);
         if (fresh) {
           if (!await app.vault.adapter.exists("Caldera")) await app.vault.createFolder("Caldera");
           await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1));
@@ -4829,9 +4935,9 @@ async function collectProfile(app, s, social) {
       const priv = new Set(md.filter((f) => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map((f) => f.path));
       const inVault = (f) => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path) && !priv.has(f.path);
       const raw = await app.vault.adapter.exists(path) ? JSON.parse(await app.vault.adapter.read(path)) : void 0;
-      const fromVault = !raw && !ghUser;
+      const fromVault = !raw && !fg;
       if (raw || fromVault) {
-        const fromGithub = !!raw && String(raw.source || "").startsWith("caldera github ");
+        const fromGithub = !!raw && /^caldera (github|forgejo) /.test(String(raw.source || ""));
         const repos = raw ? parseCityRepos(raw) : vaultRepos(md.filter(inVault).map((f) => ({ path: f.path, mtime: f.stat.mtime })));
         if (repos.length) {
           const byName = new Map(md.map((f) => [f.basename.toLowerCase(), f.path]));
@@ -4839,8 +4945,8 @@ async function collectProfile(app, s, social) {
           const notes = (project) => {
             const target = byName.get(project.toLowerCase());
             if (!target) return { n: 0, paths: [] };
-            const src = md.filter((f) => resolved[f.path]?.[target]).sort((a, b) => b.stat.mtime - a.stat.mtime);
-            return { n: src.length, paths: [target, ...src.slice(0, 5).map((f) => f.path)] };
+            const src2 = md.filter((f) => resolved[f.path]?.[target]).sort((a, b) => b.stat.mtime - a.stat.mtime);
+            return { n: src2.length, paths: [target, ...src2.slice(0, 5).map((f) => f.path)] };
           };
           cityPrivate = cityData(repos, notes, typeof raw?.generated === "string" ? raw.generated : (/* @__PURE__ */ new Date()).toISOString());
           if (fromVault) cityPrivate.kind = "vault";
@@ -5582,9 +5688,9 @@ async function collectOwner(app, plugin, data, lastLooked) {
     { label: "Calendar", ok: has("meetings"), hint: "meetings attended (counts only)" },
     { label: "Email", ok: has("emails"), hint: "emails sent (counts only)" },
     { label: "AI usage", ok: has("prompts") || !!data.ai?.total, hint: "prompts and tokens from Claude Code, Codex" },
-    { label: "Code", ok: has("commits") || !!data.code?.commits, hint: "commits, or add your GitHub username in settings" },
+    { label: "Code", ok: has("commits") || !!data.code?.commits, hint: "commits, or add your GitHub username or Forgejo / Codeberg profile in settings" },
     { label: "Documents", ok: has("docs"), hint: "documents you produced or filed" },
-    { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username in settings to build it from your repos" : "your repos as a city: add your GitHub username in settings" },
+    { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username or Forgejo / Codeberg profile in settings to build it from your repos" : "your repos as a city: add your GitHub username or Forgejo / Codeberg profile in settings" },
     { label: "Page text", ok: !!data.summary, hint: "headline, summary, now, timeline" },
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" }
   ];

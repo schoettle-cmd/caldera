@@ -15,7 +15,7 @@ import { App, TFile, getAllTags } from "obsidian";
 import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
-import { aiUsage, githubCity, githubCode, githubUser, vaultKinds } from "./auto";
+import { aiUsage, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
 
@@ -75,7 +75,8 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     }
   }
   if (s.sections.code !== false && !(extra.code && typeof extra.code.commits === "number")) {
-    const code = await githubCode(s.links || []).catch(() => undefined);
+    const fg = forgeOf(s.links || []);
+    const code = await (fg?.kind === "forgejo" ? forgejoCode(fg) : githubCode(s.links || [])).catch(() => undefined);
     if (code) extra.code = code;
   }
 
@@ -216,20 +217,21 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     try {
       const path = "Caldera/city.json";
       // no tools of your own writing city.json: build it from the GitHub in your Links (refreshed every 6 hours)
-      const ghUser = githubUser(s.links || []);
+      const fg = forgeOf(s.links || []), src = fg && forgeSource(fg);
       let cur: any; try { if (await app.vault.adapter.exists(path)) cur = JSON.parse(await app.vault.adapter.read(path)); } catch { /* rebuilt below */ }
-      const ours = !cur || String(cur.source || "").startsWith("caldera github ");
-      if (ghUser && ours && (cur?.source !== `caldera github ${ghUser}` || Date.now() - Date.parse(cur?.generated || 0) > 6 * 3600_000)) {
-        const fresh = await githubCity(ghUser, cur?.source === `caldera github ${ghUser}` ? cur : undefined).catch(() => undefined);
+      const ours = !cur || /^caldera (github|forgejo) /.test(String(cur.source || ""));
+      if (fg && ours && (cur?.source !== src || Date.now() - Date.parse(cur?.generated || 0) > 6 * 3600_000)) {
+        const prev = cur?.source === src ? cur : undefined;
+        const fresh = await (fg.kind === "github" ? githubCity(fg.user, prev) : forgejoCity(fg, prev)).catch(() => undefined);
         if (fresh) { if (!(await app.vault.adapter.exists("Caldera"))) await app.vault.createFolder("Caldera"); await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1)); }
       }
       const priv = new Set(md.filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map(f => f.path));
       const inVault = (f: TFile) => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path) && !priv.has(f.path);
       const raw = (await app.vault.adapter.exists(path)) ? JSON.parse(await app.vault.adapter.read(path)) : undefined;
       // no GitHub and no city.json of your own: the city is built from the vault's folders, every building locked
-      const fromVault = !raw && !ghUser;
+      const fromVault = !raw && !fg;
       if (raw || fromVault) {
-        const fromGithub = !!raw && String(raw.source || "").startsWith("caldera github ");
+        const fromGithub = !!raw && /^caldera (github|forgejo) /.test(String(raw.source || ""));   // built from public repos
         const repos = raw ? parseCityRepos(raw) : vaultRepos(md.filter(inVault).map(f => ({ path: f.path, mtime: f.stat.mtime })));
         if (repos.length) {
           const byName = new Map(md.map(f => [f.basename.toLowerCase(), f.path] as const));

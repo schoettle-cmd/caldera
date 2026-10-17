@@ -289,9 +289,9 @@ export async function collectOwner(app: App, plugin: CalderaPlugin, data: Profil
     { label: "Calendar", ok: has("meetings"), hint: "meetings attended (counts only)" },
     { label: "Email", ok: has("emails"), hint: "emails sent (counts only)" },
     { label: "AI usage", ok: has("prompts") || !!data.ai?.total, hint: "prompts and tokens from Claude Code, Codex" },
-    { label: "Code", ok: has("commits") || !!data.code?.commits, hint: "commits, or add your GitHub username in settings" },
+    { label: "Code", ok: has("commits") || !!data.code?.commits, hint: "commits, or add your GitHub username or Forgejo / Codeberg profile in settings" },
     { label: "Documents", ok: has("docs"), hint: "documents you produced or filed" },
-    { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username in settings to build it from your repos" : "your repos as a city: add your GitHub username in settings" },
+    { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username or Forgejo / Codeberg profile in settings to build it from your repos" : "your repos as a city: add your GitHub username or Forgejo / Codeberg profile in settings" },
     { label: "Page text", ok: !!data.summary, hint: "headline, summary, now, timeline" },
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" },
   ];
