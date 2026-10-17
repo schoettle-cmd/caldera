@@ -147,8 +147,9 @@ ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="a
   const nav = (depth: number, current: string, toc = "") => s.sidebar === false ? "" : navSidebar(p, sideOn, gardenOn, depth, current, toc);
   parts.push(nav(0, "index.html", "%%TOC%%"));
   parts.push(`<main class="note">`);
-  if (p.banner || p.avatar) parts.push(`<div class="banner">${p.banner ? `<img class="cover" src="${esc(p.banner)}" alt="">` : ""}${p.avatar ? `<img class="avatar" src="${esc(p.avatar)}" alt="${esc(p.name)}">` : ""}</div>`);
-  parts.push(`<div class="page"><div class="crumb">People / ${esc(p.name)}.md${p.handle ? " / @" + esc(p.handle) : ""}</div>
+  // With a cover photo the avatar hangs off the banner; without one it sits on the page above the name.
+  if (p.banner) parts.push(`<div class="banner"><img class="cover" src="${esc(p.banner)}" alt="">${p.avatar ? `<img class="avatar" src="${esc(p.avatar)}" alt="${esc(p.name)}">` : ""}</div>`);
+  parts.push(`<div class="page">${!p.banner && p.avatar ? `<img class="avatar solo" src="${esc(p.avatar)}" alt="${esc(p.name)}">` : ""}<div class="crumb">People / ${esc(p.name)}.md${p.handle ? " / @" + esc(p.handle) : ""}</div>
 <h1 class="title">${esc(p.name)}<span class="caret">|</span></h1>${p.headline ? `<p class="lede">${esc(p.headline)}</p>` : ""}<!--caldera:owner-->`);
   if (s.city !== false && p.city?.districts.length) parts.push(citySnapshot(p.city, { name: p.name }));
 
@@ -201,7 +202,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     parts.push(`<h2>Projects</h2><div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div><div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? '<th class="num">commits</th>' : ""}<th>link</th></tr></thead><tbody>${p.projects.map(x => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc(x.url)}" rel="noopener">${esc(x.name)}</a>` : esc(x.name)}</td><td>${esc(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc(x.url)}" rel="noopener">${esc(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
   }
   if (s.code !== false && p.code && p.code.commits > 0) {
-    const c = p.code, wk = c.weekly || [], f = Math.max(0, wk.findIndex(x => x > 0)), w2 = wk.slice(f), peak = Math.max(1, ...w2);
+    const c = p.code, wk = c.weekly || [], f = Math.max(0, Math.min(wk.findIndex(x => x > 0), wk.length - 26)), w2 = [...Array(Math.max(0, 26 - wk.length)).fill(0), ...wk.slice(f)], peak = Math.max(1, ...w2);
     parts.push(`<h2>Code</h2><p class="small"><b>${fmt(c.commits)}</b> commits across <b>${fmt(c.repos)}</b> repositories in the last year.${c.languages?.length ? ` Mostly ${esc(c.languages.slice(0, -1).join(", "))}${c.languages.length > 1 ? " and " : ""}${esc(c.languages[c.languages.length - 1])}.` : ""}${c.url && /^https?:\/\//.test(c.url) ? ` <a href="${esc(c.url)}" rel="noopener">${esc(c.url.replace(/^https?:\/\//, ""))}</a>` : ""}</p>${w2.length ? `<div class="bars" role="img" aria-label="Commits per week">${w2.map(x => `<span class="${x >= peak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x / peak * 100).toFixed(1)}%" title="${x}"></span>`).join("")}</div><div class="bars-legend"><span>${esc(c.start || "")}</span><span>peak week: ${fmt(peak)}</span><span>this week</span></div>` : ""}`);
   }
   if (s.ai !== false && p.ai && p.ai.total > 0) {
