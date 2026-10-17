@@ -1,3 +1,4 @@
+import { githubUser } from "./auto";
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import type CalderaPlugin from "./main";
 import type { Identity } from "@caldera/core";
@@ -56,7 +57,7 @@ const SECTION_LABELS: Record<string, string> = {
   journal: "Daily journal (flip through days)", scoreboard: "Scoreboard (streak, rank, 30-day bars)", properties: "Properties",
   numbers: "Vault numbers (notes, words, links, active days)", topics: "Topics (allow-listed tags only)", notes: "Notes marked caldera: public",
   asks: "Help exchange (asks and offers)", social: "Friends, gravity and credits", links: "Links elsewhere", garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
-  city: "City (your GitHub as a little city, from Caldera/city.json; private repos only in your private views)",
+  city: "City (your GitHub as a little city: add GitHub | https://github.com/you to Links, or write Caldera/city.json yourself)",
 };
 
 export class CalderaSettingTab extends PluginSettingTab {
@@ -95,6 +96,13 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.text("Banner image", "Path in your vault", "bannerPath");
     new Setting(containerEl).setName("Theme").addDropdown(d => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async v => { s.theme = v as any; await this.plugin.saveSettings(); }));
     this.pairs("Links", "One per line: Label | https://url", "links");
+    new Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.")
+      .addText(t => t.setPlaceholder("octocat").setValue(githubUser(s.links || []) || "").onChange(async v => {
+        const u = v.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\/.*$/, "");
+        s.links = (s.links || []).filter(l => !/^https?:\/\/(?:www\.)?github\.com\/[A-Za-z0-9-]{1,39}\/?$/.test(l[1]));
+        if (/^[A-Za-z0-9-]{1,39}$/.test(u)) s.links.push(["GitHub", `https://github.com/${u}`]);
+        await this.plugin.saveSettings();
+      }));
     this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
 
     new Setting(containerEl).setName("What is public").setHeading();
@@ -124,7 +132,7 @@ export class CalderaSettingTab extends PluginSettingTab {
     const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
     new Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length
       ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in My view and your private address."
-      : "Each city district gets a tracking snippet after your next publish (you need a city: Caldera/city.json).");
+      : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
     for (const site of sites) {
       const snippet = `<script async src="${hub}/t.js" data-site="${site.key}"></script>`;
       new Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)"))

@@ -2643,8 +2643,250 @@ function newId(prefix) {
   return prefix + "_" + b58encode(import_tweetnacl.default.randomBytes(12));
 }
 
-// src/settings.ts
+// src/auto.ts
 var import_obsidian = require("obsidian");
+var isoLocal = (t) => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+function prettyModel(model) {
+  const m = model.trim().replace(/-\d{8}$/, "").split("/").pop().replace(/\./g, "-");
+  const c = m.match(/^claude-([a-z]+)-(\d+)(?:-(\d+))?/);
+  if (c) return `Claude ${c[1][0].toUpperCase()}${c[1].slice(1)} ${c[2]}${c[3] ? "." + c[3] : ""}`;
+  const g = m.match(/^gpt-(\d+)(?:-(\d+))?(.*)$/);
+  if (g) return `GPT-${g[1]}${g[2] ? "." + g[2] : ""}${g[3] ? " " + g[3].replace(/^-/, "").replace(/-/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()) : ""}`;
+  return m;
+}
+function providerOf(name) {
+  const m = name.toLowerCase();
+  if (m.includes("claude")) return "Anthropic";
+  if (/^(gpt|o\d|codex)/.test(m)) return "OpenAI";
+  if (m.includes("gemini")) return "Google";
+  if (m.includes("deepseek")) return "DeepSeek";
+  if (m.includes("grok")) return "xAI";
+  if (m.includes("llama")) return "Meta";
+  if (m.includes("mistral")) return "Mistral";
+  return "Other";
+}
+async function aiUsage(cachePath, windowDays = 45) {
+  if (!import_obsidian.Platform.isDesktopApp) return void 0;
+  let fs, path, os;
+  try {
+    fs = window.require("fs");
+    path = window.require("path");
+    os = window.require("os");
+  } catch {
+    return void 0;
+  }
+  const home = os.homedir(), since = Date.now() - (windowDays + 2) * 864e5;
+  let cache = {};
+  try {
+    cache = JSON.parse(await fs.promises.readFile(cachePath, "utf8"));
+  } catch {
+  }
+  const files = [];
+  const walk = async (dir, kind, depth) => {
+    let ents = [];
+    try {
+      ents = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of ents) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory() && depth > 0) await walk(p, kind, depth - 1);
+      else if (e.isFile() && e.name.endsWith(".jsonl")) files.push([p, kind]);
+    }
+  };
+  await walk(path.join(home, ".claude", "projects"), "claude", 2);
+  await walk(path.join(home, ".codex", "sessions"), "codex", 4);
+  if (!files.length) return void 0;
+  const next = {};
+  for (const [p, kind] of files) {
+    let st;
+    try {
+      st = await fs.promises.stat(p);
+    } catch {
+      continue;
+    }
+    if (st.mtimeMs < since) continue;
+    const c = cache[p];
+    if (c && c.m === st.mtimeMs && c.s === st.size) {
+      next[p] = c;
+      continue;
+    }
+    const t = {}, seen = /* @__PURE__ */ new Set();
+    let text = "";
+    try {
+      text = await fs.promises.readFile(p, "utf8");
+    } catch {
+      continue;
+    }
+    let model = "gpt-5";
+    for (const line of text.split("\n")) {
+      if (kind === "claude") {
+        if (!line.includes('"usage"') || !line.includes('"assistant"')) continue;
+        try {
+          const o = JSON.parse(line), msg = o.message || {}, u = msg.usage;
+          if (!u || !msg.model || String(msg.model).startsWith("<") || !o.timestamp || seen.has(msg.id)) continue;
+          seen.add(msg.id);
+          const n = (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+          const d = isoLocal(Date.parse(o.timestamp));
+          (t[d] || (t[d] = {}))[msg.model] = (t[d][msg.model] || 0) + n;
+        } catch {
+        }
+      } else {
+        if (!line.includes('"turn_context"') && !line.includes('"token_count"')) continue;
+        try {
+          const o = JSON.parse(line), pl = o.payload || {};
+          if (o.type === "turn_context" && pl.model) model = pl.model;
+          else if (pl.type === "token_count" && o.timestamp) {
+            const n = pl.info?.last_token_usage?.total_tokens || 0;
+            if (n) {
+              const d = isoLocal(Date.parse(o.timestamp));
+              (t[d] || (t[d] = {}))[model] = (t[d][model] || 0) + n;
+            }
+          }
+        } catch {
+        }
+      }
+    }
+    next[p] = { m: st.mtimeMs, s: st.size, t };
+    await new Promise((r) => window.setTimeout(r, 0));
+  }
+  try {
+    await fs.promises.writeFile(cachePath, JSON.stringify(next));
+  } catch {
+  }
+  const first = isoLocal(Date.now() - (windowDays - 1) * 864e5);
+  const days = {}, models = /* @__PURE__ */ new Map();
+  for (const f of Object.values(next)) for (const [d, ms] of Object.entries(f.t)) {
+    if (d < first) continue;
+    for (const [m, n] of Object.entries(ms)) {
+      days[d] = (days[d] || 0) + n;
+      const k = prettyModel(m);
+      models.set(k, (models.get(k) || 0) + n);
+    }
+  }
+  const total = Object.values(days).reduce((a, b) => a + b, 0);
+  if (!total) return void 0;
+  const prov = /* @__PURE__ */ new Map();
+  for (const [m, n] of models) prov.set(providerOf(m), (prov.get(providerOf(m)) || 0) + n);
+  return {
+    total,
+    window_days: windowDays,
+    days,
+    models: [...models].sort((a, b) => b[1] - a[1]).slice(0, 8),
+    providers: [...prov].sort((a, b) => b[1] - a[1]),
+    note: "Tokens processed by my AI coding agents (Claude Code, Codex) on this computer, including cached context. Counts only."
+  };
+}
+async function githubCode(links) {
+  const gh = links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean);
+  if (!gh) return void 0;
+  const user = gh[1];
+  try {
+    const r = await (0, import_obsidian.requestUrl)({ url: `https://github.com/users/${user}/contributions`, throw: false });
+    if (r.status !== 200) return void 0;
+    const html = r.text, byId = /* @__PURE__ */ new Map(), counts = /* @__PURE__ */ new Map();
+    for (const m of html.matchAll(/data-date="(\d{4}-\d{2}-\d{2})"[^>]*id="([^"]+)"|id="([^"]+)"[^>]*data-date="(\d{4}-\d{2}-\d{2})"/g)) byId.set(m[2] || m[3], m[1] || m[4]);
+    for (const m of html.matchAll(/<tool-tip[^>]*for="([^"]+)"[^>]*>\s*(No|\d[\d,]*) contributions?/g)) {
+      const d = byId.get(m[1]);
+      if (d) counts.set(d, m[2] === "No" ? 0 : Number(m[2].replace(/,/g, "")));
+    }
+    if (!counts.size) return void 0;
+    const dates = [...counts.keys()].sort(), weekly = [];
+    for (let i = 0; i < dates.length; i += 7) weekly.push(dates.slice(i, i + 7).reduce((a, d) => a + (counts.get(d) || 0), 0));
+    const commits = [...counts.values()].reduce((a, b) => a + b, 0);
+    let repos = 0;
+    try {
+      const u = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}`, throw: false });
+      repos = u.json?.public_repos || 0;
+    } catch {
+    }
+    const start = (/* @__PURE__ */ new Date(dates[0] + "T12:00:00")).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return commits ? { commits, repos, weekly, url: `https://github.com/${user}`, start } : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function githubUser(links) {
+  return links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean)?.[1];
+}
+async function githubCity(user, prev) {
+  const own = [];
+  for (let pg = 1; pg <= 2; pg++) {
+    const r = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=pushed&per_page=100&page=${pg}`, throw: false });
+    if (r.status !== 200 || !Array.isArray(r.json)) return void 0;
+    own.push(...r.json);
+    if (r.json.length < 100) break;
+  }
+  const old = new Map((Array.isArray(prev?.repos) ? prev.repos : []).map((r) => [r.name, r]));
+  const repos = own.filter((r) => !r.fork && !r.private && !r.archived).slice(0, 120).map((r) => {
+    const o = old.get(r.name);
+    return {
+      name: r.name,
+      project: r.language || "Other",
+      public: true,
+      language: r.language || "Other",
+      size: r.size,
+      pushed: r.pushed_at,
+      created: r.created_at,
+      url: r.html_url,
+      description: (r.description || "").slice(0, 200),
+      commits: o?.commits || (r.size ? 1 : 0),
+      weeks: o?.weeks || [],
+      week: o?.week || 0,
+      today: 0
+    };
+  });
+  for (const r of repos.slice(0, 20)) {
+    try {
+      const w = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/repos/${user}/${r.name}/stats/commit_activity`, throw: false });
+      if (w.status === 200 && Array.isArray(w.json) && w.json.length) {
+        const t = w.json.slice(-52).map((x) => x.total || 0);
+        r.weeks = t.slice(-12);
+        r.commits = Math.max(1, t.reduce((a, b) => a + b, 0));
+        r.week = t[t.length - 1];
+      }
+    } catch {
+    }
+  }
+  return repos.length ? { generated: (/* @__PURE__ */ new Date()).toISOString(), source: `caldera github ${user}`, repos } : void 0;
+}
+var KINDS = [
+  [/^(person|people|contact|contacts)$/, "People"],
+  [/^(company|companies|organization|organisation|org|orgs|organizations)$/, "Companies"],
+  [/^(project|projects)$/, "Projects"],
+  [/^(source|sources|article|articles|clipping|clippings|paper|papers|reference|references)$/, "Sources"],
+  [/^(concept|concepts|idea|ideas|zettel|zettelkasten|permanent)$/, "Ideas & concepts"],
+  [/^(book|books|reading)$/, "Books"],
+  [/^(meeting|meetings)$/, "Meetings"],
+  [/^(daily|dailies|journal|journals|daily-notes|daily notes|daily-digest|diary)$/, "Daily notes"],
+  [/^(recipe|recipes)$/, "Recipes"],
+  [/^(research)$/, "Research"],
+  [/^(course|courses|class|classes|lecture|lectures)$/, "Learning"],
+  [/^(podcast|podcasts|video|videos)$/, "Media notes"],
+  [/^(tool|tools|software)$/, "Tools"],
+  [/^(place|places|travel)$/, "Places"]
+];
+var kindOf = (v) => {
+  const k = String(v ?? "").trim().toLowerCase();
+  return (KINDS.find(([rx]) => rx.test(k)) || [])[1];
+};
+function vaultKinds(app, md) {
+  const n = /* @__PURE__ */ new Map();
+  for (const f of md) {
+    if (f.path.startsWith("Caldera/")) continue;
+    const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
+    const label = kindOf(fm.type) || kindOf(fm.category) || (/^\d{4}-\d{2}-\d{2}$/.test(f.basename) ? "Daily notes" : void 0) || f.path.split("/").slice(0, -1).map(kindOf).find(Boolean);
+    if (label) n.set(label, (n.get(label) || 0) + 1);
+  }
+  return [...n].filter(([, c]) => c >= 3).sort((a, b) => b[1] - a[1]).slice(0, 7);
+}
+
+// src/settings.ts
+var import_obsidian2 = require("obsidian");
 var DEFAULT_SETTINGS = {
   hubUrl: "https://caldera.social",
   identity: null,
@@ -2693,9 +2935,9 @@ var SECTION_LABELS = {
   social: "Friends, gravity and credits",
   links: "Links elsewhere",
   garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
-  city: "City (your GitHub as a little city, from Caldera/city.json; private repos only in your private views)"
+  city: "City (your GitHub as a little city: add GitHub | https://github.com/you to Links, or write Caldera/city.json yourself)"
 };
-var CalderaSettingTab = class extends import_obsidian.PluginSettingTab {
+var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -2705,64 +2947,70 @@ var CalderaSettingTab = class extends import_obsidian.PluginSettingTab {
     const s = this.plugin.settings;
     containerEl.empty();
     containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
-    new import_obsidian.Setting(containerEl).setName("Identity").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet").addButton((b) => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
+    new import_obsidian2.Setting(containerEl).setName("Identity").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet").addButton((b) => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
       if (!s.identity) {
         await this.plugin.ensureIdentity();
         this.display();
       } else {
         await navigator.clipboard.writeText(s.identity.id);
-        new import_obsidian.Notice("ID copied");
+        new import_obsidian2.Notice("ID copied");
       }
     })).addButton((b) => b.setButtonText("Export recovery key").setDisabled(!s.identity).onClick(async () => {
       await navigator.clipboard.writeText(btoa(JSON.stringify(s.identity)));
-      new import_obsidian.Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
+      new import_obsidian2.Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
     }));
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
     let claim = "";
-    new import_obsidian.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your account page (caldera.social/me) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
+    new import_obsidian2.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your account page (caldera.social/me) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
       claim = v.trim();
     })).addButton((b) => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then((ok) => {
       if (ok) this.display();
     })));
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
-    new import_obsidian.Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.").addToggle((t) => t.setValue(s.listed !== false).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.").addToggle((t) => t.setValue(s.listed !== false).onChange(async (v) => {
       s.listed = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Profile").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.").addButton((b) => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
+    new import_obsidian2.Setting(containerEl).setName("Profile").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.").addButton((b) => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
     this.text("Name", "", "name");
     this.text("Headline", "One line under your name", "headline");
     this.text("Avatar image", "Path in your vault, e.g. Attachments/me.jpg", "avatarPath");
     this.text("Banner image", "Path in your vault", "bannerPath");
-    new import_obsidian.Setting(containerEl).setName("Theme").addDropdown((d) => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Theme").addDropdown((d) => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async (v) => {
       s.theme = v;
       await this.plugin.saveSettings();
     }));
     this.pairs("Links", "One per line: Label | https://url", "links");
+    new import_obsidian2.Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.").addText((t) => t.setPlaceholder("octocat").setValue(githubUser(s.links || []) || "").onChange(async (v) => {
+      const u = v.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\/.*$/, "");
+      s.links = (s.links || []).filter((l) => !/^https?:\/\/(?:www\.)?github\.com\/[A-Za-z0-9-]{1,39}\/?$/.test(l[1]));
+      if (/^[A-Za-z0-9-]{1,39}$/.test(u)) s.links.push(["GitHub", `https://github.com/${u}`]);
+      await this.plugin.saveSettings();
+    }));
     this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
-    new import_obsidian.Setting(containerEl).setName("What is public").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("What is public").setHeading();
     for (const [k, label] of Object.entries(SECTION_LABELS)) {
-      new import_obsidian.Setting(containerEl).setName(label).addToggle((t) => t.setValue(s.sections[k] !== void 0 ? !!s.sections[k] : k === "garden" || k === "city").onChange(async (v) => {
+      new import_obsidian2.Setting(containerEl).setName(label).addToggle((t) => t.setValue(s.sections[k] !== void 0 ? !!s.sections[k] : k === "garden" || k === "city").onChange(async (v) => {
         s.sections[k] = v;
         await this.plugin.saveSettings();
       }));
     }
     this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", (v) => v.replace(/^\/+|\/+$/g, ""));
-    new import_obsidian.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
       s.gardenJournal = v;
       await this.plugin.saveSettings();
     }));
     this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", (v) => /^https:\/\//.test(v) ? v : "");
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
-    new import_obsidian.Setting(containerEl).setName("My profile tab").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.").addToggle((t) => t.setValue(!!s.openProfileOnStartup).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("My profile tab").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.").addToggle((t) => t.setValue(!!s.openProfileOnStartup).onChange(async (v) => {
       s.openProfileOnStartup = v;
       await this.plugin.saveSettings();
     })).addButton((b) => b.setButtonText("Open now").onClick(() => this.plugin.openProfileTab()));
-    new import_obsidian.Setting(containerEl).setName("Private web address (Tailscale)").setDesc(createFragment((f) => {
+    new import_obsidian2.Setting(containerEl).setName("Private web address (Tailscale)").setDesc(createFragment((f) => {
       f.appendText("See your private sections in a browser, on any of your Tailscale devices. Every 10 minutes Obsidian pushes them to your hub, which stores them encrypted and shows them only to your own Tailscale account, never on your public page. Needs a hub with a private address set up for you (self-hosted, or the operator's own profile).");
       if (s.privateUrl) {
         f.createEl("br");
@@ -2780,40 +3028,40 @@ var CalderaSettingTab = class extends import_obsidian.PluginSettingTab {
       }
       this.display();
     }));
-    new import_obsidian.Setting(containerEl).setName("Live traffic on your city").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Live traffic on your city").setHeading();
     const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
-    new import_obsidian.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in My view and your private address." : "Each city district gets a tracking snippet after your next publish (you need a city: Caldera/city.json).");
+    new import_obsidian2.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in My view and your private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
     for (const site of sites) {
       const snippet = `<script async src="${hub}/t.js" data-site="${site.key}"><\/script>`;
-      new import_obsidian.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
+      new import_obsidian2.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
         await navigator.clipboard.writeText(snippet);
-        new import_obsidian.Notice(`Snippet for ${site.project} copied`);
+        new import_obsidian2.Notice(`Snippet for ${site.project} copied`);
       })).addExtraButton((b) => b.setIcon("key-round").setTooltip("Copy server key (for sending events from your own server: POST " + hub + "/v1/t/" + site.key + "/events)").onClick(async () => {
-        if (!site.secret) return void new import_obsidian.Notice("Publish once to get the server key");
+        if (!site.secret) return void new import_obsidian2.Notice("Publish once to get the server key");
         await navigator.clipboard.writeText(site.secret);
-        new import_obsidian.Notice("Server key copied. Keep it secret: it lets a server send events for this site.");
+        new import_obsidian2.Notice("Server key copied. Keep it secret: it lets a server send events for this site.");
       }));
     }
-    new import_obsidian.Setting(containerEl).setName("AI agents on your city").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (My view and your private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
+    new import_obsidian2.Setting(containerEl).setName("AI agents on your city").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (My view and your private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
       await navigator.clipboard.writeText(agentSetupPrompt(hub, s.agentKey));
-      new import_obsidian.Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
+      new import_obsidian2.Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
     }));
-    new import_obsidian.Setting(containerEl).setName("Publishing").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually").addText((t) => t.setValue(String(s.autoPublishHours)).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Publishing").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually").addText((t) => t.setValue(String(s.autoPublishHours)).onChange(async (v) => {
       s.autoPublishHours = Math.max(0, Number(v) || 0);
       await this.plugin.saveSettings();
       this.plugin.scheduleAutoPublish();
     }));
   }
   text(name, desc, key, clean = (v) => v) {
-    new import_obsidian.Setting(this.containerEl).setName(name).setDesc(desc).addText((t) => t.setValue(String(this.plugin.settings[key] ?? "")).onChange(async (v) => {
+    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addText((t) => t.setValue(String(this.plugin.settings[key] ?? "")).onChange(async (v) => {
       this.plugin.settings[key] = clean(v.trim());
       await this.plugin.saveSettings();
     }));
   }
   pairs(name, desc, key) {
-    new import_obsidian.Setting(this.containerEl).setName(name).setDesc(desc).addTextArea((t) => {
+    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addTextArea((t) => {
       t.setValue(this.plugin.settings[key].map((p) => p.join(" | ")).join("\n"));
       t.inputEl.rows = 4;
       t.onChange(async (v) => {
@@ -4239,204 +4487,6 @@ function renderPrivateCity(p, city, openBase = "") {
   return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q2, sideOn, gardenOn, d, cur) }, city);
 }
 
-// src/auto.ts
-var import_obsidian2 = require("obsidian");
-var isoLocal = (t) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-function prettyModel(model) {
-  const m = model.trim().replace(/-\d{8}$/, "").split("/").pop().replace(/\./g, "-");
-  const c = m.match(/^claude-([a-z]+)-(\d+)(?:-(\d+))?/);
-  if (c) return `Claude ${c[1][0].toUpperCase()}${c[1].slice(1)} ${c[2]}${c[3] ? "." + c[3] : ""}`;
-  const g = m.match(/^gpt-(\d+)(?:-(\d+))?(.*)$/);
-  if (g) return `GPT-${g[1]}${g[2] ? "." + g[2] : ""}${g[3] ? " " + g[3].replace(/^-/, "").replace(/-/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()) : ""}`;
-  return m;
-}
-function providerOf(name) {
-  const m = name.toLowerCase();
-  if (m.includes("claude")) return "Anthropic";
-  if (/^(gpt|o\d|codex)/.test(m)) return "OpenAI";
-  if (m.includes("gemini")) return "Google";
-  if (m.includes("deepseek")) return "DeepSeek";
-  if (m.includes("grok")) return "xAI";
-  if (m.includes("llama")) return "Meta";
-  if (m.includes("mistral")) return "Mistral";
-  return "Other";
-}
-async function aiUsage(cachePath, windowDays = 45) {
-  if (!import_obsidian2.Platform.isDesktopApp) return void 0;
-  let fs, path, os;
-  try {
-    fs = window.require("fs");
-    path = window.require("path");
-    os = window.require("os");
-  } catch {
-    return void 0;
-  }
-  const home = os.homedir(), since = Date.now() - (windowDays + 2) * 864e5;
-  let cache = {};
-  try {
-    cache = JSON.parse(await fs.promises.readFile(cachePath, "utf8"));
-  } catch {
-  }
-  const files = [];
-  const walk = async (dir, kind, depth) => {
-    let ents = [];
-    try {
-      ents = await fs.promises.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of ents) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory() && depth > 0) await walk(p, kind, depth - 1);
-      else if (e.isFile() && e.name.endsWith(".jsonl")) files.push([p, kind]);
-    }
-  };
-  await walk(path.join(home, ".claude", "projects"), "claude", 2);
-  await walk(path.join(home, ".codex", "sessions"), "codex", 4);
-  if (!files.length) return void 0;
-  const next = {};
-  for (const [p, kind] of files) {
-    let st;
-    try {
-      st = await fs.promises.stat(p);
-    } catch {
-      continue;
-    }
-    if (st.mtimeMs < since) continue;
-    const c = cache[p];
-    if (c && c.m === st.mtimeMs && c.s === st.size) {
-      next[p] = c;
-      continue;
-    }
-    const t = {}, seen = /* @__PURE__ */ new Set();
-    let text = "";
-    try {
-      text = await fs.promises.readFile(p, "utf8");
-    } catch {
-      continue;
-    }
-    let model = "gpt-5";
-    for (const line of text.split("\n")) {
-      if (kind === "claude") {
-        if (!line.includes('"usage"') || !line.includes('"assistant"')) continue;
-        try {
-          const o = JSON.parse(line), msg = o.message || {}, u = msg.usage;
-          if (!u || !msg.model || String(msg.model).startsWith("<") || !o.timestamp || seen.has(msg.id)) continue;
-          seen.add(msg.id);
-          const n = (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
-          const d = isoLocal(Date.parse(o.timestamp));
-          (t[d] || (t[d] = {}))[msg.model] = (t[d][msg.model] || 0) + n;
-        } catch {
-        }
-      } else {
-        if (!line.includes('"turn_context"') && !line.includes('"token_count"')) continue;
-        try {
-          const o = JSON.parse(line), pl = o.payload || {};
-          if (o.type === "turn_context" && pl.model) model = pl.model;
-          else if (pl.type === "token_count" && o.timestamp) {
-            const n = pl.info?.last_token_usage?.total_tokens || 0;
-            if (n) {
-              const d = isoLocal(Date.parse(o.timestamp));
-              (t[d] || (t[d] = {}))[model] = (t[d][model] || 0) + n;
-            }
-          }
-        } catch {
-        }
-      }
-    }
-    next[p] = { m: st.mtimeMs, s: st.size, t };
-    await new Promise((r) => window.setTimeout(r, 0));
-  }
-  try {
-    await fs.promises.writeFile(cachePath, JSON.stringify(next));
-  } catch {
-  }
-  const first = isoLocal(Date.now() - (windowDays - 1) * 864e5);
-  const days = {}, models = /* @__PURE__ */ new Map();
-  for (const f of Object.values(next)) for (const [d, ms] of Object.entries(f.t)) {
-    if (d < first) continue;
-    for (const [m, n] of Object.entries(ms)) {
-      days[d] = (days[d] || 0) + n;
-      const k = prettyModel(m);
-      models.set(k, (models.get(k) || 0) + n);
-    }
-  }
-  const total = Object.values(days).reduce((a, b) => a + b, 0);
-  if (!total) return void 0;
-  const prov = /* @__PURE__ */ new Map();
-  for (const [m, n] of models) prov.set(providerOf(m), (prov.get(providerOf(m)) || 0) + n);
-  return {
-    total,
-    window_days: windowDays,
-    days,
-    models: [...models].sort((a, b) => b[1] - a[1]).slice(0, 8),
-    providers: [...prov].sort((a, b) => b[1] - a[1]),
-    note: "Tokens processed by my AI coding agents (Claude Code, Codex) on this computer, including cached context. Counts only."
-  };
-}
-async function githubCode(links) {
-  const gh = links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean);
-  if (!gh) return void 0;
-  const user = gh[1];
-  try {
-    const r = await (0, import_obsidian2.requestUrl)({ url: `https://github.com/users/${user}/contributions`, throw: false });
-    if (r.status !== 200) return void 0;
-    const html = r.text, byId = /* @__PURE__ */ new Map(), counts = /* @__PURE__ */ new Map();
-    for (const m of html.matchAll(/data-date="(\d{4}-\d{2}-\d{2})"[^>]*id="([^"]+)"|id="([^"]+)"[^>]*data-date="(\d{4}-\d{2}-\d{2})"/g)) byId.set(m[2] || m[3], m[1] || m[4]);
-    for (const m of html.matchAll(/<tool-tip[^>]*for="([^"]+)"[^>]*>\s*(No|\d[\d,]*) contributions?/g)) {
-      const d = byId.get(m[1]);
-      if (d) counts.set(d, m[2] === "No" ? 0 : Number(m[2].replace(/,/g, "")));
-    }
-    if (!counts.size) return void 0;
-    const dates = [...counts.keys()].sort(), weekly = [];
-    for (let i = 0; i < dates.length; i += 7) weekly.push(dates.slice(i, i + 7).reduce((a, d) => a + (counts.get(d) || 0), 0));
-    const commits = [...counts.values()].reduce((a, b) => a + b, 0);
-    let repos = 0;
-    try {
-      const u = await (0, import_obsidian2.requestUrl)({ url: `https://api.github.com/users/${user}`, throw: false });
-      repos = u.json?.public_repos || 0;
-    } catch {
-    }
-    const start = (/* @__PURE__ */ new Date(dates[0] + "T12:00:00")).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    return commits ? { commits, repos, weekly, url: `https://github.com/${user}`, start } : void 0;
-  } catch {
-    return void 0;
-  }
-}
-var KINDS = [
-  [/^(person|people|contact|contacts)$/, "People"],
-  [/^(company|companies|organization|organisation|org|orgs|organizations)$/, "Companies"],
-  [/^(project|projects)$/, "Projects"],
-  [/^(source|sources|article|articles|clipping|clippings|paper|papers|reference|references)$/, "Sources"],
-  [/^(concept|concepts|idea|ideas|zettel|zettelkasten|permanent)$/, "Ideas & concepts"],
-  [/^(book|books|reading)$/, "Books"],
-  [/^(meeting|meetings)$/, "Meetings"],
-  [/^(daily|dailies|journal|journals|daily-notes|daily notes|daily-digest|diary)$/, "Daily notes"],
-  [/^(recipe|recipes)$/, "Recipes"],
-  [/^(research)$/, "Research"],
-  [/^(course|courses|class|classes|lecture|lectures)$/, "Learning"],
-  [/^(podcast|podcasts|video|videos)$/, "Media notes"],
-  [/^(tool|tools|software)$/, "Tools"],
-  [/^(place|places|travel)$/, "Places"]
-];
-var kindOf = (v) => {
-  const k = String(v ?? "").trim().toLowerCase();
-  return (KINDS.find(([rx]) => rx.test(k)) || [])[1];
-};
-function vaultKinds(app, md) {
-  const n = /* @__PURE__ */ new Map();
-  for (const f of md) {
-    if (f.path.startsWith("Caldera/")) continue;
-    const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
-    const label = kindOf(fm.type) || kindOf(fm.category) || (/^\d{4}-\d{2}-\d{2}$/.test(f.basename) ? "Daily notes" : void 0) || f.path.split("/").slice(0, -1).map(kindOf).find(Boolean);
-    if (label) n.set(label, (n.get(label) || 0) + 1);
-  }
-  return [...n].filter(([, c]) => c >= 3).sort((a, b) => b[1] - a[1]).slice(0, 7);
-}
-
 // src/collect.ts
 var DAY = 864e5;
 var fmtN = (n) => n.toLocaleString("en-US");
@@ -4675,8 +4725,23 @@ async function collectProfile(app, s, social) {
   if (s.sections.city !== false) {
     try {
       const path = "Caldera/city.json";
+      const ghUser = githubUser(s.links || []);
+      let cur;
+      try {
+        if (await app.vault.adapter.exists(path)) cur = JSON.parse(await app.vault.adapter.read(path));
+      } catch {
+      }
+      const ours = !cur || String(cur.source || "").startsWith("caldera github ");
+      if (ghUser && ours && (cur?.source !== `caldera github ${ghUser}` || Date.now() - Date.parse(cur?.generated || 0) > 6 * 36e5)) {
+        const fresh = await githubCity(ghUser, cur?.source === `caldera github ${ghUser}` ? cur : void 0).catch(() => void 0);
+        if (fresh) {
+          if (!await app.vault.adapter.exists("Caldera")) await app.vault.createFolder("Caldera");
+          await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1));
+        }
+      }
       if (await app.vault.adapter.exists(path)) {
         const raw = JSON.parse(await app.vault.adapter.read(path));
+        const fromGithub = String(raw.source || "").startsWith("caldera github ");
         const repos = parseCityRepos(raw);
         if (repos.length) {
           const byName = new Map(md.map((f) => [f.basename.toLowerCase(), f.path]));
@@ -4702,7 +4767,7 @@ async function collectProfile(app, s, social) {
           const vault = md.filter((f) => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path)).map((f) => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
           const priv = new Set(md.filter((f) => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map((f) => f.path));
           cityPrivate.under = underground(vault.filter((v) => !priv.has(v.path)), hubs, (t) => gslug.get(t.toLowerCase()));
-          const pub = publicCity(cityPrivate, (s.projects || []).map((p) => p[0]));
+          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map((d) => d.name) : (s.projects || []).map((p) => p[0]));
           if (pub.districts.length) data.city = pub;
         }
       }

@@ -15,7 +15,7 @@ import { App, TFile, getAllTags } from "obsidian";
 import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
-import { aiUsage, githubCode, vaultKinds } from "./auto";
+import { aiUsage, githubCity, githubCode, githubUser, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, type CityData } from "./city";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
 
@@ -215,8 +215,17 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   if (s.sections.city !== false) {
     try {
       const path = "Caldera/city.json";
+      // no tools of your own writing city.json: build it from the GitHub in your Links (refreshed every 6 hours)
+      const ghUser = githubUser(s.links || []);
+      let cur: any; try { if (await app.vault.adapter.exists(path)) cur = JSON.parse(await app.vault.adapter.read(path)); } catch { /* rebuilt below */ }
+      const ours = !cur || String(cur.source || "").startsWith("caldera github ");
+      if (ghUser && ours && (cur?.source !== `caldera github ${ghUser}` || Date.now() - Date.parse(cur?.generated || 0) > 6 * 3600_000)) {
+        const fresh = await githubCity(ghUser, cur?.source === `caldera github ${ghUser}` ? cur : undefined).catch(() => undefined);
+        if (fresh) { if (!(await app.vault.adapter.exists("Caldera"))) await app.vault.createFolder("Caldera"); await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1)); }
+      }
       if (await app.vault.adapter.exists(path)) {
         const raw = JSON.parse(await app.vault.adapter.read(path));
+        const fromGithub = String(raw.source || "").startsWith("caldera github ");
         const repos = parseCityRepos(raw);
         if (repos.length) {
           const byName = new Map(md.map(f => [f.basename.toLowerCase(), f.path] as const));
@@ -243,7 +252,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
             .map(f => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
           const priv = new Set(md.filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map(f => f.path));
           cityPrivate.under = underground(vault.filter(v => !priv.has(v.path)), hubs, t => gslug.get(t.toLowerCase()));
-          const pub = publicCity(cityPrivate, (s.projects || []).map(p => p[0]));
+          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map(d => d.name) : (s.projects || []).map(p => p[0]));   // public repos only: every district is public
           if (pub.districts.length) data.city = pub;
         }
       }

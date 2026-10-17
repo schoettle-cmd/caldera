@@ -126,6 +126,36 @@ export async function githubCode(links: [string, string][]): Promise<{ commits: 
   } catch { return undefined; }
 }
 
+/** The owner's GitHub handle from their Links (GitHub | https://github.com/user), if any. */
+export function githubUser(links: [string, string][]): string | undefined {
+  return links.map(l => l[1]).map(u => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean)?.[1];
+}
+
+/** Caldera/city.json for owners without their own tools: public, non-fork repos grouped by language, with commit
+ * activity for the 20 most recently pushed. No token (60 GitHub calls an hour), so the caller refreshes it rarely
+ * and keeps the last good numbers when GitHub is still computing them. */
+export async function githubCity(user: string, prev?: any): Promise<any | undefined> {
+  const own: any[] = [];
+  for (let pg = 1; pg <= 2; pg++) {
+    const r = await requestUrl({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=pushed&per_page=100&page=${pg}`, throw: false });
+    if (r.status !== 200 || !Array.isArray(r.json)) return undefined;
+    own.push(...r.json); if (r.json.length < 100) break;
+  }
+  const old = new Map<string, any>((Array.isArray(prev?.repos) ? prev.repos : []).map((r: any) => [r.name, r]));
+  const repos = own.filter(r => !r.fork && !r.private && !r.archived).slice(0, 120).map(r => {
+    const o = old.get(r.name);
+    return { name: r.name, project: r.language || "Other", public: true, language: r.language || "Other", size: r.size, pushed: r.pushed_at, created: r.created_at,
+      url: r.html_url, description: (r.description || "").slice(0, 200), commits: o?.commits || (r.size ? 1 : 0), weeks: o?.weeks || [], week: o?.week || 0, today: 0 };
+  });
+  for (const r of repos.slice(0, 20)) {
+    try {
+      const w = await requestUrl({ url: `https://api.github.com/repos/${user}/${r.name}/stats/commit_activity`, throw: false });
+      if (w.status === 200 && Array.isArray(w.json) && w.json.length) { const t = w.json.slice(-52).map((x: any) => x.total || 0); r.weeks = t.slice(-12); r.commits = Math.max(1, t.reduce((a: number, b: number) => a + b, 0)); r.week = t[t.length - 1]; }
+    } catch { /* keep the last numbers */ }
+  }
+  return repos.length ? { generated: new Date().toISOString(), source: `caldera github ${user}`, repos } : undefined;
+}
+
 /** Generic categories only. Labels come from this list, never from the vault, so nothing private can leak. */
 const KINDS: [RegExp, string][] = [
   [/^(person|people|contact|contacts)$/, "People"], [/^(company|companies|organization|organisation|org|orgs|organizations)$/, "Companies"],
