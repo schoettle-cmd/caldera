@@ -44,7 +44,8 @@ test("activity score caps bulk imports", () => {
 test("agent prompt: privacy rules always present; install steps only when not installed", async () => {
   const { agentPrompt } = await import("../dist/index.js");
   const fresh = agentPrompt({ hubUrl: "https://hub.example/" });
-  assert.ok(fresh.includes("## 3. Privacy rules") && fresh.includes("Download https://hub.example/download/caldera-latest.zip"));
+  assert.ok(fresh.includes("## 6. Privacy rules") && fresh.includes("Download https://hub.example/download/caldera-latest.zip"));
+  assert.ok(fresh.includes("SAFE TO PASTE AGAIN") && fresh.includes('"prompt_version": ') && fresh.includes("Never create a second scheduled job"));
   assert.ok(fresh.includes("data.json"), "warns agent away from the key file");
   const mine = agentPrompt({ installed: true, vaultPath: "/v", handle: "mike", publicTopics: ["ai"] });
   assert.ok(!mine.includes("Download ") && mine.includes("/@mike/") && mine.includes("#ai") && mine.includes("/v/Caldera/activity.json"));
@@ -53,7 +54,8 @@ test("agent prompt: privacy rules always present; install steps only when not in
 test("richer prompt: approval-gated, counts-only activity, key file off-limits", async () => {
   const { richerPrompt } = await import("../dist/index.js");
   const t = richerPrompt({ vaultPath: "/v" });
-  assert.ok(t.includes("explicit yes first") && t.includes("COUNTS ONLY") && t.includes("data.json") && t.includes("/v/Caldera/activity.json"));
+  assert.ok(t.includes("explicit yes first") && t.includes("Counts only") && t.includes("data.json") && t.includes("/v/Caldera/activity.json"));
+  assert.ok(t.includes("## 4. Make the page rich") && t.includes("## 3. Routine"), "one prompt: richer is the setup prompt");
   assert.ok(!t.includes("If I did not fill this in"));
 });
 
@@ -61,7 +63,7 @@ test("edit prompt: points at Caldera/profile.md, approval-gated, key file off-li
   const { editPrompt, agentPrompt } = await import("../dist/index.js");
   const t = editPrompt({ handle: "mike" });
   assert.ok(t.includes("Caldera/profile.md") && t.includes("/@mike/") && t.includes("before you make it") && t.includes("data.json"));
-  assert.ok(agentPrompt().includes("## 5. When I ask you to change my page"));
+  assert.ok(agentPrompt().includes("Changing my page") && agentPrompt().includes("Caldera/profile.md"));
 });
 
 test("setup prompt covers installing Obsidian when missing; installed variant skips it", async () => {

@@ -151,6 +151,67 @@ ${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.gen
 <script>${CITY_JS}</script></body></html>`;
 }
 
+/** A small, still isometric picture of the city for the top of the profile: same packing, colors and heights as
+ * the live city, drawn as inline SVG (no script, no scroll capture), linking through to city.html. */
+export function citySnapshot(city: CityData, o: { name: string; href?: string }): string {
+  const LANG: Record<string, string> = { TypeScript: "#3178C6", JavaScript: "#E8C547", Python: "#4FB89A", HTML: "#E07A4F", Swift: "#F05138", CSS: "#6E5BD0", Shell: "#7FB24A", Go: "#2FB5D6", Rust: "#C9744A" };
+  const shade = (hex: string, f: number) => { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, n >> 8 & 255, n & 255].map(v => Math.round(Math.min(255, v * f))); return `rgb(${c.join(",")})`; };
+  const TW = 64, TH = 32, ds = city.districts.slice(0, 14);
+  const area = ds.reduce((a, d) => { const k = Math.max(2, Math.ceil(Math.sqrt(Math.min(d.repos.length, 36)))); return a + (k + 1) * (k + 1); }, 0);
+  const maxW = Math.max(8, Math.ceil(Math.sqrt(area) * 1.25));
+  type T = { x: number; y: number; r: CityRepo };
+  const ts: T[] = [], blocks: { x: number; y: number; k: number }[] = [];
+  let x = 1, y = 1, rowH = 0;
+  for (const d of ds) {
+    const rs = d.repos.slice(0, 36), k = Math.max(2, Math.ceil(Math.sqrt(rs.length)));
+    if (x + k > maxW && x > 1) { x = 1; y += rowH + 1; rowH = 0; }
+    blocks.push({ x, y, k });
+    const cells: [number, number][] = []; for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) cells.push([x + i, y + j]);
+    cells.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
+    rs.forEach((r, i) => ts.push({ x: cells[i][0], y: cells[i][1], r }));
+    x += k + 1; rowH = Math.max(rowH, k);
+  }
+  const iso = (gx: number, gy: number) => [(gx - gy) * TW / 2, (gx + gy) * TH / 2];
+  const ht = (r: CityRepo) => Math.min(150, 10 + 14 * Math.log2(1 + Math.max(0, r.commits)));
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const grow = (px: number, py: number) => { minX = Math.min(minX, px); maxX = Math.max(maxX, px); minY = Math.min(minY, py); maxY = Math.max(maxY, py); };
+  const f = (n: number) => n.toFixed(1), out: string[] = [];
+  for (const b of blocks) {   // district pads
+    const p = [iso(b.x - .15, b.y - .15), iso(b.x + b.k - .85, b.y - .15), iso(b.x + b.k - .85, b.y + b.k - .85), iso(b.x - .15, b.y + b.k - .85)].map(([px, py]) => [px, py + TH / 2]);
+    p.forEach(([px, py]) => grow(px, py));
+    out.push(`<polygon class="cp-pad" points="${p.map(q => q.map(f).join(",")).join(" ")}"/>`);
+  }
+  ts.sort((a, b) => (a.x + a.y) - (b.x + b.y) || a.x - b.x);
+  let win = 0;
+  for (const t of ts) {
+    const [cx, c0] = iso(t.x, t.y), cy = c0 + TH / 2, a = TW / 2 * .62, b = TH / 2 * .62, h = ht(t.r);
+    const col = t.r.locked ? "#5C6B86" : LANG[t.r.language] || "#8A8A93";
+    const P = (pts: number[][]) => pts.map(q => q.map(f).join(",")).join(" ");
+    grow(cx - a, cy - h - b); grow(cx + a, cy + b);
+    out.push(`<polygon fill="${shade(col, .62)}" points="${P([[cx - a, cy - h], [cx, cy + b - h], [cx, cy + b], [cx - a, cy]])}"/>`
+      + `<polygon fill="${shade(col, .82)}" points="${P([[cx + a, cy - h], [cx, cy + b - h], [cx, cy + b], [cx + a, cy]])}"/>`
+      + `<polygon fill="${shade(col, 1.08)}" points="${P([[cx, cy - b - h], [cx + a, cy - h], [cx, cy + b - h], [cx - a, cy - h]])}"/>`);
+    const busy = t.r.week > 0, rows = Math.min(8, Math.floor((h - 6) / 9));
+    for (let k = 0; k < rows; k++) for (const u of [.3, .7]) {   // windows on the right face, lit when the repo had commits this week
+      const wx = cx + a * u, wy = cy + b * (1 - u) - 6 - k * 9;
+      const lit = busy && ((t.x * 7 + t.y * 3 + k + (u > .5 ? 1 : 0)) % 3 !== 0);
+      out.push(`<polygon class="${lit ? `cp-w cp-on${win++ % 5}${t.r.locked ? " cp-cool" : ""}` : "cp-w"}" points="${P([[wx - 2.5, wy + 1.2], [wx + 2.5, wy - 1.2], [wx + 2.5, wy - 4.8], [wx - 2.5, wy - 2.4]])}"/>`);
+    }
+  }
+  const pad = 18, vb = `${f(minX - pad)} ${f(minY - pad)} ${f(maxX - minX + pad * 2)} ${f(maxY - minY + pad * 2)}`;
+  const repos = city.districts.flatMap(d => d.repos), total = repos.reduce((a, r) => a + r.commits, 0), busy = repos.filter(r => r.week > 0).length;
+  const e = (v: string) => v.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return `<style>.city-peek{display:block;position:relative;margin:18px 0 26px;border-radius:12px;overflow:hidden;text-decoration:none;color:#E8EEF8;background:radial-gradient(ellipse at 50% 120%,#1d2b4a 0%,#0c1222 60%,#080b14 100%);border:1px solid rgba(140,170,220,.18);transition:border-color .2s,transform .2s}
+.city-peek:hover{border-color:rgba(140,190,255,.5);transform:translateY(-1px)}.city-peek svg{display:block;width:100%;height:auto;max-height:300px}
+.cp-pad{fill:rgba(120,150,210,.10);stroke:rgba(140,170,230,.22);stroke-width:1}.cp-w{fill:rgba(10,16,30,.55)}[class*=cp-on]{fill:#FFD98A;animation:cpw 4s ease-in-out infinite}
+.cp-on1{animation-delay:-.8s}.cp-on2{animation-delay:-1.6s}.cp-on3{animation-delay:-2.4s}.cp-on4{animation-delay:-3.2s}@keyframes cpw{0%,100%{opacity:1}50%{opacity:.35}}
+.cp-cool{fill:#BFD8FF}@media (prefers-reduced-motion:reduce){[class*=cp-on]{animation:none}}
+.cp-bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;padding:28px 16px 12px;background:linear-gradient(transparent,rgba(6,9,18,.88));font:500 13px/1.3 "IBM Plex Sans",system-ui,sans-serif}
+.cp-bar b{font-size:15px}.cp-bar .cp-go{color:#9CC4FF;white-space:nowrap}.cp-bar .cp-n{opacity:.75}</style>
+<a class="city-peek" href="${e(o.href || "city.html")}" aria-label="Open ${e(o.name)}'s city"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-hidden="true">${out.join("")}</svg>
+<span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${repos.length} buildings &middot; ${total.toLocaleString("en-US")} commits this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a>`;
+}
+
 const CITY_CSS = `
 .c-main{max-width:1100px;margin:0 auto;padding:28px 20px 64px}
 .c-crumbs{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px}.c-crumbs a{color:var(--text-muted)}

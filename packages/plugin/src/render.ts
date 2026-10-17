@@ -8,7 +8,7 @@ import THEME_CSS from "./assets/theme.css";
 import { PROFILE_CSS } from "./profile.css";
 import { activityScore, ACTIVITY_WEIGHTS, type DailyCounts } from "@caldera/core";
 import { gardenSection, renderGarden, type GardenNote } from "./garden";
-import { renderCity, type CityData } from "./city";
+import { citySnapshot, renderCity, type CityData } from "./city";
 
 export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
 export interface ProfileData {
@@ -150,6 +150,7 @@ ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="a
   if (p.banner || p.avatar) parts.push(`<div class="banner">${p.banner ? `<img class="cover" src="${esc(p.banner)}" alt="">` : ""}${p.avatar ? `<img class="avatar" src="${esc(p.avatar)}" alt="${esc(p.name)}">` : ""}</div>`);
   parts.push(`<div class="page"><div class="crumb">People / ${esc(p.name)}.md${p.handle ? " / @" + esc(p.handle) : ""}</div>
 <h1 class="title">${esc(p.name)}<span class="caret">|</span></h1>${p.headline ? `<p class="lede">${esc(p.headline)}</p>` : ""}<!--caldera:owner-->`);
+  if (s.city !== false && p.city?.districts.length) parts.push(citySnapshot(p.city, { name: p.name }));
 
   if (s.journal && journal.length) parts.push(`<section class="journal" id="journal" aria-label="Daily journal"><div class="j-head"><button class="j-nav" id="jprev" aria-label="Previous day">&#8249;</button>
 <div class="j-title"><div class="label">Daily journal</div><div class="j-date" id="jdate"></div></div><button class="j-nav" id="jnext" aria-label="Next day">&#8250;</button></div>

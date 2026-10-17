@@ -23,6 +23,8 @@ export interface OwnerData {
   rediscovered?: VaultRef & { why: string };
   patterns: string[];
   goals?: { heading: string; done: number; total: number; open: string[] }[] | null;   // null = no Caldera/Goals.md yet
+  sources?: { label: string; ok: boolean; hint: string }[];      // what feeds the page; missing ones = copy the setup prompt
+  promptOutdated?: boolean;                                      // the routine was set up with an older setup prompt
 }
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -61,6 +63,16 @@ export function renderOwner(o: OwnerData): string {
       body += lines.length ? `<ul class="ow-list">${lines.join("")}</ul>` : `<p class="ow-muted">Quiet so far. Share your invite link from the Caldera panel to bring friends in.</p>`;
     }
     card("ow-since", "Since you last looked", body, `<span class="ow-muted ow-small">${esc(when)}</span>`);
+  }
+
+  // 1b. What feeds your page: every source the setup prompt can connect, and a one-click copy of that prompt
+  if (o.sources?.length) {
+    const on = o.sources.filter(x => x.ok).length, all = o.sources.length;
+    const nudge = o.promptOutdated
+      ? `<p class="ow-lead">Caldera can track more than your routine was set up for. Copy the setup prompt again and paste it into your AI agent: it upgrades what's there and fills in the rest.</p>`
+      : on < all ? `<p class="ow-muted">Your page shows what your vault is fed. Copy the setup prompt into Claude Code, Codex or Cursor: it connects what it can find on this computer, schedules one routine to keep it fresh, and asks before anything goes public. Paste it again any time.</p>` : "";
+    card("ow-sources", "What feeds your page", `${nudge}<ul class="ow-list ow-src">${o.sources.map(x => `<li>${x.ok ? "&#10003;" : "&#9675;"} <b>${esc(x.label)}</b>${x.ok ? "" : ` <span class="ow-muted">${esc(x.hint)}</span>`}</li>`).join("")}</ul>
+<p><a href="#" class="ow-link" data-action="prompt"><b>Copy the setup prompt</b></a>${o.promptOutdated ? "" : ` <span class="ow-muted ow-small">safe to paste again</span>`}</p>`, `<span class="ow-muted ow-small">${on} of ${all} connected</span>`);
   }
 
   // 2. Today, building through the day

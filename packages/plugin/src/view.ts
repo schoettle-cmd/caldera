@@ -142,6 +142,7 @@ export class ProfileView extends ItemView {
     if (d.caldera === "action") {
       if (d.name === "panel") void this.plugin.openPanel();
       if (d.name === "goals") void this.createGoals();
+      if (d.name === "prompt") void this.plugin.copyPrompt("setup");
       return;
     }
     if (d.caldera === "ext" && d.href) {
@@ -278,7 +279,26 @@ export async function collectOwner(app: App, plugin: CalderaPlugin, data: Profil
     goals = goals.filter(g => g.total);
   }
 
+  // what feeds the page (and whether the routine predates the current setup prompt)
+  const last14 = (data.daily || []).slice(-14), has = (k: string) => last14.some(d => Number((d.counts as any)?.[k]) > 0);
+  let act: any = null;
+  try { const af = plugin.settings.activityFile || "Caldera/activity.json"; if (await app.vault.adapter.exists(af)) act = JSON.parse(await app.vault.adapter.read(af)); } catch { /* unreadable */ }
+  const cityOn = !!data.city?.districts.length || await app.vault.adapter.exists("Caldera/city.json");
+  const sources = [
+    { label: "Daily journal", ok: last14.some(d => d.headline), hint: "a line a day, written by your AI agent from what you did" },
+    { label: "Calendar", ok: has("meetings"), hint: "meetings attended (counts only)" },
+    { label: "Email", ok: has("emails"), hint: "emails sent (counts only)" },
+    { label: "AI usage", ok: has("prompts") || !!data.ai?.total, hint: "prompts and tokens from Claude Code, Codex" },
+    { label: "Code", ok: has("commits") || !!data.code?.commits, hint: "commits, or add your GitHub username in settings" },
+    { label: "Documents", ok: has("docs"), hint: "documents you produced or filed" },
+    { label: "City", ok: cityOn, hint: "your repos as a city: add your GitHub username in settings" },
+    { label: "Page text", ok: !!data.summary, hint: "headline, summary, now, timeline" },
+    { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" },
+  ];
+  const promptOutdated = !!act?.days?.length && (Number(act.prompt_version) || 1) < C.PROMPT_VERSION;
+
   return {
+    sources, promptOutdated,
     now: new Date(now).toISOString(), lastLooked, activity, pending: plugin.pending.length,
     today: { date: today, headline: todayRow?.headline, focus: todayRow?.focus, wins: todayRow?.wins, counts,
       timeline: touched.slice(0, 30).map(f => ref(f, { time: hm(f.stat.mtime), kind: f.stat.ctime >= startToday.getTime() ? "new" : "edit" })) },

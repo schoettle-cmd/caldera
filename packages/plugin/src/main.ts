@@ -5,7 +5,7 @@
  */
 import { App, FileSystemAdapter, ItemView, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
-import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS } from "./settings";
+import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, agentSetupPrompt } from "./settings";
 import { collectProfile } from "./collect";
 import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
@@ -65,8 +65,7 @@ export default class CalderaPlugin extends Plugin {
       const f = this.app.workspace.getActiveFile(); if (!f) return false; if (!check) void this.shareNote(f); return true; } });
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try { await this.send("profile.delete", {}); new Notice("Your Caldera profile was deleted from the hub."); } catch (e: any) { new Notice(e.message); } }).open() });
-    this.addCommand({ id: "agent-prompt", name: "Copy AI agent setup prompt (daily journal + activity)", callback: () => this.copyPrompt("setup") });
-    this.addCommand({ id: "richer-prompt", name: "Copy AI prompt: make my profile richer", callback: () => this.copyPrompt("richer") });
+    this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
     this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
@@ -216,12 +215,14 @@ export default class CalderaPlugin extends Plugin {
 
   async copyPrompt(kind: "setup" | "richer" | "edit") {
     const a = this.app.vault.adapter;
-    const text = (kind === "richer" ? C.richerPrompt : kind === "edit" ? C.editPrompt : C.agentPrompt)({
+    const hub = this.settings.hubUrl.replace(/\/$/, "");
+    const extras = this.settings.agentKey ? `\nMy agent hook (only if I say yes above), exactly as Caldera gave it to me:\n\n${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
+    const text = (kind === "edit" ? C.editPrompt : C.agentPrompt)({ extras,
       vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined,
       hubUrl: this.settings.hubUrl, handle: this.settings.handle || undefined,
       activityFile: this.settings.activityFile, publicTopics: this.settings.publicTopics.map(t => t[0]), installed: true,
     });
-    try { await navigator.clipboard.writeText(text); new Notice(kind === "richer" ? "Prompt copied. Paste it into your AI agent; it asks before making anything public." : "Agent prompt copied. Paste it into your AI agent (Claude Code, Codex, ...) and schedule it daily."); }
+    try { await navigator.clipboard.writeText(text); new Notice(kind === "edit" ? "Prompt copied. Paste it into your AI agent." : "Setup prompt copied. Paste it into Claude Code, Codex or Cursor: it connects every source it can find, keeps it fresh, and asks before anything goes public.", 8000); }
     catch { new PromptModal(this.app, text).open(); }
   }
 
@@ -644,7 +645,7 @@ class WelcomeModal extends Modal {
     link.addEventListener("click", e => { e.preventDefault(); window.open(url); });
     this.contentEl.createEl("p", { text: "It updates itself from your vault. To change your name, headline, photo, links or sections, edit the note Caldera/profile.md - or ask your AI agent to. The page republishes about a minute after you save." });
     this.contentEl.createEl("p", { text: "Fill out your page: your AI agent (Claude Code, Codex, Cursor...) can draft your summary, timeline and projects, add a photo and links, and start your daily journal. Copy one prompt, paste it into your AI, and approve what it suggests. AI usage, activity and what your vault knows fill in by themselves." });
-    new Setting(this.contentEl).addButton(b => b.setButtonText("Copy AI prompt: fill out my page").setCta().onClick(() => this.plugin.copyPrompt("richer")));
+    new Setting(this.contentEl).addButton(b => b.setButtonText("Copy the AI setup prompt").setCta().onClick(() => this.plugin.copyPrompt("setup")));
     this.contentEl.createEl("p", { text: "Your login is a key stored in this vault - no password. Save a copy so you can recover your profile on another device:", cls: "caldera-welcome-key" });
     new Setting(this.contentEl)
       .addButton(b => b.setButtonText("Copy recovery key").onClick(async () => {

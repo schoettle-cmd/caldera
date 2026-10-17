@@ -11,7 +11,12 @@ export interface AgentPromptOptions {
   publicTopics?: string[]; // tag names the user has allow-listed
   installed?: boolean;     // true when generated from inside the plugin (skip install steps)
   zipUrl?: string;
+  extras?: string;         // plugin-only additions (the user's own agent-hook and live-traffic setup)
 }
+
+/** Bump when the routine asks for new data: the routine writes it into activity.json, and the plugin tells the
+ * owner to copy the prompt again when theirs is older. */
+export const PROMPT_VERSION = 2;
 
 /** One privacy policy for every prompt. The plugin also enforces most of this in code (see privacy.ts). */
 export const PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
@@ -60,14 +65,26 @@ ${plugin.replace(/<vault>/g, vault)}
 3. Tell me to restart Obsidian (quit fully, then open it). If Obsidian asks, I turn off Restricted mode (Settings -> Community plugins -> Turn on community plugins) and make sure Caldera is switched on. ${welcome}
 `;
 
-  return `You are helping me run Caldera, the social layer for my Obsidian vault (${hub}). Caldera builds a public profile page from my vault. Follow these instructions exactly.
+  const extras = o.extras ? `\n${o.extras.trim()}\n` : "";
+  return `You are helping me run Caldera, the social layer for my Obsidian vault (${hub}). Caldera builds a public profile page from my vault; the more of my real activity it can count, the richer that page is. Follow these instructions exactly. (Caldera setup prompt v${PROMPT_VERSION})
 
 Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which. If there is none, I probably don't have Obsidian yet - many people don't - so start with step 0.)"}
 My public page: ${page}
 
+THIS PROMPT IS SAFE TO PASTE AGAIN. Every time I paste it (for example after a Caldera update), first take stock of what is already set up - scheduled jobs, "${activity}", "Caldera/city.json", "Caldera/profile.md", journal fields in my daily notes - then repair anything broken, upgrade it to these instructions, and only add what is missing. Never create a second scheduled job that does the same thing; update the existing one in place.
+
 ${install}
-## 2. Routine (4 times per workday: 9am, 12pm, 3pm and 6pm my local time, Monday to Friday)
-Schedule this as a job on my computer (cron, launchd, Task Scheduler, or your own scheduler) at those four times. Nothing overnight and nothing on weekends; Monday's first run catches up the weekend. Keep it light on AI tokens: compute counts with code that reads logs, not with an AI call; read a calendar connector at most once a day and cache the result; and never rewrite a journal entry that already exists.
+## 2. Connect every source of activity I have (this is what makes the page rich)
+Check each source below on this computer and tell me which you can reach. Use the ones that work; for the ones that don't, say what it would take (for example "connect your calendar to me") and move on.
+- Calendar: events I attended (a calendar connector, or a calendar app's local data).
+- Email: emails I sent (a mail connector, or the mail app's local data).
+- AI usage: Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -> last_token_usage.total_tokens, model from turn_context). Prompts = user messages I typed in those sessions. Add other tools only if they keep local usage logs.
+- Code: git commits I authored, in repositories on this computer, plus GitHub (the gh CLI or the GitHub API) if I use it.
+- Documents: files I produced or filed (for example new files in Documents/Downloads I saved, or attachments filed into the vault).
+Then write a small script for the routine below that computes these counts with code (no AI call per run).
+
+## 3. Routine (4 times per workday: 9am, 12pm, 3pm and 6pm my local time, Monday to Friday)
+Schedule ONE job on my computer (cron, launchd, Task Scheduler, or your own scheduler) at those four times. Nothing overnight and nothing on weekends; Monday's first run catches up the weekend. Keep it light on AI tokens: compute counts with code that reads logs, not with an AI call; read a calendar connector at most once a day and cache the result; and never rewrite a journal entry that already exists.
 A. Journal entry (first run of each workday only, for YESTERDAY; on Monday also Saturday and Sunday if they had activity; skip any day that already has caldera_headline). Open (or create) that day's daily note, named YYYY-MM-DD.md, wherever my daily notes live. Add these frontmatter properties, keeping everything already in the note:
    caldera_headline: one sentence, the shape of the day
    caldera_focus: 2-4 short items, what I worked on
@@ -77,70 +94,50 @@ A. Journal entry (first run of each workday only, for YESTERDAY; on Monday also 
    Name my projects the way they appear in Caldera/profile.md "projects" when they come up: Caldera grows a garden page for each project (and each distinctive theme) from these journal lines, adding a dated entry whenever it comes up.
 
 B. Activity counts (every run, for today and yesterday). Update "${vault}/${activity}" (create it if missing). Format:
-   { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0, "tokens": 0 } ],
+   { "prompt_version": ${PROMPT_VERSION},
+     "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0, "tokens": 0 } ],
      "ai": { "total": 0, "window_days": 45, "models": [["Claude Opus 5.5", 0]], "providers": [["Anthropic", 0]] },
      "code": { "commits": 0, "repos": 0, "languages": ["Python"], "weekly": [0], "url": "https://github.com/<me>", "start": "Mon YYYY" } }
-   One object per date: replace that date's object if it exists, keep the last 60 days, and only include counts you can actually measure (omit the rest - never guess). meetings = calendar events attended, emails = emails I sent, prompts = AI prompts I sent, commits = git commits I authored, docs = documents/attachments I produced or filed, tokens = AI tokens processed for me that day. Notes are counted by the plugin itself.
-   AI usage ("tokens" per day and the "ai" block, last 45 days): read the usage logs of the AI tools on this computer - Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -> last_token_usage.total_tokens, model from turn_context). Add other tools only if they keep local usage logs. Group by model (readable names) and by provider. Never include prompts, file names or costs.
-   Code ("code" block, optional): if I use GitHub, count my commits in the last 52 weeks per week across my repositories (the gh CLI or the GitHub API), number of repos, and top 4 languages. Counts only - never repository names that are private.
+   One object per date: replace that date's object if it exists, keep the last 60 days, and only include counts you can actually measure (omit the rest - never guess). meetings = calendar events attended, emails = emails I sent, prompts = AI prompts I sent, commits = git commits I authored, docs = documents/attachments I produced or filed, tokens = AI tokens processed for me that day. Notes are counted by the plugin itself. Always write "prompt_version": ${PROMPT_VERSION} - Caldera uses it to tell me when this routine is out of date.
+   AI usage ("tokens" per day and the "ai" block, last 45 days): group by model (readable names) and by provider. Never include prompts, file names or costs.
+   Code ("code" block): count my commits in the last 52 weeks per week across my repositories, number of repos, and top 4 languages. Counts only - never names of private repositories.
 
-C. Publish. If Caldera auto-publish is on (Settings -> Caldera -> Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
+C. City (every run, only if I use GitHub). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>", "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. Use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos, and private ones only as locked glass buildings (no names); full details only in my own My view. If you cannot reach GitHub's API, instead make sure my GitHub is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>") - Caldera then builds the city from my public repos itself.
 
-## 3. Privacy rules (these override everything above)
+D. Publish. If Caldera auto-publish is on (Settings -> Caldera -> Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
+
+After setting up the job, run it once now, then backfill: for each of the last 14 days that has activity, add the journal fields from A to that day's daily note. Show me the 14 entries before writing them.
+
+## 4. Make the page rich (once; on a re-paste, only fill what is still empty)
+Anything that would become PUBLIC needs my explicit yes first: show me exactly what you propose, wait for my answer, then make only the approved changes.
+1. Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).
+2. My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.
+3. Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.
+4. Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.
+5. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".
+6. Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.
+
+## 5. Live city extras (ask me first for each)
+- Websites: if I run websites for my projects, offer to add each project's live-traffic snippet (Caldera settings > "Live traffic on your city") to that site's pages, so visits ride through my city in real time.
+- AI agents: offer to install the Caldera agent hook (Caldera settings > "AI agents on your city"), so my coding agents appear in the city as drones over the repo they're working in.${extras}
+
+## 6. Privacy rules (these override everything above)
 ${PRIVACY_RULES}
 Themes and topics: only use topics among ${topics}.
-Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / garden / friends / private) or move notes into or out of the Garden folder, never touch .obsidian/plugins/caldera/data.json.
+Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / garden / friends / private) without asking, never move notes into or out of the Garden folder, never touch .obsidian/plugins/caldera/data.json - it holds my private key.
 
-## 4. Check your work
-After each run, tell me in two lines what you wrote for that day, and anything you skipped because it looked private.
+## 7. Report
+When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text, garden, live traffic, agents - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
 
-## 5. When I ask you to change my page
-My name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed in the directory all live in the frontmatter of "${vault}/Caldera/profile.md". Edit that file (keep its format; the same privacy rules apply) and the page republishes itself within about a minute. Guide: ${hub}/guide.html
-
-## 6. My garden home
-Once I have planted notes, my garden home is ${hub}/@<my handle>/garden.html: it shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank. After the first publish, tell me that link and offer to draft 2 asks and 2 offers (I post them with "Caldera: Post an ask" / "Caldera: Post an offer").
-
-## 7. My profile inside Obsidian
-The ribbon icon "My Caldera profile" (or the command "Caldera: Open my profile in Obsidian") opens my page as a tab. "My view" is built from my vault right now and adds private sections only I see: since I last looked (visits, gravity, new friends, links in), today as it happens, on this day a week/month/year ago, a note brought back, patterns, and goals from "${vault}/Caldera/Goals.md" (checkboxes under ## headings). Nothing in those sections is published. "Public view" shows the live page exactly as visitors see it. If I want, create Caldera/Goals.md with my current goals, and switch on "Open my profile when Obsidian starts" in Caldera settings.
-
-## 8. My city (GitHub as a city)
-If I use GitHub, write "${vault}/Caldera/city.json" and refresh it every few hours (schedule it): {"generated": "<ISO time>", "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own: project = which of my projects it belongs to (group repos into districts), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. Use the GitHub CLI (gh api user/repos and repos/<owner>/<repo>/stats/commit_activity). Caldera turns it into a little city: districts are projects, buildings are repos. Visitors only see public repos and projects already listed on my profile; private repos appear only in my own My view. If I run websites for these projects, offer (ask first) to add each project's live-traffic snippet from Caldera settings > "Live traffic on your city" to that site's pages, so visits show up in the city in real time. Also offer (ask first) to install the Caldera agent hook from Caldera settings > "AI agents on your city", so my agents appear in the city as drones over the repo they're working in.`;
+## 8. Later
+- Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
+- My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
+- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "My view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
+- When Caldera tells me my setup prompt is out of date, I copy it again ("Caldera: Copy the AI setup prompt") and paste it here; you upgrade the routine in place.`;
 }
 
-/** Second copy-paste prompt: an agent session that makes an existing profile richer, with the user approving anything that becomes public. */
-export function richerPrompt(o: AgentPromptOptions = {}): string {
-  const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, "");
-  const vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
-  const activity = o.activityFile || "Caldera/activity.json";
-  return `Help me make my Caldera profile richer. Caldera (${hub}) builds a public profile page from my Obsidian vault.
-
-Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which.)"}
-
-Work through these one at a time. Anything that would become PUBLIC needs my explicit yes first: show me exactly what you propose, wait for my answer, then make only the approved changes.
-
-1. My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first. Email addresses and phone numbers are removed automatically; links to notes that are not in the garden show as plain text. Then tell me to run "Caldera: Preview my garden".
-
-2. Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter. These are not public; only friends I pick receive them.
-
-3. Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I will add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.
-
-4. Activity sources. Set up a scheduled job (cron, launchd, Task Scheduler, or your own scheduler) that runs 4 times per workday - 9am, 12pm, 3pm and 6pm local, Monday to Friday, nothing overnight or on weekends - and writes COUNTS ONLY for today and yesterday into "${vault}/${activity}" in this format, replacing that date's entry and keeping 60 days:
-   { "days": [ { "date": "YYYY-MM-DD", "meetings": 0, "emails": 0, "prompts": 0, "commits": 0, "docs": 0 } ] }
-   Use the sources I actually have: calendar events attended, emails I sent, AI prompts I sent, git commits I authored, documents I produced. Only numbers - never titles, subjects, names or contents. Tell me which sources you connected and which you could not. If a daily journal routine already writes this file, extend it instead of adding a second writer.
-
-5. My page text. Draft, for Caldera/profile.md: "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context). Show me everything first; write only what I approve.
-
-6. Daily journal. If nothing writes my journal yet, extend the job from step 4 so that on its first run each workday it also opens yesterday's daily note (on Monday, also the weekend days with activity; skip days already written) (YYYY-MM-DD.md) and adds caldera_headline (one line), caldera_focus (up to 3), caldera_wins (up to 3) and caldera_themes (1-3 words), written from what I did that day, following the privacy rules below. Then backfill: For each of the last 14 days that has activity, add caldera_headline, caldera_focus, caldera_wins and caldera_themes to that day's daily note (YYYY-MM-DD.md), following the privacy rules below. Show me the 14 entries before writing them.
-
-7. Asks, offers and my garden home. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I will post the ones I like with the commands "Caldera: Post an ask" and "Caldera: Post an offer". Then set up my garden home - the hub page at ${hub}/@<my handle>/garden.html that shows, live: notes planted, links from other gardens, gravity, help credits, my open asks and offers, friends and my weekly rank, with a plain explanation of each. Check that "sections" in Caldera/profile.md turns on garden, asks and social (ask me before changing it). Explain the economy to me in 3 short lines: gravity = goodwill friends give with the "+ gravity" button in the Caldera panel (positive only, fades over a 30-day half-life, worth a bit more from people who have more of it); help credits = everyone starts with 100, an ask's bounty is held until I award it to whoever helped and returns after 30 days if nobody does, no cash value; links = other gardens can link my notes with [[@<my handle>/note-slug]]. Suggest 2-3 people I could invite as friends (by role, not by name, unless I name them).
-
-8. Finish. Tell me to run "Caldera: Preview my public profile", check it, then "Caldera: Publish my profile".
-
-Privacy rules (these override everything above):
-${PRIVACY_RULES}
-- Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.
-- Never remove or change an existing "caldera:" marking without asking me.`;
-}
+/** Older name for the same prompt: "make my profile richer" is now part of the one setup prompt (safe to re-paste). */
+export function richerPrompt(o: AgentPromptOptions = {}): string { return agentPrompt({ ...o, installed: true }); }
 
 /** Third copy-paste prompt: ask an agent to change something on an existing profile. */
 export function editPrompt(o: AgentPromptOptions = {}): string {
