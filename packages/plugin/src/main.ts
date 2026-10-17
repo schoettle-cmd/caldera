@@ -45,6 +45,7 @@ export default class CalderaPlugin extends Plugin {
       if (params.group) void this.joinGroup(String(params.group));
       if (friend) void this.confirmFriend(friend);
       if (params.open === "private") void this.openPrivate();   // "Private view in Obsidian" on your own public page
+      if (params.open === "finish") void this.openProfileTab();   // "Finish your page" from the daily email
     });
 
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
@@ -52,6 +53,9 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
     this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
     this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
+    this.addCommand({ id: "pair-device", name: "Sign in another device", callback: () => this.pairDevice() });
+    this.addCommand({ id: "masthead", name: "Set my masthead (cover image)", callback: () => this.pickImage("banner") });
+    this.addCommand({ id: "masthead-prompt", name: "Copy AI prompt: make my masthead", callback: () => this.copyImagePrompt("banner") });
     this.addCommand({ id: "profile-file", name: "Edit my profile (open profile.md)", callback: () => this.openProfileFile() });
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
     this.addCommand({ id: "whats-new", name: "What's new", callback: () => this.checkReleases(true) });
@@ -290,6 +294,35 @@ export default class CalderaPlugin extends Plugin {
     try { const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/link`, {}, true); if (r?.url) return void window.open(sub ? `${r.url}&to=${encodeURIComponent(sub)}` : r.url); }
     catch (e: any) { console.warn("Caldera owner link failed:", e.message); }
     window.open(this.profileUrl() + sub);
+  }
+  /** Approve a sign-in code shown on another device (caldera.social/signin): that browser becomes the owner's. */
+  pairDevice() {
+    if (!this.settings.identity || !this.settings.handle) return void new Notice("Publish your profile first.");
+    new PairModal(this.app, async code => {
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity!.id)}/pair`, { code }, true);
+      new Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8000);
+    }, this.profileUrl()).open();
+  }
+  openSettings() { const st = (this.app as any).setting; if (!st) return; st.open(); st.openTabById?.(this.manifest.id); }
+  /** Copy a focused prompt that has the owner's AI agent set a masthead or profile photo. */
+  async copyImagePrompt(kind: "banner" | "photo") {
+    const a = this.app.vault.adapter;
+    const text = C.imagePrompt(kind, { vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined, hubUrl: this.settings.hubUrl, handle: this.settings.handle || undefined });
+    try { await navigator.clipboard.writeText(text); new Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8000); }
+    catch { new PromptModal(this.app, text).open(); }
+  }
+  /** Choose an image from disk: copied into the vault as Caldera/<kind>.<ext>, set in Caldera/profile.md (which republishes). */
+  pickImage(kind: "banner" | "photo"): Promise<boolean> {
+    return new Promise(done => new ImagePickModal(this.app, kind, async (buf, ext) => {
+      const path = normalizePath(`Caldera/${kind}.${ext}`), v = this.app.vault;
+      if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {});
+      const old = v.getAbstractFileByPath(path);
+      if (old instanceof TFile) await v.modifyBinary(old, buf); else await v.createBinary(path, buf);
+      const pf = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
+      await this.app.fileManager.processFrontMatter(pf, fm => { fm[kind === "banner" ? "banner" : "photo"] = path; });
+      new Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
+      done(true);
+    }, () => done(false)).open());
   }
   /** The private view: the Tailscale web address when this hub gives you one, otherwise My view inside Obsidian. */
   async openPrivate() {
@@ -686,6 +719,44 @@ class AskModal extends Modal {
       } catch (e: any) { new Notice(e.message); }
     }));
   }
+}
+
+/** Type the code from caldera.social/signin on the other device. */
+class PairModal extends Modal {
+  constructor(app: App, private approve: (code: string) => Promise<void>, private page: string) { super(app); }
+  onOpen() {
+    this.titleEl.setText("Sign in another device");
+    this.contentEl.createEl("p", { text: `On your phone or the other browser, open ${this.page}, tap "Owner? Sign in" in the bar at the top, then "Show a code". Type that code here.` });
+    this.contentEl.createEl("p", { cls: "setting-item-description", text: "Only approve a code on a screen you're holding yourself: approving signs that browser in as you." });
+    let code = "";
+    const go = async () => { if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new Notice("The code has 6 characters.");
+      try { await this.approve(code); this.close(); } catch (e: any) { new Notice(e.message); } };
+    new Setting(this.contentEl).setName("Code").addText(t => { t.setPlaceholder("ABC 123").onChange(v => code = v); t.inputEl.addEventListener("keydown", e => { if (e.key === "Enter") void go(); }); window.setTimeout(() => t.inputEl.focus(), 50); })
+      .addButton(b => b.setButtonText("Sign it in").setCta().onClick(() => void go()));
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+/** Choose (or drop) an image for the masthead or profile photo. A real button click, so the file chooser always opens. */
+class ImagePickModal extends Modal {
+  private chosen = false;
+  constructor(app: App, private kind: "banner" | "photo", private use: (buf: ArrayBuffer, ext: string) => Promise<void>, private cancelled: () => void) { super(app); }
+  onOpen() {
+    const banner = this.kind === "banner";
+    this.titleEl.setText(banner ? "Set your masthead" : "Set your profile photo");
+    this.contentEl.createEl("p", { text: banner ? "The wide cover image across the top of your page. Best about 3:1 (for example 1800x600), JPG or WebP, up to 5 MB. It's public." : "Square, at least 400x400: your face or your logo. JPG, PNG or WebP, up to 5 MB. It's public." });
+    const input = this.contentEl.createEl("input", { attr: { type: "file", accept: "image/jpeg,image/png,image/webp" } }); input.style.display = "none";
+    const take = async (f?: File) => {
+      if (!f) return; const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : f.type === "image/jpeg" ? "jpg" : "";
+      if (!ext) return void new Notice("Use a JPG, PNG or WebP image."); if (f.size > 5 * 1024 * 1024) return void new Notice("That image is over 5 MB. Try a smaller one.");
+      try { this.chosen = true; await this.use(await f.arrayBuffer(), ext); this.close(); } catch (e: any) { this.chosen = false; new Notice("Couldn't set it: " + e.message); }
+    };
+    input.addEventListener("change", () => void take(input.files?.[0]));
+    this.contentEl.addEventListener("dragover", e => e.preventDefault());
+    this.contentEl.addEventListener("drop", e => { e.preventDefault(); void take(e.dataTransfer?.files?.[0]); });
+    new Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton(b => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
+  }
+  onClose() { this.contentEl.empty(); if (!this.chosen) this.cancelled(); }
 }
 
 class PromptModal extends Modal {

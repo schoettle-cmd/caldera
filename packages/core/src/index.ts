@@ -175,3 +175,6 @@ export type { AgentPromptOptions } from "./agent-prompt.js";
 
 export { publicTextFilter } from "./privacy.js";
 export type { PublicTextFilter } from "./privacy.js";
+
+export { pageChecklist, nextStep, imagePrompt } from "./checklist.js";
+export type { PageState, ChecklistItem, ChecklistId } from "./checklist.js";

@@ -11,6 +11,7 @@ export interface OwnerActivity {
   friends: { handle: string | null; ts: string }[];
   links: { src_handle: string; src_slug: string; src_title: string; dst_slug: string }[];
   asks: { title: string; status: string; ts: string }[];
+  emailConfirmed?: boolean;
 }
 export interface VaultRef { title: string; path: string; excerpt?: string; time?: string; kind?: "new" | "edit" }
 export interface OwnerData {
@@ -25,6 +26,7 @@ export interface OwnerData {
   goals?: { heading: string; done: number; total: number; open: string[] }[] | null;   // null = no Caldera/Goals.md yet
   sources?: { label: string; ok: boolean; hint: string }[];      // what feeds the page; missing ones = copy the setup prompt
   promptOutdated?: boolean;                                      // the routine was set up with an older setup prompt
+  checklist?: { id: string; label: string; why: string; done: boolean }[];   // "Finish your page" (core pageChecklist)
 }
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -63,6 +65,26 @@ export function renderOwner(o: OwnerData): string {
       body += lines.length ? `<ul class="ow-list">${lines.join("")}</ul>` : `<p class="ow-muted">Quiet so far. Share your invite link from the Caldera panel to bring friends in.</p>`;
     }
     card("ow-since", "Since you last looked", body, `<span class="ow-muted ow-small">${esc(when)}</span>`);
+  }
+
+  // 1a. Finish your page: what's still missing, each with a one-click way to do it
+  if (o.checklist?.some(i => !i.done)) {
+    const items = o.checklist, left = items.filter(i => !i.done), done = items.length - left.length;
+    const act = (a: string, label: string) => `<a href="#" class="ow-link ow-act" data-action="${a}">${label}</a>`;
+    const how: Record<string, string> = {
+      photo: `${act("pick-photo", "Choose an image")} ${act("prompt-photo", "Copy prompt for my AI")}`,
+      banner: `${act("pick-banner", "Choose an image")} ${act("prompt-banner", "Copy prompt for my AI")} <span class="ow-muted ow-small">wide, about 3:1</span>`,
+      headline: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("prompt-edit", "Copy prompt for my AI")}`,
+      summary: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("prompt-edit", "Copy prompt for my AI")}`,
+      links: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("prompt-edit", "Copy prompt for my AI")}`,
+      garden: `${act("garden-help", "How to plant a note")}`,
+      friend: `${act("panel", "Open the Caldera panel")}`,
+      group: `${act("settings", "Join one in settings")} <span class="ow-muted ow-small">try producthunt</span>`,
+      email: `${act("settings", "Turn it on in settings")}`,
+    };
+    out.unshift(`<section class="ow-card ow-finish" id="ow-finish"><div class="ow-h"><h3>Finish your page</h3><span class="ow-muted ow-small">${done} of ${items.length} done</span></div>
+<div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
+<ul class="ow-list ow-todo">${left.map(i => `<li><b>${esc(i.label)}</b> <span class="ow-muted">${esc(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
 
   // 1b. What feeds your page: every source the setup prompt can connect, and a one-click copy of that prompt
@@ -112,7 +134,8 @@ const OWNER_CSS = `
 .ow-lock{font-family:var(--font-mono);font-size:var(--text-xs,12px);text-transform:uppercase;letter-spacing:.05em;color:var(--accent);font-weight:600}
 .ow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
 .ow-card{background:var(--bg-raised);border:1px solid var(--line);border-radius:var(--radius-md,10px);padding:14px 16px;min-width:0}
-.ow-card#ow-since,.ow-card#ow-today{grid-column:1/-1}
+.ow-card#ow-since,.ow-card#ow-today,.ow-card#ow-finish{grid-column:1/-1}
+.ow-todo{list-style:none;padding:0;gap:10px}.ow-acts{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:3px;align-items:baseline}.ow-act{font-weight:600}
 .ow-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
 .ow-h h3{margin:0;font-size:1rem;font-family:var(--font-sans);font-weight:600;color:var(--text-strong)}
 .ow-muted{color:var(--text-muted)}.ow-small{font-size:var(--text-sm,13px)}

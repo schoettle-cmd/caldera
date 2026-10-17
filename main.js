@@ -2362,7 +2362,7 @@ After setting up the job, run it once now, then backfill: for each of the last 1
 
 ## 4. Make the page rich (once; on a re-paste, only fill what is still empty)
 Anything that would become PUBLIC needs my explicit yes first: show me exactly what you propose, wait for my answer, then make only the approved changes.
-1. Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).
+1. Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Optional: offer a masthead (the wide cover image across the top of the page, about 3:1 such as 1800x600, under 2 MB): an image I choose or a free-to-use one I approve, saved into "Caldera/img/" with "banner" set to its path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).
 2. My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.
 3. Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.
 4. Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.
@@ -2518,6 +2518,41 @@ function publicTextFilter(allowed = []) {
   const f = (line) => why(line) === null;
   f.why = why;
   return f;
+}
+
+// ../core/src/checklist.ts
+var ITEMS = [
+  { id: "photo", label: "Profile photo", why: "A face (or a logo) makes people trust the page and accept your friend requests." },
+  { id: "banner", label: "Masthead", why: "A wide cover image across the top makes the page feel like yours and shows in link previews." },
+  { id: "headline", label: "Headline", why: "One line under your name that says what you do." },
+  { id: "summary", label: "About you", why: "Two sentences so a visitor knows why to follow you." },
+  { id: "links", label: "Links", why: "Where else to find you: your site, GitHub, socials." },
+  { id: "garden", label: "First garden note", why: "One note grown in public gives visitors something to read and link to." },
+  { id: "friend", label: "First friend", why: "Friends see your updates, link your notes and give you gravity." },
+  { id: "group", label: "Join a group", why: "Groups are towns of everyone's cities, and people in them are suggested to you." },
+  { id: "email", label: "Daily summary email", why: "Hear when people visit, link your notes or ask to be friends." }
+];
+function pageChecklist(s) {
+  return ITEMS.filter((i) => !(i.id === "garden" && s.garden === void 0)).map((i) => ({ ...i, done: i.id === "summary" ? s.summary !== false : i.id === "garden" ? !!s.garden : !!s[i.id] }));
+}
+function imagePrompt(kind, o = {}) {
+  const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, ""), vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
+  const what = kind === "banner" ? `a masthead: the wide cover image across the top of my page. It should be about 3:1 (for example 1800x600), landscape, calm enough that my name and photo read on top of it, and under 2 MB (JPG or WebP).` : `a profile photo: square, at least 400x400, my face or my logo, under 1 MB (JPG, PNG or WebP).`;
+  const key = kind === "banner" ? "banner" : "photo", file = kind === "banner" ? "banner" : "photo";
+  return `Help me add ${what}
+
+My Caldera page: ${hub}/@${o.handle || "<my handle>"}/ . Caldera builds it from my Obsidian vault.
+Vault: ${vault}
+
+1. Ask me which image to use. Offer three routes: (a) I point you at a photo I already have, (b) you find a free-to-use image I approve (say where it's from and its license), ${kind === "banner" ? "or (c) you make one (a simple abstract or landscape image, or an image generator I already use)" : "or (c) I'll take one now"}.
+2. Crop or resize it to the size above if you can, and save it as "${vault}/Caldera/${file}.jpg" (or .png / .webp to match).
+3. In the frontmatter of "${vault}/Caldera/profile.md", set ${key}: "Caldera/${file}.jpg" (the path inside the vault). Change nothing else.
+4. Caldera republishes the page about a minute after profile.md changes. Tell me to look at ${hub}/@${o.handle || "<my handle>"}/ .
+
+Rules:
+${PRIVACY_RULES}
+- The image is public: no other people's faces without their OK, no screens, documents, addresses or anything readable that's private.
+- Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.`;
 }
 
 // ../core/src/index.ts
@@ -5300,6 +5335,24 @@ function renderOwner(o) {
     }
     card("ow-since", "Since you last looked", body, `<span class="ow-muted ow-small">${esc4(when)}</span>`);
   }
+  if (o.checklist?.some((i) => !i.done)) {
+    const items = o.checklist, left = items.filter((i) => !i.done), done = items.length - left.length;
+    const act = (a, label) => `<a href="#" class="ow-link ow-act" data-action="${a}">${label}</a>`;
+    const how = {
+      photo: `${act("pick-photo", "Choose an image")} ${act("prompt-photo", "Copy prompt for my AI")}`,
+      banner: `${act("pick-banner", "Choose an image")} ${act("prompt-banner", "Copy prompt for my AI")} <span class="ow-muted ow-small">wide, about 3:1</span>`,
+      headline: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("prompt-edit", "Copy prompt for my AI")}`,
+      summary: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("prompt-edit", "Copy prompt for my AI")}`,
+      links: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("prompt-edit", "Copy prompt for my AI")}`,
+      garden: `${act("garden-help", "How to plant a note")}`,
+      friend: `${act("panel", "Open the Caldera panel")}`,
+      group: `${act("settings", "Join one in settings")} <span class="ow-muted ow-small">try producthunt</span>`,
+      email: `${act("settings", "Turn it on in settings")}`
+    };
+    out.unshift(`<section class="ow-card ow-finish" id="ow-finish"><div class="ow-h"><h3>Finish your page</h3><span class="ow-muted ow-small">${done} of ${items.length} done</span></div>
+<div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
+<ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc4(i.label)}</b> <span class="ow-muted">${esc4(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
+  }
   if (o.sources?.length) {
     const on = o.sources.filter((x) => x.ok).length, all = o.sources.length;
     const nudge = o.promptOutdated ? `<p class="ow-lead">Caldera can track more than your routine was set up for. Copy the setup prompt again and paste it into your AI agent: it upgrades what's there and fills in the rest.</p>` : on < all ? `<p class="ow-muted">Your page shows what your vault is fed. Copy the setup prompt into Claude Code, Codex or Cursor: it connects what it can find on this computer, schedules one routine to keep it fresh, and asks before anything goes public. Paste it again any time.</p>` : "";
@@ -5341,7 +5394,8 @@ var OWNER_CSS = `
 .ow-lock{font-family:var(--font-mono);font-size:var(--text-xs,12px);text-transform:uppercase;letter-spacing:.05em;color:var(--accent);font-weight:600}
 .ow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
 .ow-card{background:var(--bg-raised);border:1px solid var(--line);border-radius:var(--radius-md,10px);padding:14px 16px;min-width:0}
-.ow-card#ow-since,.ow-card#ow-today{grid-column:1/-1}
+.ow-card#ow-since,.ow-card#ow-today,.ow-card#ow-finish{grid-column:1/-1}
+.ow-todo{list-style:none;padding:0;gap:10px}.ow-acts{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:3px;align-items:baseline}.ow-act{font-weight:600}
 .ow-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
 .ow-h h3{margin:0;font-size:1rem;font-family:var(--font-sans);font-weight:600;color:var(--text-strong)}
 .ow-muted{color:var(--text-muted)}.ow-small{font-size:var(--text-sm,13px)}
@@ -5440,6 +5494,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
       await this.plugin.pushPrivate(false);
       window.open(this.plugin.settings.privateUrl);
     });
+    btn("key-round", "Sign in another device (phone, other browser)", () => this.plugin.pairDevice());
     btn("upload-cloud", "Publish now", async () => {
       const u = await this.plugin.publish();
       if (u && this.mode === "public") void this.show();
@@ -5550,6 +5605,13 @@ var ProfileView = class extends import_obsidian5.ItemView {
       if (d.name === "panel") void this.plugin.openPanel();
       if (d.name === "goals") void this.createGoals();
       if (d.name === "prompt") void this.plugin.copyPrompt("setup");
+      if (d.name === "prompt-edit") void this.plugin.copyPrompt("edit");
+      if (d.name === "pick-banner" || d.name === "pick-photo") void this.plugin.pickImage(d.name === "pick-banner" ? "banner" : "photo").then((ok) => {
+        if (ok) void this.refresh(false);
+      });
+      if (d.name === "prompt-banner" || d.name === "prompt-photo") void this.plugin.copyImagePrompt(d.name === "prompt-banner" ? "banner" : "photo");
+      if (d.name === "settings") this.plugin.openSettings();
+      if (d.name === "garden-help") new import_obsidian5.Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12e3);
       return;
     }
     if (d.caldera === "ext" && d.href) {
@@ -5720,9 +5782,21 @@ async function collectOwner(app, plugin, data, lastLooked) {
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" }
   ];
   const promptOutdated = !!act?.days?.length && (Number(act.prompt_version) || 1) < PROMPT_VERSION;
+  const checklist = plugin.settings.handle ? pageChecklist({
+    photo: !!data.avatar,
+    banner: !!data.banner,
+    headline: !!data.headline?.trim(),
+    summary: !!data.summary?.trim(),
+    links: (data.links || []).length > 0,
+    garden: !!data.garden?.length,
+    friend: plugin.friends.length > 0 || plugin.social.friends > 0,
+    group: (plugin.settings.groups || []).length > 0,
+    email: activity && !("error" in activity) && typeof activity.emailConfirmed === "boolean" ? activity.emailConfirmed : !!plugin.settings.summaryEmail
+  }) : void 0;
   return {
     sources,
     promptOutdated,
+    checklist,
     now: new Date(now).toISOString(),
     lastLooked,
     activity,
@@ -5777,12 +5851,16 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
       if (params.group) void this.joinGroup(String(params.group));
       if (friend) void this.confirmFriend(friend);
       if (params.open === "private") void this.openPrivate();
+      if (params.open === "finish") void this.openProfileTab();
     });
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
     this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
     this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
     this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
+    this.addCommand({ id: "pair-device", name: "Sign in another device", callback: () => this.pairDevice() });
+    this.addCommand({ id: "masthead", name: "Set my masthead (cover image)", callback: () => this.pickImage("banner") });
+    this.addCommand({ id: "masthead-prompt", name: "Copy AI prompt: make my masthead", callback: () => this.copyImagePrompt("banner") });
     this.addCommand({ id: "profile-file", name: "Edit my profile (open profile.md)", callback: () => this.openProfileFile() });
     this.addCommand({ id: "edit-prompt", name: "Copy AI prompt: change my profile", callback: () => this.copyPrompt("edit") });
     this.addCommand({ id: "whats-new", name: "What's new", callback: () => this.checkReleases(true) });
@@ -6110,6 +6188,48 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       console.warn("Caldera owner link failed:", e.message);
     }
     window.open(this.profileUrl() + sub);
+  }
+  /** Approve a sign-in code shown on another device (caldera.social/signin): that browser becomes the owner's. */
+  pairDevice() {
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian6.Notice("Publish your profile first.");
+    new PairModal(this.app, async (code) => {
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/pair`, { code }, true);
+      new import_obsidian6.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
+    }, this.profileUrl()).open();
+  }
+  openSettings() {
+    const st = this.app.setting;
+    if (!st) return;
+    st.open();
+    st.openTabById?.(this.manifest.id);
+  }
+  /** Copy a focused prompt that has the owner's AI agent set a masthead or profile photo. */
+  async copyImagePrompt(kind) {
+    const a = this.app.vault.adapter;
+    const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian6.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
+    try {
+      await navigator.clipboard.writeText(text);
+      new import_obsidian6.Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8e3);
+    } catch {
+      new PromptModal(this.app, text).open();
+    }
+  }
+  /** Choose an image from disk: copied into the vault as Caldera/<kind>.<ext>, set in Caldera/profile.md (which republishes). */
+  pickImage(kind) {
+    return new Promise((done) => new ImagePickModal(this.app, kind, async (buf, ext) => {
+      const path = (0, import_obsidian6.normalizePath)(`Caldera/${kind}.${ext}`), v = this.app.vault;
+      if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
+      });
+      const old = v.getAbstractFileByPath(path);
+      if (old instanceof import_obsidian6.TFile) await v.modifyBinary(old, buf);
+      else await v.createBinary(path, buf);
+      const pf = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
+      await this.app.fileManager.processFrontMatter(pf, (fm) => {
+        fm[kind === "banner" ? "banner" : "photo"] = path;
+      });
+      new import_obsidian6.Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
+      done(true);
+    }, () => done(false)).open());
   }
   /** The private view: the Tailscale web address when this hub gives you one, otherwise My view inside Obsidian. */
   async openPrivate() {
@@ -6652,6 +6772,79 @@ var AskModal = class extends import_obsidian6.Modal {
         new import_obsidian6.Notice(e.message);
       }
     }));
+  }
+};
+var PairModal = class extends import_obsidian6.Modal {
+  constructor(app, approve, page2) {
+    super(app);
+    this.approve = approve;
+    this.page = page2;
+  }
+  onOpen() {
+    this.titleEl.setText("Sign in another device");
+    this.contentEl.createEl("p", { text: `On your phone or the other browser, open ${this.page}, tap "Owner? Sign in" in the bar at the top, then "Show a code". Type that code here.` });
+    this.contentEl.createEl("p", { cls: "setting-item-description", text: "Only approve a code on a screen you're holding yourself: approving signs that browser in as you." });
+    let code = "";
+    const go = async () => {
+      if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new import_obsidian6.Notice("The code has 6 characters.");
+      try {
+        await this.approve(code);
+        this.close();
+      } catch (e) {
+        new import_obsidian6.Notice(e.message);
+      }
+    };
+    new import_obsidian6.Setting(this.contentEl).setName("Code").addText((t) => {
+      t.setPlaceholder("ABC 123").onChange((v) => code = v);
+      t.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") void go();
+      });
+      window.setTimeout(() => t.inputEl.focus(), 50);
+    }).addButton((b) => b.setButtonText("Sign it in").setCta().onClick(() => void go()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var ImagePickModal = class extends import_obsidian6.Modal {
+  constructor(app, kind, use, cancelled) {
+    super(app);
+    this.kind = kind;
+    this.use = use;
+    this.cancelled = cancelled;
+    this.chosen = false;
+  }
+  onOpen() {
+    const banner = this.kind === "banner";
+    this.titleEl.setText(banner ? "Set your masthead" : "Set your profile photo");
+    this.contentEl.createEl("p", { text: banner ? "The wide cover image across the top of your page. Best about 3:1 (for example 1800x600), JPG or WebP, up to 5 MB. It's public." : "Square, at least 400x400: your face or your logo. JPG, PNG or WebP, up to 5 MB. It's public." });
+    const input = this.contentEl.createEl("input", { attr: { type: "file", accept: "image/jpeg,image/png,image/webp" } });
+    input.style.display = "none";
+    const take = async (f) => {
+      if (!f) return;
+      const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : f.type === "image/jpeg" ? "jpg" : "";
+      if (!ext) return void new import_obsidian6.Notice("Use a JPG, PNG or WebP image.");
+      if (f.size > 5 * 1024 * 1024) return void new import_obsidian6.Notice("That image is over 5 MB. Try a smaller one.");
+      try {
+        this.chosen = true;
+        await this.use(await f.arrayBuffer(), ext);
+        this.close();
+      } catch (e) {
+        this.chosen = false;
+        new import_obsidian6.Notice("Couldn't set it: " + e.message);
+      }
+    };
+    input.addEventListener("change", () => void take(input.files?.[0]));
+    this.contentEl.addEventListener("dragover", (e) => e.preventDefault());
+    this.contentEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      void take(e.dataTransfer?.files?.[0]);
+    });
+    new import_obsidian6.Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton((b) => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
+  }
+  onClose() {
+    this.contentEl.empty();
+    if (!this.chosen) this.cancelled();
   }
 };
 var PromptModal = class extends import_obsidian6.Modal {

@@ -54,6 +54,7 @@ export class ProfileView extends ItemView {
     btn("refresh-cw", "Refresh", () => this.refresh(true));
     btn("external-link", "Open in browser (signed in as you)", () => this.plugin.settings.handle ? void this.plugin.openProfile(this.current === "index.html" ? "" : this.current) : new Notice("Publish your profile first"));
     if (this.plugin.settings.privateUrl) btn("lock", "Open my private web view (Tailscale)", async () => { await this.plugin.pushPrivate(false); window.open(this.plugin.settings.privateUrl!); });
+    btn("key-round", "Sign in another device (phone, other browser)", () => this.plugin.pairDevice());
     btn("upload-cloud", "Publish now", async () => { const u = await this.plugin.publish(); if (u && this.mode === "public") void this.show(); });
 
     this.frame = root.createEl("iframe", { cls: "caldera-pv-frame" });
@@ -143,6 +144,11 @@ export class ProfileView extends ItemView {
       if (d.name === "panel") void this.plugin.openPanel();
       if (d.name === "goals") void this.createGoals();
       if (d.name === "prompt") void this.plugin.copyPrompt("setup");
+      if (d.name === "prompt-edit") void this.plugin.copyPrompt("edit");
+      if (d.name === "pick-banner" || d.name === "pick-photo") void this.plugin.pickImage(d.name === "pick-banner" ? "banner" : "photo").then(ok => { if (ok) void this.refresh(false); });
+      if (d.name === "prompt-banner" || d.name === "prompt-photo") void this.plugin.copyImagePrompt(d.name === "prompt-banner" ? "banner" : "photo");
+      if (d.name === "settings") this.plugin.openSettings();
+      if (d.name === "garden-help") new Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12_000);
       return;
     }
     if (d.caldera === "ext" && d.href) {
@@ -296,9 +302,12 @@ export async function collectOwner(app: App, plugin: CalderaPlugin, data: Profil
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" },
   ];
   const promptOutdated = !!act?.days?.length && (Number(act.prompt_version) || 1) < C.PROMPT_VERSION;
+  const checklist = plugin.settings.handle ? C.pageChecklist({ photo: !!data.avatar, banner: !!data.banner, headline: !!data.headline?.trim(), summary: !!data.summary?.trim(),
+    links: (data.links || []).length > 0, garden: !!data.garden?.length, friend: plugin.friends.length > 0 || plugin.social.friends > 0, group: (plugin.settings.groups || []).length > 0,
+    email: activity && !("error" in activity) && typeof activity.emailConfirmed === "boolean" ? activity.emailConfirmed : !!plugin.settings.summaryEmail }) : undefined;
 
   return {
-    sources, promptOutdated,
+    sources, promptOutdated, checklist,
     now: new Date(now).toISOString(), lastLooked, activity, pending: plugin.pending.length,
     today: { date: today, headline: todayRow?.headline, focus: todayRow?.focus, wins: todayRow?.wins, counts,
       timeline: touched.slice(0, 30).map(f => ref(f, { time: hm(f.stat.mtime), kind: f.stat.ctime >= startToday.getTime() ? "new" : "edit" })) },

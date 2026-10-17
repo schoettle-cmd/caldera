@@ -94,3 +94,17 @@ test("all three prompts carry the full privacy policy", async () => {
     for (const k of ["Other people", "Meetings", "Times and places", "Secret or sensitive work", "get someone in trouble", "data.json"]) assert.ok(t.includes(k), k);
   }
 });
+
+test("page checklist: done/undone, garden only for vault profiles, unknown summary never nudged", () => {
+  const base = { photo: true, banner: false, headline: true, links: true, friend: false, group: false, email: false };
+  const hosted = C.pageChecklist({ ...base, summary: false });
+  assert.ok(!hosted.some(i => i.id === "garden"));
+  assert.equal(hosted.find(i => i.id === "summary").done, false);
+  const vault = C.pageChecklist({ ...base, garden: false });
+  assert.equal(vault.find(i => i.id === "summary").done, true);
+  assert.equal(vault.find(i => i.id === "garden").done, false);
+  assert.equal(C.nextStep({ ...base, garden: true }).id, "banner");
+  assert.equal(C.nextStep({ photo: true, banner: true, headline: true, links: true, garden: true, friend: true, group: true, email: true }), undefined);
+  const pr = C.imagePrompt("banner", { vaultPath: "/v", handle: "x" });
+  assert.match(pr, /3:1/); assert.match(pr, /banner: "Caldera\/banner\.jpg"/); assert.match(pr, /data\.json/);
+});

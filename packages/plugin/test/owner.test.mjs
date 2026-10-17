@@ -30,3 +30,15 @@ test("published profile never contains the owner layer, only an empty marker", (
   const html = renderProfile(p)["index.html"];
   assert.ok(html.includes("<!--caldera:owner-->") && !html.includes("Only you can see this") && !html.includes('id="owner"'));
 });
+
+test("finish your page: first card, only what's left, image actions for photo and masthead", () => {
+  const checklist = [
+    { id: "photo", label: "Profile photo", why: "w", done: true }, { id: "banner", label: "Masthead", why: "A wide <cover>", done: false },
+    { id: "group", label: "Join a group", why: "g", done: false }, { id: "email", label: "Daily summary email", why: "e", done: true }];
+  const html = renderOwner({ ...base(), checklist });
+  assert.ok(html.indexOf('id="ow-finish"') < html.indexOf('id="ow-since"'), "first card");
+  assert.ok(html.includes("2 of 4 done") && html.includes('data-action="pick-banner"') && html.includes('data-action="prompt-banner"') && html.includes('data-action="settings"'));
+  assert.ok(!html.includes('data-action="pick-photo"'), "done items aren't listed");
+  assert.ok(html.includes("A wide &lt;cover&gt;"));
+  assert.ok(!renderOwner({ ...base(), checklist: checklist.map(i => ({ ...i, done: true })) }).includes(`id="ow-finish"`), "hidden when complete");
+});
