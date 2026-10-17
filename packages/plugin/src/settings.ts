@@ -38,6 +38,16 @@ export interface CalderaSettings {
   gardenFolder: string;               // notes in this folder are published as full pages ("" = only caldera: garden)
   gardenJournal: boolean;             // grow garden pages from the public daily journal (projects + recurring themes)
   gardenUrl: string;                  // an existing garden elsewhere (Quartz, Obsidian Publish...), linked from the profile
+  groups: string[];                   // groups this profile is in: each is a town at hub/g/<name>
+  invitedBy?: string;                 // handle whose invite link brought this vault to Caldera (sent once, with the first publish)
+  sharePrompted?: boolean;            // the "your page is live, share it" screen has been shown
+  lastAttention?: string;             // ISO time of the last "people looked at your page" notice (at most one a day)
+  welcomeNew?: boolean;               // community hosts: send a friend request to each new member
+  welcomeSince?: string;              // ... who joined after this time
+  welcomeNote?: string;               // the note that goes with it
+  welcomeSent?: string[];             // ids already welcomed
+  welcomeDay?: [string, number];      // [date, requests sent that day] (max 10 a day)
+  summaryEmail?: string;              // address for the daily summary email (kept in this vault; the hub stores it encrypted)
 }
 
 export const DEFAULT_SETTINGS: CalderaSettings = {
@@ -51,8 +61,11 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
   asks: [], offers: [], autoPublishHours: 6, welcomed: false, listed: true, lastSeenRelease: "", lastPublished: 0,
   tree: [], graph: [], backlinks: [], summary: "", now: [], timeline: [], projects: [], knows: [], tabs: [],
-  gardenFolder: "Garden", gardenUrl: "", gardenJournal: true,
+  gardenFolder: "Garden", gardenUrl: "", gardenJournal: true, groups: [],
 };
+
+export const WELCOME_NOTE = "Welcome to Caldera - I built it. Glad you're here. If anything breaks or feels confusing, tell me and I'll fix it.";
+export const groupsFrom = (v: unknown) => [...new Set(String(v || "").toLowerCase().split(/[\s,]+/).map(g => g.replace(/^#/, "")).filter(g => /^[a-z0-9][a-z0-9-]{1,29}$/.test(g)))].slice(0, 8);
 
 const SECTION_LABELS: Record<string, string> = {
   journal: "Daily journal (flip through days)", scoreboard: "Scoreboard (streak, rank, 30-day bars)", properties: "Properties",
@@ -87,6 +100,19 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
     new Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.")
       .addToggle(t => t.setValue(s.listed !== false).onChange(async v => { s.listed = v; await this.plugin.saveSettings(); }));
+
+    new Setting(containerEl).setName("Friends and sharing").setHeading();
+    new Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).")
+      .addButton(b => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
+    new Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`)
+      .addText(t => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async v => { s.groups = groupsFrom(v); await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
+    let email = s.summaryEmail || "";
+    new Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests, links into your garden. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.")
+      .addText(t => t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
+      .addButton(b => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
+    new Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.")
+      .addToggle(t => t.setValue(!!s.welcomeNew).onChange(async v => { s.welcomeNew = v; if (v && !s.welcomeSince) s.welcomeSince = new Date().toISOString(); await this.plugin.saveSettings(); }));
+    new Setting(containerEl).setName("Welcome note").addTextArea(t => { t.setValue(s.welcomeNote || WELCOME_NOTE); t.inputEl.rows = 2; t.onChange(async v => { s.welcomeNote = v.trim().slice(0, 200); await this.plugin.saveSettings(); }); });
 
     new Setting(containerEl).setName("Profile").setHeading();
     new Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.")

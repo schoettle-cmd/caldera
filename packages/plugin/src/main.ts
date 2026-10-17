@@ -5,7 +5,7 @@
  */
 import { App, FileSystemAdapter, ItemView, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
-import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, agentSetupPrompt } from "./settings";
+import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom } from "./settings";
 import { collectProfile } from "./collect";
 import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
@@ -17,6 +17,7 @@ import { renderOwner } from "./owner";
 const VIEW = "caldera-panel";
 interface Friend { id: string; handle?: string; name?: string; box_key?: string; }
 interface Pending { request: string; from: string; handle?: string; note?: string; ts: string; }
+interface Suggestion { id: string; handle: string; name: string; headline: string; why: string; }
 
 export default class CalderaPlugin extends Plugin {
   settings!: CalderaSettings;
@@ -24,6 +25,7 @@ export default class CalderaPlugin extends Plugin {
   sent: Pending[] = [];         // my requests nobody has answered yet
   friends: Friend[] = [];
   social = { friends: 0, gravity: 0, credits: 0 };
+  suggestions: Suggestion[] = [];
   private token: { value: string; until: number } | null = null;
   private timers: number[] = [];
 
@@ -36,8 +38,12 @@ export default class CalderaPlugin extends Plugin {
     this.addRibbonIcon("user-round", "My Caldera profile", () => this.openProfileTab());
     this.pending = [...(this.settings.pendingRequests || [])];
     // obsidian://caldera?friend=<handle> - the "Add as friend" button on every Caldera profile and garden page
+    // obsidian://caldera?group=<name> - "Join from Obsidian" on a group's town page
     this.registerObsidianProtocolHandler("caldera", params => {
-      void this.confirmFriend(String(params.friend || ""));
+      const friend = String(params.friend || "").replace(/^@/, "").toLowerCase();
+      if (friend && /^[a-z0-9][a-z0-9-]{1,30}$/.test(friend) && !this.settings.handle && !this.settings.invitedBy) { this.settings.invitedBy = friend; void this.saveSettings(); }   // came from their invite
+      if (params.group) void this.joinGroup(String(params.group));
+      if (friend) void this.confirmFriend(friend);
     });
 
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
@@ -66,6 +72,7 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try { await this.send("profile.delete", {}); new Notice("Your Caldera profile was deleted from the hub."); } catch (e: any) { new Notice(e.message); } }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
+    this.addCommand({ id: "share-page", name: "Share my page (link preview, invite link)", callback: () => this.openShare() });
     this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
@@ -241,6 +248,8 @@ export default class CalderaPlugin extends Plugin {
         topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, page: "index.html", updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
         garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
+        groups: groupsFrom((this.settings.groups || []).join(",")), languages: (data as any).code?.languages?.slice(0, 6) || [],
+        invitedBy: this.settings.invitedBy || undefined,   // the hub only uses it on a profile's first publish
       });
       const files: Record<string, string> = {};
       for (const [p, t] of Object.entries(text)) files[p] = C.b64.enc(new TextEncoder().encode(t));
@@ -251,6 +260,8 @@ export default class CalderaPlugin extends Plugin {
       void this.syncSites(cityPrivate, data.city?.districts.map(d => d.name) || []);
       const url = this.profileUrl();
       if (!quiet) new Notice(`Published: ${url}`);
+      // once, after the page is first live (or after updating to a Caldera with sharing): offer to share it
+      if (!this.settings.sharePrompted && this.settings.welcomed) { this.settings.sharePrompted = true; await this.saveSettings(); window.setTimeout(() => this.openShare(), 1500); }
       return url;
     } catch (e: any) { this.lastPublishError = e.message; if (!quiet) new Notice("Caldera publish failed: " + e.message); else console.warn("Caldera publish failed:", e.message); return null; }
   }
@@ -314,6 +325,10 @@ export default class CalderaPlugin extends Plugin {
       this.pending = this.pending.filter(x => !this.friends.some(f => f.id === x.from));
       this.settings.pendingRequests = this.pending;
       await this.saveSettings();
+      if (this.settings.handle) {
+        try { this.suggestions = (await this.api("GET", `/v1/suggest/${encodeURIComponent(me.id)}?n=4`)).suggestions || []; } catch { /* older hub */ }
+        void this.welcomeNewMembers(); void this.attention();
+      }
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
     } catch (e: any) { if (loud) new Notice("Caldera sync failed: " + e.message); }
@@ -341,6 +356,69 @@ export default class CalderaPlugin extends Plugin {
     this.settings.ignoredRequests = [...(this.settings.ignoredRequests || []), p.request].slice(-200);
     this.pending = this.pending.filter(x => x !== p); this.settings.pendingRequests = this.pending;
     await this.saveSettings(); this.refreshPanel();
+  }
+
+  /** Join a group (obsidian://caldera?group=): it goes into the next publish, and the group's town lists this profile. */
+  async joinGroup(raw: string) {
+    const g = groupsFrom(raw)[0]; if (!g) return;
+    if ((this.settings.groups || []).includes(g)) return void new Notice(`You're already in ${g}.`);
+    this.settings.groups = [...(this.settings.groups || []), g]; await this.saveSettings();
+    if (!this.settings.identity || !this.settings.handle) return void new Notice(`You'll join ${g} when you publish your profile.`);
+    const url = await this.publish(true);
+    new Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
+  }
+
+  openShare() { if (!this.settings.handle) return void new WelcomeModal(this.app, this).open(); new ShareModal(this.app, this).open(); }
+
+  /** Daily summary email: the hub sends a confirmation link first. Empty turns it off. */
+  async setSummaryEmail(email: string) {
+    try {
+      const me = await this.ensureIdentity(); if (!this.settings.handle) throw new Error("Publish your profile first");
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/email`, { email: email || null }, true);
+      this.settings.summaryEmail = email; await this.saveSettings();
+      new Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8000);
+    } catch (e: any) { new Notice("Couldn't save: " + e.message); }
+  }
+
+  /** At most once a day: if people looked at the page, linked to it or befriended you, say so (click: share it). */
+  async attention() {
+    const s = this.settings, today = new Date().toISOString().slice(0, 10);
+    if (s.lastAttention?.slice(0, 10) === today) return;
+    try {
+      const since = s.lastAttention || new Date(Date.now() - 7 * 86400_000).toISOString();
+      const a = await this.ownerActivity(since);
+      s.lastAttention = new Date().toISOString(); await this.saveSettings();
+      const bits: string[] = [], n = (x: number, one: string, many = one + "s") => `${x} ${x === 1 ? one : many}`;
+      if (a.visitors) bits.push(n(a.visitors, "visitor"));
+      if (a.friends?.length) bits.push(n(a.friends.length, "new friend"));
+      if (a.gravity?.length) bits.push(n(a.gravity.length, "gift of gravity", "gifts of gravity"));
+      if (a.links?.length) bits.push(n(a.links.length, "link into your garden", "links into your garden"));
+      if (!bits.length) return;
+      const days = Math.max(1, Math.round((Date.now() - Date.parse(since)) / 86400_000));
+      const frag = createFragment(f => { f.createEl("b", { text: `Caldera, ${days >= 6 ? "this week" : days === 1 ? "since yesterday" : `last ${days} days`}: ` }); f.appendText(bits.join(", ") + ". "); f.createEl("u", { text: "Share your page" }); });
+      const note = new Notice(frag, 15_000); note.noticeEl.addEventListener("click", () => this.openShare());
+    } catch { /* offline or older hub */ }
+  }
+
+  /** Community hosts: a friend request (with a note) to each person who joins after the option was turned on. */
+  async welcomeNewMembers() {
+    const s = this.settings; if (!s.welcomeNew || !s.identity || !s.handle) return;
+    const today = new Date().toISOString().slice(0, 10), day = s.welcomeDay?.[0] === today ? s.welcomeDay[1] : 0;
+    if (day >= 10) return;
+    try {
+      const since = s.welcomeSince || new Date().toISOString(), sent = new Set(s.welcomeSent || []);
+      const skip = new Set([s.identity.id, ...this.friends.map(f => f.id), ...this.pending.map(p => p.from), ...this.sent.map(p => p.from)]);
+      const dir = await this.api("GET", "/v1/directory?sort=new");
+      let n = day;
+      for (const p of (dir.profiles || []) as { handle: string; created: string }[]) {
+        if (n >= 10 || String(p.created) <= since) break;
+        const pr = await this.api("GET", `/v1/profiles/${encodeURIComponent(p.handle)}`);
+        if (skip.has(pr.id) || sent.has(pr.id)) continue;
+        await this.send("friend.request", { to: pr.id, note: (s.welcomeNote || WELCOME_NOTE).slice(0, 200) });
+        sent.add(pr.id); n++;
+      }
+      s.welcomeSent = [...sent].slice(-500); s.welcomeDay = [today, n]; await this.saveSettings();
+    } catch (e: any) { console.warn("Caldera welcome:", e.message); }
   }
 
   /** "Add as friend" from a profile page (obsidian://caldera?friend=) or the My profile tab: confirm, then request. */
@@ -492,6 +570,7 @@ class CalderaView extends ItemView {
     actions.createEl("button", { text: "My profile" }).onclick = () => p.openProfileTab();
     actions.createEl("button", { text: "Publish", cls: "mod-cta" }).onclick = () => p.publish();
     actions.createEl("button", { text: "Sync" }).onclick = () => p.syncInbox(true);
+    actions.createEl("button", { text: "Share" }).onclick = () => p.openShare();
 
     if (p.pending.length) {
       el.createEl("h4", { text: "Friend requests" });
@@ -512,6 +591,16 @@ class CalderaView extends ItemView {
     new Setting(el).addText(t => t.setPlaceholder("@handle or profile link").onChange(v => handle = v)).addButton(b => b.setButtonText("Request").onClick(async () => {
       try { await p.requestFriend(handle.trim()); } catch (e: any) { new Notice(e.message); }
     }));
+    if (p.suggestions.length) {
+      el.createEl("h4", { text: "People you might know" });
+      for (const sg of p.suggestions) {
+        const row = el.createDiv("caldera-row");
+        const who = row.createSpan(); who.createEl("b", { text: sg.name || "@" + sg.handle }); who.appendText(` @${sg.handle}`);
+        who.createDiv({ cls: "setting-item-description", text: sg.why });
+        row.createEl("button", { text: "Add" }).onclick = async () => { try { await p.requestFriend(sg.handle); p.suggestions = p.suggestions.filter(x => x !== sg); this.render(); } catch (e: any) { new Notice(e.message); } };
+        row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
+      }
+    }
     el.createEl("h4", { text: "Invite someone new" });
     el.createEl("p", { cls: "setting-item-description", text: "Not on Caldera yet: send them this link. It walks them through installing, then they add you with one click." });
     const inv = `${s.hubUrl.replace(/\/$/, "")}/?invite=${encodeURIComponent(s.handle)}#install`;
@@ -653,7 +742,38 @@ class WelcomeModal extends Modal {
         new Notice("Recovery key copied. Paste it into your password manager. Anyone with it can act as you.");
       }))
       .addButton(b => b.setButtonText("Open my profile").onClick(() => window.open(url)))
+      .addButton(b => b.setButtonText("Share my page").onClick(() => { this.close(); this.plugin.settings.sharePrompted = true; void this.plugin.saveSettings(); this.plugin.openShare(); }))
       .addButton(b => b.setButtonText("Done").onClick(() => this.close()));
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+/** "Your page is live": the link-preview picture, the link, one-click posts, the invite link, and the daily email. */
+class ShareModal extends Modal {
+  constructor(app: App, private plugin: CalderaPlugin) { super(app); }
+  onOpen() {
+    const s = this.plugin.settings, hub = s.hubUrl.replace(/\/$/, ""), url = this.plugin.profileUrl(), invite = `${hub}/?invite=${encodeURIComponent(s.handle)}`;
+    this.modalEl.addClass("caldera-share");
+    this.titleEl.setText("Your page is live");
+    const c = this.contentEl;
+    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and links into your garden." });
+    const img = c.createEl("img", { cls: "caldera-share-card", attr: { src: `${url}card.png?t=${Date.now()}`, alt: "Your link preview" } });
+    img.onerror = () => img.remove();
+    const copy = async (t: string, msg: string) => { try { await navigator.clipboard.writeText(t); new Notice(msg); } catch { new Notice(t, 10_000); } };
+    new Setting(c).setName("Your link").setDesc(url).addButton(b => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
+    const text = `My page on Caldera: a living profile built from my Obsidian vault, with my work as a little city. ${url}`, t = encodeURIComponent(text);
+    new Setting(c).setName("Post it")
+      .addButton(b => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`)))
+      .addButton(b => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`)))
+      .addButton(b => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`)))
+      .addButton(b => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
+    new Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`)
+      .addButton(b => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
+    let email = s.summaryEmail || "";
+    new Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests, links into your garden. Only on days something happens.")
+      .addText(tx => tx.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
+      .addButton(b => b.setButtonText("Email me").onClick(() => { if (email) void this.plugin.setSummaryEmail(email); }));
+    new Setting(c).addButton(b => b.setButtonText("Done").onClick(() => this.close()));
   }
   onClose() { this.contentEl.empty(); }
 }

@@ -3014,8 +3014,11 @@ var DEFAULT_SETTINGS = {
   tabs: [],
   gardenFolder: "Garden",
   gardenUrl: "",
-  gardenJournal: true
+  gardenJournal: true,
+  groups: []
 };
+var WELCOME_NOTE = "Welcome to Caldera - I built it. Glad you're here. If anything breaks or feels confusing, tell me and I'll fix it.";
+var groupsFrom = (v) => [...new Set(String(v || "").toLowerCase().split(/[\s,]+/).map((g) => g.replace(/^#/, "")).filter((g) => /^[a-z0-9][a-z0-9-]{1,29}$/.test(g)))].slice(0, 8);
 var SECTION_LABELS = {
   journal: "Daily journal (flip through days)",
   scoreboard: "Scoreboard (streak, rank, 30-day bars)",
@@ -3064,6 +3067,28 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       s.listed = v;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian2.Setting(containerEl).setName("Friends and sharing").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
+    new import_obsidian2.Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`).addText((t) => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async (v) => {
+      s.groups = groupsFrom(v);
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }));
+    let email = s.summaryEmail || "";
+    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests, links into your garden. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
+    new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
+      s.welcomeNew = v;
+      if (v && !s.welcomeSince) s.welcomeSince = (/* @__PURE__ */ new Date()).toISOString();
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Welcome note").addTextArea((t) => {
+      t.setValue(s.welcomeNote || WELCOME_NOTE);
+      t.inputEl.rows = 2;
+      t.onChange(async (v) => {
+        s.welcomeNote = v.trim().slice(0, 200);
+        await this.plugin.saveSettings();
+      });
+    });
     new import_obsidian2.Setting(containerEl).setName("Profile").setHeading();
     new import_obsidian2.Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.").addButton((b) => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
     this.text("Name", "", "name");
@@ -5727,6 +5752,7 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
     // my requests nobody has answered yet
     this.friends = [];
     this.social = { friends: 0, gravity: 0, credits: 0 };
+    this.suggestions = [];
     this.token = null;
     this.timers = [];
     this.unloaded = false;
@@ -5743,7 +5769,13 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
     this.addRibbonIcon("user-round", "My Caldera profile", () => this.openProfileTab());
     this.pending = [...this.settings.pendingRequests || []];
     this.registerObsidianProtocolHandler("caldera", (params) => {
-      void this.confirmFriend(String(params.friend || ""));
+      const friend = String(params.friend || "").replace(/^@/, "").toLowerCase();
+      if (friend && /^[a-z0-9][a-z0-9-]{1,30}$/.test(friend) && !this.settings.handle && !this.settings.invitedBy) {
+        this.settings.invitedBy = friend;
+        void this.saveSettings();
+      }
+      if (params.group) void this.joinGroup(String(params.group));
+      if (friend) void this.confirmFriend(friend);
     });
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
@@ -5786,6 +5818,7 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
       }
     }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
+    this.addCommand({ id: "share-page", name: "Share my page (link preview, invite link)", callback: () => this.openShare() });
     this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
     this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
     this.app.workspace.onLayoutReady(() => {
@@ -6019,7 +6052,11 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
         updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
         garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : void 0,
-        gardenUrl: data.gardenExternal
+        gardenUrl: data.gardenExternal,
+        groups: groupsFrom((this.settings.groups || []).join(",")),
+        languages: data.code?.languages?.slice(0, 6) || [],
+        invitedBy: this.settings.invitedBy || void 0
+        // the hub only uses it on a profile's first publish
       });
       const files = {};
       for (const [p, t] of Object.entries(text)) files[p] = b64.enc(new TextEncoder().encode(t));
@@ -6031,6 +6068,11 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       void this.syncSites(cityPrivate, data.city?.districts.map((d) => d.name) || []);
       const url = this.profileUrl();
       if (!quiet) new import_obsidian6.Notice(`Published: ${url}`);
+      if (!this.settings.sharePrompted && this.settings.welcomed) {
+        this.settings.sharePrompted = true;
+        await this.saveSettings();
+        window.setTimeout(() => this.openShare(), 1500);
+      }
       return url;
     } catch (e) {
       this.lastPublishError = e.message;
@@ -6112,6 +6154,14 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       this.pending = this.pending.filter((x) => !this.friends.some((f) => f.id === x.from));
       this.settings.pendingRequests = this.pending;
       await this.saveSettings();
+      if (this.settings.handle) {
+        try {
+          this.suggestions = (await this.api("GET", `/v1/suggest/${encodeURIComponent(me.id)}?n=4`)).suggestions || [];
+        } catch {
+        }
+        void this.welcomeNewMembers();
+        void this.attention();
+      }
       this.refreshPanel();
       if (loud || cards) new import_obsidian6.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
     } catch (e) {
@@ -6154,6 +6204,86 @@ caldera_received: ${e.ts}
     this.settings.pendingRequests = this.pending;
     await this.saveSettings();
     this.refreshPanel();
+  }
+  /** Join a group (obsidian://caldera?group=): it goes into the next publish, and the group's town lists this profile. */
+  async joinGroup(raw) {
+    const g = groupsFrom(raw)[0];
+    if (!g) return;
+    if ((this.settings.groups || []).includes(g)) return void new import_obsidian6.Notice(`You're already in ${g}.`);
+    this.settings.groups = [...this.settings.groups || [], g];
+    await this.saveSettings();
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian6.Notice(`You'll join ${g} when you publish your profile.`);
+    const url = await this.publish(true);
+    new import_obsidian6.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
+  }
+  openShare() {
+    if (!this.settings.handle) return void new WelcomeModal(this.app, this).open();
+    new ShareModal(this.app, this).open();
+  }
+  /** Daily summary email: the hub sends a confirmation link first. Empty turns it off. */
+  async setSummaryEmail(email) {
+    try {
+      const me = await this.ensureIdentity();
+      if (!this.settings.handle) throw new Error("Publish your profile first");
+      const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/email`, { email: email || null }, true);
+      this.settings.summaryEmail = email;
+      await this.saveSettings();
+      new import_obsidian6.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
+    } catch (e) {
+      new import_obsidian6.Notice("Couldn't save: " + e.message);
+    }
+  }
+  /** At most once a day: if people looked at the page, linked to it or befriended you, say so (click: share it). */
+  async attention() {
+    const s = this.settings, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (s.lastAttention?.slice(0, 10) === today) return;
+    try {
+      const since = s.lastAttention || new Date(Date.now() - 7 * 864e5).toISOString();
+      const a = await this.ownerActivity(since);
+      s.lastAttention = (/* @__PURE__ */ new Date()).toISOString();
+      await this.saveSettings();
+      const bits = [], n = (x, one, many = one + "s") => `${x} ${x === 1 ? one : many}`;
+      if (a.visitors) bits.push(n(a.visitors, "visitor"));
+      if (a.friends?.length) bits.push(n(a.friends.length, "new friend"));
+      if (a.gravity?.length) bits.push(n(a.gravity.length, "gift of gravity", "gifts of gravity"));
+      if (a.links?.length) bits.push(n(a.links.length, "link into your garden", "links into your garden"));
+      if (!bits.length) return;
+      const days = Math.max(1, Math.round((Date.now() - Date.parse(since)) / 864e5));
+      const frag = createFragment((f) => {
+        f.createEl("b", { text: `Caldera, ${days >= 6 ? "this week" : days === 1 ? "since yesterday" : `last ${days} days`}: ` });
+        f.appendText(bits.join(", ") + ". ");
+        f.createEl("u", { text: "Share your page" });
+      });
+      const note = new import_obsidian6.Notice(frag, 15e3);
+      note.noticeEl.addEventListener("click", () => this.openShare());
+    } catch {
+    }
+  }
+  /** Community hosts: a friend request (with a note) to each person who joins after the option was turned on. */
+  async welcomeNewMembers() {
+    const s = this.settings;
+    if (!s.welcomeNew || !s.identity || !s.handle) return;
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), day = s.welcomeDay?.[0] === today ? s.welcomeDay[1] : 0;
+    if (day >= 10) return;
+    try {
+      const since = s.welcomeSince || (/* @__PURE__ */ new Date()).toISOString(), sent = new Set(s.welcomeSent || []);
+      const skip = /* @__PURE__ */ new Set([s.identity.id, ...this.friends.map((f) => f.id), ...this.pending.map((p) => p.from), ...this.sent.map((p) => p.from)]);
+      const dir = await this.api("GET", "/v1/directory?sort=new");
+      let n = day;
+      for (const p of dir.profiles || []) {
+        if (n >= 10 || String(p.created) <= since) break;
+        const pr = await this.api("GET", `/v1/profiles/${encodeURIComponent(p.handle)}`);
+        if (skip.has(pr.id) || sent.has(pr.id)) continue;
+        await this.send("friend.request", { to: pr.id, note: (s.welcomeNote || WELCOME_NOTE).slice(0, 200) });
+        sent.add(pr.id);
+        n++;
+      }
+      s.welcomeSent = [...sent].slice(-500);
+      s.welcomeDay = [today, n];
+      await this.saveSettings();
+    } catch (e) {
+      console.warn("Caldera welcome:", e.message);
+    }
   }
   /** "Add as friend" from a profile page (obsidian://caldera?friend=) or the My profile tab: confirm, then request. */
   async confirmFriend(raw) {
@@ -6348,6 +6478,7 @@ var CalderaView = class extends import_obsidian6.ItemView {
     actions.createEl("button", { text: "My profile" }).onclick = () => p.openProfileTab();
     actions.createEl("button", { text: "Publish", cls: "mod-cta" }).onclick = () => p.publish();
     actions.createEl("button", { text: "Sync" }).onclick = () => p.syncInbox(true);
+    actions.createEl("button", { text: "Share" }).onclick = () => p.openShare();
     if (p.pending.length) {
       el.createEl("h4", { text: "Friend requests" });
       for (const r of p.pending) {
@@ -6371,6 +6502,26 @@ var CalderaView = class extends import_obsidian6.ItemView {
         new import_obsidian6.Notice(e.message);
       }
     }));
+    if (p.suggestions.length) {
+      el.createEl("h4", { text: "People you might know" });
+      for (const sg of p.suggestions) {
+        const row = el.createDiv("caldera-row");
+        const who = row.createSpan();
+        who.createEl("b", { text: sg.name || "@" + sg.handle });
+        who.appendText(` @${sg.handle}`);
+        who.createDiv({ cls: "setting-item-description", text: sg.why });
+        row.createEl("button", { text: "Add" }).onclick = async () => {
+          try {
+            await p.requestFriend(sg.handle);
+            p.suggestions = p.suggestions.filter((x) => x !== sg);
+            this.render();
+          } catch (e) {
+            new import_obsidian6.Notice(e.message);
+          }
+        };
+        row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
+      }
+    }
     el.createEl("h4", { text: "Invite someone new" });
     el.createEl("p", { cls: "setting-item-description", text: "Not on Caldera yet: send them this link. It walks them through installing, then they add you with one click." });
     const inv = `${s.hubUrl.replace(/\/$/, "")}/?invite=${encodeURIComponent(s.handle)}#install`;
@@ -6586,7 +6737,47 @@ var WelcomeModal = class extends import_obsidian6.Modal {
     new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText("Copy recovery key").onClick(async () => {
       await navigator.clipboard.writeText(btoa(JSON.stringify(this.plugin.settings.identity)));
       new import_obsidian6.Notice("Recovery key copied. Paste it into your password manager. Anyone with it can act as you.");
-    })).addButton((b) => b.setButtonText("Open my profile").onClick(() => window.open(url))).addButton((b) => b.setButtonText("Done").onClick(() => this.close()));
+    })).addButton((b) => b.setButtonText("Open my profile").onClick(() => window.open(url))).addButton((b) => b.setButtonText("Share my page").onClick(() => {
+      this.close();
+      this.plugin.settings.sharePrompted = true;
+      void this.plugin.saveSettings();
+      this.plugin.openShare();
+    })).addButton((b) => b.setButtonText("Done").onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var ShareModal = class extends import_obsidian6.Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+  onOpen() {
+    const s = this.plugin.settings, hub = s.hubUrl.replace(/\/$/, ""), url = this.plugin.profileUrl(), invite = `${hub}/?invite=${encodeURIComponent(s.handle)}`;
+    this.modalEl.addClass("caldera-share");
+    this.titleEl.setText("Your page is live");
+    const c = this.contentEl;
+    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and links into your garden." });
+    const img = c.createEl("img", { cls: "caldera-share-card", attr: { src: `${url}card.png?t=${Date.now()}`, alt: "Your link preview" } });
+    img.onerror = () => img.remove();
+    const copy = async (t2, msg) => {
+      try {
+        await navigator.clipboard.writeText(t2);
+        new import_obsidian6.Notice(msg);
+      } catch {
+        new import_obsidian6.Notice(t2, 1e4);
+      }
+    };
+    new import_obsidian6.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
+    const text = `My page on Caldera: a living profile built from my Obsidian vault, with my work as a little city. ${url}`, t = encodeURIComponent(text);
+    new import_obsidian6.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
+    new import_obsidian6.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
+    let email = s.summaryEmail || "";
+    new import_obsidian6.Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests, links into your garden. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
+      if (email) void this.plugin.setSummaryEmail(email);
+    }));
+    new import_obsidian6.Setting(c).addButton((b) => b.setButtonText("Done").onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();

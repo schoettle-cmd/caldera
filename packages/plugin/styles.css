@@ -29,3 +29,6 @@
 .caldera-pv-seg button.is-on { background: var(--interactive-accent); color: var(--text-on-accent); }
 .caldera-pv-status { flex: 1; min-width: 120px; font-size: var(--font-ui-smaller); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .caldera-pv-frame { flex: 1; width: 100%; border: 0; background: #1C1C1F; }
+.caldera-share { width: min(640px, 94vw); }
+.caldera-share-card { display: block; width: 100%; aspect-ratio: 1200 / 630; border-radius: var(--radius-m); border: 1px solid var(--background-modifier-border); margin: 4px 0 8px; background: #0C1222; object-fit: cover; }
+.caldera-panel .caldera-row .setting-item-description { font-size: var(--font-ui-smaller); }
