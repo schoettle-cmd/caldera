@@ -233,7 +233,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   const garden = s.garden !== false && p.garden?.length
     ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   const city: Record<string, string> = s.city !== false && p.city?.districts.length
-    ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, nav: (d, cur) => nav(d, cur) }, p.city) } : {};
+    ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
   return { ...garden, ...city, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
 }
 
@@ -323,8 +323,15 @@ body.innerHTML=h;body.classList.remove('flip-l','flip-r');void body.offsetWidth;
 pv.onclick=function(){if(i>0){i--;r(-1)}};nx.onclick=function(){if(i<days.length-1){i++;r(1)}};document.addEventListener('keydown',function(e){if(e.key==='ArrowLeft')pv.onclick();if(e.key==='ArrowRight')nx.onclick()});r(0)})();`;
 
 /** The owner's city (every repo, private ones included) with the same nav as the public pages. Never published. */
+/** The owner's GitHub profile, when the page links one (Links, or the code section's source). */
+function githubOf(p: ProfileData): string | undefined {
+  const ok = (u?: string) => !!u && /^https:\/\/github\.com\/[\w.-]+\/?$/.test(u);
+  const l = (p.links || []).find(x => /github/i.test(x[0]) && ok(x[1]));
+  return l ? l[1] : ok(p.code?.url) ? p.code!.url : undefined;
+}
+
 export function renderPrivateCity(p: ProfileData, city: CityData, openBase = ""): string {
   const q = { ...p, city: p.city?.districts.length ? p.city : city };   // the nav shows City even when nothing is public
   const sideOn = p.sections.sidebar !== false && !!p.tree?.length, gardenOn = p.sections.garden !== false && !!p.garden?.length;
-  return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q, sideOn, gardenOn, d, cur) }, city);
+  return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, github: githubOf(p), nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q, sideOn, gardenOn, d, cur) }, city);
 }

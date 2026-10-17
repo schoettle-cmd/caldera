@@ -12,6 +12,7 @@ import { gardenManifest, LICENSES } from "./garden";
 import type { GardenReport } from "./collect";
 import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-file";
 import { ProfileView, PROFILE_VIEW, collectOwner } from "./view";
+import { CityFloatView, CITY_FLOAT_VIEW, FLOAT_SIZE, type FloatSpec } from "./float";
 import { renderOwner } from "./owner";
 import { QUICK_LINKS, quickLinkIndex, quickLinkUrl } from "./links";
 
@@ -35,6 +36,7 @@ export default class CalderaPlugin extends Plugin {
     this.addSettingTab(new CalderaSettingTab(this.app, this));
     this.registerView(VIEW, leaf => new CalderaView(leaf, this));
     this.registerView(PROFILE_VIEW, leaf => new ProfileView(leaf, this));
+    this.registerView(CITY_FLOAT_VIEW, leaf => new CityFloatView(leaf, this));
     this.addRibbonIcon("flame", "Caldera", () => this.openPanel());
     this.addRibbonIcon("user-round", "My Caldera profile", () => this.openProfileTab());
     this.pending = [...(this.settings.pendingRequests || [])];
@@ -54,6 +56,7 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
     this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
     this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
+    this.addCommand({ id: "pop-city", name: "Pop out my city (small window that stays on top)", callback: () => void this.popCity() });
     this.addCommand({ id: "pair-device", name: "Sign in another device", callback: () => this.pairDevice() });
     this.addCommand({ id: "masthead", name: "Set my masthead (cover image)", callback: () => this.pickImage("banner") });
     this.addCommand({ id: "masthead-prompt", name: "Copy AI prompt: make my masthead", callback: () => this.copyImagePrompt("banner") });
@@ -564,6 +567,26 @@ export default class CalderaPlugin extends Plugin {
   schedulePrivatePush() {
     if ((this as any)._priv) window.clearInterval((this as any)._priv);
     if (this.settings.privateWeb) (this as any)._priv = window.setInterval(() => { void this.pushPrivate(false); }, 10 * 60_000);
+  }
+
+  /** The city in a small always-on-top window: needs the My profile tab (it builds the city), so open it first if needed. */
+  async popCity() {
+    await this.openProfileTab();
+    const v = this.app.workspace.getLeavesOfType(PROFILE_VIEW)[0]?.view as unknown as { isReady?: () => boolean; popOut?: () => Promise<void> } | undefined;
+    if (!v?.popOut) return;
+    for (let i = 0; i < 40 && !v.isReady?.(); i++) await new Promise(r => window.setTimeout(r, 100));
+    await v.popOut();
+  }
+
+  /** What the floating city shows; open=false only refreshes a window that's already open. */
+  floatSpec: FloatSpec | null = null;
+  async floatCity(spec: FloatSpec, open = true) {
+    this.floatSpec = spec;
+    const leaf = this.app.workspace.getLeavesOfType(CITY_FLOAT_VIEW)[0];
+    if (leaf) { (leaf.view as CityFloatView).showSpec(spec); if (open) leaf.view.containerEl.win.focus(); return; }
+    if (!open) return;
+    const pop = this.app.workspace.openPopoutLeaf({ size: FLOAT_SIZE });
+    await pop.setViewState({ type: CITY_FLOAT_VIEW, active: true });
   }
 
   async openProfileTab() {

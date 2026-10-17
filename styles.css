@@ -34,3 +34,9 @@
 .caldera-panel .caldera-row .setting-item-description { font-size: var(--font-ui-smaller); }
 .caldera-welcome-h { margin: 18px 0 2px; font-size: var(--font-ui-small); text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
 .caldera-welcome .caldera-wide { width: min(320px, 60vw); }
+/* The floating city (float.ts): just the city, filling a small pop-out window */
+.caldera-float { padding: 0 !important; position: relative; overflow: hidden; background: #010207; }
+.caldera-float-frame { display: block; width: 100%; height: 100%; border: 0; }
+.caldera-float-drag { position: absolute; top: 0; left: 0; right: 0; height: 14px; z-index: 2; -webkit-app-region: drag; }
+body.caldera-float-window .workspace-tab-header-container, body.caldera-float-window .view-header, body.caldera-float-window .titlebar { display: none; }
+body.caldera-float-window .workspace-leaf-content, body.caldera-float-window .view-content { background: #010207; }

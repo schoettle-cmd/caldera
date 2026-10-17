@@ -64,3 +64,13 @@ test("underground: notes under their project, plumbing left out, public keeps on
   assert.ok(pub.nodes.some(n => n.t === "Essay" && n.g === "essay"), "garden notes keep their title");
   assert.equal(pub.nodes.find(n => n.k === "entity" && n.d === "Shop") !== undefined, true);
 });
+
+test("city: pop-out button and mini mode (the corner window)", () => {
+  const html = renderCity({ name: "Mike <J>", handle: "mike" }, publicCity(cityData(parseCityRepos(raw), () => ({ n: 0, paths: [] }), "2026-10-16T10:00:00Z"), ["Caldera"]));
+  assert.match(html, /<button id="t-pop"[^>]*>/);
+  assert.match(html, /<div class="c-mininame" aria-hidden="true"><i><\/i>Mike &lt;J&gt;<\/div>/, "name overlay, escaped");
+  assert.match(html, /CALDERA_MINI===1/); assert.match(html, /\[#&\]mini\\b/);
+  assert.match(html, /html\.c-mini \.c-stage\{position:fixed;inset:0/);
+  assert.match(html, /'\/watch\/@'\+m\[1\]/, "on the web it opens the hub's watch page");
+  assert.match(html, /FPS_MS=MINI\?50:30/, "mini mode draws at about 20 fps");
+});

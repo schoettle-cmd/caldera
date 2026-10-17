@@ -2266,7 +2266,7 @@ __export(main_exports, {
   default: () => CalderaPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // ../core/src/index.ts
 var import_tweetnacl = __toESM(require_nacl_fast(), 1);
@@ -3865,12 +3865,13 @@ function renderCity(site, city) {
 ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css"><style>${CITY_CSS}</style></head><body>
 <div class="tabs"><a class="tab" href="index.html">${esc2(site.name)}.md</a><span class="tab is-active">City</span><span class="spacer"></span></div>
 <div class="shell">${site.nav ? site.nav(0, "city.html") : ""}<main class="note"><div class="c-main">
-<div class="g-crumbs c-crumbs"><a href="index.html">${esc2(site.handle ? "@" + site.handle : site.name)}</a> / City</div>
+<div class="g-crumbs c-crumbs"><a href="index.html">${esc2(site.handle ? "@" + site.handle : site.name)}</a> / City${site.github && /^https:\/\/github\.com\/[\w.-]+\/?$/.test(site.github) ? ` &middot; <a class="c-gh" href="${esc2(site.github)}" target="_blank" rel="noopener">GitHub &#8599;</a>` : ""}</div>
 <h1 class="c-title">${esc2(site.name)}'s city</h1>
 <p class="c-lede">${city.kind === "vault" ? `Built from ${esc2(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some((r) => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}`}</p>
 <div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes edited this year" : "commits this year"}</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${(city.kind === "vault" ? city.under?.total ?? notes : notes).toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes in the vault" : "notes in town"}</span></div></div>
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
-<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Day</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-reset">Reset</button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
+<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Auto</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-snd" aria-pressed="false" title="Sound for arrivals, signups and sales (off)">&#x1F507;</button><button id="t-reset">Reset</button><button id="t-pop" aria-label="Pop out a small window" title="Pop out a small window">&#x29C9;<span class="t-txt"> Pop out</span></button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
+<div class="c-toasts" aria-live="polite"></div><div class="c-mininame" aria-hidden="true"><i></i>${esc2(site.name)}</div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
 <div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some((r) => r.locked) ? '<span><i style="background:#5C6B86"></i>&#128274; Private</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -3949,20 +3950,24 @@ function citySnapshot(city, o) {
 .cp-on1{animation-delay:-.8s}.cp-on2{animation-delay:-1.6s}.cp-on3{animation-delay:-2.4s}.cp-on4{animation-delay:-3.2s}@keyframes cpw{0%,100%{opacity:1}50%{opacity:.35}}
 .cp-cool{fill:#BFD8FF}@media (prefers-reduced-motion:reduce){[class*=cp-on]{animation:none}}
 .cp-bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;padding:28px 16px 12px;background:linear-gradient(transparent,rgba(6,9,18,.88));font:500 13px/1.3 "IBM Plex Sans",system-ui,sans-serif}
-.cp-bar b{font-size:15px}.cp-bar .cp-go{color:#9CC4FF;white-space:nowrap}.cp-bar .cp-n{opacity:.75}</style>
+.cp-bar b{font-size:15px}.cp-bar .cp-go{color:#9CC4FF;white-space:nowrap}.cp-bar .cp-n{opacity:.75}
+.city-peek.sky-dawn{background:linear-gradient(#3A4A7E,#E0899A 62%,#FFCB8E)}.city-peek.sky-day{background:linear-gradient(#7FB8EA,#CFE6F7 66%,#EAF4FB)}
+.city-peek.sky-dusk{background:linear-gradient(#3E3A6E,#C8607A 60%,#F4B26B)}.city-peek.sky-evening{background:linear-gradient(#0B0E2A,#23285A 60%,#4A3F7A)}
+.city-peek.sky-day .cp-pad,.city-peek.sky-dawn .cp-pad{fill:rgba(70,110,70,.22);stroke:rgba(50,90,60,.35)}
+.city-peek.sky-day [class*=cp-on]{fill:rgba(205,228,250,.95);animation:none}.city-peek.sky-day .cp-w{fill:rgba(40,60,90,.45)}.city-peek.sky-dawn [class*=cp-on]{fill:#FFE2A8}</style>
 <a class="city-peek" href="${e(o.href || "city.html")}" aria-label="Open ${e(o.name)}'s city"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-hidden="true">${out.join("")}</svg>
-<span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${repos.length} building${repos.length === 1 ? "" : "s"} &middot; ${total.toLocaleString("en-US")} ${city.kind === "vault" ? `note${total === 1 ? "" : "s"} edited` : `commit${total === 1 ? "" : "s"}`} this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a>`;
+<span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${repos.length} building${repos.length === 1 ? "" : "s"} &middot; ${total.toLocaleString("en-US")} ${city.kind === "vault" ? `note${total === 1 ? "" : "s"} edited` : `commit${total === 1 ? "" : "s"}`} this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a><script>(function(a){var d=new Date(),m=d.getHours()*60+d.getMinutes(),k=m<345?'':m<450?'dawn':m<1042?'day':m<1140?'dusk':m<1237?'evening':'';if(a&&k)a.classList.add('sky-'+k)})(document.currentScript&&document.currentScript.previousElementSibling)<\/script>`;
 }
 var CITY_CSS = `
 .c-main{max-width:1100px;margin:0 auto;padding:28px 20px 64px}
-.c-crumbs{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px}.c-crumbs a{color:var(--text-muted)}
+.c-crumbs{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px}.c-crumbs a{color:var(--text-muted)}.c-crumbs a.c-gh{color:var(--accent-text,#B9A6FF)}
 .c-title{font-family:var(--font-serif,'Source Serif 4',Georgia,serif);font-size:2.1rem;margin:0 0 8px;color:var(--text-strong)}
 .c-lede{color:var(--text-muted);max-width:70ch;margin:0 0 16px}
 .c-stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .c-stats div{flex:1 1 120px;background:var(--bg-raised);border:1px solid var(--line);border-radius:var(--radius-md,10px);padding:10px 14px;display:flex;flex-direction:column}
 .c-stats b{font-size:1.5rem;font-variant-numeric:tabular-nums;color:var(--text-strong)}.c-stats span{font-size:var(--text-xs,12px);color:var(--text-muted)}
 .c-stage{position:relative;height:min(72vh,720px);min-height:420px;border-radius:var(--radius-md,10px);overflow:hidden;border:1px solid rgba(61,242,255,.35);box-shadow:0 0 24px rgba(61,242,255,.12);background:#010207;touch-action:none}
-.c-stage canvas{width:100%;height:100%;display:block;cursor:grab}.c-stage canvas.drag{cursor:grabbing}
+.c-stage canvas{width:100%;height:100%;display:block;cursor:grab}.c-stage canvas.c-link{cursor:pointer}.c-stage canvas.drag{cursor:grabbing}
 .c-tools{position:absolute;top:10px;right:10px;display:flex;gap:6px}
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
@@ -3971,6 +3976,22 @@ var CITY_CSS = `
 .c-stage.c-dig .c-hint{display:none}
 .c-stage.c-full{position:fixed;inset:0;z-index:9999;height:100%;min-height:0;border-radius:0;border:0}
 .c-stage:fullscreen{height:100%;border-radius:0;border:0}
+/* arrivals: toasts for signups and sales */
+.c-toasts{position:absolute;left:10px;top:48px;z-index:3;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:calc(100% - 20px)}
+.c-toast{font:600 12px/1.3 var(--font-mono,'IBM Plex Mono',monospace);padding:6px 11px;border-radius:9px;background:rgba(2,6,12,.9);color:#fff;border:1px solid #FF4FD8;box-shadow:0 0 14px rgba(255,79,216,.45);animation:ctin .35s ease-out,ctout .6s ease-in 4.6s forwards;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-toast.buy{border-color:#FFD23F;box-shadow:0 0 14px rgba(255,210,63,.5)}
+@keyframes ctin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}@keyframes ctout{to{opacity:0;transform:translateY(-6px)}}
+html.c-mini .c-toasts{left:6px;top:6px}html.c-mini .c-toast{font-size:10.5px;padding:4px 8px}
+/* mini: the pop-out window (city.html#mini, the watch page, or a picture-in-picture window): just the city, filling the window */
+.c-mininame{display:none}
+html.c-mini,html.c-mini body{height:100%;overflow:hidden;background:#010207}
+html.c-mini .c-stage{position:fixed;inset:0;z-index:2147483000;height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}
+html.c-mini .c-hint,html.c-mini #t-pop,html.c-mini #t-full{display:none}
+html.c-mini .c-tools{top:6px;right:6px;opacity:0;transition:opacity .2s}html.c-mini .c-stage:hover .c-tools{opacity:1}html.c-mini .c-tools .t-txt{display:none}
+html.c-mini .c-tools button{padding:3px 8px;font-size:11px}
+html.c-mini .c-live{right:6px;bottom:6px;font-size:10.5px;padding:5px 8px}
+html.c-mini .c-mininame{display:flex;align-items:center;gap:6px;position:absolute;left:8px;bottom:7px;font:500 11px var(--font-mono,'IBM Plex Mono',monospace);color:rgba(191,248,255,.78);letter-spacing:.04em;pointer-events:none;text-shadow:0 1px 3px #000}
+html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF2FF;box-shadow:0 0 6px #3DF2FF}
 .c-hint{position:absolute;left:10px;bottom:10px;font:12px var(--font-sans,sans-serif);color:rgba(232,232,238,.75);background:rgba(14,19,32,.6);padding:4px 8px;border-radius:6px;pointer-events:none}
 .c-card{position:absolute;left:10px;top:10px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,22,34,.94);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px 14px;color:#E8E8EE;font:13px/1.45 var(--font-sans,'IBM Plex Sans',sans-serif);box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .c-card h3{margin:0 0 2px;font-size:15px;color:#fff}.c-card .k{color:#9A9AA6;font-size:12px}.c-card a{color:#B9A6FF}
@@ -3997,6 +4018,7 @@ var cv=document.getElementById('city'),st=document.getElementById('stage'),cx=cv
 var TW=64,TH=32,LANG={TypeScript:'#3178C6',JavaScript:'#E8C547',Python:'#4FB89A',HTML:'#E07A4F',Swift:'#F05138',CSS:'#6E5BD0',Shell:'#7FB24A',Go:'#2FB5D6',Rust:'#C9744A'};
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var hr=new Date().getHours(),night=hr<6||hr>=19,labels=true;
+var MINI=/[#&]mini\b/.test(location.hash)||window.CALDERA_MINI===1;if(MINI){document.documentElement.classList.add('c-mini');labels=false}
 function rnd(s){var x=Math.sin(s)*10000;return x-Math.floor(x)}
 function hash(t){var h=0;for(var i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return Math.abs(h)}
 function shade(hex,f){var n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255;r=Math.round(Math.min(255,r*f));g=Math.round(Math.min(255,g*f));b=Math.round(Math.min(255,b*f));return 'rgb('+r+','+g+','+b+')'}
@@ -4050,10 +4072,57 @@ function onLive(data){if(!data||typeof data!=='object'||!data.districts||typeof 
   if(!LV.on&&Object.keys(LV.d).length){LV.on=true;cars.length=0}   // live data replaces the ambient traffic: from now on every car is a real visitor
   if(LV.on)reconcile();
   if(Array.isArray(data.agents))agentsIn(data.agents);
-  if(Array.isArray(data.events)){var first=!LV.seen,fresh=data.events.filter(function(ev){return ev&&ev.ts>LV.seen&&ev.k!=='view'}).reverse();
-    if(!first)fresh.slice(-30).forEach(function(ev,n){var b=byName[ev.d]||byName.Private;if(!b)return;setTimeout(function(){spawn(b,ev.k==='buy'?BCOL:SCOL,true);pulse(b,ev.k==='buy'?BCOL:SCOL,ev.k==='buy')},n*600)});
+  if(Array.isArray(data.events)){var first=!LV.seen,fresh=data.events.filter(function(ev){return ev&&ev.ts>LV.seen&&(ev.k!=='view'||ev.n)}).reverse();
+    var nv=0,nc=0;if(!first)fresh.slice(-40).forEach(function(ev){var b=byName[ev.d]||byName.Private;if(!b)return;
+      if(ev.k==='view')return void setTimeout(function(){arrive(b,'view')},(nv++)*350);
+      setTimeout(function(){spawn(b,ev.k==='buy'?BCOL:SCOL,true);pulse(b,ev.k==='buy'?BCOL:SCOL,ev.k==='buy');celebrate(b,ev.k,ev.d)},(nc++)*900)});
     data.events.forEach(function(ev){if(ev&&ev.ts>LV.seen)LV.seen=ev.ts});if(!LV.seen)LV.seen=String(data.at||'0')}
+  if(data.arrivals&&typeof data.arrivals==='object'&&LV.at)Object.keys(data.arrivals).forEach(function(k){var a=data.arrivals[k]||{},b=byName[k]||byName.Private;if(!b)return;   // public: counts only
+    for(var i=0;i<Math.min(+a.v||0,40);i++)(function(i){setTimeout(function(){arrive(b,'view')},i*350)})(i);
+    for(var j=0;j<Math.min(+a.s||0,5);j++)(function(j){setTimeout(function(){pulse(b,SCOL,false);celebrate(b,'signup',k)},j*900)})(j);
+    for(var m2=0;m2<Math.min(+a.b||0,5);m2++)(function(m2){setTimeout(function(){pulse(b,BCOL,true);celebrate(b,'buy',k)},m2*900+400)})(m2)});
+  if(data.at)LV.at=String(data.at);
   hud();draw()}
+// ---- arrivals: every new visitor drops in from the sky onto its district (parachute, landing ring, walks to a building);
+// a signup is a beam of light, confetti and a toast; a sale is a gold coin burst. Capped and queued when it floods.
+var FX={drops:[],queue:[],parts:[],beams:[],more:{}},MAXDROP=MINI?5:8,toasts=document.querySelector('.c-toasts'),sound=false,AC=null;
+try{sound=localStorage.getItem('caldera-sound')==='1'}catch(err){}
+function arrive(b,kind){if(!b)return;if(FX.drops.length>=MAXDROP){if(FX.queue.length<24)FX.queue.push(b);else{var mo=FX.more[b.d.name]||(FX.more[b.d.name]={n:0,b:b});mo.n++;mo.until=performance.now()+5000}return}
+  var ex=exits(b),s0=ex.length?ex[Math.floor(Math.random()*ex.length)]:[b.x+b.k/2-.5,b.y+b.k/2-.5],p=iso(s0[0],s0[1]),bl=BDIST[b.d.name],tg=bl&&bl.length?bl[Math.floor(Math.random()*bl.length)]:null,q=tg?iso(tg.i,tg.j):p;
+  FX.drops.push({x:p.x+(Math.random()-.5)*10,y:p.y+(Math.random()-.5)*4,tx:q.x,ty:q.y,born:performance.now(),sw:Math.random()*6.28});tone([880,1320],.05)}
+function toast(kind,district){if(!toasts)return;var t=document.createElement('div');t.className='c-toast'+(kind==='buy'?' buy':'');
+  var priv=LV.mode!=='private'&&district==='Private';   // public pages never name a private project
+  t.textContent=kind==='buy'?(priv?'\u{1F4B0} A sale':'\u{1F4B0} New sale · '+district):(priv?'✨ Someone joined':'✨ New signup · '+district);
+  toasts.insertBefore(t,toasts.firstChild);while(toasts.children.length>3)toasts.removeChild(toasts.lastChild);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},5200)}
+function celebrate(b,kind,district){if(!b)return;toast(kind,district||b.d.name);var c0=iso(b.x+b.k/2-.5,b.y+b.k/2-.5),tn=performance.now(),buy=kind==='buy';
+  FX.beams.push({x:c0.x,y:c0.y,col:buy?BCOL:SCOL,born:tn});
+  var CONF=['#FF4FD8','#3DF2FF','#FFD23F','#7CFF6B','#FF7A45','#B58CFF'];
+  for(var i=0;i<(MINI?26:48);i++){var a=Math.random()*6.28,v=40+Math.random()*(buy?70:110);FX.parts.push({x:c0.x,y:c0.y-(buy?40:130)*Math.max(1,.9/cam.z),vx:Math.cos(a)*v,vy:Math.sin(a)*v*.7-(buy?120:60),col:buy?(i%3?'#FFD23F':'#FFF1A8'):CONF[i%CONF.length],born:tn+Math.random()*120,life:1800+Math.random()*900,coin:buy,rot:Math.random()*6})}
+  tone(buy?[784,988,1319,1568]:[523,659,784,1047],.09)}
+function tone(fs,len){if(!sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();var t0=AC.currentTime;fs.forEach(function(f,i){var o=AC.createOscillator(),g=AC.createGain();o.type='triangle';o.frequency.value=f;
+  g.gain.setValueAtTime(0,t0+i*len);g.gain.linearRampToValueAtTime(.06,t0+i*len+.01);g.gain.exponentialRampToValueAtTime(.0001,t0+i*len+len*2.2);o.connect(g);g.connect(AC.destination);o.start(t0+i*len);o.stop(t0+i*len+len*2.4)})}catch(err){}}
+function person(c,x,y,col,s){c.fillStyle=col;c.strokeStyle=sky==='day'||sky==='dusk'?'rgba(10,14,30,.75)':'rgba(0,0,0,.55)';c.lineWidth=.8;
+  c.beginPath();c.arc(x,y-9*s,2.2*s,0,7);c.fill();c.stroke();c.beginPath();c.moveTo(x-1.6*s,y-6.5*s);c.lineTo(x+1.6*s,y-6.5*s);c.lineTo(x+1.2*s,y-2*s);c.lineTo(x-1.2*s,y-2*s);c.closePath();c.fill();c.stroke();
+  c.strokeStyle=col;c.lineWidth=1.2*s;c.beginPath();c.moveTo(x-.8*s,y-2*s);c.lineTo(x-1.4*s,y);c.moveTo(x+.8*s,y-2*s);c.lineTo(x+1.4*s,y);c.stroke()}
+function drawFx(){var tn=performance.now(),more=Object.keys(FX.more);if(!FX.drops.length&&!FX.parts.length&&!FX.beams.length&&!more.length)return;
+  var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);var day=sky==='day',col=day?'#1E6FD9':'#7FE7FF',K=Math.max(1.25,1.1/cam.z);   // effects keep a readable size when zoomed out
+  FX.beams=FX.beams.filter(function(b){return tn-b.born<2400});FX.beams.forEach(function(b){var pr=(tn-b.born)/2400,a=pr<.15?pr/.15:1-(pr-.15)/.85;c.save();if(!day)c.globalCompositeOperation='lighter';
+    var g=c.createLinearGradient(0,b.y-420*K,0,b.y);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(1,b.col);c.globalAlpha=a*.85;c.fillStyle=g;var w=(10+8*Math.sin(pr*9))*K;c.fillRect(b.x-w/2,b.y-420*K,w,420*K);
+    c.globalAlpha=a*.6;c.fillRect(b.x-1.5*K,b.y-420*K,3*K,420*K);c.restore()});
+  FX.drops=FX.drops.filter(function(d){var t=tn-d.born;if(t<3800)return true;if(FX.queue.length)setTimeout(function(){arrive(FX.queue.shift(),'view')},60);return false});
+  FX.drops.forEach(function(d){var t=tn-d.born,x=d.x,y=d.y,FALL=1150;
+    if(t<FALL){var f=t/FALL,e=f*f*(3-2*f),sw=Math.sin(t/180+d.sw)*4*K*(1-f);x+=sw;y=d.y-230*K*(1-e);
+      c.save();var g=c.createLinearGradient(0,y-70*K,0,y-8*K);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(1,day?'rgba(30,111,217,.45)':'rgba(127,231,255,.6)');c.strokeStyle=g;c.lineWidth=2*K;c.beginPath();c.moveTo(x-sw*.6,y-70*K);c.lineTo(x,y-10*K);c.stroke();
+      c.fillStyle=day?'#FF6B4A':'#FF4FD8';c.beginPath();c.arc(x,y-20*K,7*K,Math.PI,0);c.closePath();c.fill();c.strokeStyle=day?'rgba(0,0,0,.45)':'rgba(255,255,255,.5)';c.lineWidth=.6*K;c.beginPath();c.moveTo(x-7*K,y-20*K);c.lineTo(x-1.4*K,y-8*K);c.moveTo(x+7*K,y-20*K);c.lineTo(x+1.4*K,y-8*K);c.stroke();c.restore();
+      person(c,x,y,col,K)}
+    else{var t2=t-FALL,hop=t2<300?Math.sin(t2/300*Math.PI)*4*K:0,wk=Math.max(0,Math.min(1,(t2-300)/2000)),fade=t2>2300?Math.max(0,1-(t2-2300)/350):1;
+      if(t2<650){var pr=t2/650;c.save();c.strokeStyle=col;c.globalAlpha=1-pr;c.lineWidth=1.6*K;c.beginPath();c.ellipse(d.x,d.y,(6+pr*22)*K,(6+pr*22)*.5*K,0,0,7);c.stroke();
+        c.fillStyle=day?'rgba(120,100,80,.35)':'rgba(200,230,255,.25)';for(var k=0;k<6;k++){var a2=k*1.047+d.sw;c.beginPath();c.arc(d.x+Math.cos(a2)*(4+pr*14)*K,d.y+(Math.sin(a2)*(2+pr*7)-pr*3)*K,1.3*K*(1-pr),0,7);c.fill()}c.restore()}
+      c.save();c.globalAlpha=fade;person(c,d.x+(d.tx-d.x)*wk,d.y+(d.ty-d.y)*wk-hop,col,K);c.restore()}});
+  FX.parts=FX.parts.filter(function(p){return tn-p.born<p.life});FX.parts.forEach(function(p){var t=Math.max(0,tn-p.born)/1000,x=p.x+p.vx*K*t,y=p.y+(p.vy*t+140*t*t)*K,a=1-(tn-p.born)/p.life;if(t<=0)return;
+    c.save();c.globalAlpha=Math.max(0,a);c.fillStyle=p.col;if(p.coin){c.beginPath();c.ellipse(x,y,(3.2*Math.abs(Math.cos(t*8+p.rot))+.6)*K,3.2*K,0,0,7);c.fill();c.strokeStyle='#B8860B';c.lineWidth=.6;c.stroke()}
+    else{c.translate(x,y);c.rotate(t*6+p.rot);c.fillRect(-2*K,-1*K,4*K,2*K)}c.restore()});
+  more.forEach(function(k){var m=FX.more[k];if(tn>m.until){delete FX.more[k];return}var p2=iso(m.b.x+m.b.k/2-.5,m.b.y-.5);tronPill(c,p2.x,p2.y-40,'+'+m.n+' arriving',day?'#1E6FD9':'#7FE7FF','600 10.5px ui-monospace,monospace')})}
 // ---- agents: a drone over the building each AI agent is working in. Working = beam into the roof, thinking = circling,
 // waiting for you = parked at the HQ pad, blinking amber. Public pages only get district + state, never what it's doing.
 var AG={},AGC={working:'#3DF2FF',thinking:'#B58CFF',waiting:'#FFB020',idle:'#6F7C8F',done:'#6F7C8F'},BREPO={},BDIST={};
@@ -4169,18 +4238,39 @@ var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');
   else{var any=ks.some(function(k){return LV.d[k].level>0});ks.sort(function(a,b){return LV.d[b].level-LV.d[a].level});
     liveEl.innerHTML='<div class="h"><i class="dot"></i>LIVE &middot; '+(any?'people on these sites right now':'quiet right now')+'</div>'+agentLine()
      +ks.filter(function(k){return LV.d[k].level>0}).map(function(k){return '<div class="r"><span>'+e(k)+'</span><b><i class="bar" style="width:'+(LV.d[k].level*14)+'px"></i></b></div>'}).join('')}}
-var CL=window.CALDERA_LIVE;function poll(){if(document.hidden)return;fetch(CL.url,{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(onLive).catch(function(){})}
+var CL=window.CALDERA_LIVE;function poll(){if(document.hidden)return;fetch(CL.url+(LV.at?(CL.url.indexOf('?')<0?'?':'&')+'since='+encodeURIComponent(LV.at):''),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(onLive).catch(function(){})}
 if(CL&&typeof CL.url==='string'){setTimeout(poll,600);setInterval(poll,10000)}
-window.addEventListener('message',function(ev){var m=ev.data;if(ev.source===parent&&m&&m.caldera==='live')onLive(m.data)});
+window.addEventListener('message',function(ev){var m=ev.data;if((ev.source===parent||window.CALDERA_MINI===1)&&m&&m.caldera==='live')onLive(m.data)});
 function step(car){var o=[[1,0],[-1,0],[0,1],[0,-1]].map(function(d){return [car.ti+d[0],car.tj+d[1]]}).filter(function(n){var t=tiles[n[0]+','+n[1]];return t&&t.t==='r'&&!(n[0]===car.i&&n[1]===car.j)});
   if(!o.length)o=[[car.i,car.j]];var n=o[Math.floor(Math.random()*o.length)];car.i=car.ti;car.j=car.tj;car.ti=n[0];car.tj=n[1];car.t=0}
-// ---- palettes (sky mode follows the viewer's clock: day, dusk, night)
-var sky='grid';night=false;
+// ---- palettes: the lighting follows the viewer's clock (Auto: night, dawn, day, dusk, evening, blended), or a phase they pick
+var sky='night';night=true;
 var PAL={
- day:{sky:['#7FB8EA','#CFE6F7','#EAF4FB'],grass:'#7DBB6E',grass2:'#8CC77C',park:'#6FB262',walk:'#D9D6CE',walkSide:'#B7B2A6',plaza:'#E6E2D8',road:'#5A606B',road2:'#626873',line:'rgba(255,255,255,.75)',water:['#4C9BD6','#3A82BD'],earth:['#8A6A4A','#6E5238'],light:1,win:'rgba(196,224,248,.85)',winOff:'rgba(60,82,110,.55)',lamp:0,shadow:'rgba(30,40,60,.22)'},
- dusk:{sky:['#3E3A6E','#C8607A','#F4B26B'],grass:'#5E8F5A',grass2:'#6A9A62',park:'#55854F',walk:'#B9AFA6',walkSide:'#968A80',plaza:'#C7BCB0',road:'#454752',road2:'#4C4E59',line:'rgba(255,226,170,.6)',water:['#5A6FA8','#46568C'],earth:['#6E5040','#55402F'],light:.82,win:'rgba(255,214,140,.92)',winOff:'rgba(48,52,78,.6)',lamp:.6,shadow:'rgba(40,20,50,.28)'},
- night:{sky:['#04060E','#0B1020','#18203A'],grass:'#1D3326',grass2:'#21392A',park:'#1A2F22',walk:'#3A3D47',walkSide:'#2A2D35',plaza:'#41444E',road:'#1E222B',road2:'#23272F',line:'rgba(242,200,90,.45)',water:['#13233F','#0D1A30'],earth:['#2B2219','#201912'],light:.5,win:'rgba(255,208,120,.95)',winOff:'rgba(16,20,34,.75)',lamp:1,shadow:'rgba(0,0,0,.35)'}};
-PAL.grid=PAL.night;var P=PAL[sky];
+ day:{sky:['#7FB8EA','#CFE6F7','#EAF4FB'],grass:'#7DBB6E',grass2:'#8CC77C',park:'#6FB262',walk:'#D9D6CE',walkSide:'#B7B2A6',plaza:'#E6E2D8',road:'#5A606B',road2:'#626873',line:'rgba(255,255,255,.75)',water:['#4C9BD6','#3A82BD'],earth:['#8A6A4A','#6E5238'],light:1,win:'rgba(196,224,248,.85)',winOff:'rgba(60,82,110,.55)',lamp:0,shadow:'rgba(30,40,60,.22)',lit:.45},
+ dusk:{sky:['#3E3A6E','#C8607A','#F4B26B'],grass:'#5E8F5A',grass2:'#6A9A62',park:'#55854F',walk:'#B9AFA6',walkSide:'#968A80',plaza:'#C7BCB0',road:'#454752',road2:'#4C4E59',line:'rgba(255,226,170,.6)',water:['#5A6FA8','#46568C'],earth:['#6E5040','#55402F'],light:.82,win:'rgba(255,214,140,.92)',winOff:'rgba(48,52,78,.6)',lamp:.6,shadow:'rgba(40,20,50,.28)',lit:.9},
+ night:{sky:['#04060E','#0B1020','#18203A'],grass:'#1D3326',grass2:'#21392A',park:'#1A2F22',walk:'#3A3D47',walkSide:'#2A2D35',plaza:'#41444E',road:'#1E222B',road2:'#23272F',line:'rgba(242,200,90,.45)',water:['#13233F','#0D1A30'],earth:['#2B2219','#201912'],light:.5,win:'rgba(255,208,120,.95)',winOff:'rgba(16,20,34,.75)',lamp:1,shadow:'rgba(0,0,0,.35)',lit:1},
+  dawn:{sky:['#3A4A7E','#E0899A','#FFCB8E'],grass:'#5F8F62',grass2:'#6B9A6A',park:'#578A58',walk:'#C2B8B0',walkSide:'#9C9088',plaza:'#CFC4B8',road:'#4A4D58',road2:'#51545F',line:'rgba(255,236,200,.6)',water:['#6A80B8','#56689C'],earth:['#73554A','#5A4236'],light:.88,win:'rgba(255,222,165,.85)',winOff:'rgba(70,80,110,.55)',lamp:.3,shadow:'rgba(60,40,80,.32)',lit:.5},
+  evening:{sky:['#0B0E2A','#23285A','#4A3F7A'],grass:'#2A4532',grass2:'#304C37',park:'#27412D',walk:'#555463',walkSide:'#3E3E4B',plaza:'#5C5B69',road:'#2A2C38',road2:'#30323E',line:'rgba(250,210,120,.5)',water:['#24335E','#1B284C'],earth:['#3E3028','#2E241D'],light:.62,win:'rgba(255,210,130,.95)',winOff:'rgba(22,26,44,.7)',lamp:.9,shadow:'rgba(0,0,0,.32)',lit:1}};
+PAL.grid=PAL.night;var P=PAL.night,phase='night',palKey='';
+// Auto: keyframes over the day (minutes after midnight), smoothly blended; the drawing details follow the nearest phase
+var DAYKEYS=[[0,'night'],[300,'night'],[390,'dawn'],[510,'day'],[990,'day'],[1095,'dusk'],[1185,'evening'],[1290,'night'],[1440,'night']];
+var BASE={night:'night',evening:'night',dawn:'dusk',dusk:'dusk',day:'day'};
+var MODES=['auto','grid','dawn','day','dusk','evening','night'],SKYMODE='auto';
+try{var sv=localStorage.getItem('caldera-sky');if(sv&&MODES.indexOf(sv)>=0)SKYMODE=sv}catch(err){}
+var hm0=location.hash.match(/[#&]sky=([a-z]+)/);if(hm0&&MODES.indexOf(hm0[1])>=0)SKYMODE=hm0[1];
+var at0=location.hash.match(/[#&]at=(\d{1,2}):(\d{2})/);   // #at=18:40 shows Auto at that time (for checking the phases)
+function rgba(c){if(c.charAt(0)==='#'){var n=parseInt(c.slice(1),16);return [n>>16,n>>8&255,n&255,1]}var m=c.match(/[\d.]+/g)||[0,0,0,1];return [+m[0],+m[1],+m[2],m[3]==null?1:+m[3]]}
+function hex2(v){var x=Math.max(0,Math.min(255,Math.round(v))).toString(16);return x.length<2?'0'+x:x}
+function lerpCol(a,b,f){var A=rgba(a),B=rgba(b),o=[0,1,2,3].map(function(k){return A[k]+(B[k]-A[k])*f});return o[3]>=.999?'#'+hex2(o[0])+hex2(o[1])+hex2(o[2]):'rgba('+Math.round(o[0])+','+Math.round(o[1])+','+Math.round(o[2])+','+o[3].toFixed(3)+')'}
+function blendPal(a,b,f){var o={};for(var k in a){var x=a[k],y=b[k];o[k]=typeof x==='number'?x+(y-x)*f:Array.isArray(x)?x.map(function(v,i){return lerpCol(v,y[i],f)}):lerpCol(x,y,f)}return o}
+function phaseNow(){var d=new Date(),m=at0?(+at0[1])*60+(+at0[2]):d.getHours()*60+d.getMinutes()+d.getSeconds()/60;
+  for(var i=0;i<DAYKEYS.length-1;i++){var a=DAYKEYS[i],b=DAYKEYS[i+1];if(m>=a[0]&&m<=b[0]){var f=(m-a[0])/((b[0]-a[0])||1);return {a:a[1],b:b[1],f:f*f*(3-2*f)}}}return {a:'night',b:'night',f:0}}
+function applySky(){var was=sky,k0=palKey;
+  if(SKYMODE==='auto'){var ph=phaseNow();P=ph.a===ph.b?PAL[ph.a]:blendPal(PAL[ph.a],PAL[ph.b],ph.f);phase=ph.f<.5?ph.a:ph.b;sky=BASE[phase];palKey=ph.a+ph.b+Math.round(ph.f*40)}
+  else if(SKYMODE==='grid'){sky='grid';P=PAL.night;phase='grid';palKey='grid'}
+  else{sky=BASE[SKYMODE];P=PAL[SKYMODE];phase=SKYMODE;palKey=SKYMODE}
+  night=sky==='night'||sky==='grid';if(sky!==was&&cars)cars.forEach(function(c){c.trail=[]});if(palKey!==k0){dirty=true;UDIRTY=true}}
+applySky();
 // ---- Tron mode: black glass, neon edges, a glowing grid floor and light cycles
 var NEON={TypeScript:'#3AA8FF',JavaScript:'#FFD23A',Python:'#2BFFC0',HTML:'#FF8A2B',Swift:'#FF3D7F',CSS:'#B07CFF',Shell:'#9BFF4A',Go:'#3DF2FF',Rust:'#FF9F5A',Private:'#CFEFFF'};
 var CYAN='#3DF2FF',ORANGE='#FF8A2B',DNEON=['#3DF2FF','#FF8A2B','#C77DFF','#FFD23A','#2BFFC0','#FF3D7F'];
@@ -4218,7 +4308,7 @@ function tronPrism(c,px,py,w,h,col,litp,seed,locked){var hw=TW/2*w,hh=TH/2*w,L=[
   // neon edges
   glowLine(c,[[px-hw,py],[px,py+hh],[px+hw,py]],col,1,6);glowLine(c,[[px,py+hh],[px,py+hh-h]],col,1.4,10);glowLine(c,[[px-hw,py],[px-hw,py-h]],col,.8,5);glowLine(c,[[px+hw,py],[px+hw,py-h]],col,.8,5);
   glowLine(c,Tp,col,1.2,10,true)}
-function tronObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];lamps=[];cranes=[];beacons=[];var tags=[];
+function tronObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[];
   for(var sum=0;sum<=W+H;sum++)for(var i=0;i<=W;i++){var j=sum-i;if(j<0||j>H)continue;var t=tiles[i+','+j],p=iso(i,j);
     if((t.t==='g'&&!water(i,j)&&rnd(i*17+j*29)<.22)||t.t==='p'){// data crystals
       var n=t.t==='p'?3:1;for(var q=0;q<n;q++){var cx0=p.x+(rnd(i*3+q)-.5)*24,cy0=p.y+(rnd(j*5+q)-.5)*10,s=.6+rnd(i+j+q)*.5,col=rnd(i*7+j+q)<.5?'#2BFFC0':CYAN;
@@ -4235,8 +4325,8 @@ function tronObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.w
       if(r.week>0&&!dm)cranes.push({x:p.x+4,y:top,seed:seed,col:col});
       if(sel===r){var hw2=TW/2*.78,hh2=TH/2*.78;glowLine(c,[[p.x-hw2,base],[p.x,base+hh2],[p.x+hw2,base],[p.x+hw2,top],[p.x,top-TH/2*.46],[p.x-hw2,top]],'#FFFFFF',2/cam.z+.6,16,true)}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
-      if(labels&&!r.locked&&(cam.z>1.05||sel===r||topSet.indexOf(r)>=0))tags.push({x:p.x,y:top-(r===tallest?12:8),text:r.name.length>18?r.name.slice(0,17)+'\u2026':r.name,col:col})}}
-  if(labels){tags.forEach(function(g){tronPill(c,g.x,g.y,g.text,g.col,'600 10.5px IBM Plex Mono,monospace')});blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05);tronPill(c,p2[0],p2[1]+22,b.d.name.toUpperCase(),b.neon||CYAN,'700 10.5px IBM Plex Mono,monospace')})}}
+      if(labels&&!r.locked&&(cam.z>1.05||sel===r||topSet.indexOf(r)>=0))tags.push({x:p.x,y:top-(r===tallest?12:8),text:r.name.length>18?r.name.slice(0,17)+'\u2026':r.name,col:col,url:repoUrl(r)})}}
+  if(labels){tags.forEach(function(g){tronPill(c,g.x,g.y,g.text,g.col,'600 10.5px IBM Plex Mono,monospace');tagHit(c,g,'600 10.5px IBM Plex Mono,monospace')});blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05);tronPill(c,p2[0],p2[1]+22,b.d.name.toUpperCase(),b.neon||CYAN,'700 10.5px IBM Plex Mono,monospace')})}}
 function tronPill(c,x,y,text,col,font){c.font=font;var tw=c.measureText(text).width,w=tw+14,h=17;c.fillStyle='rgba(2,6,12,.88)';poly(c,[[x-w/2,y-h],[x+w/2,y-h],[x+w/2,y],[x+3,y],[x,y+4],[x-3,y],[x-w/2,y]]);c.fill();
   glowLine(c,[[x-w/2,y-h],[x+w/2,y-h],[x+w/2,y],[x+3,y],[x,y+4],[x-3,y],[x-w/2,y]],col,1,6,true);c.fillStyle=col;c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+.5);c.textBaseline='alphabetic'}
 function rgb(hex){var n=parseInt(hex.slice(1),16);return [n>>16,n>>8&255,n&255]}
@@ -4321,11 +4411,15 @@ function houseAt(c,px,py,col,seed){var w=.26,hw=TW/2*w,hh=TH/2*w,h=8;prism(c,px,
   c.fillStyle=mix('#8A7A6A',.9);c.fillRect(px+hw*.3,rt-10,2.2,5);
   c.fillStyle=sky==='night'?'rgba(255,208,120,.95)':'rgba(70,90,120,.7)';poly(c,[[px-hw*.6,py-3+hh*.4-3],[px-hw*.3,py-3+hh*.7-3],[px-hw*.3,py-3+hh*.7-6],[px-hw*.6,py-3+hh*.4-6]]);c.fill()}
 function lamp(c,px,py){c.strokeStyle=sky==='night'?'#555B66':'#4A4F58';c.lineWidth=1;c.beginPath();c.moveTo(px,py);c.lineTo(px,py-14);c.lineTo(px+3,py-15);c.stroke();c.fillStyle=sky==='night'?'#FFE3A0':'#C9CDD4';c.fillRect(px+2,py-16,3,2)}
+// a public repo's name label is a link to it (private and locked buildings never link)
+var tagHits=[];function repoUrl(r){return !r.locked&&r.public!==false&&/^https:\/\/[^\s"<>]+$/.test(r.url||'')?r.url:''}
+function tagHit(c,g,font){if(!g.url)return;c.font=font;var w=c.measureText(g.text).width+12;tagHits.push({x0:g.x-w/2,x1:g.x+w/2,y0:g.y-17,y1:g.y+2,url:g.url})}
+function openRepo(u){if(u)window.open(u,'_blank','noopener')}
 function pill(c,x,y,text,bg,fg,font){c.font=font;var tw=c.measureText(text).width,w=tw+12,h=17,r=8.5;c.save();c.shadowColor='rgba(0,0,0,.3)';c.shadowBlur=6;c.shadowOffsetY=2;c.fillStyle=bg;c.beginPath();
   c.moveTo(x-w/2+r,y-h);c.arcTo(x+w/2,y-h,x+w/2,y,r);c.arcTo(x+w/2,y,x-w/2,y,r);c.lineTo(x+3,y);c.lineTo(x,y+4);c.lineTo(x-3,y);c.arcTo(x-w/2,y,x-w/2,y-h,r);c.arcTo(x-w/2,y-h,x+w/2,y-h,r);c.closePath();c.fill();c.restore();
   c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+.5);c.textBaseline='alphabetic'}
 var lamps=[],cranes=[],beacons=[];
-function drawObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];lamps=[];cranes=[];beacons=[];var tags=[];
+function drawObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[];
   for(var sum=0;sum<=W+H;sum++)for(var i=0;i<=W;i++){var j=sum-i;if(j<0||j>H)continue;var t=tiles[i+','+j],p=iso(i,j);
     if(t.t==='g'&&!water(i,j)&&rnd(i*17+j*29)<(i===0||j===0?.55:.8)){var s=.7+rnd(i+j*3)*.5;if(rnd(i*3+j)<.5)tree2(c,p.x+(rnd(i)-.5)*20,p.y+(rnd(j)-.5)*8,s);else pine(c,p.x+(rnd(j)-.5)*20,p.y+(rnd(i)-.5)*8,s)}
     if(t.t==='r'&&(isRoad(i-1,j)||isRoad(i+1,j))&&(isRoad(i,j-1)||isRoad(i,j+1))&&(i+j)%2===0){var lp={x:p.x-TW*.32,y:p.y};lamp(c,lp.x,lp.y);lamps.push(lp)}
@@ -4334,7 +4428,7 @@ function drawObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.w
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked;
       var col=r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?0:r.locked?(r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
-      if(sky==='day')litp=Math.min(litp,.5);
+      litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
       for(var k=0;k<tiers.length;k++){var tw=tiers[k][0],th=tiers[k][1];var sh=prism(c,p.x,top,tw,th,col);facadeWindows(c,p.x,top,tw,th,glass,litp,seed+k*101,base);top-=th}
       roofProps(c,p.x,top,tiers[tiers.length-1][0],r,seed);
@@ -4342,8 +4436,8 @@ function drawObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.w
       if(r.week>0&&!dm)cranes.push({x:p.x+4,y:top,seed:seed});
       if(sel===r){c.save();c.strokeStyle='#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;var hw=TW/2*.78,hh=TH/2*.78;c.beginPath();c.moveTo(p.x-hw,base);c.lineTo(p.x,base+hh);c.lineTo(p.x+hw,base);c.lineTo(p.x+hw,top+ (base-top>0?0:0));c.lineTo(p.x,top-TH/2*.46);c.lineTo(p.x-hw,top);c.closePath();c.stroke();c.restore()}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
-      if(labels&&!r.locked&&(cam.z>1.05||sel===r||topSet.indexOf(r)>=0))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name})}}
-  if(labels){tags.forEach(function(g){pill(c,g.x,g.y,g.text,'rgba(17,20,32,.86)','#F2F2F5','600 10.5px IBM Plex Sans,Arial,sans-serif')});
+      if(labels&&!r.locked&&(cam.z>1.05||sel===r||topSet.indexOf(r)>=0))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name,url:repoUrl(r)})}}
+  if(labels){tags.forEach(function(g){pill(c,g.x,g.y,g.text,'rgba(17,20,32,.86)','#F2F2F5','600 10.5px IBM Plex Sans,Arial,sans-serif');tagHit(c,g,'600 10.5px IBM Plex Sans,Arial,sans-serif')});
     blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05);pill(c,p2[0],p2[1]+22,b.d.name,'rgba(139,108,246,.95)','#fff','700 11.5px IBM Plex Sans,Arial,sans-serif')})}
 }
 function drawSky(){var c=cx;c.setTransform(dpr,0,0,dpr,0,0);
@@ -4393,10 +4487,10 @@ function frame(){T=performance.now();if(L1.width!==cv.width||L1.height!==cv.heig
     cx.globalAlpha=.32;cx.drawImage(L1,0,0);cx.globalAlpha=.22;cx.drawImage(L2,0,0);cx.globalAlpha=1;cx.drawImage(UL,0,0);
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false}
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawCars();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawLive();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawCars();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh)}
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
-var last=0;function tick(ts){if(!document.hidden&&ts-last>30){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
+var last=0,FPS_MS=MINI?50:30;function tick(ts){if(!document.hidden&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
   if(LV.on){var tg=performance.now();cars=cars.filter(function(c){return !c.gone||tg-c.gone<1500})}
   if(vis.length){var tn=performance.now();vis=vis.filter(function(v){return tn-v.born<v.life});vis.forEach(function(v){v.t+=v.sp;if(v.t>=1)step(v);var p=carPos(v);(v.trail=v.trail||[]).push([p.x,p.y-1]);if(v.trail.length>26)v.trail.shift()})}frame()}requestAnimationFrame(tick)}
 // ---- interaction
@@ -4421,6 +4515,7 @@ function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=n
    +(r.url?'<p style="margin:8px 0 0"><a href="'+e(r.url)+'" target="_blank" rel="noopener">Open on GitHub &#8599;</a></p>':'');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
 function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=null,bd=1e9;UP.forEach(function(p,ix){var d=Math.hypot(p.x-wx0,p.y-wy0);if(d<Math.max(p.r+3,7/cam.z)&&d<bd){bd=d;best=ix}});return best==null?null:{note:best}}
+  if(labels){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return {url:th.url}}}
   for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
 var ptr={},moved=false,pinch=0;
 cv.addEventListener('pointerdown',function(ev){cv.setPointerCapture(ev.pointerId);ptr[ev.pointerId]={x:ev.clientX,y:ev.clientY};moved=false;cv.classList.add('drag');var ks=Object.keys(ptr);if(ks.length===2){var a=ptr[ks[0]],b=ptr[ks[1]];pinch=Math.hypot(a.x-b.x,a.y-b.y)}});
@@ -4428,14 +4523,32 @@ cv.addEventListener('pointermove',function(ev){var p=ptr[ev.pointerId];if(!p)ret
   if(ks.length===2){var o=ptr[ks[0]===String(ev.pointerId)?ks[1]:ks[0]];var dist=Math.hypot(ev.clientX-o.x,ev.clientY-o.y);if(pinch){var r=st.getBoundingClientRect();zoom(dist/pinch,(ev.clientX+o.x)/2-r.left,(ev.clientY+o.y)/2-r.top)}pinch=dist;moved=true}
   else{var dx=ev.clientX-p.x,dy=ev.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;cam.x+=dx;cam.y+=dy}
   p.x=ev.clientX;p.y=ev.clientY;draw()});
-function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){var r=st.getBoundingClientRect();show(at(ev.clientX-r.left,ev.clientY-r.top))}}
+function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
+  if(h&&h.url)return openRepo(h.url);
+  if(MINI&&h&&h.r)return openRepo(repoUrl(h.r));   // the pop-out has no room for cards: a public building opens its repo
+  show(h)}}
+if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes in page coordinates, for automated checks
+  buildings:function(){var b=st.getBoundingClientRect();return hits.filter(function(h){return h.r}).map(function(h){return {name:h.r.locked?'':h.r.name,locked:!!h.r.locked,url:repoUrl(h.r),x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0*.35+h.y1*.65)*cam.z}})},
+  labels:function(){var b=st.getBoundingClientRect();return tagHits.map(function(t){return {url:t.url,x:b.left+cam.x+(t.x0+t.x1)/2*cam.z,y:b.top+cam.y+(t.y0+t.y1)/2*cam.z}})},
+  fx:function(){return {drops:FX.drops.length,queue:FX.queue.length,parts:FX.parts.length,beams:FX.beams.length,more:Object.keys(FX.more).length,z:cam.z}},
+  point:function(locked){var b=st.getBoundingClientRect();for(var i=0;i<hits.length;i++){var h=hits[i];if(!h.r||!!h.r.locked!==locked||(!locked&&!repoUrl(h.r)))continue;
+    for(var fy=.2;fy<.95;fy+=.1)for(var fx=.2;fx<.85;fx+=.15){var wx=h.x0+(h.x1-h.x0)*fx,wy=h.y0+(h.y1-h.y0)*fy,sx=cam.x+wx*cam.z,sy=cam.y+wy*cam.z,g=at(sx,sy);
+      if(g&&g.r===h.r)return {x:b.left+sx,y:b.top+sy,url:repoUrl(h.r)}}}return null}};
+cv.addEventListener('dblclick',function(ev){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);if(h&&h.r&&!MINI)openRepo(repoUrl(h.r))});
+cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return;var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
+  cv.classList.toggle('c-link',!!(h&&(h.url||(h.r&&repoUrl(h.r)))))});
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var z=Math.min(3,Math.max(.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;draw()}
 cv.addEventListener('wheel',function(ev){ev.preventDefault();var r=st.getBoundingClientRect();zoom(Math.exp(-ev.deltaY*0.0015),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});
 var bl=document.getElementById('t-labels'),bs=document.getElementById('t-sky');
-bl.onclick=function(){labels=!labels;bl.setAttribute('aria-pressed',String(labels));draw()};
-var SKIES=['grid','day','dusk','night'],NAMES={grid:'Grid',day:'Day',dusk:'Dusk',night:'Night'};function skyLabel(){bs.textContent=NAMES[SKIES[(SKIES.indexOf(sky)+1)%4]]}skyLabel();bs.onclick=function(){sky=SKIES[(SKIES.indexOf(sky)+1)%4];P=PAL[sky];night=sky==='night'||sky==='grid';skyLabel();cars.forEach(function(c){c.trail=[]});draw()};
+bl.setAttribute('aria-pressed',String(labels));bl.onclick=function(){labels=!labels;bl.setAttribute('aria-pressed',String(labels));draw()};
+var MN={auto:'Auto',grid:'Grid',dawn:'Dawn',day:'Day',dusk:'Dusk',evening:'Evening',night:'Night'};
+function skyLabel(){bs.textContent=SKYMODE==='auto'?'Auto \u00b7 '+MN[phase]:MN[SKYMODE];bs.title='Lighting: '+(SKYMODE==='auto'?'follows your clock (now '+MN[phase].toLowerCase()+')':MN[SKYMODE].toLowerCase())+'. Click for the next one.'}
+skyLabel();bs.onclick=function(){SKYMODE=MODES[(MODES.indexOf(SKYMODE)+1)%MODES.length];try{localStorage.setItem('caldera-sky',SKYMODE)}catch(err){}applySky();skyLabel();draw()};
+setInterval(function(){if(SKYMODE!=='auto')return;var k=palKey;applySky();skyLabel();if(palKey!==k)draw()},60000);   // an all-day window drifts through the day
 document.getElementById('t-reset').onclick=function(){fit();show(null)};
+var bsnd=document.getElementById('t-snd');function sndLabel(){bsnd.innerHTML=sound?'&#x1F50A;':'&#x1F507;';bsnd.setAttribute('aria-pressed',String(sound));bsnd.title='Sound for arrivals, signups and sales ('+(sound?'on':'off')+')'}
+if(bsnd){sndLabel();bsnd.onclick=function(){sound=!sound;try{localStorage.setItem('caldera-sound',sound?'1':'0')}catch(err){}sndLabel();if(sound)tone([660,880],.06)}}
 var bu=document.getElementById('t-under');if(bu)bu.onclick=function(){under=!under;bu.setAttribute('aria-pressed',String(under));bu.innerHTML=under?'&#x2B06;<span class="t-txt"> City</span>':'&#x2B07;<span class="t-txt"> Underground</span>';
   st.classList.toggle('c-dig',under);if(liveEl)liveEl.hidden=under;usel=null;card.hidden=true;underPanel();fit();draw()};
 if(U&&/[#&]underground\b/.test(location.hash))setTimeout(function(){bu&&bu.onclick()},50);
@@ -4444,6 +4557,12 @@ var bf=document.getElementById('t-full');function fsLabel(){var on=!!document.fu
 function cssFull(on){st.classList.toggle('c-full',on);document.body.style.overflow=on?'hidden':'';setTimeout(function(){fit();draw()},30);fsLabel()}
 bf.onclick=function(){if(document.fullscreenElement){document.exitFullscreen();return}if(st.classList.contains('c-full'))return cssFull(false);
   var r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null;if(r&&r.catch)r.catch(function(){cssFull(true)});else cssFull(true)};
+// pop out: inside Obsidian the plugin opens an always-on-top window; on the web a small window opens the watch page
+// (the hub's own page, which can float the city on top in Chrome/Edge); elsewhere this page in mini mode
+var bp=document.getElementById('t-pop');if(bp){if(MINI)bp.hidden=true;bp.onclick=function(){
+  if(window.parent!==window){parent.postMessage({caldera:'popout'},'*');return}
+  var m=location.pathname.match(/^\/@([a-z0-9-]+)\//),u=m?'/watch/@'+m[1]+location.search:location.href.split('#')[0]+'#mini';
+  var w=window.open(u,'caldera-city','popup,width=440,height=290');if(!w)location.href=u}}
 document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
 window.addEventListener('resize',function(){fit();draw()});
@@ -4590,11 +4709,11 @@ ${(() => {
   if (growthOn || knowsOn) {
     let g = "";
     if (growthOn) {
-      const gp = p.growth, gmax = Math.max(1, gp[gp.length - 1].total), W = 600, H = 180;
-      const gx = (i) => 30 + i * (W - 40) / Math.max(1, gp.length - 1), gy = (v) => 10 + (H - 30) * (1 - v / gmax);
+      const gp = p.growth, gmax = Math.max(1, gp[gp.length - 1].total), W2 = 600, H2 = 180;
+      const gx = (i) => 30 + i * (W2 - 40) / Math.max(1, gp.length - 1), gy = (v) => 10 + (H2 - 30) * (1 - v / gmax);
       const line = gp.map((x, i) => `${gx(i).toFixed(1)},${gy(x.total).toFixed(1)}`).join(" ");
       const first = (/* @__PURE__ */ new Date(gp[0].week + "T12:00:00Z")).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
-      g = `<div><h2>Growth</h2><svg class="growth" viewBox="0 0 ${W} ${H}" role="img" aria-label="Notes over time, ${fmt(gmax)} now"><line class="axis" x1="30" y1="${H - 20}" x2="${W - 10}" y2="${H - 20}"></line><path class="area" d="M${gx(0).toFixed(1)},${H - 20} L${line.replace(/ /g, " L")} L${gx(gp.length - 1).toFixed(1)},${H - 20} Z"></path><polyline class="line" points="${line}"></polyline><circle class="now" cx="${gx(gp.length - 1).toFixed(1)}" cy="${gy(gmax).toFixed(1)}" r="5"></circle><text x="30" y="${H - 4}">${esc3(first)}</text><text x="${W - 10}" y="${H - 4}" text-anchor="end">${fmt(gmax)} notes</text></svg></div>`;
+      g = `<div><h2>Growth</h2><svg class="growth" viewBox="0 0 ${W2} ${H2}" role="img" aria-label="Notes over time, ${fmt(gmax)} now"><line class="axis" x1="30" y1="${H2 - 20}" x2="${W2 - 10}" y2="${H2 - 20}"></line><path class="area" d="M${gx(0).toFixed(1)},${H2 - 20} L${line.replace(/ /g, " L")} L${gx(gp.length - 1).toFixed(1)},${H2 - 20} Z"></path><polyline class="line" points="${line}"></polyline><circle class="now" cx="${gx(gp.length - 1).toFixed(1)}" cy="${gy(gmax).toFixed(1)}" r="5"></circle><text x="30" y="${H2 - 4}">${esc3(first)}</text><text x="${W2 - 10}" y="${H2 - 4}" text-anchor="end">${fmt(gmax)} notes</text></svg></div>`;
     }
     const kmax = Math.max(1, ...(p.knows || []).map((k2) => k2[1]));
     const k = knowsOn ? `<div><h2>What it knows</h2>${p.knows.map(([l, n]) => `<div class="hbar"><span>${esc3(l)}</span><span class="track"><span class="fill" style="width:${(n / kmax * 100).toFixed(1)}%"></span></span><span class="num">${fmt(n)}</span></div>`).join("")}</div>` : "";
@@ -4648,7 +4767,7 @@ ${(() => {
   });
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
   const garden = s.garden !== false && p.garden?.length ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
-  const city = s.city !== false && p.city?.districts.length ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, nav: (d, cur) => nav(d, cur) }, p.city) } : {};
+  const city = s.city !== false && p.city?.districts.length ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
   return { ...garden, ...city, "index.html": html, "assets/theme.css": theme_default, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
 }
 function navSidebar(p, sideOn, gardenOn, depth, current, toc = "") {
@@ -4732,10 +4851,15 @@ if(d.chips.length)h+='<div class="j-chips">'+d.chips.map(function(c){return'<div
 if(d.focus.length||d.wins.length){h+='<div class="two-col j-lists">';if(d.focus.length)h+='<div><div class="label">Focus</div><ul class="bullets">'+d.focus.map(function(x){return'<li>'+esc(x)+'</li>'}).join('')+'</ul></div>';if(d.wins.length)h+='<div><div class="label">Wins</div><ul class="bullets">'+d.wins.map(function(x){return'<li>'+esc(x)+'</li>'}).join('')+'</ul></div>';h+='</div>'}
 body.innerHTML=h;body.classList.remove('flip-l','flip-r');void body.offsetWidth;if(dir)body.classList.add(dir<0?'flip-l':'flip-r');pv.disabled=i===0;nx.disabled=i===L-1}
 pv.onclick=function(){if(i>0){i--;r(-1)}};nx.onclick=function(){if(i<days.length-1){i++;r(1)}};document.addEventListener('keydown',function(e){if(e.key==='ArrowLeft')pv.onclick();if(e.key==='ArrowRight')nx.onclick()});r(0)})();`;
+function githubOf(p) {
+  const ok = (u) => !!u && /^https:\/\/github\.com\/[\w.-]+\/?$/.test(u);
+  const l = (p.links || []).find((x) => /github/i.test(x[0]) && ok(x[1]));
+  return l ? l[1] : ok(p.code?.url) ? p.code.url : void 0;
+}
 function renderPrivateCity(p, city, openBase = "") {
   const q2 = { ...p, city: p.city?.districts.length ? p.city : city };
   const sideOn = p.sections.sidebar !== false && !!p.tree?.length, gardenOn = p.sections.garden !== false && !!p.garden?.length;
-  return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q2, sideOn, gardenOn, d, cur) }, city);
+  return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, github: githubOf(p), nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q2, sideOn, gardenOn, d, cur) }, city);
 }
 
 // src/collect.ts
@@ -5495,6 +5619,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
       await this.plugin.pushPrivate(false);
       window.open(this.plugin.settings.privateUrl);
     });
+    btn("picture-in-picture-2", "Pop out my city (a small window that stays on top)", () => void this.popOut());
     btn("key-round", "Sign in another device (phone, other browser)", () => this.plugin.pairDevice());
     btn("upload-cloud", "Publish now", async () => {
       const u = await this.plugin.publish();
@@ -5525,6 +5650,20 @@ var ProfileView = class extends import_obsidian5.ItemView {
   async onClose() {
     if (this.timer) window.clearInterval(this.timer);
     if (this.liveTimer) window.clearInterval(this.liveTimer);
+  }
+  /** Pop the city out into a small window that stays on top (float.ts). My view floats the private city with live traffic;
+   *  Public view floats the hub's page. */
+  isReady() {
+    return !!this.built || this.mode === "public";
+  }
+  cityMini() {
+    return this.built ? this.page("city.html", "").replace(/<head>/i, "<head><script>window.CALDERA_MINI=1<\/script>") : null;
+  }
+  async popOut() {
+    const handle = this.plugin.settings.handle;
+    if (this.mode === "mine" && this.built) return this.plugin.floatCity({ html: this.cityMini(), live: true });
+    if (!handle) return void new import_obsidian5.Notice("Publish your profile first");
+    return this.plugin.floatCity({ src: `${this.plugin.profileUrl()}city.html?caldera=owner#mini` });
   }
   async pushLive() {
     if (this.mode !== "mine" || !this.current.startsWith("city.html") || !this.plugin.settings.traffic?.length || !this.contentEl.isShown()) return;
@@ -5557,6 +5696,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
       }
       this.built = { text, data, uris, city: cityPrivate?.districts.length ? renderPrivateCity(data, cityPrivate) : void 0 };
       this.owner = renderOwner(await collectOwner(this.app, this.plugin, data, this.shownLooked));
+      if (this.plugin.floatSpec?.html) this.plugin.floatCity({ html: this.cityMini(), live: true }, false);
       await this.show();
       if (loud) new import_obsidian5.Notice("Profile refreshed");
     } catch (e) {
@@ -5593,6 +5733,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
   }
   onMessage(e) {
     if (e.source !== this.frame?.contentWindow || !e.data || typeof e.data !== "object") return;
+    if (e.data.caldera === "popout") return void this.popOut();
     const d = e.data;
     if (d.caldera === "scroll") {
       this.scrollY = Number(d.y) || 0;
@@ -5818,6 +5959,83 @@ async function collectOwner(app, plugin, data, lastLooked) {
   };
 }
 
+// src/float.ts
+var import_obsidian6 = require("obsidian");
+var CITY_FLOAT_VIEW = "caldera-city-float";
+var W = 420;
+var H = 280;
+var TITLE = "Caldera city";
+var CityFloatView = class extends import_obsidian6.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.frame = null;
+    this.liveTimer = null;
+  }
+  getViewType() {
+    return CITY_FLOAT_VIEW;
+  }
+  getDisplayText() {
+    return TITLE;
+  }
+  getIcon() {
+    return "building-2";
+  }
+  async onOpen() {
+    const root = this.contentEl;
+    root.empty();
+    root.addClass("caldera-float");
+    root.createDiv({ cls: "caldera-float-drag", attr: { "aria-hidden": "true" } });
+    this.frame = root.createEl("iframe", { cls: "caldera-float-frame" });
+    this.frame.setAttr("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
+    this.frame.addEventListener("load", () => window.setTimeout(() => void this.pushLive(), 400));
+    this.liveTimer = window.setInterval(() => void this.pushLive(), 1e4);
+    this.showSpec(this.plugin.floatSpec);
+    const win = this.containerEl.win, doc = this.containerEl.doc;
+    if (win !== window) {
+      doc.body.addClass("caldera-float-window");
+      doc.title = TITLE;
+      window.setTimeout(() => pinWindow(), 250);
+    }
+  }
+  /** Show a new build of the city (the My profile tab rebuilds it every 10 minutes). */
+  showSpec(spec) {
+    if (!this.frame || !spec) return;
+    if (spec.html) {
+      this.frame.removeAttribute("src");
+      this.frame.srcdoc = spec.html;
+    } else if (spec.src) {
+      this.frame.removeAttribute("srcdoc");
+      this.frame.src = spec.src;
+    }
+  }
+  async pushLive() {
+    if (!this.frame || !this.plugin.floatSpec?.live || !this.plugin.settings.traffic?.length) return;
+    try {
+      const data = await this.plugin.ownerLive();
+      this.frame.contentWindow?.postMessage({ caldera: "live", data }, "*");
+    } catch {
+    }
+  }
+  async onClose() {
+    if (this.liveTimer) window.clearInterval(this.liveTimer);
+  }
+};
+function pinWindow() {
+  if (!import_obsidian6.Platform.isDesktopApp) return;
+  try {
+    const remote = window.require("@electron/remote");
+    const bw = remote.BrowserWindow.getAllWindows().find((w) => w.getTitle() === TITLE);
+    if (!bw) return;
+    const wa = remote.screen.getDisplayMatching(bw.getBounds()).workArea;
+    bw.setAlwaysOnTop(true, "floating");
+    bw.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true });
+    bw.setBounds({ x: wa.x + 12, y: wa.y + wa.height - H - 12, width: W, height: H });
+  } catch {
+  }
+}
+var FLOAT_SIZE = { width: W, height: H };
+
 // src/links.ts
 var QUICK_LINKS = [
   { label: "GitHub", ph: "your GitHub username", hosts: /(^|\.)github\.com$/i, url: (v) => `https://github.com/${v.replace(/^@/, "")}` },
@@ -5846,7 +6064,7 @@ function quickLinkIndex(label, url) {
 
 // src/main.ts
 var VIEW = "caldera-panel";
-var CalderaPlugin = class extends import_obsidian6.Plugin {
+var CalderaPlugin = class extends import_obsidian7.Plugin {
   constructor() {
     super(...arguments);
     this.pending = [];
@@ -5861,12 +6079,15 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
     // republish shortly after the owner (or their agent) edits Caldera/profile.md or the activity file
     this.publishTimer = null;
     this.lastPublishError = "";
+    /** What the floating city shows; open=false only refreshes a window that's already open. */
+    this.floatSpec = null;
   }
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.addSettingTab(new CalderaSettingTab(this.app, this));
     this.registerView(VIEW, (leaf) => new CalderaView(leaf, this));
     this.registerView(PROFILE_VIEW, (leaf) => new ProfileView(leaf, this));
+    this.registerView(CITY_FLOAT_VIEW, (leaf) => new CityFloatView(leaf, this));
     this.addRibbonIcon("flame", "Caldera", () => this.openPanel());
     this.addRibbonIcon("user-round", "My Caldera profile", () => this.openProfileTab());
     this.pending = [...this.settings.pendingRequests || []];
@@ -5886,6 +6107,7 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
     this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
     this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
     this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
+    this.addCommand({ id: "pop-city", name: "Pop out my city (small window that stays on top)", callback: () => void this.popCity() });
     this.addCommand({ id: "pair-device", name: "Sign in another device", callback: () => this.pairDevice() });
     this.addCommand({ id: "masthead", name: "Set my masthead (cover image)", callback: () => this.pickImage("banner") });
     this.addCommand({ id: "masthead-prompt", name: "Copy AI prompt: make my masthead", callback: () => this.copyImagePrompt("banner") });
@@ -5921,9 +6143,9 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try {
         await this.send("profile.delete", {});
-        new import_obsidian6.Notice("Your Caldera profile was deleted from the hub.");
+        new import_obsidian7.Notice("Your Caldera profile was deleted from the hub.");
       } catch (e) {
-        new import_obsidian6.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
@@ -5965,7 +6187,7 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
   /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
   async importGithub(code) {
     if (!/^CAL-[\w-]{6,}$/.test(code)) {
-      new import_obsidian6.Notice("Paste the code from your account page (it starts with CAL-).");
+      new import_obsidian7.Notice("Paste the code from your account page (it starts with CAL-).");
       return false;
     }
     const go = async () => {
@@ -5978,12 +6200,12 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
         if (!this.settings.name && r.name) this.settings.name = r.name;
         if (!this.settings.headline && r.headline) this.settings.headline = r.headline;
         await this.saveSettings();
-        new import_obsidian6.Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
+        new import_obsidian7.Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
         const url = await this.publish(true);
-        if (url) new import_obsidian6.Notice("Published: " + url);
+        if (url) new import_obsidian7.Notice("Published: " + url);
         return true;
       } catch (e) {
-        new import_obsidian6.Notice("Couldn't import: " + e.message);
+        new import_obsidian7.Notice("Couldn't import: " + e.message);
         return false;
       }
     };
@@ -6002,7 +6224,7 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
     if (!this.settings.identity) {
       this.settings.identity = newIdentity();
       await this.saveSettings();
-      if (!quiet) new import_obsidian6.Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
+      if (!quiet) new import_obsidian7.Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
     }
     return this.settings.identity;
   }
@@ -6017,7 +6239,7 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
   async api(method, path, body, auth = false) {
     const headers = { "content-type": "application/json" };
     if (auth) headers.authorization = "Bearer " + await this.authToken();
-    const r = await (0, import_obsidian6.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + path, method, headers, body: body ? JSON.stringify(body) : void 0, throw: false });
+    const r = await (0, import_obsidian7.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + path, method, headers, body: body ? JSON.stringify(body) : void 0, throw: false });
     if (r.status >= 400) throw new Error(r.json?.error || `hub error ${r.status}`);
     return r.json;
   }
@@ -6069,17 +6291,17 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
     this.publishTimer = window.setTimeout(() => {
       this.publishTimer = null;
       void this.publish(true).then((url) => {
-        if (url && reason === "profile") new import_obsidian6.Notice("Caldera: your public page was updated.");
+        if (url && reason === "profile") new import_obsidian7.Notice("Caldera: your public page was updated.");
       });
     }, 45e3);
   }
   // What's new: the hub's release feed, shown only to the owner, inside Obsidian
   async checkReleases(manual = false) {
     try {
-      const r = await (0, import_obsidian6.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + "/releases.json", throw: false });
+      const r = await (0, import_obsidian7.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + "/releases.json", throw: false });
       const list = r.status === 200 ? r.json?.releases || [] : [];
       if (!list.length) {
-        if (manual) new import_obsidian6.Notice("Couldn't load release notes.");
+        if (manual) new import_obsidian7.Notice("Couldn't load release notes.");
         return;
       }
       const seen = list.findIndex((x) => x.version === this.settings.lastSeenRelease);
@@ -6101,10 +6323,10 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
         f.appendText(unseen[0].title + " ");
         f.createEl("u", { text: "See what's new" });
       });
-      const n = new import_obsidian6.Notice(frag, 2e4);
+      const n = new import_obsidian7.Notice(frag, 2e4);
       n.noticeEl.addEventListener("click", open3);
     } catch {
-      if (manual) new import_obsidian6.Notice("Couldn't load release notes.");
+      if (manual) new import_obsidian7.Notice("Couldn't load release notes.");
     }
   }
   async preview() {
@@ -6125,7 +6347,7 @@ My agent hook (only if I say yes above), exactly as Caldera gave it to me:
 ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     const text = (kind === "edit" ? editPrompt : agentPrompt)({
       extras,
-      vaultPath: a instanceof import_obsidian6.FileSystemAdapter ? a.getBasePath() : void 0,
+      vaultPath: a instanceof import_obsidian7.FileSystemAdapter ? a.getBasePath() : void 0,
       hubUrl: this.settings.hubUrl,
       handle: this.settings.handle || void 0,
       activityFile: this.settings.activityFile,
@@ -6134,7 +6356,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     });
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian6.Notice(kind === "edit" ? "Prompt copied. Paste it into your AI agent." : "Setup prompt copied. Paste it into Claude Code, Codex or Cursor: it connects every source it can find, keeps it fresh, and asks before anything goes public.", 8e3);
+      new import_obsidian7.Notice(kind === "edit" ? "Prompt copied. Paste it into your AI agent." : "Setup prompt copied. Paste it into Claude Code, Codex or Cursor: it connects every source it can find, keeps it fresh, and asks before anything goes public.", 8e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
@@ -6179,7 +6401,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (this.settings.privateWeb) void this.pushPrivate(false);
       void this.syncSites(cityPrivate, data.city?.districts.map((d) => d.name) || []);
       const url = this.profileUrl();
-      if (!quiet) new import_obsidian6.Notice(`Published: ${url}`);
+      if (!quiet) new import_obsidian7.Notice(`Published: ${url}`);
       if (!this.settings.sharePrompted && this.settings.welcomed) {
         this.settings.sharePrompted = true;
         await this.saveSettings();
@@ -6188,7 +6410,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       return url;
     } catch (e) {
       this.lastPublishError = e.message;
-      if (!quiet) new import_obsidian6.Notice("Caldera publish failed: " + e.message);
+      if (!quiet) new import_obsidian7.Notice("Caldera publish failed: " + e.message);
       else console.warn("Caldera publish failed:", e.message);
       return null;
     }
@@ -6204,7 +6426,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (!fm.stage) fm.stage = "seedling";
       if (!fm.license) fm.license = "all-rights";
     });
-    new import_obsidian6.Notice(`"${f.basename}" is now in your garden as a seedling. It goes public on the next publish; run "Preview my garden" to check it first.`);
+    new import_obsidian7.Notice(`"${f.basename}" is now in your garden as a seedling. It goes public on the next publish; run "Preview my garden" to check it first.`);
   }
   profileUrl() {
     return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`;
@@ -6223,10 +6445,10 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   }
   /** Approve a sign-in code shown on another device (caldera.social/signin): that browser becomes the owner's. */
   pairDevice() {
-    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian6.Notice("Publish your profile first.");
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian7.Notice("Publish your profile first.");
     new PairModal(this.app, async (code) => {
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/pair`, { code }, true);
-      new import_obsidian6.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
+      new import_obsidian7.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
     }, this.profileUrl()).open();
   }
   /** Write the setup form into Caldera/profile.md: name, headline, listed, chosen images (saved as Caldera/photo|banner.ext),
@@ -6238,8 +6460,8 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (!im) continue;
       if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
       });
-      const path = (0, import_obsidian6.normalizePath)(`Caldera/${kind}.${im.ext}`), old = v.getAbstractFileByPath(path);
-      if (old instanceof import_obsidian6.TFile) await v.modifyBinary(old, im.buf);
+      const path = (0, import_obsidian7.normalizePath)(`Caldera/${kind}.${im.ext}`), old = v.getAbstractFileByPath(path);
+      if (old instanceof import_obsidian7.TFile) await v.modifyBinary(old, im.buf);
       else await v.createBinary(path, im.buf);
       paths[kind] = path;
     }
@@ -6268,10 +6490,10 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   /** Copy a focused prompt that has the owner's AI agent set a masthead or profile photo. */
   async copyImagePrompt(kind) {
     const a = this.app.vault.adapter;
-    const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian6.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
+    const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian7.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian6.Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8e3);
+      new import_obsidian7.Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
@@ -6279,17 +6501,17 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   /** Choose an image from disk: copied into the vault as Caldera/<kind>.<ext>, set in Caldera/profile.md (which republishes). */
   pickImage(kind) {
     return new Promise((done) => new ImagePickModal(this.app, kind, async (buf, ext) => {
-      const path = (0, import_obsidian6.normalizePath)(`Caldera/${kind}.${ext}`), v = this.app.vault;
+      const path = (0, import_obsidian7.normalizePath)(`Caldera/${kind}.${ext}`), v = this.app.vault;
       if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
       });
       const old = v.getAbstractFileByPath(path);
-      if (old instanceof import_obsidian6.TFile) await v.modifyBinary(old, buf);
+      if (old instanceof import_obsidian7.TFile) await v.modifyBinary(old, buf);
       else await v.createBinary(path, buf);
       const pf = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
       await this.app.fileManager.processFrontMatter(pf, (fm) => {
         fm[kind === "banner" ? "banner" : "photo"] = path;
       });
-      new import_obsidian6.Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
+      new import_obsidian7.Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
       done(true);
     }, () => done(false)).open());
   }
@@ -6306,7 +6528,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     const root = "Caldera/site";
     for (const [p, t] of Object.entries(text)) await this.write(`${root}/${p}`, t);
     for (const [p, b] of Object.entries(binaries)) await this.writeBinary(`${root}/${p}`, b);
-    new import_obsidian6.Notice(`Exported to ${root}. Upload that folder to any static host.`);
+    new import_obsidian7.Notice(`Exported to ${root}. Upload that folder to any static host.`);
   }
   // ---------------------------------------------------------------- inbox
   async syncInbox(loud) {
@@ -6331,13 +6553,13 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
           } catch {
           }
           this.pending.push({ request: envelopeHash(e), from: e.from, handle, note: e.body.note, ts: e.ts });
-          new import_obsidian6.Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
+          new import_obsidian7.Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
         }
         if (e.type === "friend.accept") {
           const f = this.friends.find((x) => x.id === e.from);
-          new import_obsidian6.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} accepted your friend request`);
+          new import_obsidian7.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} accepted your friend request`);
         }
-        if (e.type === "gravity") new import_obsidian6.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
+        if (e.type === "gravity") new import_obsidian7.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
         if (e.type === "card") {
           if (await this.receiveCard(e)) cards++;
         }
@@ -6348,7 +6570,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
         this.pending = rq.incoming.filter((r) => !ignored.has(r.request)).map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         this.sent = rq.outgoing.map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         const fresh = this.pending.filter((x) => !seen.has(x.request));
-        if (fresh.length) new import_obsidian6.Notice(`Caldera: friend request from ${fresh.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")}. Open the Caldera panel to accept.`, 1e4);
+        if (fresh.length) new import_obsidian7.Notice(`Caldera: friend request from ${fresh.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")}. Open the Caldera panel to accept.`, 1e4);
         this.settings.seenRequests = this.pending.map((x) => x.request);
       }
       this.pending = this.pending.filter((x) => !this.friends.some((f) => f.id === x.from));
@@ -6363,9 +6585,9 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
         void this.attention();
       }
       this.refreshPanel();
-      if (loud || cards) new import_obsidian6.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
+      if (loud || cards) new import_obsidian7.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
     } catch (e) {
-      if (loud) new import_obsidian6.Notice("Caldera sync failed: " + e.message);
+      if (loud) new import_obsidian7.Notice("Caldera sync failed: " + e.message);
     }
   }
   async receiveCard(e) {
@@ -6391,12 +6613,12 @@ caldera_received: ${e.ts}
     try {
       await this.send("friend.accept", { request: p.request, to: p.from });
     } catch (e) {
-      return void new import_obsidian6.Notice("Couldn't accept: " + e.message);
+      return void new import_obsidian7.Notice("Couldn't accept: " + e.message);
     }
     this.pending = this.pending.filter((x) => x !== p);
     this.settings.pendingRequests = this.pending;
     await this.syncInbox(false);
-    new import_obsidian6.Notice(`You and ${p.handle ? "@" + p.handle : "your new friend"} are now friends`);
+    new import_obsidian7.Notice(`You and ${p.handle ? "@" + p.handle : "your new friend"} are now friends`);
   }
   async ignoreFriend(p) {
     this.settings.ignoredRequests = [...this.settings.ignoredRequests || [], p.request].slice(-200);
@@ -6409,12 +6631,12 @@ caldera_received: ${e.ts}
   async joinGroup(raw) {
     const g = groupsFrom(raw)[0];
     if (!g) return;
-    if ((this.settings.groups || []).includes(g)) return void new import_obsidian6.Notice(`You're already in ${g}.`);
+    if ((this.settings.groups || []).includes(g)) return void new import_obsidian7.Notice(`You're already in ${g}.`);
     this.settings.groups = [...this.settings.groups || [], g];
     await this.saveSettings();
-    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian6.Notice(`You'll join ${g} when you publish your profile.`);
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian7.Notice(`You'll join ${g} when you publish your profile.`);
     const url = await this.publish(true);
-    new import_obsidian6.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
+    new import_obsidian7.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
   }
   openFinish() {
     new WelcomeModal(this.app, this, this.settings.handle && this.settings.identity ? "finish" : "welcome").open();
@@ -6441,9 +6663,9 @@ caldera_received: ${e.ts}
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/email`, { email: email || null }, true);
       this.settings.summaryEmail = email;
       await this.saveSettings();
-      new import_obsidian6.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
+      new import_obsidian7.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
     } catch (e) {
-      new import_obsidian6.Notice("Couldn't save: " + e.message);
+      new import_obsidian7.Notice("Couldn't save: " + e.message);
     }
   }
   /** At most once a day: if people looked at the page, linked to it or befriended you, say so (click: share it). */
@@ -6467,7 +6689,7 @@ caldera_received: ${e.ts}
         f.appendText(bits.join(", ") + ". ");
         f.createEl("u", { text: "Share your page" });
       });
-      const note = new import_obsidian6.Notice(frag, 15e3);
+      const note = new import_obsidian7.Notice(frag, 15e3);
       note.noticeEl.addEventListener("click", () => this.openShare());
     } catch {
     }
@@ -6503,15 +6725,15 @@ caldera_received: ${e.ts}
     const h = raw.replace(/^@/, "").trim();
     if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
     if (!this.settings.identity || !this.settings.handle) {
-      new import_obsidian6.Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`);
+      new import_obsidian7.Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`);
       return void new WelcomeModal(this.app, this).open();
     }
-    if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new import_obsidian6.Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
+    if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new import_obsidian7.Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
     new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
       try {
         await this.requestFriend(h);
       } catch (e) {
-        new import_obsidian6.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     }, "Send request", "Add a friend").open();
   }
@@ -6559,10 +6781,10 @@ caldera_received: ${e.ts}
         this.settings.privateUrl = r.url;
         await this.saveSettings();
       }
-      if (loud) new import_obsidian6.Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
+      if (loud) new import_obsidian7.Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
       return r.url;
     } catch (e) {
-      if (loud) new import_obsidian6.Notice("Couldn't push the private view: " + e.message);
+      if (loud) new import_obsidian7.Notice("Couldn't push the private view: " + e.message);
       else console.warn("Caldera private push failed:", e.message);
       return null;
     }
@@ -6572,6 +6794,26 @@ caldera_received: ${e.ts}
     if (this.settings.privateWeb) this._priv = window.setInterval(() => {
       void this.pushPrivate(false);
     }, 10 * 6e4);
+  }
+  /** The city in a small always-on-top window: needs the My profile tab (it builds the city), so open it first if needed. */
+  async popCity() {
+    await this.openProfileTab();
+    const v = this.app.workspace.getLeavesOfType(PROFILE_VIEW)[0]?.view;
+    if (!v?.popOut) return;
+    for (let i = 0; i < 40 && !v.isReady?.(); i++) await new Promise((r) => window.setTimeout(r, 100));
+    await v.popOut();
+  }
+  async floatCity(spec, open3 = true) {
+    this.floatSpec = spec;
+    const leaf = this.app.workspace.getLeavesOfType(CITY_FLOAT_VIEW)[0];
+    if (leaf) {
+      leaf.view.showSpec(spec);
+      if (open3) leaf.view.containerEl.win.focus();
+      return;
+    }
+    if (!open3) return;
+    const pop = this.app.workspace.openPopoutLeaf({ size: FLOAT_SIZE });
+    await pop.setViewState({ type: CITY_FLOAT_VIEW, active: true });
   }
   async openProfileTab() {
     const ws = this.app.workspace;
@@ -6588,18 +6830,18 @@ caldera_received: ${e.ts}
     if (pr.id === this.settings.identity?.id) throw new Error("That's your own profile");
     if (this.friends.some((f) => f.id === pr.id)) throw new Error(`You're already friends with @${pr.handle}`);
     await this.send("friend.request", { to: pr.id, note });
-    new import_obsidian6.Notice(`Friend request sent to @${pr.handle || pr.id}. You'll be friends once they accept.`);
+    new import_obsidian7.Notice(`Friend request sent to @${pr.handle || pr.id}. You'll be friends once they accept.`);
     await this.syncInbox(false);
   }
   async giveGravity(f, reason) {
     const r = await this.send("gravity", { to: f.id, reason: reason.slice(0, 140) });
-    new import_obsidian6.Notice(`Gravity sent. @${f.handle || "friend"} now has ${r.gravity}`);
+    new import_obsidian7.Notice(`Gravity sent. @${f.handle || "friend"} now has ${r.gravity}`);
   }
   async shareNote(file) {
     if (!this.friends.length) await this.syncInbox(false);
-    if (!this.friends.length) return new import_obsidian6.Notice("Add a friend first (Caldera panel)");
+    if (!this.friends.length) return new import_obsidian7.Notice("Add a friend first (Caldera panel)");
     new FriendPicker(this.app, this.friends, async (f) => {
-      if (!f.box_key) return new import_obsidian6.Notice("That friend has not published a profile yet");
+      if (!f.box_key) return new import_obsidian7.Notice("That friend has not published a profile yet");
       const me = await this.ensureIdentity();
       const text = await this.app.vault.read(file);
       const version = Date.now();
@@ -6610,12 +6852,12 @@ caldera_received: ${e.ts}
         payload: { [f.id]: seal(text, f.box_key, me) },
         version
       });
-      new import_obsidian6.Notice(`Shared "${file.basename}" with @${f.handle || "friend"} (end-to-end encrypted)`);
+      new import_obsidian7.Notice(`Shared "${file.basename}" with @${f.handle || "friend"} (end-to-end encrypted)`);
     }).open();
   }
   // ---------------------------------------------------------------- utils
   async ensureFolder(path) {
-    const parts = (0, import_obsidian6.normalizePath)(path).split("/").slice(0, -1);
+    const parts = (0, import_obsidian7.normalizePath)(path).split("/").slice(0, -1);
     let cur = "";
     for (const p of parts) {
       cur = cur ? `${cur}/${p}` : p;
@@ -6624,17 +6866,17 @@ caldera_received: ${e.ts}
     }
   }
   async write(path, text) {
-    path = (0, import_obsidian6.normalizePath)(path);
+    path = (0, import_obsidian7.normalizePath)(path);
     await this.ensureFolder(path);
     const f = this.app.vault.getAbstractFileByPath(path);
-    if (f instanceof import_obsidian6.TFile) await this.app.vault.modify(f, text);
+    if (f instanceof import_obsidian7.TFile) await this.app.vault.modify(f, text);
     else await this.app.vault.create(path, text);
   }
   async writeBinary(path, data) {
-    path = (0, import_obsidian6.normalizePath)(path);
+    path = (0, import_obsidian7.normalizePath)(path);
     await this.ensureFolder(path);
     const f = this.app.vault.getAbstractFileByPath(path);
-    if (f instanceof import_obsidian6.TFile) await this.app.vault.modifyBinary(f, data);
+    if (f instanceof import_obsidian7.TFile) await this.app.vault.modifyBinary(f, data);
     else await this.app.vault.createBinary(path, data);
   }
   async openPanel() {
@@ -6649,7 +6891,7 @@ caldera_received: ${e.ts}
     for (const l of this.app.workspace.getLeavesOfType(VIEW)) l.view.render();
   }
 };
-var CalderaView = class extends import_obsidian6.ItemView {
+var CalderaView = class extends import_obsidian7.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -6675,7 +6917,7 @@ var CalderaView = class extends import_obsidian6.ItemView {
     el.createEl("h3", { text: "Caldera" });
     if (!s.identity || !s.handle) {
       el.createEl("p", { text: "Set your name and handle in settings, then publish your profile to join." });
-      new import_obsidian6.Setting(el).addButton((b) => b.setButtonText("Open settings").setCta().onClick(() => {
+      new import_obsidian7.Setting(el).addButton((b) => b.setButtonText("Open settings").setCta().onClick(() => {
         this.app.setting.open();
         this.app.setting.openTabById("caldera");
       }));
@@ -6708,11 +6950,11 @@ var CalderaView = class extends import_obsidian6.ItemView {
     el.createEl("h4", { text: "Add a friend" });
     el.createEl("p", { cls: "setting-item-description", text: 'Already on Caldera: enter their handle or paste their profile link. Or click "Add as friend" on their profile page.' });
     let handle = "";
-    new import_obsidian6.Setting(el).addText((t) => t.setPlaceholder("@handle or profile link").onChange((v) => handle = v)).addButton((b) => b.setButtonText("Request").onClick(async () => {
+    new import_obsidian7.Setting(el).addText((t) => t.setPlaceholder("@handle or profile link").onChange((v) => handle = v)).addButton((b) => b.setButtonText("Request").onClick(async () => {
       try {
         await p.requestFriend(handle.trim());
       } catch (e) {
-        new import_obsidian6.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     }));
     if (p.suggestions.length) {
@@ -6729,7 +6971,7 @@ var CalderaView = class extends import_obsidian6.ItemView {
             p.suggestions = p.suggestions.filter((x) => x !== sg);
             this.render();
           } catch (e) {
-            new import_obsidian6.Notice(e.message);
+            new import_obsidian7.Notice(e.message);
           }
         };
         row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
@@ -6738,13 +6980,13 @@ var CalderaView = class extends import_obsidian6.ItemView {
     el.createEl("h4", { text: "Invite someone new" });
     el.createEl("p", { cls: "setting-item-description", text: "Not on Caldera yet: send them this link. It walks them through installing, then they add you with one click." });
     const inv = `${s.hubUrl.replace(/\/$/, "")}/?invite=${encodeURIComponent(s.handle)}#install`;
-    new import_obsidian6.Setting(el).addText((t) => {
+    new import_obsidian7.Setting(el).addText((t) => {
       t.setValue(inv);
       t.inputEl.readOnly = true;
       t.inputEl.onfocus = () => t.inputEl.select();
     }).addButton((b) => b.setButtonText("Copy").setCta().onClick(async () => {
       await navigator.clipboard.writeText(inv);
-      new import_obsidian6.Notice("Invite link copied");
+      new import_obsidian7.Notice("Invite link copied");
     }));
     el.createEl("h4", { text: `Friends (${p.friends.length})` });
     for (const f of p.friends) {
@@ -6754,7 +6996,7 @@ var CalderaView = class extends import_obsidian6.ItemView {
     }
   }
 };
-var PreviewModal = class extends import_obsidian6.Modal {
+var PreviewModal = class extends import_obsidian7.Modal {
   constructor(app, html) {
     super(app);
     this.html = html;
@@ -6767,7 +7009,7 @@ var PreviewModal = class extends import_obsidian6.Modal {
     frame.srcdoc = this.html;
   }
 };
-var FriendPicker = class extends import_obsidian6.SuggestModal {
+var FriendPicker = class extends import_obsidian7.SuggestModal {
   constructor(app, list, pick) {
     super(app);
     this.list = list;
@@ -6784,7 +7026,7 @@ var FriendPicker = class extends import_obsidian6.SuggestModal {
     void this.pick(f);
   }
 };
-var GravityModal = class extends import_obsidian6.Modal {
+var GravityModal = class extends import_obsidian7.Modal {
   constructor(app, f, done) {
     super(app);
     this.f = f;
@@ -6794,13 +7036,13 @@ var GravityModal = class extends import_obsidian6.Modal {
     this.titleEl.setText(`Add gravity to @${this.f.handle || "friend"}`);
     this.contentEl.createEl("p", { text: "Gravity is positive only. Say what they helped with (optional)." });
     let reason = "";
-    new import_obsidian6.Setting(this.contentEl).addText((t) => t.setPlaceholder("They found me an operator").onChange((v) => reason = v)).addButton((b) => b.setButtonText("Add gravity").setCta().onClick(() => {
+    new import_obsidian7.Setting(this.contentEl).addText((t) => t.setPlaceholder("They found me an operator").onChange((v) => reason = v)).addButton((b) => b.setButtonText("Add gravity").setCta().onClick(() => {
       void this.done(reason);
       this.close();
     }));
   }
 };
-var ConfirmModal = class extends import_obsidian6.Modal {
+var ConfirmModal = class extends import_obsidian7.Modal {
   constructor(app, msg, yes, label = "Delete", title = "Are you sure?") {
     super(app);
     this.msg = msg;
@@ -6811,7 +7053,7 @@ var ConfirmModal = class extends import_obsidian6.Modal {
   onOpen() {
     this.titleEl.setText(this.title);
     this.contentEl.createEl("p", { text: this.msg });
-    new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
+    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
       b.setButtonText(this.label).onClick(() => {
         void this.yes();
         this.close();
@@ -6821,7 +7063,7 @@ var ConfirmModal = class extends import_obsidian6.Modal {
     });
   }
 };
-var AskModal = class extends import_obsidian6.Modal {
+var AskModal = class extends import_obsidian7.Modal {
   constructor(app, plugin, kind) {
     super(app);
     this.plugin = plugin;
@@ -6831,9 +7073,9 @@ var AskModal = class extends import_obsidian6.Modal {
     const ask = this.kind === "ask";
     this.titleEl.setText(ask ? "I could use help with..." : "I can help with...");
     let title = "", bounty = 20;
-    new import_obsidian6.Setting(this.contentEl).setName("What").addText((t) => t.onChange((v) => title = v));
-    if (ask) new import_obsidian6.Setting(this.contentEl).setName("Bounty (help credits)").setDesc("Held until you award it to whoever helps").addText((t) => t.setValue("20").onChange((v) => bounty = Math.max(0, Number(v) || 0)));
-    new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText(ask ? "Post ask" : "Post offer").setCta().onClick(async () => {
+    new import_obsidian7.Setting(this.contentEl).setName("What").addText((t) => t.onChange((v) => title = v));
+    if (ask) new import_obsidian7.Setting(this.contentEl).setName("Bounty (help credits)").setDesc("Held until you award it to whoever helps").addText((t) => t.setValue("20").onChange((v) => bounty = Math.max(0, Number(v) || 0)));
+    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(ask ? "Post ask" : "Post offer").setCta().onClick(async () => {
       if (!title.trim()) return;
       try {
         const id = newId(ask ? "ask" : "off");
@@ -6841,15 +7083,15 @@ var AskModal = class extends import_obsidian6.Modal {
         if (ask) this.plugin.settings.asks.push({ id, title, bounty });
         else this.plugin.settings.offers.push({ id, title });
         await this.plugin.saveSettings();
-        new import_obsidian6.Notice(ask ? "Ask posted" : "Offer posted");
+        new import_obsidian7.Notice(ask ? "Ask posted" : "Offer posted");
         this.close();
       } catch (e) {
-        new import_obsidian6.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     }));
   }
 };
-var PairModal = class extends import_obsidian6.Modal {
+var PairModal = class extends import_obsidian7.Modal {
   constructor(app, approve, page2) {
     super(app);
     this.approve = approve;
@@ -6861,15 +7103,15 @@ var PairModal = class extends import_obsidian6.Modal {
     this.contentEl.createEl("p", { cls: "setting-item-description", text: "Only approve a code on a screen you're holding yourself: approving signs that browser in as you." });
     let code = "";
     const go = async () => {
-      if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new import_obsidian6.Notice("The code has 6 characters.");
+      if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new import_obsidian7.Notice("The code has 6 characters.");
       try {
         await this.approve(code);
         this.close();
       } catch (e) {
-        new import_obsidian6.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     };
-    new import_obsidian6.Setting(this.contentEl).setName("Code").addText((t) => {
+    new import_obsidian7.Setting(this.contentEl).setName("Code").addText((t) => {
       t.setPlaceholder("ABC 123").onChange((v) => code = v);
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") void go();
@@ -6881,7 +7123,7 @@ var PairModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
-var ImagePickModal = class extends import_obsidian6.Modal {
+var ImagePickModal = class extends import_obsidian7.Modal {
   constructor(app, kind, use, cancelled) {
     super(app);
     this.kind = kind;
@@ -6898,15 +7140,15 @@ var ImagePickModal = class extends import_obsidian6.Modal {
     const take = async (f) => {
       if (!f) return;
       const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : f.type === "image/jpeg" ? "jpg" : "";
-      if (!ext) return void new import_obsidian6.Notice("Use a JPG, PNG or WebP image.");
-      if (f.size > 5 * 1024 * 1024) return void new import_obsidian6.Notice("That image is over 5 MB. Try a smaller one.");
+      if (!ext) return void new import_obsidian7.Notice("Use a JPG, PNG or WebP image.");
+      if (f.size > 5 * 1024 * 1024) return void new import_obsidian7.Notice("That image is over 5 MB. Try a smaller one.");
       try {
         this.chosen = true;
         await this.use(await f.arrayBuffer(), ext);
         this.close();
       } catch (e) {
         this.chosen = false;
-        new import_obsidian6.Notice("Couldn't set it: " + e.message);
+        new import_obsidian7.Notice("Couldn't set it: " + e.message);
       }
     };
     input.addEventListener("change", () => void take(input.files?.[0]));
@@ -6915,14 +7157,14 @@ var ImagePickModal = class extends import_obsidian6.Modal {
       e.preventDefault();
       void take(e.dataTransfer?.files?.[0]);
     });
-    new import_obsidian6.Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton((b) => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
+    new import_obsidian7.Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton((b) => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
   }
   onClose() {
     this.contentEl.empty();
     if (!this.chosen) this.cancelled();
   }
 };
-var PromptModal = class extends import_obsidian6.Modal {
+var PromptModal = class extends import_obsidian7.Modal {
   constructor(app, text) {
     super(app);
     this.text = text;
@@ -6939,7 +7181,7 @@ var PromptModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
-var NotePickModal = class extends import_obsidian6.SuggestModal {
+var NotePickModal = class extends import_obsidian7.SuggestModal {
   constructor(app, pick) {
     super(app);
     this.pick = pick;
@@ -6957,7 +7199,7 @@ var NotePickModal = class extends import_obsidian6.SuggestModal {
     this.pick(f);
   }
 };
-var WelcomeModal = class extends import_obsidian6.Modal {
+var WelcomeModal = class extends import_obsidian7.Modal {
   constructor(app, plugin, mode = "welcome") {
     super(app);
     this.plugin = plugin;
@@ -6975,22 +7217,22 @@ var WelcomeModal = class extends import_obsidian6.Modal {
     const status = createDiv({ cls: "caldera-welcome-status" });
     const head = (t) => c.createEl("h4", { text: t, cls: "caldera-welcome-h" });
     head("You");
-    new import_obsidian6.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
-    if (finish) new import_obsidian6.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
-    else new import_obsidian6.Setting(c).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
+    new import_obsidian7.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
+    if (finish) new import_obsidian7.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
+    else new import_obsidian7.Setting(c).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
       handle = clean(v);
       if (v !== handle) t.setValue(handle);
       status.setText("");
     }));
     const examples = ["Designer writing about tools for thought", "Founder building in public", "Researcher: notes on climate and cities"];
-    new import_obsidian6.Setting(c).setName("Headline").setDesc("One line about what you do or think about").addText((t) => {
+    new import_obsidian7.Setting(c).setName("Headline").setDesc("One line about what you do or think about").addText((t) => {
       t.setPlaceholder(examples[Math.floor(Math.random() * examples.length)]).setValue(headline).onChange((v) => headline = v.trim());
       t.inputEl.addClass("caldera-wide");
     });
     head("Pictures");
     const img = { photo: null, banner: null };
     const picRow = (kind, label, desc, current) => {
-      const st = new import_obsidian6.Setting(c).setName(label).setDesc(current ? `${desc} Now: ${current}` : desc);
+      const st = new import_obsidian7.Setting(c).setName(label).setDesc(current ? `${desc} Now: ${current}` : desc);
       st.addButton((b) => b.setButtonText(current ? "Change" : "Choose an image").onClick(() => new ImagePickModal(this.app, kind, async (buf, ext) => {
         img[kind] = { buf, ext };
         st.setDesc(`${desc} Chosen. It's saved when you publish.`);
@@ -7007,21 +7249,21 @@ var WelcomeModal = class extends import_obsidian6.Modal {
     head("Links");
     const have = (eff.links || []).map(([l, u]) => ({ l, u, i: quickLinkIndex(l, u) }));
     const quick = QUICK_LINKS.map((_, i) => have.find((h) => h.i === i)?.u || "");
-    QUICK_LINKS.forEach((q2, i) => new import_obsidian6.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
+    QUICK_LINKS.forEach((q2, i) => new import_obsidian7.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
     head("Your garden");
     let plant = null;
-    const gs = new import_obsidian6.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
+    const gs = new import_obsidian7.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
     gs.addButton((b) => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, (f) => {
       plant = f;
       gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`);
       b.setButtonText("Change");
     }).open()));
     head("Staying in touch");
-    new import_obsidian6.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
+    new import_obsidian7.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
     let email = s.summaryEmail || "";
-    new import_obsidian6.Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests, links into your garden - only on days something happens.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim()));
+    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests, links into your garden - only on days something happens.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim()));
     c.appendChild(status);
-    const go = new import_obsidian6.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
+    const go = new import_obsidian7.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
       if (!name) {
         status.setText("Add your name.");
         return;
@@ -7040,7 +7282,7 @@ var WelcomeModal = class extends import_obsidian6.Modal {
       try {
         const me = await this.plugin.ensureIdentity(true);
         if (!finish) {
-          const r = await (0, import_obsidian6.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
+          const r = await (0, import_obsidian7.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
           if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. Try another.`);
           s.handle = handle;
           if (!s.autoPublishHours) s.autoPublishHours = 6;
@@ -7075,7 +7317,7 @@ var WelcomeModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
-var ShareModal = class extends import_obsidian6.Modal {
+var ShareModal = class extends import_obsidian7.Modal {
   constructor(app, plugin, firstRun = false) {
     super(app);
     this.plugin = plugin;
@@ -7092,27 +7334,27 @@ var ShareModal = class extends import_obsidian6.Modal {
     const copy = async (t2, msg) => {
       try {
         await navigator.clipboard.writeText(t2);
-        new import_obsidian6.Notice(msg);
+        new import_obsidian7.Notice(msg);
       } catch {
-        new import_obsidian6.Notice(t2, 1e4);
+        new import_obsidian7.Notice(t2, 1e4);
       }
     };
-    new import_obsidian6.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
+    new import_obsidian7.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
     const text = `My page on Caldera: a living profile built from my Obsidian vault, with my work as a little city. ${url}`, t = encodeURIComponent(text);
-    new import_obsidian6.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
-    new import_obsidian6.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
+    new import_obsidian7.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
+    new import_obsidian7.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new import_obsidian6.Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests, links into your garden. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
+    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests, links into your garden. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
-    if (this.firstRun) new import_obsidian6.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
-    new import_obsidian6.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
+    if (this.firstRun) new import_obsidian7.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
+    new import_obsidian7.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var WhatsNewModal = class extends import_obsidian6.Modal {
+var WhatsNewModal = class extends import_obsidian7.Modal {
   constructor(app, plugin, releases) {
     super(app);
     this.plugin = plugin;
@@ -7129,7 +7371,7 @@ var WhatsNewModal = class extends import_obsidian6.Modal {
     if (newest && older(have, newest)) {
       const up = this.contentEl.createDiv({ cls: "caldera-release-howto" });
       up.createEl("p", { text: `You have Caldera ${have}. Version ${newest} is out: open Community plugins, click "Check for updates", then update Caldera.` });
-      new import_obsidian6.Setting(up).addButton((b) => b.setButtonText("Open Community plugins").setCta().onClick(() => {
+      new import_obsidian7.Setting(up).addButton((b) => b.setButtonText("Open Community plugins").setCta().onClick(() => {
         const st = this.app.setting;
         if (st) {
           st.open();
@@ -7147,13 +7389,13 @@ var WhatsNewModal = class extends import_obsidian6.Modal {
       if (r.howto) box.createEl("p", { cls: "caldera-release-howto", text: r.howto });
     }
     const hub = this.plugin.settings.hubUrl.replace(/\/$/, "");
-    new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText("All release notes").onClick(() => window.open(hub + "/changelog.html"))).addButton((b) => b.setButtonText("Guide").onClick(() => window.open(hub + "/guide.html"))).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
+    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText("All release notes").onClick(() => window.open(hub + "/changelog.html"))).addButton((b) => b.setButtonText("Guide").onClick(() => window.open(hub + "/guide.html"))).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var GardenPreviewModal = class extends import_obsidian6.Modal {
+var GardenPreviewModal = class extends import_obsidian7.Modal {
   constructor(app, report, folder, url) {
     super(app);
     this.report = report;

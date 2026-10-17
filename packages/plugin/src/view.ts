@@ -54,6 +54,7 @@ export class ProfileView extends ItemView {
     btn("refresh-cw", "Refresh", () => this.refresh(true));
     btn("external-link", "Open in browser (signed in as you)", () => this.plugin.settings.handle ? void this.plugin.openProfile(this.current === "index.html" ? "" : this.current) : new Notice("Publish your profile first"));
     if (this.plugin.settings.privateUrl) btn("lock", "Open my private web view (Tailscale)", async () => { await this.plugin.pushPrivate(false); window.open(this.plugin.settings.privateUrl!); });
+    btn("picture-in-picture-2", "Pop out my city (a small window that stays on top)", () => void this.popOut());
     btn("key-round", "Sign in another device (phone, other browser)", () => this.plugin.pairDevice());
     btn("upload-cloud", "Publish now", async () => { const u = await this.plugin.publish(); if (u && this.mode === "public") void this.show(); });
 
@@ -75,6 +76,17 @@ export class ProfileView extends ItemView {
   }
 
   async onClose() { if (this.timer) window.clearInterval(this.timer); if (this.liveTimer) window.clearInterval(this.liveTimer); }
+
+  /** Pop the city out into a small window that stays on top (float.ts). My view floats the private city with live traffic;
+   *  Public view floats the hub's page. */
+  isReady() { return !!this.built || this.mode === "public"; }
+  cityMini(): string | null { return this.built ? this.page("city.html", "").replace(/<head>/i, "<head><script>window.CALDERA_MINI=1</script>") : null; }
+  async popOut() {
+    const handle = this.plugin.settings.handle;
+    if (this.mode === "mine" && this.built) return this.plugin.floatCity({ html: this.cityMini()!, live: true });
+    if (!handle) return void new Notice("Publish your profile first");
+    return this.plugin.floatCity({ src: `${this.plugin.profileUrl()}city.html?caldera=owner#mini` });
+  }
 
   /** Live traffic for the city in My view: polled from the hub (signed in) and posted into the sandboxed page. */
   private liveTimer: number | null = null;
@@ -104,6 +116,7 @@ export class ProfileView extends ItemView {
       }
       this.built = { text, data, uris, city: cityPrivate?.districts.length ? renderPrivateCity(data, cityPrivate) : undefined };
       this.owner = renderOwner(await collectOwner(this.app, this.plugin, data, this.shownLooked));
+      if (this.plugin.floatSpec?.html) this.plugin.floatCity({ html: this.cityMini()!, live: true }, false);   // keep a floating city current
       await this.show();
       if (loud) new Notice("Profile refreshed");
     } catch (e: any) { this.status.setText("Couldn't build: " + e.message); }
@@ -137,6 +150,7 @@ export class ProfileView extends ItemView {
 
   private onMessage(e: MessageEvent) {
     if (e.source !== this.frame?.contentWindow || !e.data || typeof e.data !== "object") return;
+    if ((e.data as { caldera?: string }).caldera === "popout") return void this.popOut();
     const d = e.data as { caldera: string; path?: string; href?: string; name?: string; y?: number };
     if (d.caldera === "scroll") { this.scrollY = Number(d.y) || 0; return; }
     if (d.caldera === "open" && d.path) { void this.app.workspace.openLinkText(d.path, "", true); return; }
