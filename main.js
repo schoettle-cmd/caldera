@@ -6819,7 +6819,7 @@ var ImagePickModal = class extends import_obsidian6.Modal {
     this.titleEl.setText(banner ? "Set your masthead" : "Set your profile photo");
     this.contentEl.createEl("p", { text: banner ? "The wide cover image across the top of your page. Best about 3:1 (for example 1800x600), JPG or WebP, up to 5 MB. It's public." : "Square, at least 400x400: your face or your logo. JPG, PNG or WebP, up to 5 MB. It's public." });
     const input = this.contentEl.createEl("input", { attr: { type: "file", accept: "image/jpeg,image/png,image/webp" } });
-    input.style.display = "none";
+    input.setCssStyles({ display: "none" });
     const take = async (f) => {
       if (!f) return;
       const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : f.type === "image/jpeg" ? "jpg" : "";

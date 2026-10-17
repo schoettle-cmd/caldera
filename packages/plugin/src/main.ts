@@ -745,7 +745,7 @@ class ImagePickModal extends Modal {
     const banner = this.kind === "banner";
     this.titleEl.setText(banner ? "Set your masthead" : "Set your profile photo");
     this.contentEl.createEl("p", { text: banner ? "The wide cover image across the top of your page. Best about 3:1 (for example 1800x600), JPG or WebP, up to 5 MB. It's public." : "Square, at least 400x400: your face or your logo. JPG, PNG or WebP, up to 5 MB. It's public." });
-    const input = this.contentEl.createEl("input", { attr: { type: "file", accept: "image/jpeg,image/png,image/webp" } }); input.style.display = "none";
+    const input = this.contentEl.createEl("input", { attr: { type: "file", accept: "image/jpeg,image/png,image/webp" } }); input.setCssStyles({ display: "none" });
     const take = async (f?: File) => {
       if (!f) return; const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : f.type === "image/jpeg" ? "jpg" : "";
       if (!ext) return void new Notice("Use a JPG, PNG or WebP image."); if (f.size > 5 * 1024 * 1024) return void new Notice("That image is over 5 MB. Try a smaller one.");
