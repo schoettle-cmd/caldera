@@ -40,7 +40,8 @@ export interface CalderaSettings {
   gardenUrl: string;                  // an existing garden elsewhere (Quartz, Obsidian Publish...), linked from the profile
   groups: string[];                   // groups this profile is in: each is a town at hub/g/<name>
   invitedBy?: string;                 // handle whose invite link brought this vault to Caldera (sent once, with the first publish)
-  sharePrompted?: boolean;            // the "your page is live, share it" screen has been shown
+  sharePrompted?: boolean;
+  finishOffered?: boolean;            // the one-time "finish your page" offer for a bare page has been shown            // the "your page is live, share it" screen has been shown
   lastAttention?: string;             // ISO time of the last "people looked at your page" notice (at most one a day)
   welcomeNew?: boolean;               // community hosts: send a friend request to each new member
   welcomeSince?: string;              // ... who joined after this time

@@ -5351,6 +5351,7 @@ function renderOwner(o) {
     };
     out.unshift(`<section class="ow-card ow-finish" id="ow-finish"><div class="ow-h"><h3>Finish your page</h3><span class="ow-muted ow-small">${done} of ${items.length} done</span></div>
 <div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
+<p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead, links and a first garden note in one go</span></p>
 <ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc4(i.label)}</b> <span class="ow-muted">${esc4(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
   if (o.sources?.length) {
@@ -5603,6 +5604,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
     }
     if (d.caldera === "action") {
       if (d.name === "panel") void this.plugin.openPanel();
+      if (d.name === "finish-form") this.plugin.openFinish();
       if (d.name === "goals") void this.createGoals();
       if (d.name === "prompt") void this.plugin.copyPrompt("setup");
       if (d.name === "prompt-edit") void this.plugin.copyPrompt("edit");
@@ -5816,6 +5818,32 @@ async function collectOwner(app, plugin, data, lastLooked) {
   };
 }
 
+// src/links.ts
+var QUICK_LINKS = [
+  { label: "GitHub", ph: "your GitHub username", hosts: /(^|\.)github\.com$/i, url: (v) => `https://github.com/${v.replace(/^@/, "")}` },
+  { label: "Website", ph: "yoursite.com", hosts: /^$/, url: (v) => `https://${v}` },
+  { label: "X", ph: "@handle", hosts: /(^|\.)(x|twitter)\.com$/i, url: (v) => `https://x.com/${v.replace(/^@/, "")}` },
+  { label: "LinkedIn", ph: "linkedin.com/in/you", hosts: /(^|\.)linkedin\.com$/i, url: (v) => `https://www.linkedin.com/in/${v.replace(/^@/, "").replace(/^in\//, "")}` }
+];
+function quickLinkUrl(i, raw) {
+  const v = raw.trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v.replace(/^http:\/\//i, "https://");
+  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(v) && QUICK_LINKS[i].label !== "Website") return "https://" + v.replace(/^www\./, "www.");
+  return QUICK_LINKS[i].url(v);
+}
+var hostOf = (u) => {
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return "";
+  }
+};
+function quickLinkIndex(label, url) {
+  const l = label.trim().toLowerCase(), h = hostOf(url);
+  return QUICK_LINKS.findIndex((q2) => q2.label.toLowerCase() === l || q2.label === "X" && l === "twitter" || !!h && q2.hosts.source !== "^$" && q2.hosts.test(h));
+}
+
 // src/main.ts
 var VIEW = "caldera-panel";
 var CalderaPlugin = class extends import_obsidian6.Plugin {
@@ -5880,6 +5908,7 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
       return true;
     } });
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
+    this.addCommand({ id: "finish", name: "Finish my page (name, photo, masthead, links, first garden note)", callback: () => this.openFinish() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
     this.addCommand({ id: "sync", name: "Sync inbox now", callback: () => this.syncInbox(true) });
@@ -5912,6 +5941,9 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
       window.setTimeout(() => {
         void this.checkReleases(false);
       }, 8e3);
+      window.setTimeout(() => {
+        void this.offerFinish();
+      }, 12e3);
       window.setTimeout(() => {
         if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 36e5) void this.publish(true);
       }, 2e4);
@@ -6197,6 +6229,36 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       new import_obsidian6.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
     }, this.profileUrl()).open();
   }
+  /** Write the setup form into Caldera/profile.md: name, headline, listed, chosen images (saved as Caldera/photo|banner.ext),
+   *  the four quick links (replacing only those, keeping every other link), and plant a first garden note. */
+  async applyProfileForm(f) {
+    const v = this.app.vault, paths = {};
+    for (const kind of ["photo", "banner"]) {
+      const im = f.images[kind];
+      if (!im) continue;
+      if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
+      });
+      const path = (0, import_obsidian6.normalizePath)(`Caldera/${kind}.${im.ext}`), old = v.getAbstractFileByPath(path);
+      if (old instanceof import_obsidian6.TFile) await v.modifyBinary(old, im.buf);
+      else await v.createBinary(path, im.buf);
+      paths[kind] = path;
+    }
+    const pf = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
+    await this.app.fileManager.processFrontMatter(pf, (fm) => {
+      fm.name = f.name;
+      fm.headline = f.headline;
+      fm.listed = f.listed;
+      if (paths.photo) fm.photo = paths.photo;
+      if (paths.banner) fm.banner = paths.banner;
+      const old = Array.isArray(fm.links) ? fm.links.map(String) : [];
+      const keep = old.filter((l) => {
+        const [a = "", ...b] = l.split("|");
+        return quickLinkIndex(a, b.join("|").trim()) < 0;
+      });
+      fm.links = [...f.links.filter(([, u]) => u).map(([l, u]) => `${l} | ${u}`), ...keep];
+    });
+    if (f.plant) await this.plantNote(f.plant);
+  }
   openSettings() {
     const st = this.app.setting;
     if (!st) return;
@@ -6353,6 +6415,19 @@ caldera_received: ${e.ts}
     if (!this.settings.identity || !this.settings.handle) return void new import_obsidian6.Notice(`You'll join ${g} when you publish your profile.`);
     const url = await this.publish(true);
     new import_obsidian6.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
+  }
+  openFinish() {
+    new WelcomeModal(this.app, this, this.settings.handle && this.settings.identity ? "finish" : "welcome").open();
+  }
+  /** Existing profiles with a bare page (no photo, headline or links): offer the setup form once. */
+  async offerFinish() {
+    const s = this.settings;
+    if (!s.identity || !s.handle || !s.welcomed || s.finishOffered || this.unloaded) return;
+    const e = effectiveSettings(this.app, s);
+    if (e.avatarPath && e.headline?.trim() && (e.links || []).length) return;
+    s.finishOffered = true;
+    await this.saveSettings();
+    new ConfirmModal(this.app, "Your page is live, but it's still bare. Add a photo, a masthead, a headline and a few links in about a minute - no AI needed.", () => this.openFinish(), "Finish my page", "Finish your page").open();
   }
   openShare() {
     if (!this.settings.handle) return void new WelcomeModal(this.app, this).open();
@@ -6864,105 +6939,147 @@ var PromptModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
+var NotePickModal = class extends import_obsidian6.SuggestModal {
+  constructor(app, pick) {
+    super(app);
+    this.pick = pick;
+    this.setPlaceholder("Type to find a note to plant in your garden");
+  }
+  getSuggestions(q2) {
+    const s = q2.toLowerCase();
+    return this.app.vault.getMarkdownFiles().filter((f) => !f.path.startsWith("Caldera/") && f.path.toLowerCase().includes(s)).slice(0, 40);
+  }
+  renderSuggestion(f, el) {
+    el.createEl("div", { text: f.basename });
+    el.createEl("small", { text: f.parent?.path && f.parent.path !== "/" ? f.parent.path : "", cls: "caldera-muted" });
+  }
+  onChooseSuggestion(f) {
+    this.pick(f);
+  }
+};
 var WelcomeModal = class extends import_obsidian6.Modal {
-  constructor(app, plugin) {
+  constructor(app, plugin, mode = "welcome") {
     super(app);
     this.plugin = plugin;
+    this.mode = mode;
   }
   onOpen() {
-    const s = this.plugin.settings;
+    const s = this.plugin.settings, finish = this.mode === "finish" && !!s.handle && !!s.identity;
+    const eff = effectiveSettings(this.app, s);
     this.modalEl.addClass("caldera-welcome");
-    this.titleEl.setText("Welcome to Caldera");
-    this.contentEl.createEl("p", { text: "Pick a name and a handle. Caldera creates your identity on this device, publishes your profile, and opens it in your browser. Nothing private leaves your vault." });
-    let name = s.name, handle = s.handle, headline = s.headline;
-    const status = createDiv({ cls: "caldera-welcome-status" });
+    this.titleEl.setText(finish ? "Finish your page" : "Welcome to Caldera");
+    const c = this.contentEl;
+    c.createEl("p", { text: finish ? "A few details make your page worth visiting. Fill in what you like - everything is optional, and you can change it later in Caldera/profile.md." : "Set up your page in a minute. Caldera creates your identity on this device and publishes a page that keeps itself fresh from your vault. Nothing private leaves your vault." });
+    let name = eff.name || "", handle = s.handle || "", headline = eff.headline || "", listed = eff.listed !== false;
     const clean = (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
-    new import_obsidian6.Setting(this.contentEl).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
-    new import_obsidian6.Setting(this.contentEl).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
+    const status = createDiv({ cls: "caldera-welcome-status" });
+    const head = (t) => c.createEl("h4", { text: t, cls: "caldera-welcome-h" });
+    head("You");
+    new import_obsidian6.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
+    if (finish) new import_obsidian6.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
+    else new import_obsidian6.Setting(c).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
       handle = clean(v);
       if (v !== handle) t.setValue(handle);
       status.setText("");
     }));
-    let listed = s.listed !== false;
-    new import_obsidian6.Setting(this.contentEl).setName("List me in the directory").setDesc("Your card appears on the public People page. You can change this anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
-    new import_obsidian6.Setting(this.contentEl).setName("Headline").setDesc("Optional, one line").addText((t) => t.setPlaceholder("Building things with notes").setValue(headline).onChange((v) => headline = v.trim()));
-    this.contentEl.appendChild(status);
-    const go = new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText("Create my profile").setCta().onClick(async () => {
+    const examples = ["Designer writing about tools for thought", "Founder building in public", "Researcher: notes on climate and cities"];
+    new import_obsidian6.Setting(c).setName("Headline").setDesc("One line about what you do or think about").addText((t) => {
+      t.setPlaceholder(examples[Math.floor(Math.random() * examples.length)]).setValue(headline).onChange((v) => headline = v.trim());
+      t.inputEl.addClass("caldera-wide");
+    });
+    head("Pictures");
+    const img = { photo: null, banner: null };
+    const picRow = (kind, label, desc, current) => {
+      const st = new import_obsidian6.Setting(c).setName(label).setDesc(current ? `${desc} Now: ${current}` : desc);
+      st.addButton((b) => b.setButtonText(current ? "Change" : "Choose an image").onClick(() => new ImagePickModal(this.app, kind, async (buf, ext) => {
+        img[kind] = { buf, ext };
+        st.setDesc(`${desc} Chosen. It's saved when you publish.`);
+        b.setButtonText("Change");
+      }, () => {
+      }).open()));
+      if (!current) st.addExtraButton((x) => x.setIcon("x").setTooltip("Skip for now").onClick(() => {
+        img[kind] = null;
+        st.setDesc(`${desc} Skipped - you can add it later.`);
+      }));
+    };
+    picRow("photo", "Profile photo", "Square: your face or your logo.", eff.avatarPath || "");
+    picRow("banner", "Masthead", "The wide cover image across the top (about 3:1).", eff.bannerPath || "");
+    head("Links");
+    const have = (eff.links || []).map(([l, u]) => ({ l, u, i: quickLinkIndex(l, u) }));
+    const quick = QUICK_LINKS.map((_, i) => have.find((h) => h.i === i)?.u || "");
+    QUICK_LINKS.forEach((q2, i) => new import_obsidian6.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
+    head("Your garden");
+    let plant = null;
+    const gs = new import_obsidian6.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
+    gs.addButton((b) => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, (f) => {
+      plant = f;
+      gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`);
+      b.setButtonText("Change");
+    }).open()));
+    head("Staying in touch");
+    new import_obsidian6.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
+    let email = s.summaryEmail || "";
+    new import_obsidian6.Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests, links into your garden - only on days something happens.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim()));
+    c.appendChild(status);
+    const go = new import_obsidian6.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
       if (!name) {
         status.setText("Add your name.");
         return;
       }
-      if (handle.length < 3) {
+      if (!finish && handle.length < 3) {
         status.setText("Handles need at least 3 letters or numbers.");
         return;
       }
       b.setDisabled(true);
       b.setButtonText("Publishing...");
+      const fail = (msg) => {
+        status.setText(msg);
+        b.setDisabled(false);
+        b.setButtonText(finish ? "Save and publish" : "Publish my page");
+      };
       try {
         const me = await this.plugin.ensureIdentity(true);
-        const r = await (0, import_obsidian6.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
-        if (r.status === 200 && r.json?.id !== me.id) {
-          status.setText(`@${handle} is taken. Try another.`);
-          b.setDisabled(false);
-          b.setButtonText("Create my profile");
-          return;
+        if (!finish) {
+          const r = await (0, import_obsidian6.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
+          if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. Try another.`);
+          s.handle = handle;
+          if (!s.autoPublishHours) s.autoPublishHours = 6;
         }
-        Object.assign(s, { name, handle, headline, listed });
-        if (!s.autoPublishHours) s.autoPublishHours = 6;
+        Object.assign(s, { name, headline, listed });
+        await this.plugin.saveSettings();
+        await this.plugin.applyProfileForm({ name, headline, listed, images: img, links: quick.map((v, i) => [QUICK_LINKS[i].label, quickLinkUrl(i, v)]), plant });
+        const firstRun = !s.welcomed;
+        s.welcomed = true;
+        s.sharePrompted = true;
         await this.plugin.saveSettings();
         const url = await this.plugin.publish(true);
         if (!url) {
+          if (firstRun) {
+            s.welcomed = false;
+            await this.plugin.saveSettings();
+          }
           const why = this.plugin.lastPublishError;
-          status.setText(why && !/network|fetch|ENOTFOUND|timed out/i.test(why) ? `Publishing failed: ${why}` : "Publishing failed. Check your connection and try again.");
-          b.setDisabled(false);
-          b.setButtonText("Create my profile");
-          return;
+          return fail(why && !/network|fetch|ENOTFOUND|timed out/i.test(why) ? `Publishing failed: ${why}` : "Publishing failed. Check your connection and try again.");
         }
-        s.welcomed = true;
-        await this.plugin.saveSettings();
         this.plugin.scheduleAutoPublish();
-        await ensureProfileFile(this.app, s, s.hubUrl).catch(() => {
-        });
-        window.open(url);
-        this.done(url);
+        if (email && email !== s.summaryEmail) void this.plugin.setSummaryEmail(email);
+        this.close();
+        new ShareModal(this.app, this.plugin, firstRun).open();
       } catch (e) {
-        status.setText(e.message);
-        b.setDisabled(false);
-        b.setButtonText("Create my profile");
+        fail(e.message);
       }
     }));
     go.settingEl.addClass("caldera-welcome-go");
-  }
-  done(url) {
-    this.contentEl.empty();
-    this.titleEl.setText("Your profile is live");
-    const link = this.contentEl.createEl("p").createEl("a", { text: url, href: url });
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.open(url);
-    });
-    this.contentEl.createEl("p", { text: "It updates itself from your vault. To change your name, headline, photo, links or sections, edit the note Caldera/profile.md - or ask your AI agent to. The page republishes about a minute after you save." });
-    this.contentEl.createEl("p", { text: "Fill out your page: your AI agent (Claude Code, Codex, Cursor...) can draft your summary, timeline and projects, add a photo and links, and start your daily journal. Copy one prompt, paste it into your AI, and approve what it suggests. AI usage, activity and what your vault knows fill in by themselves." });
-    new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText("Copy the AI setup prompt").setCta().onClick(() => this.plugin.copyPrompt("setup")));
-    this.contentEl.createEl("p", { text: "Your login is a key stored in this vault - no password. Save a copy so you can recover your profile on another device:", cls: "caldera-welcome-key" });
-    new import_obsidian6.Setting(this.contentEl).addButton((b) => b.setButtonText("Copy recovery key").onClick(async () => {
-      await navigator.clipboard.writeText(btoa(JSON.stringify(this.plugin.settings.identity)));
-      new import_obsidian6.Notice("Recovery key copied. Paste it into your password manager. Anyone with it can act as you.");
-    })).addButton((b) => b.setButtonText("Open my profile").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Share my page").onClick(() => {
-      this.close();
-      this.plugin.settings.sharePrompted = true;
-      void this.plugin.saveSettings();
-      this.plugin.openShare();
-    })).addButton((b) => b.setButtonText("Done").onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
 var ShareModal = class extends import_obsidian6.Modal {
-  constructor(app, plugin) {
+  constructor(app, plugin, firstRun = false) {
     super(app);
     this.plugin = plugin;
+    this.firstRun = firstRun;
   }
   onOpen() {
     const s = this.plugin.settings, hub = s.hubUrl.replace(/\/$/, ""), url = this.plugin.profileUrl(), invite = `${hub}/?invite=${encodeURIComponent(s.handle)}`;
@@ -6988,7 +7105,8 @@ var ShareModal = class extends import_obsidian6.Modal {
     new import_obsidian6.Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests, links into your garden. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
-    new import_obsidian6.Setting(c).addButton((b) => b.setButtonText("Done").onClick(() => this.close()));
+    if (this.firstRun) new import_obsidian6.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
+    new import_obsidian6.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();

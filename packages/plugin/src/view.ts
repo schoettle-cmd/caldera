@@ -142,6 +142,7 @@ export class ProfileView extends ItemView {
     if (d.caldera === "open" && d.path) { void this.app.workspace.openLinkText(d.path, "", true); return; }
     if (d.caldera === "action") {
       if (d.name === "panel") void this.plugin.openPanel();
+      if (d.name === "finish-form") this.plugin.openFinish();
       if (d.name === "goals") void this.createGoals();
       if (d.name === "prompt") void this.plugin.copyPrompt("setup");
       if (d.name === "prompt-edit") void this.plugin.copyPrompt("edit");
