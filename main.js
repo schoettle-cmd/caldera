@@ -5498,6 +5498,8 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
   constructor() {
     super(...arguments);
     this.pending = [];
+    this.sent = [];
+    // my requests nobody has answered yet
     this.friends = [];
     this.social = { friends: 0, gravity: 0, credits: 0 };
     this.token = null;
@@ -5838,18 +5840,19 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
   async syncInbox(loud) {
     try {
       const me = await this.ensureIdentity();
-      const [{ envelopes }, fr, gr, cr] = await Promise.all([
+      const [{ envelopes }, fr, gr, cr, rq] = await Promise.all([
         this.api("GET", `/v1/inbox/${encodeURIComponent(me.id)}?since=${encodeURIComponent(this.settings.lastInboxSync)}`, void 0, true),
         this.api("GET", `/v1/friends/${encodeURIComponent(me.id)}`),
         this.api("GET", `/v1/gravity/${encodeURIComponent(me.id)}`),
-        this.api("GET", `/v1/credits/${encodeURIComponent(me.id)}`)
+        this.api("GET", `/v1/credits/${encodeURIComponent(me.id)}`),
+        this.api("GET", `/v1/requests/${encodeURIComponent(me.id)}`, void 0, true).catch(() => null)
       ]);
       this.friends = fr.friends;
       this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
       let cards = 0;
       for (const e of envelopes) {
         if (!verify(e)) continue;
-        if (e.type === "friend.request" && !this.friends.some((f) => f.id === e.from) && !this.pending.some((x) => x.from === e.from)) {
+        if (!rq && e.type === "friend.request" && !this.friends.some((f) => f.id === e.from) && !this.pending.some((x) => x.from === e.from)) {
           let handle;
           try {
             handle = (await this.api("GET", `/v1/profiles/${encodeURIComponent(e.from)}`)).handle;
@@ -5858,12 +5861,23 @@ var CalderaPlugin = class extends import_obsidian6.Plugin {
           this.pending.push({ request: envelopeHash(e), from: e.from, handle, note: e.body.note, ts: e.ts });
           new import_obsidian6.Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
         }
-        if (e.type === "friend.accept") new import_obsidian6.Notice("Caldera: a friend request was accepted");
+        if (e.type === "friend.accept") {
+          const f = this.friends.find((x) => x.id === e.from);
+          new import_obsidian6.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} accepted your friend request`);
+        }
         if (e.type === "gravity") new import_obsidian6.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
         if (e.type === "card") {
           if (await this.receiveCard(e)) cards++;
         }
         if (e.ts > this.settings.lastInboxSync) this.settings.lastInboxSync = e.ts;
+      }
+      if (rq) {
+        const ignored = new Set(this.settings.ignoredRequests || []), seen = new Set(this.settings.seenRequests || []);
+        this.pending = rq.incoming.filter((r) => !ignored.has(r.request)).map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
+        this.sent = rq.outgoing.map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
+        const fresh = this.pending.filter((x) => !seen.has(x.request));
+        if (fresh.length) new import_obsidian6.Notice(`Caldera: friend request from ${fresh.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")}. Open the Caldera panel to accept.`, 1e4);
+        this.settings.seenRequests = this.pending.map((x) => x.request);
       }
       this.pending = this.pending.filter((x) => !this.friends.some((f) => f.id === x.from));
       this.settings.pendingRequests = this.pending;
@@ -5894,11 +5908,22 @@ caldera_received: ${e.ts}
     return true;
   }
   async acceptFriend(p) {
-    await this.send("friend.accept", { request: p.request, to: p.from });
+    try {
+      await this.send("friend.accept", { request: p.request, to: p.from });
+    } catch (e) {
+      return void new import_obsidian6.Notice("Couldn't accept: " + e.message);
+    }
     this.pending = this.pending.filter((x) => x !== p);
     this.settings.pendingRequests = this.pending;
     await this.syncInbox(false);
-    new import_obsidian6.Notice("Friend added");
+    new import_obsidian6.Notice(`You and ${p.handle ? "@" + p.handle : "your new friend"} are now friends`);
+  }
+  async ignoreFriend(p) {
+    this.settings.ignoredRequests = [...this.settings.ignoredRequests || [], p.request].slice(-200);
+    this.pending = this.pending.filter((x) => x !== p);
+    this.settings.pendingRequests = this.pending;
+    await this.saveSettings();
+    this.refreshPanel();
   }
   /** "Add as friend" from a profile page (obsidian://caldera?friend=) or the My profile tab: confirm, then request. */
   async confirmFriend(raw) {
@@ -5987,8 +6012,11 @@ caldera_received: ${e.ts}
     const h = handleOrId.trim().replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "").replace(/^@/, "");
     if (!h) throw new Error("Enter a handle, like @orion, or their profile link");
     const pr = await this.api("GET", `/v1/profiles/${encodeURIComponent(h)}`);
+    if (pr.id === this.settings.identity?.id) throw new Error("That's your own profile");
+    if (this.friends.some((f) => f.id === pr.id)) throw new Error(`You're already friends with @${pr.handle}`);
     await this.send("friend.request", { to: pr.id, note });
-    new import_obsidian6.Notice(`Friend request sent to @${pr.handle || pr.id}`);
+    new import_obsidian6.Notice(`Friend request sent to @${pr.handle || pr.id}. You'll be friends once they accept.`);
+    await this.syncInbox(false);
   }
   async giveGravity(f, reason) {
     const r = await this.send("gravity", { to: f.id, reason: reason.slice(0, 140) });
@@ -6096,7 +6124,12 @@ var CalderaView = class extends import_obsidian6.ItemView {
         const row = el.createDiv("caldera-row");
         row.createSpan({ text: (r.handle ? "@" + r.handle : r.from.slice(0, 14)) + (r.note ? ` - "${r.note}"` : "") });
         row.createEl("button", { text: "Accept", cls: "mod-cta" }).onclick = () => p.acceptFriend(r);
+        row.createEl("button", { text: "Ignore" }).onclick = () => p.ignoreFriend(r);
       }
+    }
+    if (p.sent.length) {
+      el.createEl("h4", { text: "Waiting for them to accept" });
+      for (const r of p.sent) el.createDiv({ cls: "caldera-row", text: (r.handle ? "@" + r.handle : r.from.slice(0, 14)) + ` - sent ${r.ts.slice(0, 10)}` });
     }
     el.createEl("h4", { text: "Add a friend" });
     el.createEl("p", { cls: "setting-item-description", text: 'Already on Caldera: enter their handle or paste their profile link. Or click "Add as friend" on their profile page.' });

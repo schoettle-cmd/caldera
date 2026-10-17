@@ -17,6 +17,7 @@ export interface CalderaSettings {
   openProfileOnStartup?: boolean;
   privateWeb?: boolean; privateUrl?: string;   // private web address (Tailscale) for the owner layer
   pendingRequests?: { request: string; from: string; handle?: string; note?: string; ts: string }[];   // friend requests survive a restart
+  ignoredRequests?: string[]; seenRequests?: string[];   // friend requests: hidden by the owner / already announced
   traffic?: { key: string; project: string; public: number | boolean; secret?: string }[];
   agentKey?: { key: string; secret: string };   // AI agents report what they're working on (drones in the city)   // live traffic: one site key per city district
   asks: { id: string; title: string; bounty: number }[];
