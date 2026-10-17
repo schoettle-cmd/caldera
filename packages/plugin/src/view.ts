@@ -283,7 +283,7 @@ export async function collectOwner(app: App, plugin: CalderaPlugin, data: Profil
   const last14 = (data.daily || []).slice(-14), has = (k: string) => last14.some(d => Number((d.counts as any)?.[k]) > 0);
   let act: any = null;
   try { const af = plugin.settings.activityFile || "Caldera/activity.json"; if (await app.vault.adapter.exists(af)) act = JSON.parse(await app.vault.adapter.read(af)); } catch { /* unreadable */ }
-  const cityOn = !!data.city?.districts.length || await app.vault.adapter.exists("Caldera/city.json");
+  const cityOn = (!!data.city?.districts.length && data.city.kind !== "vault") || await app.vault.adapter.exists("Caldera/city.json");
   const sources = [
     { label: "Daily journal", ok: last14.some(d => d.headline), hint: "a line a day, written by your AI agent from what you did" },
     { label: "Calendar", ok: has("meetings"), hint: "meetings attended (counts only)" },
@@ -291,7 +291,7 @@ export async function collectOwner(app: App, plugin: CalderaPlugin, data: Profil
     { label: "AI usage", ok: has("prompts") || !!data.ai?.total, hint: "prompts and tokens from Claude Code, Codex" },
     { label: "Code", ok: has("commits") || !!data.code?.commits, hint: "commits, or add your GitHub username in settings" },
     { label: "Documents", ok: has("docs"), hint: "documents you produced or filed" },
-    { label: "City", ok: cityOn, hint: "your repos as a city: add your GitHub username in settings" },
+    { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username in settings to build it from your repos" : "your repos as a city: add your GitHub username in settings" },
     { label: "Page text", ok: !!data.summary, hint: "headline, summary, now, timeline" },
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" },
   ];

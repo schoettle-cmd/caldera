@@ -3636,6 +3636,23 @@ function parseCityRepos(raw) {
     description: r.public === true && r.description ? String(r.description).slice(0, 200) : void 0
   }));
 }
+function vaultRepos(notes, now = Date.now()) {
+  const by = /* @__PURE__ */ new Map(), DAY3 = 864e5;
+  for (const n of notes) {
+    const parts = n.path.split("/");
+    if (parts.length < 2) parts.unshift("Notes");
+    const key = parts.slice(0, Math.min(2, parts.length - 1)).join("/");
+    const r = by.get(key) || { name: key, project: parts[0], public: false, language: "Notes", commits: 0, weeks: Array(12).fill(0), week: 0, today: 0 };
+    const age = (now - n.mtime) / DAY3;
+    if (age < 365) r.commits++;
+    if (age < 84) r.weeks[11 - Math.floor(age / 7)]++;
+    if (age < 7) r.week++;
+    if (age < 1) r.today++;
+    r.size = (r.size || 0) + 1;
+    by.set(key, r);
+  }
+  return [...by.values()].map((r) => ({ ...r, commits: Math.max(1, r.commits) })).sort((a, b) => b.commits - a.commits).slice(0, 120);
+}
 function cityData(repos, notes, generated) {
   const by = /* @__PURE__ */ new Map();
   for (const r of repos) by.set(r.project, [...by.get(r.project) || [], r]);
@@ -3654,15 +3671,16 @@ function publicCity(c, publicProjects) {
   for (const d of c.districts) {
     const listed = pub.has(d.name.toLowerCase()) || d.repos.some((r) => r.public);
     if (!listed) {
-      hidden.push(...d.repos.map((r) => locked(r, "Private")));
+      hidden.push(...d.repos.map((r) => locked(r, c.kind === "vault" ? "Vault" : "Private")));
       continue;
     }
     districts.push({ name: d.name, notes: pub.has(d.name.toLowerCase()) ? d.notes : 0, repos: d.repos.map((r) => r.public ? r : locked(r, d.name)) });
   }
-  if (hidden.length) districts.push({ name: "Private", notes: 0, repos: hidden.sort((a, b) => b.commits - a.commits) });
+  if (hidden.length) districts.push({ name: c.kind === "vault" ? "Vault" : "Private", notes: 0, repos: hidden.sort((a, b) => b.commits - a.commits) });
   const all = c.districts.flatMap((d) => d.repos);
   return {
     generated: c.generated,
+    kind: c.kind,
     districts,
     private: false,
     totals: { commits: all.reduce((s, r) => s + r.commits, 0), active: all.filter((r) => r.week > 0).length },
@@ -3685,8 +3703,8 @@ ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" hre
 <div class="shell">${site.nav ? site.nav(0, "city.html") : ""}<main class="note"><div class="c-main">
 <div class="g-crumbs c-crumbs"><a href="index.html">${esc2(site.handle ? "@" + site.handle : site.name)}</a> / City</div>
 <h1 class="c-title">${esc2(site.name)}'s city</h1>
-<p class="c-lede">Every project is a district and every GitHub repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some((r) => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}</p>
-<div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>commits this year</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${notes.toLocaleString("en-US")}</b><span>notes in town</span></div></div>
+<p class="c-lede">${city.kind === "vault" ? `Built from ${esc2(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every GitHub repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some((r) => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}`}</p>
+<div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes edited this year" : "commits this year"}</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${(city.kind === "vault" ? city.under?.total ?? notes : notes).toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes in the vault" : "notes in town"}</span></div></div>
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
 <div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Day</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-reset">Reset</button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
@@ -3759,7 +3777,7 @@ function citySnapshot(city, o) {
     }
   }
   const pad = 18, vb = `${f(minX - pad)} ${f(minY - pad)} ${f(maxX - minX + pad * 2)} ${f(maxY - minY + pad * 2)}`;
-  const repos = city.districts.flatMap((d) => d.repos), total = repos.reduce((a, r) => a + r.commits, 0), busy = repos.filter((r) => r.week > 0).length;
+  const repos = city.districts.flatMap((d) => d.repos), total = city.totals?.commits ?? repos.reduce((a, r) => a + r.commits, 0), busy = city.totals?.active ?? repos.filter((r) => r.week > 0).length;
   const e = (v) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   return `<style>.city-peek{display:block;position:relative;margin:18px 0 26px;border-radius:12px;overflow:hidden;text-decoration:none;color:#E8EEF8;background:radial-gradient(ellipse at 50% 120%,#1d2b4a 0%,#0c1222 60%,#080b14 100%);border:1px solid rgba(140,170,220,.18);transition:border-color .2s,transform .2s}
 .city-peek:hover{border-color:rgba(140,190,255,.5);transform:translateY(-1px)}.city-peek svg{display:block;width:100%;height:auto;max-height:300px}
@@ -3769,7 +3787,7 @@ function citySnapshot(city, o) {
 .cp-bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;padding:28px 16px 12px;background:linear-gradient(transparent,rgba(6,9,18,.88));font:500 13px/1.3 "IBM Plex Sans",system-ui,sans-serif}
 .cp-bar b{font-size:15px}.cp-bar .cp-go{color:#9CC4FF;white-space:nowrap}.cp-bar .cp-n{opacity:.75}</style>
 <a class="city-peek" href="${e(o.href || "city.html")}" aria-label="Open ${e(o.name)}'s city"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-hidden="true">${out.join("")}</svg>
-<span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${repos.length} building${repos.length === 1 ? "" : "s"} &middot; ${total.toLocaleString("en-US")} commit${total === 1 ? "" : "s"} this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a>`;
+<span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${repos.length} building${repos.length === 1 ? "" : "s"} &middot; ${total.toLocaleString("en-US")} ${city.kind === "vault" ? `note${total === 1 ? "" : "s"} edited` : `commit${total === 1 ? "" : "s"}`} this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a>`;
 }
 var CITY_CSS = `
 .c-main{max-width:1100px;margin:0 auto;padding:28px 20px 64px}
@@ -4229,7 +4247,7 @@ function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={workin
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
 function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
-  if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private repo</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">The details of this building are private. Its size and lights show roughly how much work goes on inside.</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
+  if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">The details of this building are private. Its size and lights show roughly how much work goes on inside.</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':'')+'</div>'
    +(r.description?'<p style="margin:6px 0 0">'+e(r.description)+'</p>':'')
    +'<div class="sp" title="Commits, last 12 weeks">'+(r.weeks||[]).map(function(w){return '<i style="height:'+Math.max(4,Math.round(w/mx*100))+'%"></i>'}).join('')+'</div><div class="k">Commits, last 12 weeks</div>'
@@ -4808,10 +4826,13 @@ async function collectProfile(app, s, social) {
           await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1));
         }
       }
-      if (await app.vault.adapter.exists(path)) {
-        const raw = JSON.parse(await app.vault.adapter.read(path));
-        const fromGithub = String(raw.source || "").startsWith("caldera github ");
-        const repos = parseCityRepos(raw);
+      const priv = new Set(md.filter((f) => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map((f) => f.path));
+      const inVault = (f) => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path) && !priv.has(f.path);
+      const raw = await app.vault.adapter.exists(path) ? JSON.parse(await app.vault.adapter.read(path)) : void 0;
+      const fromVault = !raw && !ghUser;
+      if (raw || fromVault) {
+        const fromGithub = !!raw && String(raw.source || "").startsWith("caldera github ");
+        const repos = raw ? parseCityRepos(raw) : vaultRepos(md.filter(inVault).map((f) => ({ path: f.path, mtime: f.stat.mtime })));
         if (repos.length) {
           const byName = new Map(md.map((f) => [f.basename.toLowerCase(), f.path]));
           const resolved = app.metadataCache.resolvedLinks;
@@ -4821,7 +4842,8 @@ async function collectProfile(app, s, social) {
             const src = md.filter((f) => resolved[f.path]?.[target]).sort((a, b) => b.stat.mtime - a.stat.mtime);
             return { n: src.length, paths: [target, ...src.slice(0, 5).map((f) => f.path)] };
           };
-          cityPrivate = cityData(repos, notes, typeof raw.generated === "string" ? raw.generated : void 0);
+          cityPrivate = cityData(repos, notes, typeof raw?.generated === "string" ? raw.generated : (/* @__PURE__ */ new Date()).toISOString());
+          if (fromVault) cityPrivate.kind = "vault";
           const bornAt = (f) => {
             const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
             const ts = [fm.created, fm.date, fm.notion_created, fm.notion_edited, fm.ingested, f.basename.match(/\b(20\d\d-\d\d-\d\d)\b/)?.[1]].map((v) => typeof v === "string" || typeof v === "number" ? Date.parse(String(v)) : NaN).filter((t) => t > 9466848e5 && t < Date.now() + 864e5);
@@ -4833,10 +4855,9 @@ async function collectProfile(app, s, social) {
             if (h) hubs[d.name] = h;
           }
           const gslug = new Map(garden.map((g) => [g.title.toLowerCase(), g.slug]));
-          const vault = md.filter((f) => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path)).map((f) => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
-          const priv = new Set(md.filter((f) => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map((f) => f.path));
-          cityPrivate.under = underground(vault.filter((v) => !priv.has(v.path)), hubs, (t) => gslug.get(t.toLowerCase()));
-          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map((d) => d.name) : (s.projects || []).map((p) => p[0]));
+          const vault = md.filter(inVault).map((f) => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
+          cityPrivate.under = underground(vault, hubs, (t) => gslug.get(t.toLowerCase()));
+          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map((d) => d.name) : fromVault ? [] : (s.projects || []).map((p) => p[0]));
           if (pub.districts.length) data.city = pub;
         }
       }
@@ -5555,7 +5576,7 @@ async function collectOwner(app, plugin, data, lastLooked) {
     if (await app.vault.adapter.exists(af)) act = JSON.parse(await app.vault.adapter.read(af));
   } catch {
   }
-  const cityOn = !!data.city?.districts.length || await app.vault.adapter.exists("Caldera/city.json");
+  const cityOn = !!data.city?.districts.length && data.city.kind !== "vault" || await app.vault.adapter.exists("Caldera/city.json");
   const sources = [
     { label: "Daily journal", ok: last14.some((d2) => d2.headline), hint: "a line a day, written by your AI agent from what you did" },
     { label: "Calendar", ok: has("meetings"), hint: "meetings attended (counts only)" },
@@ -5563,7 +5584,7 @@ async function collectOwner(app, plugin, data, lastLooked) {
     { label: "AI usage", ok: has("prompts") || !!data.ai?.total, hint: "prompts and tokens from Claude Code, Codex" },
     { label: "Code", ok: has("commits") || !!data.code?.commits, hint: "commits, or add your GitHub username in settings" },
     { label: "Documents", ok: has("docs"), hint: "documents you produced or filed" },
-    { label: "City", ok: cityOn, hint: "your repos as a city: add your GitHub username in settings" },
+    { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username in settings to build it from your repos" : "your repos as a city: add your GitHub username in settings" },
     { label: "Page text", ok: !!data.summary, hint: "headline, summary, now, timeline" },
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" }
   ];

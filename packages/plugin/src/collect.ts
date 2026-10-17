@@ -16,7 +16,7 @@ import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter } from "@caldera/core";
 import { aiUsage, githubCity, githubCode, githubUser, vaultKinds } from "./auto";
-import { cityData, parseCityRepos, publicCity, underground, type CityData } from "./city";
+import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
 
 const DAY = 86_400_000;
@@ -223,10 +223,14 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
         const fresh = await githubCity(ghUser, cur?.source === `caldera github ${ghUser}` ? cur : undefined).catch(() => undefined);
         if (fresh) { if (!(await app.vault.adapter.exists("Caldera"))) await app.vault.createFolder("Caldera"); await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1)); }
       }
-      if (await app.vault.adapter.exists(path)) {
-        const raw = JSON.parse(await app.vault.adapter.read(path));
-        const fromGithub = String(raw.source || "").startsWith("caldera github ");
-        const repos = parseCityRepos(raw);
+      const priv = new Set(md.filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map(f => f.path));
+      const inVault = (f: TFile) => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path) && !priv.has(f.path);
+      const raw = (await app.vault.adapter.exists(path)) ? JSON.parse(await app.vault.adapter.read(path)) : undefined;
+      // no GitHub and no city.json of your own: the city is built from the vault's folders, every building locked
+      const fromVault = !raw && !ghUser;
+      if (raw || fromVault) {
+        const fromGithub = !!raw && String(raw.source || "").startsWith("caldera github ");
+        const repos = raw ? parseCityRepos(raw) : vaultRepos(md.filter(inVault).map(f => ({ path: f.path, mtime: f.stat.mtime })));
         if (repos.length) {
           const byName = new Map(md.map(f => [f.basename.toLowerCase(), f.path] as const));
           const resolved = app.metadataCache.resolvedLinks;
@@ -235,7 +239,8 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
             const src = md.filter(f => resolved[f.path]?.[target]).sort((a, b) => b.stat.mtime - a.stat.mtime);
             return { n: src.length, paths: [target, ...src.slice(0, 5).map(f => f.path)] };
           };
-          cityPrivate = cityData(repos, notes, typeof raw.generated === "string" ? raw.generated : undefined);
+          cityPrivate = cityData(repos, notes, typeof raw?.generated === "string" ? raw.generated : new Date().toISOString());
+          if (fromVault) cityPrivate.kind = "vault";
           // the Underground: the vault itself, under the city
           // a note's real age: the earliest date it carries (created / date / notion_edited / ingested, or a date in its
           // name), else the file's own; imported and synced files often have fresh file dates
@@ -248,11 +253,10 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
           const hubs: Record<string, string> = {};
           for (const d of cityPrivate.districts) { const h = byName.get(d.name.toLowerCase()); if (h) hubs[d.name] = h; }
           const gslug = new Map(garden.map(g => [g.title.toLowerCase(), g.slug] as const));
-          const vault = md.filter(f => !f.path.startsWith("Caldera/") && !/(^|\/)(templates?|\.trash)\//i.test(f.path))
+          const vault = md.filter(inVault)
             .map(f => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
-          const priv = new Set(md.filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map(f => f.path));
-          cityPrivate.under = underground(vault.filter(v => !priv.has(v.path)), hubs, t => gslug.get(t.toLowerCase()));
-          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map(d => d.name) : (s.projects || []).map(p => p[0]));   // public repos only: every district is public
+          cityPrivate.under = underground(vault, hubs, t => gslug.get(t.toLowerCase()));
+          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map(d => d.name) : fromVault ? [] : (s.projects || []).map(p => p[0]));   // public repos only: every district is public
           if (pub.districts.length) data.city = pub;
         }
       }
