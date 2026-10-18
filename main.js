@@ -3996,6 +3996,7 @@ html.c-mini .c-tools{top:6px;right:6px;opacity:0;transition:opacity .2s}html.c-m
 html.c-mini .c-tools button{padding:3px 8px;font-size:11px}
 .c-today{position:absolute;left:10px;bottom:10px;z-index:2;padding:4px 10px;border-radius:999px;background:rgba(8,12,22,.72);color:#E6F6FF;font:500 12px/1.3 'IBM Plex Mono',ui-monospace,monospace;pointer-events:none;backdrop-filter:blur(4px)}
 html.c-mini .c-today{display:none}
+.c-stage:not(.c-dig) .c-hint~.c-today{bottom:42px}@media (max-width:600px){.c-stage:not(.c-dig) .c-hint~.c-today{bottom:10px}}
 .c-setup{position:relative;margin:10px 0 4px;padding:10px 40px 10px 14px;border:1px solid var(--line,#2A2A2F);border-radius:var(--radius-md,10px);background:var(--bg-raised,#18181B);font-size:var(--text-sm,14px);color:var(--text,#E6E6EA)}
 .c-su-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:3px 0}.c-su-row span{flex:1 1 260px;color:var(--text-muted,#9A9AA6)}
 .c-setup button{cursor:pointer;font:inherit;font-size:13px;border-radius:999px;border:1px solid var(--line,#2A2A2F);background:transparent;color:var(--accent-text,#B9A6FF);padding:3px 12px}
