@@ -550,6 +550,8 @@ export default class CalderaPlugin extends Plugin {
       if (Array.isArray(r.sites)) { this.settings.traffic = r.sites; if (r.agent?.key) this.settings.agentKey = r.agent; await this.saveSettings(); }
     } catch (e: any) { console.warn("Caldera live-traffic sites:", e.message); }
   }
+  /** The weather where this computer is (the hub looks it up from this request and keeps nothing), for the city's sky. */
+  async weather() { return this.api("GET", "/v1/weather"); }
   async ownerLive() {
     const me = await this.ensureIdentity();
     return this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/live`, undefined, true);

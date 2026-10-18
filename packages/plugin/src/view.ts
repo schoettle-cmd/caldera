@@ -4,6 +4,7 @@
  *  - Public view: the live page on the hub, exactly as visitors see it (with the hub's live blocks).
  * The page runs in a sandboxed iframe with no access to the vault; a tiny bridge script posts clicks back here.
  */
+import { agentSetupPrompt } from "./settings";
 import { ItemView, Notice, TFile, WorkspaceLeaf, setIcon, type App } from "obsidian";
 import * as C from "@caldera/core";
 import type CalderaPlugin from "./main";
@@ -65,9 +66,9 @@ export class ProfileView extends ItemView {
     this.registerEvent(this.app.workspace.on("active-leaf-change", leaf => { if (leaf === this.leaf) this.markLooked(false); }));
     this.markLooked(true);
     await this.refresh(false);
-    this.timer = window.setInterval(() => { if (this.mode === "mine" && this.contentEl.isShown()) void this.refresh(false); }, 10 * 60_000);
+    this.timer = window.setInterval(() => { if (this.mode === "mine" && this.contentEl.isShown()) { void this.refresh(false); void this.pushExtras(); } }, 10 * 60_000);
     this.liveTimer = window.setInterval(() => void this.pushLive(), 10_000);
-    this.frame.addEventListener("load", () => window.setTimeout(() => void this.pushLive(), 400));
+    this.frame.addEventListener("load", () => window.setTimeout(() => { void this.pushLive().then(() => this.pushExtras()); }, 400));
     // the Underground: a note you edit lights up and pulses through its links
     let lastPulse = 0;
     this.registerEvent(this.app.vault.on("modify", f => {
@@ -93,7 +94,20 @@ export class ProfileView extends ItemView {
   private liveTimer: number | null = null;
   private async pushLive() {
     if (this.mode !== "mine" || !this.current.startsWith("city.html") || !this.plugin.settings.traffic?.length || !this.contentEl.isShown()) return;
-    try { const data = await this.plugin.ownerLive(); this.frame.contentWindow?.postMessage({ caldera: "live", data }, "*"); } catch { /* offline: the city just stays quiet */ }
+    try { const data = await this.plugin.ownerLive(); this.lastLive = data; this.frame.contentWindow?.postMessage({ caldera: "live", data }, "*"); } catch { /* offline: the city just stays quiet */ }
+  }
+
+  /** The sky over My view's city follows the owner's real weather (the hub looks it up from this request, stores nothing),
+   *  and an owner without live visitors or agent drones yet gets the one-row setup under the city. */
+  private lastLive: any = null; private wx: { at: number; data: unknown } | null = null;
+  private async pushExtras() {
+    if (this.mode !== "mine" || !this.current.startsWith("city.html") || !this.contentEl.isShown()) return;
+    const s = this.plugin.settings, hub = s.hubUrl.replace(/\/$/, "");
+    if (!this.wx || Date.now() - this.wx.at > 15 * 60_000) { try { this.wx = { at: Date.now(), data: await this.plugin.weather() }; } catch { this.wx = { at: Date.now(), data: null }; } }
+    const L = this.lastLive, liveOn = !!L && (Object.values(L.today || {}).some((x: any) => x?.v > 0) || Object.values(L.districts || {}).some((x: any) => x?.views > 0));
+    const agentsOn = !!L && Array.isArray(L.agents) && L.agents.length > 0, sites = (s.traffic || []).map(t => ({ key: t.key, project: t.project }));
+    const owner = s.citySetupDismissed ? null : { liveOff: !liveOn, agentsOff: !agentsOn, hub, sites: liveOn ? [] : sites, agentPrompt: !agentsOn && s.agentKey ? agentSetupPrompt(hub, s.agentKey) : "" };
+    this.frame.contentWindow?.postMessage({ caldera: "extras", data: { weather: this.wx?.data || null, owner } }, "*");
   }
 
   /** "Since you last looked" moves forward when you come back after 30+ minutes away, not on every refresh. */
@@ -154,6 +168,7 @@ export class ProfileView extends ItemView {
     if ((e.data as { caldera?: string }).caldera === "popout") return void this.popOut();
     const d = e.data as { caldera: string; path?: string; href?: string; name?: string; y?: number };
     if (d.caldera === "scroll") { this.scrollY = Number(d.y) || 0; return; }
+    if (d.caldera === "setup-dismiss") { this.plugin.settings.citySetupDismissed = true; void this.plugin.saveSettings(); return; }
     if (d.caldera === "open" && d.path) { void this.app.workspace.openLinkText(d.path, "", true); return; }
     if (d.caldera === "action") {
       if (d.name === "panel") void this.plugin.openPanel();

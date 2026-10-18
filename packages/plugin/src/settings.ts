@@ -13,6 +13,7 @@ export interface CalderaSettings {
   publicTopics: [string, string][];   // [tag, label] - only these tags are ever counted
   activityFile: string; historyDays: number;
   inboxFolder: string; lastInboxSync: string;
+  citySetupDismissed?: boolean;   // hide the 'turn on live visitors / agents' row under My view's city
   ownerLastLooked?: string;   // when the owner last opened the My profile tab (drives 'Since you last looked')
   openProfileOnStartup?: boolean;
   privateWeb?: boolean; privateUrl?: string;   // private web address (Tailscale) for the owner layer

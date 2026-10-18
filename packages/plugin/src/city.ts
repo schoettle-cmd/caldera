@@ -476,13 +476,13 @@ function buildTraces(){TRACES=[];if(!TODAY)return;var mid=new Date();mid.setHour
       var nb=adjRoads(E[0],E[1]).filter(function(n){return !(n[0]===o.i&&n[1]===o.j)})[0];if(nb){var q=iso(nb[0],nb[1]);pts.push(lerpPt(q,Ec,.35))}pts.push(Ec,lerpPt(Ec,door,.42));
       TRACES.push({pts:pts,a:br*(1-ix*.25),seed:o.i*31+o.j*7})})})}
 function drawTraces(){if(!TRACES.length||sky==='grid')return;var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);var k=wxKind(),day=sky==='day'||sky==='dusk';
-  var col=k==='snow'?'90,110,140':k==='rain'||k==='storm'||k==='drizzle'?'12,20,34':day?'70,52,36':'200,214,236';
+  var wet=k==='rain'||k==='storm'||k==='drizzle',col=k==='snow'?(day?'60,85,125':'170,190,220'):!day?(wet?'170,200,240':'200,214,236'):wet?'12,20,34':'70,52,36';   // wet prints at night catch the street light
   TRACES.forEach(function(t){for(var s=0;s<t.pts.length-1;s++){var a=t.pts[s],b=t.pts[s+1],l=Math.hypot(b.x-a.x,b.y-a.y),n=Math.floor(l/3.2),ux=(b.x-a.x)/(l||1),uy=(b.y-a.y)/(l||1);
-    for(var i=0;i<n;i++){var f=(i+.5)/n,side=i%2?1:-1,x=a.x+(b.x-a.x)*f-uy*side*1.3,y=a.y+(b.y-a.y)*f+ux*side*.65,al=(.06+.34*t.a)*(day?1:.8)*(.75+.25*rnd(t.seed+i*3.1+s));
-      c.fillStyle='rgba('+col+','+al.toFixed(3)+')';c.beginPath();c.ellipse(x,y,.95,.5,Math.atan2(uy,ux),0,7);c.fill();
+    for(var i=0;i<n;i++){var f=(i+.5)/n,side=i%2?1:-1,x=a.x+(b.x-a.x)*f-uy*side*1.3,y=a.y+(b.y-a.y)*f+ux*side*.65,al=(.1+.5*t.a)*(day?1:.85)*(.75+.25*rnd(t.seed+i*3.1+s));
+      c.fillStyle='rgba('+col+','+al.toFixed(3)+')';c.beginPath();c.ellipse(x,y,1.15,.6,Math.atan2(uy,ux),0,7);c.fill();
       if(k==='rain'||k==='storm'){c.fillStyle='rgba(200,225,255,'+(al*.5).toFixed(3)+')';c.fillRect(x-.3,y-.4,.6,.3)}}}})}
 // ---- weather: the viewer's real local weather (hub lookup, or Obsidian passing it in), or what they pick
-var WX=null,WXMODES=['auto','clear','rain','snow','fog'],WXMODE='auto',WXN={auto:'Auto',clear:'Clear',rain:'Rain',snow:'Snow',fog:'Fog'};
+var WX=null,WXMODES=['auto','clear','rain','snow','fog'],WXMODE='auto',WXN={auto:'Auto',clear:'Clear',partly:'Partly cloudy',overcast:'Overcast',drizzle:'Drizzle',rain:'Rain',storm:'Storm',snow:'Snow',fog:'Fog'};
 try{var wv=localStorage.getItem('caldera-weather');if(wv&&WXMODES.indexOf(wv)>=0)WXMODE=wv}catch(err){}
 var hw0=location.hash.match(/[#&]wx=([a-z]+)/);if(hw0)WXMODE=hw0[1];   // #wx=storm etc. for checking
 function wxKind(){if(WXMODE!=='auto')return WXMODE;return WX&&WX.c?WX.c:'clear'}
@@ -979,6 +979,7 @@ if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes i
   buildings:function(){var b=st.getBoundingClientRect();return hits.filter(function(h){return h.r}).map(function(h){return {name:h.r.locked?'':h.r.name,locked:!!h.r.locked,url:repoUrl(h.r),x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0*.35+h.y1*.65)*cam.z}})},
   labels:function(){var b=st.getBoundingClientRect();return tagHits.map(function(t){return {url:t.url,x:b.left+cam.x+(t.x0+t.x1)/2*cam.z,y:b.top+cam.y+(t.y0+t.y1)/2*cam.z}})},
   walks:function(){var b=st.getBoundingClientRect(),tn=performance.now();return WALKS.filter(function(w){return tn>=w.born}).map(function(w){var p=walkAt(w);return {id:w.id,ghost:w.ghost,f:w.d/w.len,x:b.left+cam.x+p.x*cam.z,y:b.top+cam.y+p.y*cam.z}})},
+  traces:function(){var r=st.getBoundingClientRect();return TRACES.map(function(t){var m=t.pts[Math.floor(t.pts.length/2)];return {a:t.a,x:r.left+cam.x+m.x*cam.z,y:r.top+cam.y+m.y*cam.z}})},
   clouds:function(){return CLOUDS.map(function(c){return {x:c.x,y:c.y,gone:c.gone}})},
   weather:function(){return {kind:wxKind(),mode:WXMODE,wx:WX,phase:phase,keys:DAYKEYS}},
   fx:function(){return {drops:FX.drops.length,queue:FX.queue.length,parts:FX.parts.length,beams:FX.beams.length,more:Object.keys(FX.more).length,z:cam.z}},
