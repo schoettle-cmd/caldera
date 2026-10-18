@@ -2271,6 +2271,11 @@ var import_obsidian7 = require("obsidian");
 // ../core/src/index.ts
 var import_tweetnacl = __toESM(require_nacl_fast(), 1);
 
+// ../core/src/flags.ts
+var G = globalThis;
+var FLAGS = G.__calderaFlags || (G.__calderaFlags = { garden: false });
+var gardenEnabled = () => FLAGS.garden;
+
 // ../core/src/features.ts
 var UNLOCK = [
   { id: "live", label: "Live visitors on your city", why: "People visiting your sites parachute into your city in real time, and signups get a celebration." },
@@ -2367,14 +2372,14 @@ ${PRIVACY_RULES}
 }
 
 // ../core/src/agent-prompt.ts
-var PROMPT_VERSION = 3;
+var PROMPT_VERSION = 4;
 var PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
 - Other people: no names, initials, handles, photos or descriptions that identify anyone I meet, work with, hire, date, advise or invest with. Say "a founder", "the team", "a friend" only when it adds nothing identifying - usually leave it out.
 - Meetings: no meetings, calls, lunches, dinners, interviews or events - not their titles, times, dates, attendees, or that they happened with someone specific.
 - Times and places: no times of day, schedules, travel, cities, venues, addresses, offices, home or "where I am".
 - Secret or sensitive work: no unannounced, stealth, confidential or NDA projects, codenames, deals, fundraising, investors, acquisitions, valuations, hiring, firing or anything said in confidence.
 - Things that can get someone in trouble: legal, medical, health, HR, money, salaries, debts, relationships, family, children, politics, religion.
-- Proprietary methods: no trading strategies, signals, indicators, thresholds, regime or risk rules, entry/exit logic, win rates, model weights, prompts, data sources or other trade secrets - in the journal, the garden or anywhere public. Name the theme only ("worked on the trading system").
+- Proprietary methods: no trading strategies, signals, indicators, thresholds, regime or risk rules, entry/exit logic, win rates, model weights, prompts, data sources or other trade secrets - in the journal, my notes or anywhere public. Name the theme only ("worked on the trading system").
 - Contact details and links: no emails, phone numbers or links to private documents. No money amounts at all.
 Describe work only by its public theme ("shipped a release", "wrote about design") and only name things I have already made public on my page (my own public projects, topics and links). If you are unsure, leave it out - an empty field is fine. Caldera also drops any journal line that looks sensitive before publishing.`;
 function agentPrompt(o = {}) {
@@ -2413,6 +2418,8 @@ ${plugin.replace(/<vault>/g, vault)}
   const extras = o.extras ? `
 ${o.extras.trim()}
 ` : "";
+  const G2 = gardenEnabled();
+  const richItems = (xs) => xs.filter((x) => !!x).map((x, i) => `${i + 1}. ${x}`).join("\n");
   return `You are helping me run Caldera, the social layer for my Obsidian vault (${hub}). Caldera builds a public profile page from my vault; the more of my real activity it can count, the richer that page is. Follow these instructions exactly. (Caldera setup prompt v${PROMPT_VERSION})
 
 Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which. If there is none, I probably don't have Obsidian yet - many people don't - so start with step 0.)"}
@@ -2438,7 +2445,7 @@ A. Journal entry (first run of each workday only, for YESTERDAY; on Monday also 
    caldera_wins: 1-3 short items, what got done
    caldera_themes: 1-3 single words
    Write them from my notes, calendar, sent email, commits and AI sessions for that day - whatever you can access.
-   Name my projects the way they appear in Caldera/profile.md "projects" when they come up: Caldera grows a garden page for each project (and each distinctive theme) from these journal lines, adding a dated entry whenever it comes up.
+   Name my projects the way they appear in Caldera/profile.md "projects" when they come up${G2 ? ": Caldera grows a garden page for each project (and each distinctive theme) from these journal lines, adding a dated entry whenever it comes up" : ", so the journal and the projects line up"}.
 
 B. Activity counts (every run, for today and yesterday). Update "${vault}/${activity}" (create it if missing). Format:
    { "prompt_version": ${PROMPT_VERSION},
@@ -2459,12 +2466,14 @@ After setting up the job, run it once now, then backfill: for each of the last 1
 
 ## 4. Make the page rich (once; on a re-paste, only fill what is still empty)
 Anything that would become PUBLIC needs my explicit yes first: show me exactly what you propose, wait for my answer, then make only the approved changes.
-1. Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Optional: offer a masthead (the wide cover image across the top of the page, about 3:1 such as 1800x600, under 2 MB): an image I choose or a free-to-use one I approve, saved into "Caldera/img/" with "banner" set to its path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).
-2. My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.
-3. Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.
-4. Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.
-5. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".
-6. Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.
+${richItems([
+    `Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Optional: offer a masthead (the wide cover image across the top of the page, about 3:1 such as 1800x600, under 2 MB): an image I choose or a free-to-use one I approve, saved into "Caldera/img/" with "banner" set to its path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).`,
+    G2 ? `My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.` : null,
+    `Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.`,
+    `Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.`,
+    `Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".`,
+    `Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.`
+  ])}
 
 ## 5. The live city, my private side and my people (ask me first for each; skip what's already on)
 A. ${liveSteps(`Obsidian: Settings -> Caldera -> "Live traffic on your city" (GitHub sign-ups: ${hub}/me)`)}
@@ -2477,15 +2486,15 @@ F. Friends and kudos need no setup: tell me I can add friends and send kudos fro
 ## 6. Privacy rules (these override everything above)
 ${PRIVACY_RULES}
 Themes and topics: only use topics among ${topics}.
-Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / garden / friends / private) without asking, never move notes into or out of the Garden folder, never touch .obsidian/plugins/caldera/data.json - it holds my private key.
+Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public${G2 ? " / garden" : ""} / friends / private) without asking, ${G2 ? "never move notes into or out of the Garden folder, " : ""}never touch .obsidian/plugins/caldera/data.json - it holds my private key.
 
 ## 7. Report
-When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), garden, live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
+When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), ${G2 ? "garden, " : ""}live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
 
 ## 8. Later
 - Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
-- My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
-- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "Private view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
+${G2 ? `- My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
+` : ""}- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "Private view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
 - When Caldera tells me my setup prompt is out of date, I copy it again ("Caldera: Copy the AI setup prompt") and paste it here; you upgrade the routine in place.`;
 }
 function editPrompt(o = {}) {
@@ -2634,7 +2643,7 @@ var ITEMS = [
   { id: "email", label: "Daily summary email", why: "Hear when people visit, link your notes or ask to be friends." }
 ];
 function pageChecklist(s) {
-  return ITEMS.filter((i) => !(i.id === "garden" && s.garden === void 0)).map((i) => ({ ...i, done: i.id === "summary" ? s.summary !== false : i.id === "garden" ? !!s.garden : !!s[i.id] }));
+  return ITEMS.filter((i) => !(i.id === "garden" && (s.garden === void 0 || !gardenEnabled()))).map((i) => ({ ...i, done: i.id === "summary" ? s.summary !== false : i.id === "garden" ? !!s.garden : !!s[i.id] }));
 }
 function imagePrompt(kind, o = {}) {
   const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, ""), vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
@@ -3288,7 +3297,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.queuePublish("profile");
     }));
     let email = s.summaryEmail || "";
-    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests, links into your garden. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
+    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests and kudos. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
     new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
       s.welcomeNew = v;
       if (v && !s.welcomeSince) s.welcomeSince = (/* @__PURE__ */ new Date()).toISOString();
@@ -3328,17 +3337,20 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
     new import_obsidian2.Setting(containerEl).setName("What is public").setHeading();
     for (const [k, label] of Object.entries(SECTION_LABELS)) {
+      if (k === "garden" && !gardenEnabled()) continue;
       new import_obsidian2.Setting(containerEl).setName(label).addToggle((t) => t.setValue(s.sections[k] !== void 0 ? !!s.sections[k] : k === "garden" || k === "city").onChange(async (v) => {
         s.sections[k] = v;
         await this.plugin.saveSettings();
       }));
     }
-    this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", (v) => v.replace(/^\/+|\/+$/g, ""));
-    new import_obsidian2.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
-      s.gardenJournal = v;
-      await this.plugin.saveSettings();
-    }));
-    this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", (v) => /^https:\/\//.test(v) ? v : "");
+    if (gardenEnabled()) {
+      this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", (v) => v.replace(/^\/+|\/+$/g, ""));
+      new import_obsidian2.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
+        s.gardenJournal = v;
+        await this.plugin.saveSettings();
+      }));
+      this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", (v) => /^https:\/\//.test(v) ? v : "");
+    }
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
     new import_obsidian2.Setting(containerEl).setName("My profile tab").setHeading();
@@ -5147,11 +5159,11 @@ function renderProfile(p) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 ${p.icon ? `<link rel="icon" href="${esc3(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc3(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
-<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
+<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${gardenEnabled() && s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
 <div class="tabs"><span class="tab is-active">${esc3(p.name)}.md</span>${(p.tabs || []).map((t) => `<span class="tab">${esc3(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc3(p.source || "vault")} <span id="ago" data-ts="${esc3(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
-  const gardenOn = s.garden !== false && !!p.garden?.length;
+  const gardenOn = gardenEnabled() && s.garden !== false && !!p.garden?.length;
   const nav = (depth, current, toc2 = "") => s.sidebar === false ? "" : navSidebar(p, sideOn, gardenOn, depth, current, toc2);
   parts.push(nav(0, "index.html", "%%TOC%%"));
   parts.push(`<main class="note">`);
@@ -5220,7 +5232,7 @@ ${(() => {
     parts.push(`<h2>AI usage</h2><p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc3(a.note)}</span>` : ""}</p>${td.some((x) => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map((x) => `<span class="${x.n >= tpeak * 0.5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc3(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc3(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>${a.sources && a.sources.length > 1 ? `<div style="margin-top:var(--space-4)"><div class="label">Where the tokens come from</div>${bars(a.sources, true)}</div>` : ""}`);
   }
   if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${timelineRows(p.timeline)}</div>`);
-  if (s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
+  if (gardenEnabled() && s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
   if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map((n) => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc3(n.title)}</div><div class="pn-ex">${esc3(n.excerpt)}</div><div class="pn-date">${esc3(n.updated.slice(0, 10))}</div></div>`).join("")}`);
   if (s.asks && (p.asks.length || p.offers.length)) parts.push(`<h2>Help exchange</h2><div class="hx-grid">
 <div class="hx-card"><div class="label">I could use help with</div>${p.asks.map((a) => `<div class="hx-row"><span>${esc3(a.title)}</span><span class="bounty">+${a.bounty}</span></div>`).join("") || '<div class="muted">Nothing right now</div>'}</div>
@@ -5243,7 +5255,7 @@ ${(() => {
     return `<h2 id="${id}">${t}</h2>`;
   });
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
-  const garden = s.garden !== false && p.garden?.length ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
+  const garden = gardenEnabled() && s.garden !== false && p.garden?.length ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   const city = s.city !== false && p.city?.districts.length ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
   const out = { ...garden, ...city, "index.html": html, "assets/theme.css": theme_default, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
   let own = "caldera.social";
@@ -5344,7 +5356,7 @@ function githubOf(p) {
 }
 function renderPrivateCity(p, city, openBase = "") {
   const q2 = { ...p, city: p.city?.districts.length ? p.city : city };
-  const sideOn = p.sections.sidebar !== false && !!p.tree?.length, gardenOn = p.sections.garden !== false && !!p.garden?.length;
+  const sideOn = p.sections.sidebar !== false && !!p.tree?.length, gardenOn = gardenEnabled() && p.sections.garden !== false && !!p.garden?.length;
   return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, github: githubOf(p), nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q2, sideOn, gardenOn, d, cur) }, city);
 }
 
@@ -5385,7 +5397,7 @@ async function collectProfile(app, s, social) {
       journal.set(dm[1], { headline: fm.caldera_headline, focus: asList(fm.caldera_focus), wins: asList(fm.caldera_wins), themes: asList(fm.caldera_themes) });
     }
   }
-  const { garden, gardenImages, gardenFiles, gardenReport } = await collectGarden(app, s, md);
+  const { garden, gardenImages, gardenFiles, gardenReport } = gardenEnabled() ? await collectGarden(app, s, md) : { garden: [], gardenImages: {}, gardenFiles: {}, gardenReport: [] };
   const external = /* @__PURE__ */ new Map();
   let extra = {};
   const actFile = app.vault.getAbstractFileByPath(s.activityFile);
@@ -5443,7 +5455,7 @@ async function collectProfile(app, s, social) {
       themes: clean(j.themes?.length ? j.themes : asList(ext.themes))
     });
   }
-  if (s.gardenJournal !== false && s.sections.garden !== false) await growGardenFromJournal(app, s, daily, garden, gardenReport);
+  if (s.gardenJournal !== false && s.sections.garden !== false) await growGardenFromJournal(app, s, daily, gardenEnabled() ? garden : [], gardenEnabled() ? gardenReport : []);
   let activeDays = 0;
   for (let i = 0; i < 182; i++) {
     const d = iso(today - i * DAY);
@@ -5580,7 +5592,7 @@ async function collectProfile(app, s, social) {
     social,
     updated: (/* @__PURE__ */ new Date()).toISOString(),
     garden: garden.length ? garden : void 0,
-    gardenExternal: s.gardenUrl || void 0,
+    gardenExternal: gardenEnabled() ? s.gardenUrl || void 0 : void 0,
     gardenImages
   };
   Object.assign(files, gardenFiles);
@@ -5871,10 +5883,10 @@ knows:
 ${list((s.knows || []).map(([a, b]) => `${a} | ${b}`))}
 tabs:
 ${list(s.tabs || [])}
-garden: ${q(s.gardenFolder ?? "Garden")}
+${gardenEnabled() ? `garden: ${q(s.gardenFolder ?? "Garden")}
 garden_url: ${q(s.gardenUrl || "")}
 garden_journal: ${s.gardenJournal !== false}
-sidebar:
+` : ""}sidebar:
 ${list((s.tree || []).map(([a, b, c]) => `${a} | ${b}${c ? ` | ${c}` : ""}`))}
 graph:
 ${list(s.graph || [])}
@@ -5900,10 +5912,10 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **projects** - \`Name | status | https://link\`.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
 - **tabs** - extra tab labels in the top bar, like \`Now.md\`.
-- **garden** - a folder whose notes are published as full pages (your digital garden). Default \`Garden\`. Any note can also opt in with \`caldera: garden\`; \`caldera: private\` keeps a note out. In a garden note, \`stage: seedling | budding | evergreen\` and \`license: all-rights | cc-by | cc-by-nc | cc0 | ai-licensable\`. Email addresses and phone numbers are removed automatically. Link a friend's note with \`[[@handle/Their note]]\`.
+${gardenEnabled() ? `- **garden** - a folder whose notes are published as full pages (your digital garden). Default \`Garden\`. Any note can also opt in with \`caldera: garden\`; \`caldera: private\` keeps a note out. In a garden note, \`stage: seedling | budding | evergreen\` and \`license: all-rights | cc-by | cc-by-nc | cc0 | ai-licensable\`. Email addresses and phone numbers are removed automatically. Link a friend's note with \`[[@handle/Their note]]\`.
 - **garden_journal** - \`true\` (default) grows garden pages from your daily journal: one per public project it keeps mentioning and one per recurring theme. Only journal text that is already public is used. \`false\` turns it off.
 - **garden_url** - an existing garden elsewhere (Quartz, Obsidian Publish...), linked from your page.
-- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Garden app, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
+` : ""}- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Caldera, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
 - **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
 - **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.
 
@@ -5955,7 +5967,7 @@ function renderOwner(o) {
       for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc4(k.emoji)} <b>${k.from ? "@" + esc4(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
       for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc4(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
       if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} friend request${o.pending === 1 ? "" : "s"} waiting</a></li>`);
-      if (a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map((l) => `@${esc4(l.src_handle)}'s &ldquo;${esc4(l.src_title)}&rdquo;`).join(", ")}</li>`);
+      if (gardenEnabled() && a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map((l) => `@${esc4(l.src_handle)}'s &ldquo;${esc4(l.src_title)}&rdquo;`).join(", ")}</li>`);
       body += lines.length ? `<ul class="ow-list">${lines.join("")}</ul>` : `<p class="ow-muted">Quiet so far. Share your invite link from the Caldera panel to bring friends in.</p>`;
     }
     card("ow-since", "Since you last looked", body, `<span class="ow-muted ow-small">${esc4(when)}</span>`);
@@ -5976,7 +5988,7 @@ function renderOwner(o) {
     };
     out.unshift(`<section class="ow-card ow-finish" id="ow-finish"><div class="ow-h"><h3>Finish your page</h3><span class="ow-muted ow-small">${done} of ${items.length} done</span></div>
 <div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
-<p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead, links and a first garden note in one go</span></p>
+<p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead and links${gardenEnabled() ? " and a first garden note" : ""} in one go</span></p>
 <ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc4(i.label)}</b> <span class="ow-muted">${esc4(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
   if (!o.checklist?.some((i) => !i.done) && o.unlock?.some((i) => !i.done)) {
@@ -6474,7 +6486,7 @@ async function collectOwner(app, plugin, data, lastLooked) {
     { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username or Forgejo / Codeberg profile in settings to build it from your repos" : "your repos as a city: add your GitHub username or Forgejo / Codeberg profile in settings" },
     { label: "Page text", ok: !!data.summary, hint: "headline, summary, now, timeline" },
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" }
-  ];
+  ].filter((r) => r.label !== "Garden" || gardenEnabled());
   const promptOutdated = !!act?.days?.length && (Number(act.prompt_version) || 1) < PROMPT_VERSION;
   const checklist = plugin.settings.handle ? pageChecklist({
     photo: !!data.avatar,
@@ -6694,15 +6706,17 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
     this.registerEvent(this.app.vault.on("modify", (f) => {
       if (f.path === this.settings.activityFile) this.queuePublish("activity");
     }));
-    this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
-    this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
-      const f = this.app.workspace.getActiveFile();
-      if (!f || f.extension !== "md") return false;
-      if (!check) void this.plantNote(f);
-      return true;
-    } });
+    if (gardenEnabled()) {
+      this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
+      this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
+        const f = this.app.workspace.getActiveFile();
+        if (!f || f.extension !== "md") return false;
+        if (!check) void this.plantNote(f);
+        return true;
+      } });
+    }
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
-    this.addCommand({ id: "finish", name: "Finish my page (name, photo, masthead, links, first garden note)", callback: () => this.openFinish() });
+    this.addCommand({ id: "finish", name: gardenEnabled() ? "Finish my page (name, photo, masthead, links, first garden note)" : "Finish my page (name, photo, masthead, links)", callback: () => this.openFinish() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
     this.addCommand({ id: "sync", name: "Sync inbox now", callback: () => this.syncInbox(true) });
@@ -7072,7 +7086,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       });
       fm.links = [...f.links.filter(([, u]) => u).map(([l, u]) => `${l} | ${u}`), ...keep];
     });
-    if (f.plant) await this.plantNote(f.plant);
+    if (f.plant && gardenEnabled()) await this.plantNote(f.plant);
   }
   openSettings() {
     const st = this.app.setting;
@@ -7371,7 +7385,7 @@ caldera_received: ${e.ts}
       if (a.visitors) bits.push(n(a.visitors, "visitor"));
       if (a.friends?.length) bits.push(n(a.friends.length, "new friend"));
       if (a.gravity?.length) bits.push(n(a.gravity.length, "gift of gravity", "gifts of gravity"));
-      if (a.links?.length) bits.push(n(a.links.length, "link into your garden", "links into your garden"));
+      if (gardenEnabled() && a.links?.length) bits.push(n(a.links.length, "link into your garden", "links into your garden"));
       if (!bits.length) return;
       const days = Math.max(1, Math.round((Date.now() - Date.parse(since)) / 864e5));
       const frag = createFragment((f) => {
@@ -8034,18 +8048,20 @@ var WelcomeModal = class extends import_obsidian7.Modal {
     const have = (eff.links || []).map(([l, u]) => ({ l, u, i: quickLinkIndex(l, u) }));
     const quick = QUICK_LINKS.map((_, i) => have.find((h) => h.i === i)?.u || "");
     QUICK_LINKS.forEach((q2, i) => new import_obsidian7.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
-    head("Your garden");
     let plant = null;
-    const gs = new import_obsidian7.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
-    gs.addButton((b) => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, (f) => {
-      plant = f;
-      gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`);
-      b.setButtonText("Change");
-    }).open()));
+    if (gardenEnabled()) {
+      head("Your garden");
+      const gs = new import_obsidian7.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
+      gs.addButton((b) => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, (f) => {
+        plant = f;
+        gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`);
+        b.setButtonText("Change");
+      }).open()));
+    }
     head("Staying in touch");
     new import_obsidian7.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
     let email = s.summaryEmail || "";
-    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests, links into your garden - only on days something happens.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim()));
+    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests and kudos - only on days something happens.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim()));
     c.appendChild(status);
     const go = new import_obsidian7.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
       if (!name) {
@@ -8112,7 +8128,7 @@ var ShareModal = class extends import_obsidian7.Modal {
     this.modalEl.addClass("caldera-share");
     this.titleEl.setText("Your page is live");
     const c = this.contentEl;
-    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and links into your garden." });
+    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and kudos." });
     const img = c.createEl("img", { cls: "caldera-share-card", attr: { src: `${url}card.png?t=${Date.now()}`, alt: "Your link preview" } });
     img.onerror = () => img.remove();
     const copy = async (t2, msg) => {
@@ -8128,7 +8144,7 @@ var ShareModal = class extends import_obsidian7.Modal {
     new import_obsidian7.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
     new import_obsidian7.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests, links into your garden. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
+    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests and kudos. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
     if (this.firstRun) new import_obsidian7.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
