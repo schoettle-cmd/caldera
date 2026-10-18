@@ -967,7 +967,7 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
 // them. Real friendships glow warm violet, people who work on the same repo glow code-teal, GitHub follows sky-blue; the
 // founder's welcome links are faint and thin. Dimmer by day. Links are [a, b, kind, why]: 0 request/invite, 1 founder,
-// 2 shared repo, 3 GitHub follow.
+// 2 shared repo, 3 GitHub follow, 4 same stack (not a friendship: dashed coral, their public repos share uncommon packages).
 var WLAB=[],RAYS=true;try{RAYS=localStorage.getItem('caldera-world-rays')!=='0'}catch(err){}
 // Color by topic: tint each neighborhood's ground by its member's top "what they're building" tag; the legend names every
 // color, so the tint is never the only cue
@@ -985,13 +985,13 @@ function topicLegend(){var L=document.getElementById('w-topics');if(!WORLD)retur
 function drawRays(){if(!WORLD||!RAYS)return;var ls=WORLD.links||[];if(!ls.length)return;var c=cx,tn=performance.now(),foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):WHOVER;
   var amb={day:.5,dawn:.75,dusk:.8,evening:1,night:1.1,grid:1}[sky]||.9;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.globalCompositeOperation='lighter';c.lineCap='round';
   ls.forEach(function(l,ix){var na=NBM[l[0]],nb=NBM[l[1]];if(!na||!nb)return;var p=nbTop(na),q=nbTop(nb),d=Math.hypot(q.x-p.x,q.y-p.y),mx=(p.x+q.x)/2,my=Math.min(p.y,q.y)-40-d*.28;
-    var fd=l[2]===1,rp=l[2]===2,gf=l[2]===3,hit=foc&&(l[0]===foc||l[1]===foc),k=amb*(foc?(hit?1.7:.22):1)*(fd?.35:1);if(k<=.02)return;
-    var col=fd?'159,180,255':rp?'90,230,200':gf?'110,180,255':'200,160,255',col2=fd?'159,180,255':rp?'150,255,220':gf?'170,215,255':'255,196,107';
+    var fd=l[2]===1,rp=l[2]===2,gf=l[2]===3,sk=l[2]===4,hit=foc&&(l[0]===foc||l[1]===foc),k=amb*(foc?(hit?1.7:.22):1)*(fd?.35:1);if(k<=.02)return;
+    var col=fd?'159,180,255':rp?'90,230,200':gf?'110,180,255':sk?'255,122,150':'200,160,255',col2=fd?'159,180,255':rp?'150,255,220':gf?'170,215,255':sk?'255,170,185':'255,196,107';
     var path=function(){c.beginPath();c.moveTo(p.x,p.y);c.quadraticCurveTo(mx,my,q.x,q.y)};
     var gr=c.createLinearGradient(p.x,p.y,q.x,q.y);gr.addColorStop(0,'rgba('+col+','+(.16*k)+')');gr.addColorStop(.5,'rgba('+col2+','+(.2*k)+')');gr.addColorStop(1,'rgba('+col+','+(.16*k)+')');
-    path();c.strokeStyle=gr;c.lineWidth=fd?5:11;c.stroke();
-    path();c.strokeStyle='rgba('+col2+','+Math.min(.9,.55*k)+')';c.lineWidth=fd?.8:1.6;c.stroke();
-    var nm=fd?1:3;for(var m=0;m<nm;m++){var t=((tn/(fd?5200:2600))+m/nm+rnd(ix+1))%1,u=1-t,x=u*u*p.x+2*u*t*mx+t*t*q.x,y=u*u*p.y+2*u*t*my+t*t*q.y,rr=fd?3:5,g=c.createRadialGradient(x,y,0,x,y,rr);
+    path();c.strokeStyle=gr;c.lineWidth=fd?5:sk?6:11;c.stroke();
+    if(sk)c.setLineDash([5,7]);path();c.strokeStyle='rgba('+col2+','+Math.min(.9,.55*k)+')';c.lineWidth=fd?.8:sk?1.3:1.6;c.stroke();if(sk)c.setLineDash([]);
+    var nm=fd||sk?1:3;for(var m=0;m<nm;m++){var t=((tn/(fd?5200:2600))+m/nm+rnd(ix+1))%1,u=1-t,x=u*u*p.x+2*u*t*mx+t*t*q.x,y=u*u*p.y+2*u*t*my+t*t*q.y,rr=fd?3:5,g=c.createRadialGradient(x,y,0,x,y,rr);
       g.addColorStop(0,'rgba(255,245,225,'+Math.min(1,.9*k)+')');g.addColorStop(1,'rgba('+col2+',0)');c.fillStyle=g;c.beginPath();c.arc(x,y,rr,0,7);c.fill()}});
   c.restore()}
 // ---- objects
@@ -1177,7 +1177,7 @@ cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return
 cv.addEventListener('pointerleave',function(){if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
 // /world?focus=<handle> (the World link on a profile): fly straight to that person's neighborhood
 if(D.world){try{var FQ=(new URLSearchParams(location.search).get('focus')||'').toLowerCase().replace(/^@/,'');if(FQ&&byName['@'+FQ])setTimeout(function(){worldFocus(byName['@'+FQ])},700)}catch(err){}}
-function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===3&&l[3]?': '+l[3]:l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
+function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===3&&l[3]?': '+l[3]:l[2]===4?': similar stack'+(l[3]?' ('+l[3]+')':''):l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var z=Math.min(3,Math.max(D.world?.08:.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;draw()}
 cv.addEventListener('wheel',function(ev){ev.preventDefault();var r=st.getBoundingClientRect();zoom(Math.exp(-ev.deltaY*0.0015),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});
