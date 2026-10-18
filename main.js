@@ -2271,8 +2271,103 @@ var import_obsidian7 = require("obsidian");
 // ../core/src/index.ts
 var import_tweetnacl = __toESM(require_nacl_fast(), 1);
 
+// ../core/src/features.ts
+var UNLOCK = [
+  { id: "live", label: "Live visitors on your city", why: "People visiting your sites parachute into your city in real time, and signups get a celebration." },
+  { id: "agents", label: "Your AI agents on the map", why: "Your coding agents fly over the repos they're working in, so the city shows what's being built right now." },
+  { id: "ai", label: "AI usage on your profile", why: "Tokens by model and provider: the clearest sign you build with AI." },
+  { id: "private", label: "Private web view", why: "Your private sections in any browser when you're signed in, with links back into Obsidian." },
+  { id: "story", label: "Timeline and projects with links", why: "Your story and live projects, each linking to the real thing." },
+  { id: "code", label: "Your GitHub city", why: "Your repos as a living city: buildings grow with commits." }
+];
+function unlockChecklist(s) {
+  return UNLOCK.filter((i) => s[i.id] !== void 0).map((i) => ({ ...i, done: !!s[i.id] }));
+}
+function featurePrompt(id, o = {}) {
+  const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, ""), vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
+  const page2 = `${hub}/@${o.handle || "<my handle>"}/`, act = o.activityFile || "Caldera/activity.json";
+  const keys = o.hosted ? `${hub}/me (signed in with GitHub), section "Live traffic on your city"` : `Obsidian: Settings -> Caldera -> "Live traffic on your city"`;
+  const head = (what) => `Help me turn on ${what} on my Caldera page (${page2}).${o.hosted ? "" : ` Caldera builds that page from my Obsidian vault: ${vault}`}
+
+`;
+  const rules = `
+
+Rules:
+${PRIVACY_RULES}
+- Show me every change before you make it. Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.`;
+  switch (id) {
+    case "live":
+      return head("live visitors on my city") + liveSteps(keys) + rules;
+    case "agents":
+      return o.agentSetup ? o.agentSetup : head("my AI agents on the map") + agentSteps(o.hosted ? `${hub}/me` : `Obsidian: Settings -> Caldera -> "AI agents on your city" -> Copy setup prompt`) + rules;
+    case "ai":
+      return head("AI usage on my profile") + aiSteps(vault, act) + rules;
+    case "private":
+      return head("my private web view") + privateSteps(hub) + rules;
+    case "story":
+      return head("a timeline and projects with links") + storySteps(vault) + rules;
+    case "code":
+      return head("my GitHub city") + codeSteps(vault, o.hosted) + rules;
+    case "email":
+      return head("the daily summary email") + `1. In ${o.hosted ? `${hub}/me` : "Obsidian: Settings -> Caldera -> Daily summary email"}, I type my email address (you don't need to - it's my choice which address).
+2. Caldera emails a confirm link; I click it. Every email has a one-click unsubscribe.
+It arrives about 8am Pacific, only on days something happened: visits, friend requests, kudos, links into my notes.` + rules;
+    case "groups":
+      return head("groups") + `1. Ask me which communities I belong to (a class, a Discord, a company, a cohort) and suggest short group names (lowercase, dashes), for example producthunt.
+2. I join in ${o.hosted ? `${hub}/me` : "Obsidian: Settings -> Caldera -> Groups"} (comma separated). Each group is a town of everyone's cities at ${hub}/g/<name>; share that link with the group.` + rules;
+  }
+}
+function liveSteps(keys) {
+  return `Live visitors: every visit to my websites rides through my Caldera city in real time (new visitors parachute in, signups get a celebration). Counts only: no cookies, no IP addresses, no personal data.
+1. Get my snippets from ${keys}: one line per district (project), like <script async src="https://caldera.social/t.js" data-site="KEY"><\/script>. Districts marked private stay "Private" to visitors.
+2. For each website I run, find its repo on this computer and the project/district it belongs to (ask me if unsure), and add that district's line to the site's shared layout so every page has it (for example the root layout, _app/_document, base template or index.html head). Don't add it twice.
+3. Mark conversions where they happen: call caldera('signup') after a signup and caldera('buy') after a purchase (guard with if (window.caldera)).
+4. Deploy each site the way it's normally deployed (ask me first if it goes to production), open the site, then open my city: the visit should appear within a minute.`;
+}
+function agentSteps(where) {
+  return `AI agents on the map: each coding agent I run appears as a drone over the repo it's working in (state and a short task title only - never code, prompts or file contents; private repos stay "Private").
+1. Ask me to copy my personal agent setup prompt from ${where} (it contains my agent key and secret - keep them out of every repo) and paste it here.
+2. Follow that prompt exactly: it installs ~/.caldera/agent-hook.mjs, writes ~/.caldera/agent.json (chmod 600) and adds hooks to ~/.claude/settings.json, keeping any hooks already there. Repeat on each computer I code on.`;
+}
+function aiSteps(vault, act) {
+  return `AI usage: tokens processed for me, by model and provider (counts only - never prompts, file names or costs).
+1. On the computer where I run Obsidian, Caldera already reads Claude Code (~/.claude/projects) and Codex (~/.codex/sessions) logs by itself. If the AI usage section is empty, check those folders exist here.
+2. To include other computers or my own products' API usage, write an "ai" block into "${vault}/${act}" from a scheduled script (no AI call per run): {"total": <tokens in the window>, "window_days": 45, "models": [["Claude Opus 5.5", n]], "providers": [["Anthropic", n]], "sources": [["Coding agents (3 machines)", n], ["Product APIs", n]], "note": "one short public sentence"}, and "tokens" per day in each "days" entry. Keep "prompt_version" and every other key already in that file.`;
+}
+function privateSteps(hub) {
+  return `Private web view: my page plus the private sections only I see (today, patterns, goals, visits, sources), in any browser when I'm signed in, with notes linking back into Obsidian.
+1. In Obsidian: Settings -> Caldera -> turn on "Private web view". Caldera pushes my private sections to ${hub} encrypted, and shows them only to me when signed in. (I turn this on myself.)
+2. Sign in on each browser or phone: open my page, tap "Sign in" (GitHub, an email link, or a code from Obsidian), then use the Public view | Private view switch.`;
+}
+function storySteps(vault) {
+  return `Timeline and projects: my story and live work, each linking to the real thing.
+1. In "${vault}/Caldera/profile.md", propose "timeline" lines from things already public about me: "Year | milestone | one-line detail", chapters as "era | Name | 2015-2020", and links as [[Name|https://...]] (linked names also become links in my side menu).
+2. Propose "projects" lines for my public projects: "Name | status | https://live-url".
+3. Optionally propose "sidebar" groups ("Companies | A, B, C | optional/vault/folder") and "knows" lines ("Label | vault folder", counts only).
+Show me everything first; write only what I approve. The page republishes about a minute after profile.md changes.`;
+}
+function codeSteps(vault, hosted) {
+  return hosted ? `My GitHub city is built from my public GitHub repos automatically. To add private repos as padlocked buildings (size and activity only, never names or code), install the Caldera GitHub app on the repos I choose from my account page.` : `GitHub city: my repos as a living city (districts are projects, buildings are repos, taller = more commits).
+1. Make sure "${vault}/Caldera/profile.md" links include my code host: "GitHub | https://github.com/<me>" (or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg). Caldera then builds the city from my public repos itself.
+2. For private repos too (shown as padlocked buildings, never named), the setup prompt's routine can write Caldera/city.json with the gh CLI - paste the full Caldera setup prompt for that.`;
+}
+function upgradePrompt(missing, o = {}) {
+  const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, "");
+  if (!missing.length) return `My Caldera page (${hub}/@${o.handle || "<my handle>"}/) already has every feature turned on. Nothing to do.`;
+  const parts = missing.map((id, n) => `### ${n + 1}. ${id === "email" ? "Daily summary email" : id === "groups" ? "Groups" : UNLOCK.find((u) => u.id === id).label}
+${featurePrompt(id, o).split("\n\nRules:")[0].split("\n\n").slice(1).join("\n\n") || featurePrompt(id, o)}`);
+  return `Help me upgrade my Caldera page (${hub}/@${o.handle || "<my handle>"}/) with the features it doesn't use yet. Do them in order, ask me before each one, and skip any I say no to.${o.vaultPath ? `
+Vault: ${o.vaultPath}` : ""}
+
+${parts.join("\n\n")}
+
+Rules:
+${PRIVACY_RULES}
+- Show me every change before you make it. Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.`;
+}
+
 // ../core/src/agent-prompt.ts
-var PROMPT_VERSION = 2;
+var PROMPT_VERSION = 3;
 var PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
 - Other people: no names, initials, handles, photos or descriptions that identify anyone I meet, work with, hire, date, advise or invest with. Say "a founder", "the team", "a friend" only when it adds nothing identifying - usually leave it out.
 - Meetings: no meetings, calls, lunches, dinners, interviews or events - not their titles, times, dates, attendees, or that they happened with someone specific.
@@ -2330,7 +2425,7 @@ ${install}
 Check each source below on this computer and tell me which you can reach. Use the ones that work; for the ones that don't, say what it would take (for example "connect your calendar to me") and move on.
 - Calendar: events I attended (a calendar connector, or a calendar app's local data).
 - Email: emails I sent (a mail connector, or the mail app's local data).
-- AI usage: Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -> last_token_usage.total_tokens, model from turn_context). Prompts = user messages I typed in those sessions. Add other tools only if they keep local usage logs.
+- AI usage (Caldera already reads Claude Code and Codex logs on THIS computer by itself; you add other computers and my products' API usage): Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -> last_token_usage.total_tokens, model from turn_context). Prompts = user messages I typed in those sessions. Add other tools only if they keep local usage logs.
 - Code: git commits I authored, in repositories on this computer, plus my code host if I use one: GitHub (the gh CLI or the GitHub API), or Forgejo / Gitea / Codeberg (the tea CLI or the /api/v1 REST API on that server, with my access token if I have one).
 - Documents: files I produced or filed (for example new files in Documents/Downloads I saved, or attachments filed into the vault).
 Then write a small script for the routine below that computes these counts with code (no AI call per run).
@@ -2353,6 +2448,8 @@ B. Activity counts (every run, for today and yesterday). Update "${vault}/${acti
    One object per date: replace that date's object if it exists, keep the last 60 days, and only include counts you can actually measure (omit the rest - never guess). meetings = calendar events attended, emails = emails I sent, prompts = AI prompts I sent, commits = git commits I authored, docs = documents/attachments I produced or filed, tokens = AI tokens processed for me that day. Notes are counted by the plugin itself. Always write "prompt_version": ${PROMPT_VERSION} - Caldera uses it to tell me when this routine is out of date.
    AI usage ("tokens" per day and the "ai" block, last 45 days): group by model (readable names) and by provider. Never include prompts, file names or costs.
    Code ("code" block): count my commits in the last 52 weeks per week across my repositories, number of repos, and top 4 languages. Counts only - never names of private repositories.
+   AI sources (optional, inside "ai"): "sources": [["Coding agents (3 machines)", n], ["Product APIs", n]] and "note": one short public sentence on what's counted.
+   Optional extras (only if I have the data; each makes a section of my page): "projects": {"<public project name from profile.md>": <commits this year>} (commit counts next to each project); "knows": [["Companies", 252], ["People", 101]] (What it knows: notes per vault folder, counts only); "inbox": {"total": n, "kinds": [["Reports", 61]], "series": {"label": "Pitch decks received per week", "weeks": [["Aug 3", 5]]}} (Inbox to knowledge: if an agent files my email attachments into the vault, documents by kind - counts only, never names); "numbers": [["145", "daily digests written"]] (a few headline numbers).
 
 C. City (every run, only if I use GitHub, Forgejo, Gitea or Codeberg). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>" (or "forgejo <https://server/my login>"), "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. On GitHub use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. On Forgejo / Gitea / Codeberg use GET /api/v1/user/repos (or /api/v1/users/<me>/repos) and page through /api/v1/repos/<owner>/<repo>/commits?limit=50, counting by commit.author.date yourself (that endpoint ignores "since"). Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos, and private ones only as locked glass buildings (no names); full details only in my own Private view. If you cannot reach the API, instead make sure my profile is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>", or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg) - Caldera then builds the city from my public repos itself. With no code host at all, Caldera builds the city from my vault folders.
 
@@ -2369,9 +2466,13 @@ Anything that would become PUBLIC needs my explicit yes first: show me exactly w
 5. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".
 6. Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.
 
-## 5. Live city extras (ask me first for each)
-- Websites: if I run websites for my projects, offer to add each project's live-traffic snippet (Caldera settings > "Live traffic on your city") to that site's pages, so visits ride through my city in real time.
-- AI agents: offer to install the Caldera agent hook (Caldera settings > "AI agents on your city"), so my coding agents appear in the city as drones over the repo they're working in.${extras}
+## 5. The live city, my private side and my people (ask me first for each; skip what's already on)
+A. ${liveSteps(`Obsidian: Settings -> Caldera -> "Live traffic on your city" (GitHub sign-ups: ${hub}/me)`)}
+B. ${agentSteps(`Obsidian: Settings -> Caldera -> "AI agents on your city" -> Copy setup prompt (GitHub sign-ups: ${hub}/me)`)}
+C. ${privateSteps(hub)}
+D. Daily summary email: tell me I can add my email in Obsidian: Settings -> Caldera -> Daily summary email (then click the confirm link). It only sends on days something happened (visits, friend requests, kudos, links into my notes). Don't type an address for me.
+E. Groups: ask which communities I'm in and suggest short group names (lowercase, dashes, like producthunt); I join in Settings -> Caldera -> Groups. Each group is a town of everyone's cities at ${hub}/g/<name>.
+F. Friends and kudos need no setup: tell me I can add friends and send kudos from anyone's page (signed in), people I share public GitHub repos with are connected automatically, and the World map (${hub}/world) shows everyone's city.${extras}
 
 ## 6. Privacy rules (these override everything above)
 ${PRIVACY_RULES}
@@ -2379,7 +2480,7 @@ Themes and topics: only use topics among ${topics}.
 Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / garden / friends / private) without asking, never move notes into or out of the Garden folder, never touch .obsidian/plugins/caldera/data.json - it holds my private key.
 
 ## 7. Report
-When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text, garden, live traffic, agents - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
+When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), garden, live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
 
 ## 8. Later
 - Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
@@ -3110,6 +3211,35 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     const s = this.plugin.settings;
     containerEl.empty();
     containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
+    new import_obsidian2.Setting(containerEl).setName("Connections").setHeading();
+    const lights = containerEl.createDiv({ cls: "caldera-conn" });
+    lights.createEl("p", { text: s.identity && s.handle ? "Checking..." : "Publish your page to see your connections.", cls: "setting-item-description" });
+    if (s.identity && s.handle) void this.plugin.ownerActivity(new Date(Date.now() - 864e5).toISOString()).then((a) => {
+      const c = a?.connections;
+      lights.empty();
+      if (!c) {
+        lights.createEl("p", { text: "Update the hub to see connections.", cls: "setting-item-description" });
+        return;
+      }
+      const rows = [
+        ["GitHub", !!c.github?.on, c.github?.on ? `Connected as @${c.github.login}` : c.github?.listed ? `Listed (github.com/${c.github.listed}), sign in with GitHub once to link it` : "Not connected"],
+        ["Obsidian", true, "Connected (this vault)"],
+        ["Live visitors on your city", !!c.live, c.live ? "Visits in the last 7 days" : "No visits in the last 7 days"],
+        ["AI agents on the map", !!c.agents, c.agents ? "Agents in the last 7 days" : "No agents in the last 7 days"],
+        ["Private view", !!c.private, c.private ? "Up to date" : "Not turned on"],
+        ["Daily summary email", !!c.email, c.email ? "On" : "Off"]
+      ];
+      for (const [name, on, status] of rows) {
+        const r = lights.createDiv({ cls: "caldera-conn-row" });
+        r.createSpan({ cls: "caldera-conn-dot" + (on ? " is-on" : ""), attr: { "aria-label": on ? "Connected" : "Not connected" } });
+        r.createSpan({ text: name, cls: "caldera-conn-name" });
+        r.createSpan({ text: status, cls: "caldera-conn-status" });
+      }
+    }).catch(() => {
+      lights.empty();
+      lights.createEl("p", { text: "Couldn't reach the hub.", cls: "setting-item-description" });
+    });
+    new import_obsidian2.Setting(containerEl).setName("Set them up on caldera.social").setDesc("Opens your settings page, already signed in, with a step-by-step for anything that's grey.").addButton((b) => b.setButtonText("Open settings").setDisabled(!s.identity || !s.handle).onClick(() => void this.plugin.openProfile("settings")));
     new import_obsidian2.Setting(containerEl).setName("Identity").setHeading();
     new import_obsidian2.Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet").addButton((b) => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
       if (!s.identity) {
@@ -3125,7 +3255,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     }));
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
     let claim = "";
-    new import_obsidian2.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your account page (caldera.social/me) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
+    new import_obsidian2.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
       claim = v.trim();
     })).addButton((b) => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then((ok) => {
       if (ok) this.display();
@@ -4034,6 +4164,7 @@ html.c-mini .c-tools{top:6px;right:6px;opacity:0;transition:opacity .2s}html.c-m
 html.c-mini .c-tools button{padding:3px 8px;font-size:11px}
 .c-today{position:absolute;left:10px;bottom:10px;z-index:2;padding:4px 10px;border-radius:999px;background:rgba(8,12,22,.72);color:#E6F6FF;font:500 12px/1.3 'IBM Plex Mono',ui-monospace,monospace;pointer-events:none;backdrop-filter:blur(4px)}
 html.c-mini .c-today{display:none}
+.c-today.c-today-in{position:static;display:block;padding:0 0 6px;margin:0 0 6px;border-radius:0;background:none;backdrop-filter:none;border-bottom:1px solid rgba(61,242,255,.25);font-size:11px;color:#CFEFFF}
 .c-stage:not(.c-dig) .c-hint~.c-today{bottom:42px}@media (max-width:600px){.c-stage:not(.c-dig) .c-hint~.c-today{bottom:10px}}
 .c-setup{position:relative;margin:10px 0 4px;padding:10px 40px 10px 14px;border:1px solid var(--line,#2A2A2F);border-radius:var(--radius-md,10px);background:var(--bg-raised,#18181B);font-size:var(--text-sm,14px);color:var(--text,#E6E6EA)}
 .c-su-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:3px 0}.c-su-row span{flex:1 1 260px;color:var(--text-muted,#9A9AA6)}
@@ -4315,11 +4446,13 @@ function sunKeys(){if(!WX||!WX.sunrise||!WX.sunset)return null;var r=new Date(WX
   if(!(sr>120&&ss>sr+240&&ss<1430))return null;var k=[[0,'night'],[sr-75,'night'],[sr+15,'dawn'],[sr+120,'day'],[ss-110,'day'],[ss-10,'dusk'],[ss+60,'evening'],[Math.min(1439,ss+150),'night'],[1440,'night']];
   for(var i=1;i<k.length;i++)if(k[i][0]<=k[i-1][0])k[i][0]=k[i-1][0]+1;return k}
 function applyWeather(){var k=sunKeys();if(k)DAYKEYS=k;applySky();if(typeof skyLabel==='function')skyLabel();if(typeof wxLabel==='function')wxLabel();dirty=true}
-// ---- today: "142 visited today · 9 here now", from the live feed
+// ---- today: "142 site visits today · 9 people on the sites now", from the live feed
 var todayEl=null;function todayLine(){if(!TODAY||MINI)return;var v=0;Object.keys(TODAY).forEach(function(k){v+=+TODAY[k].v||0});
   var here=LV.mode==='private'?Object.keys(LV.d).reduce(function(s,k){return s+(+LV.d[k].now||0)},0):null,any=Object.keys(LV.d).some(function(k){return LV.d[k].level>0});
   if(!todayEl){todayEl=document.createElement('div');todayEl.className='c-today';st.appendChild(todayEl)}
-  todayEl.textContent=v.toLocaleString('en-US')+' visited today'+(here!=null?' · '+here+' here now':any?' · people here now':'')}
+  var lvp=st.querySelector('.c-live'),inLive=!!lvp&&st.clientWidth<600;   // phones: no room for two overlays at the bottom
+  if(inLive&&todayEl.parentNode!==lvp){lvp.insertBefore(todayEl,lvp.firstChild);todayEl.classList.add('c-today-in')}else if(!inLive&&todayEl.parentNode!==st){st.appendChild(todayEl);todayEl.classList.remove('c-today-in')}
+  todayEl.textContent=v.toLocaleString('en-US')+(v===1?' site visit':' site visits')+' today'+(here!=null?' · '+here+(here===1?' person':' people')+' on the sites now':any?' · live now':'');todayEl.title='Visits to the sites in this city in the last 24 hours, and people on them right now'}
 function onDay(data){if(data.today&&typeof data.today==='object'){TODAY=data.today;buildTraces();todayLine()}
   var plan=[];
   if(Array.isArray(data.departures))data.departures.forEach(function(x){var id=x.v+'|'+x.ts;if(DEPSEEN[id]||!x.d)return;DEPSEEN[id]=1;plan.push(byName[x.d]||byName.Private)});
@@ -4464,7 +4597,7 @@ function reconcile(){var tn=performance.now(),total=0;blocks.forEach(function(b)
 function fa(c,tn){return c.gone?Math.max(0,1-(tn-c.gone)/1500):c.born?Math.min(1,(tn-c.born)/800):1}
 function agentLine(){var n={},ids=Object.keys(AG).filter(function(id){return !AG[id].gone});if(!ids.length)return '';ids.forEach(function(id){var s=AG[id].a.state;n[s]=(n[s]||0)+1});
   return '<div class="q"><span style="color:#fff">AI agents</span> '+['working','thinking','waiting','idle'].filter(function(s){return n[s]}).map(function(s){return '<span style="color:'+AGC[s]+'">'+n[s]+' '+(s==='waiting'?'waiting on you':s)+'</span>'}).join(' &middot; ')+'</div>'}
-var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');liveEl.className='c-live'+(st.clientWidth<600?' c-min':'');liveEl.setAttribute('aria-live','polite');st.appendChild(liveEl);
+var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');liveEl.className='c-live'+(st.clientWidth<600?' c-min':'');liveEl.setAttribute('aria-live','polite');st.appendChild(liveEl);if(typeof todayLine==='function')setTimeout(todayLine,0);
     liveEl.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('.h'))liveEl.classList.toggle('c-min')})}
   var ks=Object.keys(LV.d).filter(function(k){return byName[k]});
   if(LV.mode==='private'){ks.sort(function(a,b){return (LV.d[b].now-LV.d[a].now)||(LV.d[b].views-LV.d[a].views)});var tot=ks.reduce(function(s,k){return s+(+LV.d[k].now||0)},0);
@@ -4631,7 +4764,7 @@ function nbTop(n){if(n._ty==null){var ty=Infinity;n.ds.forEach(function(d){(BDIS
   var m=iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5);n._tx=m.x;n._ty=isFinite(ty)?ty-10:iso(n.ox-.5,n.oy-.5).y-10}return {x:n._tx,y:n._ty}}
 function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);if(!labels)return;c.setTransform(dpr,0,0,dpr,0,0);
   var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[];
-  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y);cand.push({pr:n.key===foc?0:1,x:sp[0],y:sp[1],text:n.key+(wm.isNew?(vw<600?' ✦':' ✦ new'):''),bg:wm.isNew?'rgba(46,170,120,.95)':'rgba(139,108,246,.96)',fg:'#fff',font:vw<600?'700 11px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
+  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y);cand.push({pr:n.key===foc?0:1,x:sp[0],y:sp[1],text:(vw<600&&n.key.length>16?n.key.slice(0,15)+'…':n.key)+(wm.isNew?(vw<600?' ✦':' ✦ new'):''),bg:wm.isNew?'rgba(46,170,120,.95)':'rgba(139,108,246,.96)',fg:'#fff',font:vw<600?'700 11px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
   if(z>=.55)blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
     Object.keys(per).forEach(function(k){if(!NBM[k])return;var hq=hqAt({d:k}),hb=iso(hq.i,hq.j+.9),sp=S(hb.x,hb.y),q=per[k];
@@ -4643,7 +4776,8 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
     var hitAny=function(q){for(var i=0;i<placed.length;i++){var o=placed[i];if(q.x0<o.x1&&q.x1>o.x0&&q.y0<o.y1&&q.y1>o.y0)return true}return false};
     {var sh=Math.max(0,6-bx.x0)-Math.max(0,bx.x1-(vw-6));if(sh){bx.x0+=sh;bx.x1+=sh;g.x+=sh}}   // a name near the edge slides in instead of vanishing
     if(hitAny(bx)){if(g.pr>1)return;var offs=[],ok=false;[24,48,72,96,120].forEach(function(dy){[0,-.6,.6].forEach(function(fx){offs.push([w*fx,-dy]);offs.push([w*fx,dy])})});
-      for(var oi=0;oi<offs.length&&!ok;oi++){var q={x0:bx.x0+offs[oi][0],x1:bx.x1+offs[oi][0],y0:bx.y0+offs[oi][1],y1:bx.y1+offs[oi][1]};if(!hitAny(q)){bx=q;g.x+=offs[oi][0];g.y+=offs[oi][1];ok=true}}if(!ok)return}
+      for(var oi=0;oi<offs.length&&!ok;oi++){var ox=offs[oi][0],q={x0:bx.x0+ox,x1:bx.x1+ox,y0:bx.y0+offs[oi][1],y1:bx.y1+offs[oi][1]};var s2=Math.max(0,6-q.x0)-Math.max(0,q.x1-(vw-6));q.x0+=s2;q.x1+=s2;ox+=s2;   // stay inside the stage
+        if(q.y0<4||q.y1>vh-4)continue;if(!hitAny(q)){bx=q;g.x+=ox;g.y+=offs[oi][1];ok=true}}if(!ok)return}
     bx.text=g.text;bx.pr=g.pr;placed.push(bx);
     pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
     if(g.url||g.block)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block})})}
@@ -4845,6 +4979,8 @@ cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return
   cv.classList.toggle('c-link',!!(h&&(h.url||h.block||(h.r&&repoUrl(h.r)))));
   if(WORLD){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
 cv.addEventListener('pointerleave',function(){if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
+// /world?focus=<handle> (the World link on a profile): fly straight to that person's neighborhood
+if(D.world){try{var FQ=(new URLSearchParams(location.search).get('focus')||'').toLowerCase().replace(/^@/,'');if(FQ&&byName['@'+FQ])setTimeout(function(){worldFocus(byName['@'+FQ])},700)}catch(err){}}
 function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===3&&l[3]?': '+l[3]:l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var z=Math.min(3,Math.max(D.world?.08:.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;draw()}
@@ -5097,8 +5233,9 @@ function navSidebar(p, sideOn, gardenOn, depth, current, toc = "") {
   const fix = (h) => /^https?:\/\//.test(h) ? h : h.startsWith("#") ? onProfile ? h : `${up}index.html${h}` : up + h;
   const pages = [["index.html", p.name || "Profile"]];
   if (gardenOn) pages.push(["garden.html", "Garden home"]);
+  if (p.handle) pages.push([`${(p.hub || "https://caldera.social").replace(/\/$/, "")}/world?focus=${encodeURIComponent(p.handle)}`, "World"]);
   if (p.sections?.city !== false && p.city?.districts.length) pages.push(["city.html", "City"]);
-  const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc3(l)}</a>`).join("");
+  const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${/^https?:\/\//.test(h) ? h : onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc3(l)}</a>`).join("");
   const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");
   const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc3(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc3(p.handle)}" target="_blank" rel="noopener" title="Send @${esc3(p.handle)} a friend request">+ Add @${esc3(p.handle)} as friend</a>` : "";
   const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map((r) => ({ ...r, current: r.href === "#top" && onProfile || !!r.href && r.href === current })), fix)}` : "";
@@ -5807,6 +5944,22 @@ function renderOwner(o) {
 <p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead, links and a first garden note in one go</span></p>
 <ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc4(i.label)}</b> <span class="ow-muted">${esc4(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
+  if (!o.checklist?.some((i) => !i.done) && o.unlock?.some((i) => !i.done)) {
+    const items = o.unlock, left = items.filter((i) => !i.done), done = items.length - left.length;
+    const act = (a, label) => `<a href="#" class="ow-link ow-act" data-action="${a}">${label}</a>`;
+    const how = {
+      live: `${act("unlock-live", "Copy prompt for my AI")} ${act("settings", "See my snippets in settings")}`,
+      agents: `${act("unlock-agents", "Copy prompt for my AI")} <span class="ow-muted ow-small">paste it into Claude Code on each computer you code on</span>`,
+      ai: `${act("unlock-ai", "Copy prompt for my AI")}`,
+      private: `${act("settings", "Turn on Private web view in settings")} ${act("unlock-private", "Copy how-to")}`,
+      story: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("unlock-story", "Copy prompt for my AI")}`,
+      code: `${act("settings", "Add your GitHub in settings")} ${act("unlock-code", "Copy prompt for my AI")}`
+    };
+    out.unshift(`<section class="ow-card ow-finish ow-unlock" id="ow-unlock"><div class="ow-h"><h3>Unlock more</h3><span class="ow-muted ow-small">${done} of ${items.length} on</span></div>
+<div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
+<p class="ow-small ow-muted">Your basics are done. These are what make a Caldera page come alive. ${act("unlock-all", "Copy one prompt for all of them")}</p>
+<ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc4(i.label)}</b> <span class="ow-muted">${esc4(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
+  }
   if (o.sources?.length) {
     const on = o.sources.filter((x) => x.ok).length, all = o.sources.length;
     const nudge = o.promptOutdated ? `<p class="ow-lead">Caldera can track more than your routine was set up for. Copy the setup prompt again and paste it into your AI agent: it upgrades what's there and fills in the rest.</p>` : on < all ? `<p class="ow-muted">Your page shows what your vault is fed. Copy the setup prompt into Claude Code, Codex or Cursor: it connects what it can find on this computer, schedules one routine to keep it fresh, and asks before anything goes public. Paste it again any time.</p>` : "";
@@ -5910,6 +6063,8 @@ var ProfileView = class extends import_obsidian5.ItemView {
     this.liveTimer = null;
     /** The sky over My view's city follows the owner's real weather (the hub looks it up from this request, stores nothing),
      *  and an owner without live visitors or agent drones yet gets the one-row setup under the city. */
+    this.ownerData = null;
+    // last Private view build (the Unlock more tier reads it)
     this.lastLive = null;
     this.wx = null;
   }
@@ -6049,7 +6204,8 @@ var ProfileView = class extends import_obsidian5.ItemView {
         uris.set(p, `data:${mime};base64,${b64.enc(new Uint8Array(buf))}`);
       }
       this.built = { text, data, uris, city: cityPrivate?.districts.length ? renderPrivateCity(data, cityPrivate) : void 0 };
-      this.owner = renderOwner(await collectOwner(this.app, this.plugin, data, this.shownLooked));
+      this.ownerData = await collectOwner(this.app, this.plugin, data, this.shownLooked);
+      this.owner = renderOwner(this.ownerData);
       if (this.plugin.floatSpec?.html) this.plugin.floatCity({ html: this.cityMini(), live: true }, false);
       await this.show();
       if (loud) new import_obsidian5.Notice("Profile refreshed");
@@ -6113,6 +6269,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
       });
       if (d.name === "prompt-banner" || d.name === "prompt-photo") void this.plugin.copyImagePrompt(d.name === "prompt-banner" ? "banner" : "photo");
       if (d.name === "settings") this.plugin.openSettings();
+      if (typeof d.name === "string" && d.name.startsWith("unlock-")) void this.plugin.copyFeaturePrompt(d.name.slice(7));
       if (d.name === "garden-help") new import_obsidian5.Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12e3);
       return;
     }
@@ -6295,10 +6452,20 @@ async function collectOwner(app, plugin, data, lastLooked) {
     group: (plugin.settings.groups || []).length > 0,
     email: activity && !("error" in activity) && typeof activity.emailConfirmed === "boolean" ? activity.emailConfirmed : !!plugin.settings.summaryEmail
   }) : void 0;
+  const un = activity && !("error" in activity) && activity.unlock || {};
+  const unlock = plugin.settings.handle ? unlockChecklist({
+    live: !!un.live,
+    agents: !!un.agents,
+    ai: !!data.ai?.total,
+    private: typeof un.private === "boolean" ? un.private : !!plugin.settings.privateWeb,
+    story: (data.timeline?.length || 0) >= 3 && (data.projects || []).some((p) => /^https?:\/\//.test(p.url || "")),
+    code: !!data.city?.districts?.length && data.city.kind !== "vault" || !!data.code?.commits
+  }) : void 0;
   return {
     sources,
     promptOutdated,
     checklist,
+    unlock,
     now: new Date(now).toISOString(),
     lastLooked,
     activity,
@@ -6874,6 +7041,41 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     st.openTabById?.(this.manifest.id);
   }
   /** Copy a focused prompt that has the owner's AI agent set a masthead or profile photo. */
+  /** "Unlock more": the slice of the setup prompt for one feature (or "all" still off), with this owner's own snippets and agent hook. */
+  async copyFeaturePrompt(id) {
+    const a = this.app.vault.adapter, s = this.settings, hub = s.hubUrl.replace(/\/$/, "");
+    const o = {
+      vaultPath: a instanceof import_obsidian7.FileSystemAdapter ? a.getBasePath() : void 0,
+      hubUrl: s.hubUrl,
+      handle: s.handle || void 0,
+      activityFile: s.activityFile,
+      agentSetup: s.agentKey ? agentSetupPrompt(hub, s.agentKey) : void 0
+    };
+    const snippets = (s.traffic || []).map((t) => `- ${t.project}: <script async src="${hub}/t.js" data-site="${t.key}"><\/script>`).join("\n");
+    const withSnippets = (t) => snippets ? `${t}
+
+My snippets, one per district (these are public site keys, fine in page HTML):
+${snippets}` : t;
+    const ids = ["live", "agents", "ai", "private", "story", "code"];
+    let text;
+    if (id === "all") {
+      const view = this.app.workspace.getLeavesOfType(PROFILE_VIEW)[0]?.view;
+      const left = (view?.ownerData?.unlock || []).filter((i) => !i.done).map((i) => i.id).filter((x) => ids.includes(x));
+      text = withSnippets(upgradePrompt(left.length ? left : [...ids], o));
+      if (o.agentSetup && (!left.length || left.includes("agents"))) text += `
+
+My agent hook, exactly as Caldera gave it to me (keep the key and secret out of any repo):
+
+${o.agentSetup}`;
+    } else if (ids.includes(id)) text = id === "live" ? withSnippets(featurePrompt("live", o)) : featurePrompt(id, o);
+    else return;
+    try {
+      await navigator.clipboard.writeText(text);
+      new import_obsidian7.Notice("Prompt copied. Paste it into Claude Code, Codex or Cursor.", 6e3);
+    } catch {
+      new PromptModal(this.app, text).open();
+    }
+  }
   async copyImagePrompt(kind) {
     const a = this.app.vault.adapter;
     const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian7.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
@@ -6998,6 +7200,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
         void this.welcomeNewMembers();
         void this.attention();
         void this.kudosNews();
+        void this.checkAlerts();
       }
       this.refreshPanel();
       if (loud || cards) new import_obsidian7.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -7081,6 +7284,30 @@ caldera_received: ${e.ts}
       new import_obsidian7.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
     } catch (e) {
       new import_obsidian7.Notice("Couldn't save: " + e.message);
+    }
+  }
+  /** New alerts from Caldera (welcome, release notes, announcements) appear once as a notice; click opens them, signed in. */
+  async checkAlerts() {
+    const s = this.settings;
+    if (!s.identity || !s.handle) return;
+    try {
+      const r = await this.api("GET", `/v1/owner/${encodeURIComponent(s.identity.id)}/alerts`, void 0, true);
+      const fresh = (r?.alerts || []).filter((x) => !x.read && (!s.lastAlertTs || x.ts > s.lastAlertTs)).slice(0, 2);
+      const newest = (r?.alerts || []).reduce((m, x) => x.ts > m ? x.ts : m, s.lastAlertTs || "");
+      if (newest !== (s.lastAlertTs || "")) {
+        s.lastAlertTs = newest;
+        await this.saveSettings();
+      }
+      for (const x of fresh) {
+        const frag = createFragment((f) => {
+          f.createEl("b", { text: "Caldera: " });
+          f.appendText(String(x.title) + " ");
+          f.createEl("u", { text: "Read it" });
+        });
+        const n = new import_obsidian7.Notice(frag, 2e4);
+        n.noticeEl.addEventListener("click", () => void this.openProfile("alerts"));
+      }
+    } catch {
     }
   }
   /** At most once a day: if people looked at the page, linked to it or befriended you, say so (click: share it). */
