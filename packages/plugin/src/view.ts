@@ -44,8 +44,9 @@ export class ProfileView extends ItemView {
     const root = this.contentEl; root.empty(); root.addClass("caldera-profile-view");
     const bar = root.createDiv("caldera-pv-bar");
     const seg = bar.createDiv("caldera-pv-seg");
-    const mine = seg.createEl("button", { text: "My view", attr: { "aria-label": "Your profile built from your vault, with private sections only you see" } });
+    // same order and labels as the bar on the web: [Public view | Private view]
     const pub = seg.createEl("button", { text: "Public view", attr: { "aria-label": "Your live page on the hub, exactly as visitors see it" } });
+    const mine = seg.createEl("button", { text: "Private view", attr: { "aria-label": "Your profile built from your vault, with private sections only you see" } });
     const setMode = (m: "mine" | "public") => { this.mode = m; mine.toggleClass("is-on", m === "mine"); pub.toggleClass("is-on", m === "public"); this.scrollY = 0; void this.show(); };
     mine.onclick = () => setMode("mine"); pub.onclick = () => setMode("public");
     mine.addClass("is-on");
@@ -134,7 +135,7 @@ export class ProfileView extends ItemView {
     if (!this.built) return;
     this.frame.removeAttribute("src");
     this.frame.srcdoc = this.page(this.current.split("#")[0], this.current.split("#")[1] || "");
-    const t = new Date(); this.status.setText(`My view, built ${hm(t.getTime())}. Private sections are only visible here.`);
+    const t = new Date(); this.status.setText(`Private view, built ${hm(t.getTime())}. Private sections are only visible here.`);
   }
 
   private page(path: string, hash: string): string {

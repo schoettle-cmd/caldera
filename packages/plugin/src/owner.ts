@@ -12,6 +12,8 @@ export interface OwnerActivity {
   links: { src_handle: string; src_slug: string; src_title: string; dst_slug: string }[];
   asks: { title: string; status: string; ts: string }[];
   emailConfirmed?: boolean;
+  viewsAll?: number; viewsWeek?: number; showViews?: boolean;
+  kudos?: { kind: string; emoji: string; from: string | null; name: string; ts: string }[];
 }
 export interface VaultRef { title: string; path: string; excerpt?: string; time?: string; kind?: "new" | "edit" }
 export interface OwnerData {
@@ -49,16 +51,18 @@ export function renderOwner(o: OwnerData): string {
     if (!a) body = `<p class="ow-muted">Publish your profile to start seeing visits, gravity and links here.</p>`;
     else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc(a.error)}). Your vault sections below still work offline.</p>`;
     else {
-      const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"]]
+      const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"], ...(a.kudos?.length ? [[a.kudos.length, "kudos"]] : [])]
         .concat(o.pending ? [[o.pending, o.pending === 1 ? "friend request" : "friend requests"]] : []);
       body += `<div class="ow-tiles">${tiles.map(([n, l]) => `<div class="ow-tile${Number(n) ? " is-up" : ""}"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`;
       const byDay = new Map(a.days.map(d => [d[0], d] as const)), t0 = Date.parse(o.now);
       const days14 = Array.from({ length: 14 }, (_, i) => { const k = new Date(t0 - (13 - i) * 86_400_000).toISOString().slice(0, 10); return byDay.get(k) || [k, 0, 0] as [string, number, number]; });
       const max = Math.max(1, ...days14.map(d => d[1]));
       if (a.days.length) body += `<div class="ow-spark" title="Page views, last 14 days">${days14.map(d => `<i style="height:${d[1] ? Math.max(6, Math.round(d[1] / max * 100)) : 2}%;${d[1] ? "" : "opacity:.25"}" title="${esc(d[0])}: ${d[1]} views, ${d[2]} visitors"></i>`).join("")}</div><div class="ow-muted ow-small">Page views, last 14 days &middot; ${a.totalViews.toLocaleString("en-US")} all time</div>`;
+      if (typeof a.viewsAll === "number") body += `<div class="ow-muted ow-small">Your page's view count: <b>${a.viewsAll.toLocaleString("en-US")}</b> all time &middot; <b>${(a.viewsWeek || 0).toLocaleString("en-US")}</b> this week (one per visitor per day)${a.showViews === false ? " &middot; hidden from visitors" : ""}</div>`;
       const lines: string[] = [];
       if (a.pages.length) lines.push(`<li>Most read: ${a.pages.slice(0, 4).map(([p, n]) => `${esc(pageName(p))} (${n})`).join(", ")}</li>`);
       for (const g of a.gravity.slice(0, 5)) lines.push(`<li><b>${g.from ? "@" + esc(g.from) : "Someone"}</b> gave you gravity${g.reason ? `: &ldquo;${esc(g.reason)}&rdquo;` : ""} <span class="ow-muted">${ago(g.ts, o.now)}</span></li>`);
+      for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc(k.emoji)} <b>${k.from ? "@" + esc(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
       for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
       if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} friend request${o.pending === 1 ? "" : "s"} waiting</a></li>`);
       if (a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map(l => `@${esc(l.src_handle)}'s &ldquo;${esc(l.src_title)}&rdquo;`).join(", ")}</li>`);

@@ -2354,7 +2354,7 @@ B. Activity counts (every run, for today and yesterday). Update "${vault}/${acti
    AI usage ("tokens" per day and the "ai" block, last 45 days): group by model (readable names) and by provider. Never include prompts, file names or costs.
    Code ("code" block): count my commits in the last 52 weeks per week across my repositories, number of repos, and top 4 languages. Counts only - never names of private repositories.
 
-C. City (every run, only if I use GitHub, Forgejo, Gitea or Codeberg). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>" (or "forgejo <https://server/my login>"), "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. On GitHub use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. On Forgejo / Gitea / Codeberg use GET /api/v1/user/repos (or /api/v1/users/<me>/repos) and page through /api/v1/repos/<owner>/<repo>/commits?limit=50, counting by commit.author.date yourself (that endpoint ignores "since"). Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos, and private ones only as locked glass buildings (no names); full details only in my own My view. If you cannot reach the API, instead make sure my profile is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>", or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg) - Caldera then builds the city from my public repos itself. With no code host at all, Caldera builds the city from my vault folders.
+C. City (every run, only if I use GitHub, Forgejo, Gitea or Codeberg). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>" (or "forgejo <https://server/my login>"), "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. On GitHub use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. On Forgejo / Gitea / Codeberg use GET /api/v1/user/repos (or /api/v1/users/<me>/repos) and page through /api/v1/repos/<owner>/<repo>/commits?limit=50, counting by commit.author.date yourself (that endpoint ignores "since"). Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos, and private ones only as locked glass buildings (no names); full details only in my own Private view. If you cannot reach the API, instead make sure my profile is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>", or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg) - Caldera then builds the city from my public repos itself. With no code host at all, Caldera builds the city from my vault folders.
 
 D. Publish. If Caldera auto-publish is on (Settings -> Caldera -> Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
 
@@ -2384,7 +2384,7 @@ When you finish, show me a short checklist of every source and feature - calenda
 ## 8. Later
 - Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
 - My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
-- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "My view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
+- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "Private view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
 - When Caldera tells me my setup prompt is out of date, I copy it again ("Caldera: Copy the AI setup prompt") and paste it here; you upgrade the routine in place.`;
 }
 function editPrompt(o = {}) {
@@ -3102,6 +3102,11 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       s.listed = v;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian2.Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.").addToggle((t) => t.setValue(s.showViews !== false).onChange(async (v) => {
+      s.showViews = v;
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }));
     new import_obsidian2.Setting(containerEl).setName("Friends and sharing").setHeading();
     new import_obsidian2.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
     new import_obsidian2.Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`).addText((t) => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async (v) => {
@@ -3188,7 +3193,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     }));
     new import_obsidian2.Setting(containerEl).setName("Live traffic on your city").setHeading();
     const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
-    new import_obsidian2.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in My view and your private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
+    new import_obsidian2.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
     for (const site of sites) {
       const snippet = `<script async src="${hub}/t.js" data-site="${site.key}"><\/script>`;
       new import_obsidian2.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
@@ -3201,7 +3206,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       }));
     }
     new import_obsidian2.Setting(containerEl).setName("AI agents on your city").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (My view and your private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
+    new import_obsidian2.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (your private view and private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
       await navigator.clipboard.writeText(agentSetupPrompt(hub, s.agentKey));
       new import_obsidian2.Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
     }));
@@ -3870,7 +3875,7 @@ ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" hre
 <p class="c-lede">${city.kind === "vault" ? `Built from ${esc2(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some((r) => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}`}</p>
 <div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes edited this year" : "commits this year"}</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${(city.kind === "vault" ? city.under?.total ?? notes : notes).toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes in the vault" : "notes in town"}</span></div></div>
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
-<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Auto</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-snd" aria-pressed="false" title="Sound for arrivals, signups and sales (off)">&#x1F507;</button><button id="t-reset">Reset</button><button id="t-pop" aria-label="Pop out a small window" title="Pop out a small window">&#x29C9;<span class="t-txt"> Pop out</span></button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
+<div class="c-tools"><button id="t-labels" aria-pressed="true">Labels</button><button id="t-sky">Auto</button><button id="t-wx" title="Weather">Weather</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-snd" aria-pressed="false" title="Sound for arrivals, signups and sales (off)">&#x1F507;</button><button id="t-reset">Reset</button><button id="t-pop" aria-label="Pop out a small window" title="Pop out a small window">&#x29C9;<span class="t-txt"> Pop out</span></button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
 <div class="c-toasts" aria-live="polite"></div><div class="c-mininame" aria-hidden="true"><i></i>${esc2(site.name)}</div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
 <div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some((r) => r.locked) ? '<span><i style="background:#5C6B86"></i>&#128274; Private</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
@@ -3989,6 +3994,15 @@ html.c-mini .c-stage{position:fixed;inset:0;z-index:2147483000;height:100%;min-h
 html.c-mini .c-hint,html.c-mini #t-pop,html.c-mini #t-full{display:none}
 html.c-mini .c-tools{top:6px;right:6px;opacity:0;transition:opacity .2s}html.c-mini .c-stage:hover .c-tools{opacity:1}html.c-mini .c-tools .t-txt{display:none}
 html.c-mini .c-tools button{padding:3px 8px;font-size:11px}
+.c-today{position:absolute;left:10px;bottom:10px;z-index:2;padding:4px 10px;border-radius:999px;background:rgba(8,12,22,.72);color:#E6F6FF;font:500 12px/1.3 'IBM Plex Mono',ui-monospace,monospace;pointer-events:none;backdrop-filter:blur(4px)}
+html.c-mini .c-today{display:none}
+.c-setup{position:relative;margin:10px 0 4px;padding:10px 40px 10px 14px;border:1px solid var(--line,#2A2A2F);border-radius:var(--radius-md,10px);background:var(--bg-raised,#18181B);font-size:var(--text-sm,14px);color:var(--text,#E6E6EA)}
+.c-su-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:3px 0}.c-su-row span{flex:1 1 260px;color:var(--text-muted,#9A9AA6)}
+.c-setup button{cursor:pointer;font:inherit;font-size:13px;border-radius:999px;border:1px solid var(--line,#2A2A2F);background:transparent;color:var(--accent-text,#B9A6FF);padding:3px 12px}
+.c-setup .c-su-go{border-color:var(--accent,#8B6CF6)}.c-setup .c-su-x{position:absolute;top:6px;right:8px;border:0;color:var(--text-muted,#9A9AA6);font-size:18px;padding:0 6px}
+.c-su-panel{margin-top:8px;padding-top:8px;border-top:1px solid var(--line,#2A2A2F)}.c-su-panel p{margin:0 0 8px;color:var(--text-muted,#9A9AA6)}
+.c-su-site{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:6px 0}.c-su-site b{min-width:120px}.c-su-site code{flex:1 1 280px;font:12px/1.4 'IBM Plex Mono',ui-monospace,monospace;background:var(--bg-sunken,#0E0E11);border-radius:6px;padding:5px 8px;overflow-x:auto;white-space:nowrap}
+.c-setup .c-su-ai{margin-top:4px;background:var(--accent,#8B6CF6);color:#fff;border-color:transparent}
 html.c-mini .c-live{right:6px;bottom:6px;font-size:10.5px;padding:5px 8px}
 html.c-mini .c-mininame{display:flex;align-items:center;gap:6px;position:absolute;left:8px;bottom:7px;font:500 11px var(--font-mono,'IBM Plex Mono',monospace);color:rgba(191,248,255,.78);letter-spacing:.04em;pointer-events:none;text-shadow:0 1px 3px #000}
 html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF2FF;box-shadow:0 0 6px #3DF2FF}
@@ -4073,14 +4087,15 @@ function onLive(data){if(!data||typeof data!=='object'||!data.districts||typeof 
   if(LV.on)reconcile();
   if(Array.isArray(data.agents))agentsIn(data.agents);
   if(Array.isArray(data.events)){var first=!LV.seen,fresh=data.events.filter(function(ev){return ev&&ev.ts>LV.seen&&(ev.k!=='view'||ev.n)}).reverse();
-    var nv=0,nc=0;if(!first)fresh.slice(-40).forEach(function(ev){var b=byName[ev.d]||byName.Private;if(!b)return;
+    var nv=0,nc=0;if(!first)fresh.slice(-40).forEach(function(ev){if(ev.k==='kudos')return void setTimeout(function(){kudosBurst(ev)},(nc++)*900);var b=byName[ev.d]||byName.Private;if(!b)return;
       if(ev.k==='view')return void setTimeout(function(){arrive(b,'view')},(nv++)*350);
-      setTimeout(function(){spawn(b,ev.k==='buy'?BCOL:SCOL,true);pulse(b,ev.k==='buy'?BCOL:SCOL,ev.k==='buy');celebrate(b,ev.k,ev.d)},(nc++)*900)});
+      setTimeout(function(){spawn(b,ev.k==='buy'?BCOL:SCOL,true);pulse(b,ev.k==='buy'?BCOL:SCOL,ev.k==='buy');celebrate(b,ev.k,ev.d);arrive(b,ev.k)},(nc++)*900)});
     data.events.forEach(function(ev){if(ev&&ev.ts>LV.seen)LV.seen=ev.ts});if(!LV.seen)LV.seen=String(data.at||'0')}
   if(data.arrivals&&typeof data.arrivals==='object'&&LV.at)Object.keys(data.arrivals).forEach(function(k){var a=data.arrivals[k]||{},b=byName[k]||byName.Private;if(!b)return;   // public: counts only
     for(var i=0;i<Math.min(+a.v||0,40);i++)(function(i){setTimeout(function(){arrive(b,'view')},i*350)})(i);
-    for(var j=0;j<Math.min(+a.s||0,5);j++)(function(j){setTimeout(function(){pulse(b,SCOL,false);celebrate(b,'signup',k)},j*900)})(j);
+    for(var j=0;j<Math.min(+a.s||0,5);j++)(function(j){setTimeout(function(){pulse(b,SCOL,false);celebrate(b,'signup',k);arrive(b,'signup')},j*900)})(j);
     for(var m2=0;m2<Math.min(+a.b||0,5);m2++)(function(m2){setTimeout(function(){pulse(b,BCOL,true);celebrate(b,'buy',k)},m2*900+400)})(m2)});
+  onDay(data);liveConnected();
   if(data.at)LV.at=String(data.at);
   hud();draw()}
 // ---- arrivals: every new visitor drops in from the sky onto its district (parachute, landing ring, walks to a building);
@@ -4088,12 +4103,19 @@ function onLive(data){if(!data||typeof data!=='object'||!data.districts||typeof 
 var FX={drops:[],queue:[],parts:[],beams:[],more:{}},MAXDROP=MINI?5:8,toasts=document.querySelector('.c-toasts'),sound=false,AC=null;
 try{sound=localStorage.getItem('caldera-sound')==='1'}catch(err){}
 function arrive(b,kind){if(!b)return;if(FX.drops.length>=MAXDROP){if(FX.queue.length<24)FX.queue.push(b);else{var mo=FX.more[b.d.name]||(FX.more[b.d.name]={n:0,b:b});mo.n++;mo.until=performance.now()+5000}return}
-  var ex=exits(b),s0=ex.length?ex[Math.floor(Math.random()*ex.length)]:[b.x+b.k/2-.5,b.y+b.k/2-.5],p=iso(s0[0],s0[1]),bl=BDIST[b.d.name],tg=bl&&bl.length?bl[Math.floor(Math.random()*bl.length)]:null,q=tg?iso(tg.i,tg.j):p;
-  FX.drops.push({x:p.x+(Math.random()-.5)*10,y:p.y+(Math.random()-.5)*4,tx:q.x,ty:q.y,born:performance.now(),sw:Math.random()*6.28});tone([880,1320],.05)}
+  var path=arrivalPath(b);if(!path)return;var p=path[0];
+  FX.drops.push({x:p.x,y:p.y,path:path,col:kind==='signup'?SCOL:kind==='buy'?BCOL:null,born:performance.now(),sw:Math.random()*6.28});tone([880,1320],.05)}
 function toast(kind,district){if(!toasts)return;var t=document.createElement('div');t.className='c-toast'+(kind==='buy'?' buy':'');
   var priv=LV.mode!=='private'&&district==='Private';   // public pages never name a private project
   t.textContent=kind==='buy'?(priv?'\u{1F4B0} A sale':'\u{1F4B0} New sale · '+district):(priv?'✨ Someone joined':'✨ New signup · '+district);
   toasts.insertBefore(t,toasts.firstChild);while(toasts.children.length>3)toasts.removeChild(toasts.lastChild);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},5200)}
+// kudos: the emoji rises over the city from a random district, with a toast naming who sent it (private feed only)
+var KEMO={heart:'\u2764\uFE0F',up:'\u{1F44D}',fire:'\u{1F525}',sparkle:'\u2728'};
+function kudosBurst(ev){var ks=Object.keys(byName),b=byName[ks[Math.floor(Math.random()*ks.length)]];var em=KEMO[ev.e]||KEMO.heart;
+  if(toasts){var t=document.createElement('div');t.className='c-toast';t.textContent=em+' '+(typeof ev.from==='string'&&/^[a-z0-9-]{1,40}$/.test(ev.from)?'@'+ev.from:'Someone')+' sent you kudos';toasts.insertBefore(t,toasts.firstChild);while(toasts.children.length>3)toasts.removeChild(toasts.lastChild);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},5200)}
+  if(!b)return;var c0=iso(b.x+b.k/2-.5,b.y+b.k/2-.5),tn=performance.now();
+  for(var i=0;i<(MINI?10:18);i++){var a=-Math.PI/2+(Math.random()-.5)*1.4,v=50+Math.random()*60;FX.parts.push({x:c0.x,y:c0.y-60,vx:Math.cos(a)*v,vy:Math.sin(a)*v-140,emo:em,born:tn+i*70,life:2600+Math.random()*700,rot:0})}
+  tone([659,880,1175],.07)}
 function celebrate(b,kind,district){if(!b)return;toast(kind,district||b.d.name);var c0=iso(b.x+b.k/2-.5,b.y+b.k/2-.5),tn=performance.now(),buy=kind==='buy';
   FX.beams.push({x:c0.x,y:c0.y,col:buy?BCOL:SCOL,born:tn});
   var CONF=['#FF4FD8','#3DF2FF','#FFD23F','#7CFF6B','#FF7A45','#B58CFF'];
@@ -4109,20 +4131,168 @@ function drawFx(){var tn=performance.now(),more=Object.keys(FX.more);if(!FX.drop
   FX.beams=FX.beams.filter(function(b){return tn-b.born<2400});FX.beams.forEach(function(b){var pr=(tn-b.born)/2400,a=pr<.15?pr/.15:1-(pr-.15)/.85;c.save();if(!day)c.globalCompositeOperation='lighter';
     var g=c.createLinearGradient(0,b.y-420*K,0,b.y);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(1,b.col);c.globalAlpha=a*.85;c.fillStyle=g;var w=(10+8*Math.sin(pr*9))*K;c.fillRect(b.x-w/2,b.y-420*K,w,420*K);
     c.globalAlpha=a*.6;c.fillRect(b.x-1.5*K,b.y-420*K,3*K,420*K);c.restore()});
-  FX.drops=FX.drops.filter(function(d){var t=tn-d.born;if(t<3800)return true;if(FX.queue.length)setTimeout(function(){arrive(FX.queue.shift(),'view')},60);return false});
-  FX.drops.forEach(function(d){var t=tn-d.born,x=d.x,y=d.y,FALL=1150;
-    if(t<FALL){var f=t/FALL,e=f*f*(3-2*f),sw=Math.sin(t/180+d.sw)*4*K*(1-f);x+=sw;y=d.y-230*K*(1-e);
-      c.save();var g=c.createLinearGradient(0,y-70*K,0,y-8*K);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(1,day?'rgba(30,111,217,.45)':'rgba(127,231,255,.6)');c.strokeStyle=g;c.lineWidth=2*K;c.beginPath();c.moveTo(x-sw*.6,y-70*K);c.lineTo(x,y-10*K);c.stroke();
-      c.fillStyle=day?'#FF6B4A':'#FF4FD8';c.beginPath();c.arc(x,y-20*K,7*K,Math.PI,0);c.closePath();c.fill();c.strokeStyle=day?'rgba(0,0,0,.45)':'rgba(255,255,255,.5)';c.lineWidth=.6*K;c.beginPath();c.moveTo(x-7*K,y-20*K);c.lineTo(x-1.4*K,y-8*K);c.moveTo(x+7*K,y-20*K);c.lineTo(x+1.4*K,y-8*K);c.stroke();c.restore();
-      person(c,x,y,col,K)}
-    else{var t2=t-FALL,hop=t2<300?Math.sin(t2/300*Math.PI)*4*K:0,wk=Math.max(0,Math.min(1,(t2-300)/2000)),fade=t2>2300?Math.max(0,1-(t2-2300)/350):1;
-      if(t2<650){var pr=t2/650;c.save();c.strokeStyle=col;c.globalAlpha=1-pr;c.lineWidth=1.6*K;c.beginPath();c.ellipse(d.x,d.y,(6+pr*22)*K,(6+pr*22)*.5*K,0,0,7);c.stroke();
-        c.fillStyle=day?'rgba(120,100,80,.35)':'rgba(200,230,255,.25)';for(var k=0;k<6;k++){var a2=k*1.047+d.sw;c.beginPath();c.arc(d.x+Math.cos(a2)*(4+pr*14)*K,d.y+(Math.sin(a2)*(2+pr*7)-pr*3)*K,1.3*K*(1-pr),0,7);c.fill()}c.restore()}
-      c.save();c.globalAlpha=fade;person(c,d.x+(d.tx-d.x)*wk,d.y+(d.ty-d.y)*wk-hop,col,K);c.restore()}});
+  FX.drops=FX.drops.filter(function(d){var t=tn-d.born;if(t<1950)return true;if(FX.queue.length)setTimeout(function(){arrive(FX.queue.shift(),'view')},60);return false});
+  FX.drops.forEach(function(d){var t=tn-d.born,x=d.x,y=d.y,FALL=1300,S=PS,R=Math.max(1,.9/cam.z);   // the person and parachute are street scale; only the trail and landing ring stay readable when zoomed out
+    if(t<FALL){var f=t/FALL,e2=f*f*(3-2*f),sw=Math.sin(t/180+d.sw)*3*S*(1-f);x+=sw;y=d.y-200*(1-e2);
+      c.save();var g=c.createLinearGradient(0,y-60*R,0,y-6*S);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(1,day?'rgba(30,111,217,.4)':'rgba(127,231,255,.55)');c.strokeStyle=g;c.lineWidth=1.2*R;c.beginPath();c.moveTo(x-sw*.6,y-60*R);c.lineTo(x,y-13*S);c.stroke();
+      c.fillStyle=day?'#FF6B4A':'#FF4FD8';c.beginPath();c.arc(x,y-19*S,7.5*S,Math.PI,0);c.closePath();c.fill();c.strokeStyle=day?'rgba(0,0,0,.45)':'rgba(255,255,255,.55)';c.lineWidth=.45;c.beginPath();c.moveTo(x-7.5*S,y-19*S);c.lineTo(x-1.4*S,y-8*S);c.moveTo(x+7.5*S,y-19*S);c.lineTo(x+1.4*S,y-8*S);c.stroke();c.restore();
+      walkerFig(c,x,y,d.col||col,S,1,0,0)}
+    else{if(!d.walk){d.walk=true;walker(d.path,false,d.col)}var t2=t-FALL;if(t2<650){var pr=t2/650;c.save();c.strokeStyle=d.col||col;c.globalAlpha=1-pr;c.lineWidth=1.1;c.beginPath();c.ellipse(d.x,d.y,(3+pr*12)*R,(3+pr*12)*.5*R,0,0,7);c.stroke();
+      c.fillStyle=day?'rgba(120,100,80,.35)':'rgba(200,230,255,.25)';for(var k=0;k<5;k++){var a2=k*1.256+d.sw;c.beginPath();c.arc(d.x+Math.cos(a2)*(2+pr*7),d.y+Math.sin(a2)*(1+pr*3.5)-pr*2,.8*(1-pr),0,7);c.fill()}c.restore()}}});
   FX.parts=FX.parts.filter(function(p){return tn-p.born<p.life});FX.parts.forEach(function(p){var t=Math.max(0,tn-p.born)/1000,x=p.x+p.vx*K*t,y=p.y+(p.vy*t+140*t*t)*K,a=1-(tn-p.born)/p.life;if(t<=0)return;
+    if(p.emo){c.save();c.globalAlpha=Math.max(0,a);c.font=Math.round(15*K)+'px "Apple Color Emoji","Segoe UI Emoji",sans-serif';c.textAlign='center';c.fillText(p.emo,p.x+p.vx*K*t,p.y+(p.vy*t+40*t*t)*K);c.restore();return}
     c.save();c.globalAlpha=Math.max(0,a);c.fillStyle=p.col;if(p.coin){c.beginPath();c.ellipse(x,y,(3.2*Math.abs(Math.cos(t*8+p.rot))+.6)*K,3.2*K,0,0,7);c.fill();c.strokeStyle='#B8860B';c.lineWidth=.6;c.stroke()}
     else{c.translate(x,y);c.rotate(t*6+p.rot);c.fillRect(-2*K,-1*K,4*K,2*K)}c.restore()});
   more.forEach(function(k){var m=FX.more[k];if(tn>m.until){delete FX.more[k];return}var p2=iso(m.b.x+m.b.k/2-.5,m.b.y-.5);tronPill(c,p2.x,p2.y-40,'+'+m.n+' arriving',day?'#1E6FD9':'#7FE7FF','600 10.5px ui-monospace,monospace')})}
+var HND=(location.pathname.match(/\/@([a-z0-9-]+)\//)||[])[1]||'';
+// ---- people on foot: arrivals land at street scale (the size of the cars) and walk to a building's door; people who
+// left walk back out as faint ghosts; worn paths show where the day's visitors went. All drawn under the buildings
+// layer so a building in front hides whoever is behind it.
+var WID=0,PS=.55,WALKS=[],WMAX=MINI?16:40,WQ=[],GHOSTCOL='#A9C2D8',DEPSEEN={},DEPFIRST=true,TRACES=[],TODAY=null,lastWT=0;
+function roadPath(a,b,max){if(a[0]===b[0]&&a[1]===b[1])return [a];var key=function(t){return t[0]+','+t[1]},prev={},q=[a],seen={};seen[key(a)]=1;
+  while(q.length){var t=q.shift();if(t[0]===b[0]&&t[1]===b[1]){var out=[t],k=key(t);while(prev[k]){out.unshift(prev[k]);k=key(prev[k])}return out}
+    if(max&&q.length>4000)break;[[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){var n=[t[0]+d[0],t[1]+d[1]],kn=key(n);if(!seen[kn]&&isRoad(n[0],n[1])){seen[kn]=1;prev[kn]=t;q.push(n)}})}return null}
+function adjRoads(i,j){return [[i+1,j],[i-1,j],[i,j+1],[i,j-1]].filter(function(n){return isRoad(n[0],n[1])})}
+// a building with a street outside its door (falls back to any building in the district)
+// how much a tile is hidden from the viewer by tall buildings standing in front of it
+function hiddenBy(i,j){var h=0;for(var d=0;d<=9;d++)[[d+1,d],[d,d+1],[d+1,d+1]].forEach(function(o){var t=tiles[(i+o[0])+','+(j+o[1])];if(t&&t.t==='b'&&bh(t.r)>(o[0]+o[1]-1)*TH/2)h+=1});return h}   // a tower in front (same screen column, nearer) covers the street behind it
+function doorFor(b){var bl=BDIST[b.d.name]||[],ex=exits(b);if(!bl.length||!ex.length)return null;var cands=[];
+  bl.forEach(function(o){ex.forEach(function(E){var d=Math.abs(E[0]-o.i)+Math.abs(E[1]-o.j);if(d<1||d>2)return;
+    var mid=d===2?[Math.round((E[0]+o.i)/2),Math.round((E[1]+o.j)/2)]:null;if(mid){var mt=tiles[mid[0]+','+mid[1]];if(!mt||(mt.t!=='p'&&mt.t!=='r'))return}   // across an open plaza only, never through a building or the houses
+    cands.push({o:o,E:E,d:d,h:hiddenBy(E[0],E[1])+(mid?hiddenBy(mid[0],mid[1]):0)+(d-1)*.5+(E[0]+E[1]<o.i+o.j?.25:0)})})});
+  if(!cands.length)return null;cands.sort(function(p,q){return p.h-q.h});var best=cands.filter(function(x){return x.h<=cands[0].h+.01});return best[Math.floor(Math.random()*best.length)]}   // doors the viewer can see: walking in should be visible
+function wpts(tl){var pts=[];for(var k=0;k<tl.length;k++){var a=tl[k],b=tl[k+1]||tl[k-1]||a,p=iso(a[0],a[1]),q=iso(b[0],b[1]),dx=q.x-p.x,dy=q.y-p.y,l=Math.hypot(dx,dy)||1,s=k+1<tl.length?1:-1;
+    pts.push({x:p.x-(-dy/l)*7*s,y:p.y-(dx/l*.5)*7*s})}return pts}
+function lerpPt(a,b,f){return {x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f}}
+function walker(pts,ghost,col,delay){var len=0,seg=[];for(var k=1;k<pts.length;k++){var l=Math.hypot(pts[k].x-pts[k-1].x,pts[k].y-pts[k-1].y);seg.push(l);len+=l}
+  var w={pts:pts,seg:seg,len:Math.max(1,len),d:0,sp:ghost?14:18,ghost:ghost,col:col,id:++WID,born:performance.now()+(delay||0)};
+  if(WALKS.length>=WMAX){if(WQ.length<40)WQ.push(w);return}WALKS.push(w)}
+function walkAt(w){var d=w.d;for(var k=0;k<w.seg.length;k++){if(d<=w.seg[k]){var f=d/(w.seg[k]||1),a=w.pts[k],b=w.pts[k+1];return {x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,ux:(b.x-a.x)/(w.seg[k]||1),uy:(b.y-a.y)/(w.seg[k]||1)}}d-=w.seg[k]}
+  var z=w.pts[w.pts.length-1];return {x:z.x,y:z.y,ux:0,uy:0}}
+// arrival: the street path from where the parachute lands to the door (the last stretch goes in through it)
+function arrivalPath(b){var df=doorFor(b);if(!df)return null;var ex=exits(b).filter(function(t){var d=Math.abs(t[0]-df.E[0])+Math.abs(t[1]-df.E[1]);return d>=2&&d<=4}).sort(function(p,q){return hiddenBy(p[0],p[1])-hiddenBy(q[0],q[1])}),L=ex.length?ex[Math.floor(Math.random()*Math.ceil(ex.length/2))]:df.E;
+  var tl=roadPath(L,df.E,1)||[df.E],pts=wpts(tl),door=iso(df.o.i,df.o.j),Ec=iso(df.E[0],df.E[1]);pts.push(lerpPt(Ec,door,1-.58/df.d),lerpPt(Ec,door,1-.42/df.d));return pts}
+function departurePath(b){var df=doorFor(b);if(!df)return null;var ex=exits(b),best=df.E,bd=-1;ex.forEach(function(t){var d=Math.abs(t[0]-df.E[0])+Math.abs(t[1]-df.E[1]);if(d<=6&&d>bd&&Math.random()<.7){bd=d;best=t}});
+  var door=iso(df.o.i,df.o.j),Ec=iso(df.E[0],df.E[1]),tl=roadPath(df.E,best,1)||[df.E];return [lerpPt(Ec,door,1-.45/df.d),lerpPt(Ec,door,1-.6/df.d)].concat(wpts(tl))}
+function ghostOut(b,delay){if(!b)return;var p=departurePath(b);if(p)walker(p,true,GHOSTCOL,delay)}
+function stepWalks(tn){var dt=lastWT?Math.min(100,tn-lastWT):0;lastWT=tn;
+  WALKS=WALKS.filter(function(w){if(tn<w.born)return true;w.d+=w.sp*dt/1000;return w.d<w.len});
+  while(WALKS.length<WMAX&&WQ.length){var w=WQ.shift();w.born=Math.max(w.born,tn);WALKS.push(w)}}
+// a person at street scale: head, body and two legs that stride (3 frames) along the direction of travel
+function walkerFig(c,x,y,col,s,wf,ux,uy){var st=[-1,0,1,0][wf]*1.5*s;c.fillStyle=col;c.beginPath();c.arc(x,y-9*s,2.2*s,0,7);c.fill();
+  c.beginPath();c.moveTo(x-1.6*s,y-6.5*s);c.lineTo(x+1.6*s,y-6.5*s);c.lineTo(x+1.2*s,y-2*s);c.lineTo(x-1.2*s,y-2*s);c.closePath();c.fill();
+  c.strokeStyle=col;c.lineWidth=1.25*s;c.lineCap='round';c.beginPath();c.moveTo(x-.6*s,y-2*s);c.lineTo(x-.9*s+ux*st,y+uy*st*.5);c.moveTo(x+.6*s,y-2*s);c.lineTo(x+.9*s-ux*st,y-uy*st*.5);c.stroke();
+  c.beginPath();c.moveTo(x-1.5*s,y-6*s);c.lineTo(x-1.9*s-ux*st*.6,y-3.4*s);c.moveTo(x+1.5*s,y-6*s);c.lineTo(x+1.9*s+ux*st*.6,y-3.4*s);c.stroke()}
+function drawWalks(){if(!WALKS.length)return;var c=cx,tn=performance.now();c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
+  var day=sky==='day',live=day?'#1E5FBF':'#BFF3FF',shade=day?'rgba(0,0,0,.22)':'rgba(0,0,0,.35)';
+  WALKS.slice().sort(function(a,b){return walkAt(a).y-walkAt(b).y}).forEach(function(w){if(tn<w.born)return;var p=walkAt(w),f=w.d/w.len,a;
+    if(w.ghost)a=.42*Math.min(1,w.d/8)*(f>.7?Math.max(0,1-(f-.7)/.3):1);else a=f>.86?Math.max(0,1-(f-.86)/.14):1;   // arrivals fade into the doorway, ghosts fade at the district edge
+    if(a<=0)return;var wf=Math.floor(w.d/2.4)%4;c.save();c.globalAlpha=a;
+    c.fillStyle=shade;c.beginPath();c.ellipse(p.x+1,p.y+.6,2.4*PS,1*PS,0,0,7);c.fill();
+    walkerFig(c,p.x,p.y,w.ghost?GHOSTCOL:(w.col||live),PS,wf,p.ux,p.uy);c.restore()})}
+// worn paths: footprints between the street and each busy building's door, brighter with more visitors today (log
+// scale), newer visits counting more; they reset at the viewer's local midnight
+function buildTraces(){TRACES=[];if(!TODAY)return;var mid=new Date();mid.setHours(0,0,0,0);var m0=mid.getTime(),Q15=9e5,wmax=0,W={};
+  Object.keys(TODAY).forEach(function(k){var x=TODAY[k],t0=Date.parse(x.t0)||0,w=0;(x.q||[]).forEach(function(n,i){var ts=t0+i*Q15;if(ts<m0||!n)return;w+=n*(.35+.65*Math.max(0,Math.min(1,(ts-m0)/(Date.now()-m0||1))))});W[k]=w;wmax=Math.max(wmax,w)});
+  if(!wmax)return;Object.keys(W).forEach(function(k){var b=byName[k];if(!b||!W[k])return;var br=Math.log(1+W[k])/Math.log(1+wmax);
+    var bl=(BDIST[b.d.name]||[]).filter(function(o){return adjRoads(o.i,o.j).length}).sort(function(p,q){return ((q.r.week||0)*20+(q.r.commits||0))-((p.r.week||0)*20+(p.r.commits||0))}).slice(0,3);
+    bl.forEach(function(o,ix){var E=adjRoads(o.i,o.j).sort(function(p,q){return (q[0]+q[1])-(p[0]+p[1])})[0],Ec=iso(E[0],E[1]),door=iso(o.i,o.j),pts=[];
+      var nb=adjRoads(E[0],E[1]).filter(function(n){return !(n[0]===o.i&&n[1]===o.j)})[0];if(nb){var q=iso(nb[0],nb[1]);pts.push(lerpPt(q,Ec,.35))}pts.push(Ec,lerpPt(Ec,door,.42));
+      TRACES.push({pts:pts,a:br*(1-ix*.25),seed:o.i*31+o.j*7})})})}
+function drawTraces(){if(!TRACES.length||sky==='grid')return;var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);var k=wxKind(),day=sky==='day'||sky==='dusk';
+  var col=k==='snow'?'90,110,140':k==='rain'||k==='storm'||k==='drizzle'?'12,20,34':day?'70,52,36':'200,214,236';
+  TRACES.forEach(function(t){for(var s=0;s<t.pts.length-1;s++){var a=t.pts[s],b=t.pts[s+1],l=Math.hypot(b.x-a.x,b.y-a.y),n=Math.floor(l/3.2),ux=(b.x-a.x)/(l||1),uy=(b.y-a.y)/(l||1);
+    for(var i=0;i<n;i++){var f=(i+.5)/n,side=i%2?1:-1,x=a.x+(b.x-a.x)*f-uy*side*1.3,y=a.y+(b.y-a.y)*f+ux*side*.65,al=(.06+.34*t.a)*(day?1:.8)*(.75+.25*rnd(t.seed+i*3.1+s));
+      c.fillStyle='rgba('+col+','+al.toFixed(3)+')';c.beginPath();c.ellipse(x,y,.95,.5,Math.atan2(uy,ux),0,7);c.fill();
+      if(k==='rain'||k==='storm'){c.fillStyle='rgba(200,225,255,'+(al*.5).toFixed(3)+')';c.fillRect(x-.3,y-.4,.6,.3)}}}})}
+// ---- weather: the viewer's real local weather (hub lookup, or Obsidian passing it in), or what they pick
+var WX=null,WXMODES=['auto','clear','rain','snow','fog'],WXMODE='auto',WXN={auto:'Auto',clear:'Clear',rain:'Rain',snow:'Snow',fog:'Fog'};
+try{var wv=localStorage.getItem('caldera-weather');if(wv&&WXMODES.indexOf(wv)>=0)WXMODE=wv}catch(err){}
+var hw0=location.hash.match(/[#&]wx=([a-z]+)/);if(hw0)WXMODE=hw0[1];   // #wx=storm etc. for checking
+function wxKind(){if(WXMODE!=='auto')return WXMODE;return WX&&WX.c?WX.c:'clear'}
+function wxCloud(){var k=wxKind();if(WXMODE==='auto'&&WX&&WX.c)return Math.max(+WX.cloud||0,{rain:80,storm:95,drizzle:70,snow:80,fog:60,overcast:90}[k]||0);return {clear:8,partly:40,overcast:92,fog:65,drizzle:75,rain:88,storm:98,snow:85}[k]||10}
+function wxWind(){var w=WXMODE==='auto'&&WX?+WX.wind||0:12,d=WXMODE==='auto'&&WX?(+WX.dir||270):250;return {vx:-Math.sin(d*Math.PI/180)*w,w:w}}   // meteorological: the direction it blows FROM
+var CLOUDS=[],CLW=0,CLH=0,lastCT=0;
+function cloudColor(){var k=wxKind(),dark=k==='storm'?.55:k==='rain'||k==='overcast'||k==='snow'?.3:k==='drizzle'||k==='fog'?.2:0;
+  if(sky==='night')return 'rgba('+Math.round(52-dark*20)+','+Math.round(60-dark*20)+','+Math.round(82-dark*20)+',.62)';
+  if(sky==='dusk')return 'rgba('+Math.round(255-dark*120)+','+Math.round(200-dark*90)+','+Math.round(190-dark*70)+',.6)';
+  var g=Math.round(255-dark*110);return 'rgba('+g+','+(g+2>255?255:g+2)+','+(g+6>255?255:g+6)+','+(.82+dark*.15).toFixed(2)+')'}
+function newCloud(edge){var s=.6+Math.random()*.9,ww=60*s+40;return {x:edge==null?Math.random()*(vw+2*ww)-ww:edge<0?-ww-Math.random()*40:vw+ww+Math.random()*40,y:(.04+Math.random()*.3)*vh,s:s,v:.7+Math.random()*.6,w:ww,p:Math.floor(Math.random()*3),gone:false}}
+// clouds keep their own positions frame to frame: they drift with the wind, wrap only once fully off screen, and are
+// never re-randomized by a resize, a phase change or a live update
+function stepClouds(tn){if(!vw)return;var dt=lastCT?Math.min(200,tn-lastCT)/1000:0;lastCT=tn;
+  if(CLW&&(CLW!==vw||CLH!==vh)){var fx=vw/CLW,fy=vh/CLH;CLOUDS.forEach(function(c){c.x*=fx;c.y*=fy})}CLW=vw;CLH=vh;
+  var want=Math.round(1+wxCloud()/100*(MINI?6:10)),wd=wxWind(),dir=wd.vx<0?-1:1,sp=6+Math.min(40,Math.abs(wd.vx))*.9;
+  if(!CLOUDS.length)for(var i=0;i<want;i++)CLOUDS.push(newCloud(null));
+  var live=CLOUDS.filter(function(c){return !c.gone}).length;
+  if(live>want){for(var j=0;j<CLOUDS.length&&live>want;j++)if(!CLOUDS[j].gone){CLOUDS[j].gone=true;live--}}   // retire extras: they drift off, never vanish
+  while(live<want){CLOUDS.push(newCloud(-dir));live++}
+  CLOUDS.forEach(function(c){c.x+=dir*sp*c.v*dt});
+  CLOUDS=CLOUDS.filter(function(c){var off=dir>0?c.x-c.w>vw:c.x+c.w<0;if(!off)return true;if(c.gone)return false;var n=newCloud(-dir);c.x=n.x;c.y=n.y;c.s=n.s;c.w=n.w;return true})}
+function drawClouds(c){var col=cloudColor();c.fillStyle=col;CLOUDS.forEach(function(k){var s=k.s;[[0,0,22],[18,4,16],[-18,5,15],[8,-8,15],[-6,-6,13],[30,6,11]].slice(0,5+k.p%2).forEach(function(b){c.beginPath();c.arc(k.x+b[0]*s,k.y+b[1]*s,b[2]*s,0,7);c.fill()})})}
+var PRECIP=[],flash=0,nextBolt=0;
+function stepPrecip(dt){var k=wxKind(),n=k==='storm'?(MINI?110:220):k==='rain'?(MINI?80:160):k==='drizzle'?(MINI?40:80):k==='snow'?(MINI?60:130):0;
+  if(WXMODE==='auto'&&WX&&(k==='rain'||k==='storm'))n=Math.round(n*Math.min(1.4,.6+(+WX.precip||0)/4));
+  while(PRECIP.length<n)PRECIP.push({x:Math.random()*vw,y:Math.random()*vh,z:.6+Math.random()*.6,snow:k==='snow'});
+  if(PRECIP.length>n)PRECIP.length=n;var wd=wxWind(),slant=Math.max(-.6,Math.min(.6,wd.vx/45));
+  PRECIP.forEach(function(p){p.snow=k==='snow';var vy=p.snow?28*p.z:(k==='drizzle'?260:520)*p.z;p.y+=vy*dt;p.x+=(p.snow?(slant*30+Math.sin((p.y+p.z*99)/30)*12):slant*vy)*dt;
+    if(p.y>vh){p.y=-10;p.x=Math.random()*(vw+80)-40}if(p.x<-40)p.x+=vw+80;if(p.x>vw+40)p.x-=vw+80})}
+function drawWeather(){var k=wxKind();if(sky==='grid')return;var c=cx;c.setTransform(dpr,0,0,dpr,0,0);var night=sky==='night',tn=performance.now();
+  var gloom=k==='storm'?.24:k==='rain'?.14:k==='drizzle'?.08:k==='overcast'?.06:k==='snow'?.04:0;if(gloom){c.fillStyle='rgba(12,18,30,'+gloom+')';c.fillRect(0,0,vw,vh)}
+  if(k==='snow'){c.fillStyle='rgba(235,242,250,'+(night?.08:.16)+')';c.fillRect(0,0,vw,vh)}
+  if(k==='fog'){var g=c.createLinearGradient(0,vh*.15,0,vh);g.addColorStop(0,night?'rgba(70,78,96,.18)':'rgba(214,220,226,.28)');g.addColorStop(1,night?'rgba(70,78,96,.5)':'rgba(214,220,226,.6)');c.fillStyle=g;c.fillRect(0,0,vw,vh);
+    c.fillStyle=night?'rgba(90,100,120,.12)':'rgba(240,244,248,.18)';for(var b=0;b<3;b++){var y=vh*(.45+b*.17)+Math.sin(tn/4000+b)*8,x=((tn/90+b*300)%(vw+400))-200;c.beginPath();c.ellipse(x,y,260,30,0,0,7);c.fill()}}
+  if(PRECIP.length){var wd=wxWind(),slant=Math.max(-.6,Math.min(.6,wd.vx/45));
+    if(k==='snow'){c.fillStyle=night?'rgba(220,230,245,.8)':'rgba(255,255,255,.95)';PRECIP.forEach(function(p){c.beginPath();c.arc(p.x,p.y,1.1+p.z*.9,0,7);c.fill()})}
+    else{c.strokeStyle=night?'rgba(170,195,230,.45)':'rgba(70,95,130,.42)';c.lineWidth=1;c.beginPath();PRECIP.forEach(function(p){var l=(k==='drizzle'?5:11)*p.z;c.moveTo(p.x,p.y);c.lineTo(p.x-slant*l,p.y-l)});c.stroke()}}
+  if(k==='storm'){if(tn>nextBolt){flash=tn;nextBolt=tn+6000+Math.random()*9000}var fa2=tn-flash;if(fa2<520){var a=fa2<90?.5:fa2<160?.08:fa2<240?.35:Math.max(0,.35*(1-(fa2-240)/280));c.fillStyle='rgba(230,236,255,'+a.toFixed(3)+')';c.fillRect(0,0,vw,vh)}}}
+// sunrise and sunset from the viewer's real location drive Auto's day (falls back to fixed hours)
+function sunKeys(){if(!WX||!WX.sunrise||!WX.sunset)return null;var r=new Date(WX.sunrise),s=new Date(WX.sunset),sr=r.getHours()*60+r.getMinutes(),ss=s.getHours()*60+s.getMinutes();
+  if(!(sr>120&&ss>sr+240&&ss<1430))return null;var k=[[0,'night'],[sr-75,'night'],[sr+15,'dawn'],[sr+120,'day'],[ss-110,'day'],[ss-10,'dusk'],[ss+60,'evening'],[Math.min(1439,ss+150),'night'],[1440,'night']];
+  for(var i=1;i<k.length;i++)if(k[i][0]<=k[i-1][0])k[i][0]=k[i-1][0]+1;return k}
+function applyWeather(){var k=sunKeys();if(k)DAYKEYS=k;applySky();if(typeof skyLabel==='function')skyLabel();if(typeof wxLabel==='function')wxLabel();dirty=true}
+// ---- today: "142 visited today · 9 here now", from the live feed
+var todayEl=null;function todayLine(){if(!TODAY||MINI)return;var v=0;Object.keys(TODAY).forEach(function(k){v+=+TODAY[k].v||0});
+  var here=LV.mode==='private'?Object.keys(LV.d).reduce(function(s,k){return s+(+LV.d[k].now||0)},0):null,any=Object.keys(LV.d).some(function(k){return LV.d[k].level>0});
+  if(!todayEl){todayEl=document.createElement('div');todayEl.className='c-today';st.appendChild(todayEl)}
+  todayEl.textContent=v.toLocaleString('en-US')+' visited today'+(here!=null?' · '+here+' here now':any?' · people here now':'')}
+function onDay(data){if(data.today&&typeof data.today==='object'){TODAY=data.today;buildTraces();todayLine()}
+  var plan=[];
+  if(Array.isArray(data.departures))data.departures.forEach(function(x){var id=x.v+'|'+x.ts;if(DEPSEEN[id]||!x.d)return;DEPSEEN[id]=1;plan.push(byName[x.d]||byName.Private)});
+  if(data.left&&typeof data.left==='object')Object.keys(data.left).forEach(function(k){for(var i=0;i<Math.min(+data.left[k]||0,30);i++)plan.push(byName[k]||byName.Private)});
+  plan=plan.filter(Boolean);
+  if(DEPFIRST){DEPFIRST=false;plan=plan.slice(-20);plan.forEach(function(b,i){ghostOut(b,600+i*(19000/Math.max(1,plan.length)))});return}   // replay the last half hour in the first ~20 s
+  plan.slice(-12).forEach(function(b,i){ghostOut(b,i*450)})}
+// ---- owner only: turn on live visitors / agent drones (never shown to visitors: the hub sends it only to the owner)
+var setupEl=null,SETUP=null;
+function copyText(t,btn){var done=function(){var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o},1600)};
+  try{navigator.clipboard.writeText(t).then(done,function(){fallbackCopy(t)&&done()})}catch(err){fallbackCopy(t)&&done()}}
+function fallbackCopy(t){try{var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();var ok=document.execCommand('copy');document.body.removeChild(ta);return ok}catch(err){return false}}
+function setupDismissed(){try{return localStorage.getItem('caldera-setup-dismissed')==='1'}catch(err){return false}}
+function ownerSetup(o){SETUP=o;if(MINI||!o||setupDismissed()||o.dismissed)return;var needLive=o.liveOff&&o.sites&&o.sites.length,needAg=o.agentsOff&&o.agentPrompt;if(!needLive&&!needAg){if(setupEl)setupEl.remove();return}
+  if(!setupEl){setupEl=document.createElement('div');setupEl.className='c-setup';st.parentNode.insertBefore(setupEl,st.nextSibling)}
+  var snip=function(s){return '<script async src="'+o.hub+'/t.js" data-site="'+s.key+'"></'+'script>'};
+  var aiLive='Add Caldera live traffic to my websites, so visits show up as people arriving in my Caldera city.\n\nFor each site below, find the repo that builds that site, add the tag to the shared layout so it loads on every page (in <head>), deploy it, then open the live site and confirm a visit appears in my city at '+o.hub+(HND?'/@'+HND+'/city.html':'')+' (it shows within about 10 seconds).\n\nOn the signup success step call window.caldera && caldera(\'signup\'), and after a purchase caldera(\'buy\').\n\n'+(o.sites||[]).map(function(s){return '- '+s.project+':\n  '+snip(s)}).join('\n');
+  setupEl.innerHTML=(needLive?'<div class="c-su-row"><span>Live visitors are off. See people arrive in your city as they visit your sites.</span><button type="button" class="c-su-go" data-p="live">Set up &rarr;</button></div>':'')
+    +(needAg?'<div class="c-su-row"><span>Watch your AI agents work in your city.</span><button type="button" class="c-su-go" data-p="agents">Set up &rarr;</button></div>':'')
+    +'<button type="button" class="c-su-x" aria-label="Dismiss" title="Hide this">&times;</button>'
+    +(needLive?'<div class="c-su-panel" data-panel="live" hidden><p>Paste each district\'s line into that site\'s pages (in the shared layout\'s &lt;head&gt;). Every visit then drops into that district live. Mark conversions with <code>caldera(\'signup\')</code> and <code>caldera(\'buy\')</code>.</p>'
+      +(o.sites||[]).map(function(s,i){return '<div class="c-su-site"><b>'+e(s.project)+'</b><code id="su-s'+i+'">'+e(snip(s))+'</code><button type="button" data-copy="su-s'+i+'">Copy</button></div>'}).join('')
+      +'<button type="button" class="c-su-ai" data-ai="live">Copy prompt for my AI</button></div>':'')
+    +(needAg?'<div class="c-su-panel" data-panel="agents" hidden><p>Paste this into Claude Code on each computer you use. Each agent then flies as a drone over the repo it is working in.</p><button type="button" class="c-su-ai" data-ai="agents">Copy prompt for my AI</button></div>':'');
+  setupEl.querySelectorAll('.c-su-go').forEach(function(bt){bt.onclick=function(){var p=setupEl.querySelector('[data-panel="'+bt.getAttribute('data-p')+'"]');if(p)p.hidden=!p.hidden}});
+  setupEl.querySelectorAll('[data-copy]').forEach(function(bt){bt.onclick=function(){copyText(document.getElementById(bt.getAttribute('data-copy')).textContent,bt)}});
+  setupEl.querySelectorAll('.c-su-ai').forEach(function(bt){bt.onclick=function(){copyText(bt.getAttribute('data-ai')==='live'?aiLive:o.agentPrompt,bt)}});
+  setupEl.querySelector('.c-su-x').onclick=function(){try{localStorage.setItem('caldera-setup-dismissed','1')}catch(err){}if(window.parent!==window)parent.postMessage({caldera:'setup-dismiss'},'*');setupEl.remove();setupEl=null}}
+function liveConnected(){if(!setupEl||!SETUP||!SETUP.liveOff)return;var any=Object.keys(LV.d).some(function(k){return (+LV.d[k].views||0)>0||(+LV.d[k].level||0)>0});if(!any)return;
+  SETUP.liveOff=false;ownerSetup(SETUP);var seen=false;try{seen=localStorage.getItem('caldera-live-connected')==='1';localStorage.setItem('caldera-live-connected','1')}catch(err){}
+  if(!seen&&toasts){var t=document.createElement('div');t.className='c-toast';t.textContent='✅ Live visitors connected';toasts.insertBefore(t,toasts.firstChild);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},6000)}}
+// extras from the hub (weather endpoint, owner setup) or from Obsidian (postMessage)
+var EX=window.CALDERA_EXTRAS||null;
+function fetchWx(){if(!EX||!EX.weather||document.hidden)return;fetch(EX.weather,{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(w){if(w&&w.c){WX=w;applyWeather()}}).catch(function(){})}
+if(EX){if(EX.weather){setTimeout(fetchWx,300);setInterval(fetchWx,15*60000)}if(EX.owner)setTimeout(function(){ownerSetup(EX.owner)},50)}
+window.addEventListener('message',function(ev){var m=ev.data;if(ev.source!==parent||!m||m.caldera!=='extras'||!m.data)return;if(m.data.weather&&m.data.weather.c){WX=m.data.weather;applyWeather()}if(m.data.owner)ownerSetup(m.data.owner)});
+
 // ---- agents: a drone over the building each AI agent is working in. Working = beam into the roof, thinking = circling,
 // waiting for you = parked at the HQ pad, blinking amber. Public pages only get district + state, never what it's doing.
 var AG={},AGC={working:'#3DF2FF',thinking:'#B58CFF',waiting:'#FFB020',idle:'#6F7C8F',done:'#6F7C8F'},BREPO={},BDIST={};
@@ -4443,10 +4613,11 @@ function drawObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.w
 function drawSky(){var c=cx;c.setTransform(dpr,0,0,dpr,0,0);
   if(sky==='grid'){c.fillStyle='#010207';c.fillRect(0,0,vw,vh);var g0=c.createRadialGradient(vw/2,vh*.38,10,vw/2,vh*.38,Math.max(vw,vh)*.7);g0.addColorStop(0,'rgba(30,70,140,.45)');g0.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g0;c.fillRect(0,0,vw,vh);
     c.strokeStyle='rgba(61,242,255,.07)';c.lineWidth=1;for(var y=vh*.12;y<vh;y+=26){c.beginPath();c.moveTo(0,y);c.lineTo(vw,y);c.stroke()}return}var g=c.createLinearGradient(0,0,0,vh);g.addColorStop(0,P.sky[0]);g.addColorStop(.6,P.sky[1]);g.addColorStop(1,P.sky[2]);c.fillStyle=g;c.fillRect(0,0,vw,vh);
-  if(sky==='night'){for(var s=0;s<90;s++){c.fillStyle='rgba(255,255,255,'+(.25+rnd(s)*.6)+')';var sz=rnd(s*5)<.1?1.8:1.1;c.fillRect(rnd(s*3)*vw,rnd(s*7)*vh*.5,sz,sz)}
-    c.fillStyle='#F4F1E4';c.beginPath();c.arc(vw*.86,vh*.13,13,0,7);c.fill();c.fillStyle=P.sky[0];c.beginPath();c.arc(vw*.86+5,vh*.13-3,12,0,7);c.fill()}
-  else{var drift=(T/60000)%1;for(var k=0;k<6;k++){var x=((rnd(k*9)+drift*(.4+rnd(k)*.4))%1.2-.1)*vw,y=(.06+rnd(k*4)*.3)*vh,s2=.7+rnd(k*2)*.8;c.fillStyle=sky==='dusk'?'rgba(255,200,190,.55)':'rgba(255,255,255,.85)';
-    [[0,0,22],[18,4,16],[-18,5,15],[8,-8,15],[-6,-6,13]].forEach(function(b){c.beginPath();c.arc(x+b[0]*s2,y+b[1]*s2,b[2]*s2,0,7);c.fill()})}}}
+  var cc=wxCloud(),wk=wxKind(),tint={partly:.06,overcast:.4,fog:.42,drizzle:.32,rain:.46,storm:.62,snow:.36}[wk]||0;
+  if(tint){c.fillStyle=sky==='night'?'rgba(18,22,32,'+tint+')':sky==='dusk'?'rgba(110,100,120,'+tint+')':'rgba(140,148,160,'+tint+')';c.fillRect(0,0,vw,vh)}
+  if(sky==='night'&&cc<60){c.globalAlpha=1-cc/60;for(var s=0;s<90;s++){c.fillStyle='rgba(255,255,255,'+(.25+rnd(s)*.6)+')';var sz=rnd(s*5)<.1?1.8:1.1;c.fillRect(rnd(s*3)*vw,rnd(s*7)*vh*.5,sz,sz)}
+    c.fillStyle='#F4F1E4';c.beginPath();c.arc(vw*.86,vh*.13,13,0,7);c.fill();c.fillStyle=P.sky[0];c.beginPath();c.arc(vw*.86+5,vh*.13-3,12,0,7);c.fill();c.globalAlpha=1}
+  drawClouds(c)}
 function carPos(car){var a=iso(car.i,car.j),b=iso(car.ti,car.tj),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,nx=-uy,ny=ux*.5;return {x:a.x+dx*car.t+nx*4,y:a.y+dy*car.t+ny*4,ux:ux,uy:uy}}
 function drawCycles(){var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.globalCompositeOperation='lighter';c.lineCap='round';c.lineJoin='round';
   var tn=performance.now();cars.forEach(function(car,k){var f=fa(car,tn),col=k%2?ORANGE:CYAN,tr=car.trail||[];if(tr.length>1){c.strokeStyle=col;c.globalAlpha=.35*f;c.lineWidth=4;c.beginPath();c.moveTo(tr[0][0],tr[0][1]);for(var m=1;m<tr.length;m++)c.lineTo(tr[m][0],tr[m][1]);c.stroke();
@@ -4480,14 +4651,15 @@ function drawLive(){var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dp
   if(P.lamp){c.globalCompositeOperation='lighter';lamps.forEach(function(l){var g=c.createRadialGradient(l.x+3,l.y-15,0,l.x+3,l.y-6,26);g.addColorStop(0,'rgba(255,214,140,'+(.35*P.lamp)+')');g.addColorStop(1,'rgba(255,214,140,0)');c.fillStyle=g;c.beginPath();c.arc(l.x+3,l.y-8,26,0,7);c.fill()});c.globalCompositeOperation='source-over'}
   if(sky==='grid'){c.globalCompositeOperation='lighter';beacons.forEach(function(b){var pr=(T%2400)/2400,g=c.createRadialGradient(b.x,b.y,0,b.x,b.y,30*pr+4);g.addColorStop(0,'rgba(255,255,255,.0)');g.addColorStop(.8,'rgba(61,242,255,'+(.5*(1-pr))+')');g.addColorStop(1,'rgba(61,242,255,0)');c.fillStyle=g;c.beginPath();c.ellipse(b.x,b.y,30*pr+4,(30*pr+4)*.5,0,0,7);c.fill()});c.globalCompositeOperation='source-over';return}
   beacons.forEach(function(b){if(Math.floor(T/900)%2){c.fillStyle='#FF3B30';c.beginPath();c.arc(b.x,b.y,2,0,7);c.fill();if(sky!=='day'){c.globalCompositeOperation='lighter';var g=c.createRadialGradient(b.x,b.y,0,b.x,b.y,10);g.addColorStop(0,'rgba(255,60,48,.6)');g.addColorStop(1,'rgba(255,60,48,0)');c.fillStyle=g;c.beginPath();c.arc(b.x,b.y,10,0,7);c.fill();c.globalCompositeOperation='source-over'}}})}
-function frame(){T=performance.now();if(L1.width!==cv.width||L1.height!==cv.height){L1.width=L2.width=cv.width;L1.height=L2.height=cv.height;dirty=true}
+var lastPT=0;function frame(){T=performance.now();if(L1.width!==cv.width||L1.height!==cv.height){L1.width=L2.width=cv.width;L1.height=L2.height=cv.height;dirty=true}
   if(under){if(UL.width!==cv.width||UL.height!==cv.height){UL.width=cv.width;UL.height=cv.height;UDIRTY=true}
     if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false;UDIRTY=true}if(UDIRTY){drawUnder();UDIRTY=false}
     cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#03020A';cx.fillRect(0,0,cv.width,cv.height);
     cx.globalAlpha=.32;cx.drawImage(L1,0,0);cx.globalAlpha=.22;cx.drawImage(L2,0,0);cx.globalAlpha=1;cx.drawImage(UL,0,0);
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false}
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawCars();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());
+  var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh)}
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
 var last=0,FPS_MS=MINI?50:30;function tick(ts){if(!document.hidden&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
@@ -4530,6 +4702,9 @@ function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.
 if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes in page coordinates, for automated checks
   buildings:function(){var b=st.getBoundingClientRect();return hits.filter(function(h){return h.r}).map(function(h){return {name:h.r.locked?'':h.r.name,locked:!!h.r.locked,url:repoUrl(h.r),x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0*.35+h.y1*.65)*cam.z}})},
   labels:function(){var b=st.getBoundingClientRect();return tagHits.map(function(t){return {url:t.url,x:b.left+cam.x+(t.x0+t.x1)/2*cam.z,y:b.top+cam.y+(t.y0+t.y1)/2*cam.z}})},
+  walks:function(){var b=st.getBoundingClientRect(),tn=performance.now();return WALKS.filter(function(w){return tn>=w.born}).map(function(w){var p=walkAt(w);return {id:w.id,ghost:w.ghost,f:w.d/w.len,x:b.left+cam.x+p.x*cam.z,y:b.top+cam.y+p.y*cam.z}})},
+  clouds:function(){return CLOUDS.map(function(c){return {x:c.x,y:c.y,gone:c.gone}})},
+  weather:function(){return {kind:wxKind(),mode:WXMODE,wx:WX,phase:phase,keys:DAYKEYS}},
   fx:function(){return {drops:FX.drops.length,queue:FX.queue.length,parts:FX.parts.length,beams:FX.beams.length,more:Object.keys(FX.more).length,z:cam.z}},
   point:function(locked){var b=st.getBoundingClientRect();for(var i=0;i<hits.length;i++){var h=hits[i];if(!h.r||!!h.r.locked!==locked||(!locked&&!repoUrl(h.r)))continue;
     for(var fy=.2;fy<.95;fy+=.1)for(var fx=.2;fx<.85;fx+=.15){var wx=h.x0+(h.x1-h.x0)*fx,wy=h.y0+(h.y1-h.y0)*fy,sx=cam.x+wx*cam.z,sy=cam.y+wy*cam.z,g=at(sx,sy);
@@ -4545,7 +4720,11 @@ bl.setAttribute('aria-pressed',String(labels));bl.onclick=function(){labels=!lab
 var MN={auto:'Auto',grid:'Grid',dawn:'Dawn',day:'Day',dusk:'Dusk',evening:'Evening',night:'Night'};
 function skyLabel(){bs.textContent=SKYMODE==='auto'?'Auto \u00b7 '+MN[phase]:MN[SKYMODE];bs.title='Lighting: '+(SKYMODE==='auto'?'follows your clock (now '+MN[phase].toLowerCase()+')':MN[SKYMODE].toLowerCase())+'. Click for the next one.'}
 skyLabel();bs.onclick=function(){SKYMODE=MODES[(MODES.indexOf(SKYMODE)+1)%MODES.length];try{localStorage.setItem('caldera-sky',SKYMODE)}catch(err){}applySky();skyLabel();draw()};
-setInterval(function(){if(SKYMODE!=='auto')return;var k=palKey;applySky();skyLabel();if(palKey!==k)draw()},60000);   // an all-day window drifts through the day
+setInterval(function(){if(SKYMODE!=='auto')return;var k=palKey;applySky();skyLabel();if(palKey!==k)draw()},60000);
+setInterval(function(){if(TODAY){buildTraces();todayLine()}},5*60000);   // footprints fade through the day and reset at local midnight
+var bw=document.getElementById('t-wx');function wxLabel(){if(!bw)return;var k=wxKind(),ic={clear:'\u2600\uFE0F',partly:'\u26C5',overcast:'\u2601\uFE0F',fog:'\uD83C\uDF2B\uFE0F',drizzle:'\uD83C\uDF26\uFE0F',rain:'\uD83C\uDF27\uFE0F',storm:'\u26C8\uFE0F',snow:'\uD83C\uDF28\uFE0F'}[k]||'';
+  bw.innerHTML=ic+'<span class="t-txt"> '+(WXMODE==='auto'?'Auto':WXN[WXMODE]||k)+'</span>';bw.title='Weather: '+(WXMODE==='auto'?(WX&&WX.c?'your local weather'+(WX.place?' in '+WX.place:'')+' ('+k+')':'clear (no local weather yet)'):WXN[WXMODE]||k)+'. Click for the next one.'}
+if(bw){wxLabel();bw.onclick=function(){WXMODE=WXMODES[(WXMODES.indexOf(WXMODE)+1)%WXMODES.length];try{localStorage.setItem('caldera-weather',WXMODE)}catch(err){}PRECIP.length=0;wxLabel();draw()}}   // an all-day window drifts through the day
 document.getElementById('t-reset').onclick=function(){fit();show(null)};
 var bsnd=document.getElementById('t-snd');function sndLabel(){bsnd.innerHTML=sound?'&#x1F50A;':'&#x1F507;';bsnd.setAttribute('aria-pressed',String(sound));bsnd.title='Sound for arrivals, signups and sales ('+(sound?'on':'off')+')'}
 if(bsnd){sndLabel();bsnd.onclick=function(){sound=!sound;try{localStorage.setItem('caldera-sound',sound?'1':'0')}catch(err){}sndLabel();if(sound)tone([660,880],.06)}}
@@ -5440,7 +5619,7 @@ function renderOwner(o) {
     if (!a) body = `<p class="ow-muted">Publish your profile to start seeing visits, gravity and links here.</p>`;
     else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc4(a.error)}). Your vault sections below still work offline.</p>`;
     else {
-      const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"]].concat(o.pending ? [[o.pending, o.pending === 1 ? "friend request" : "friend requests"]] : []);
+      const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"], ...a.kudos?.length ? [[a.kudos.length, "kudos"]] : []].concat(o.pending ? [[o.pending, o.pending === 1 ? "friend request" : "friend requests"]] : []);
       body += `<div class="ow-tiles">${tiles.map(([n, l]) => `<div class="ow-tile${Number(n) ? " is-up" : ""}"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`;
       const byDay = new Map(a.days.map((d) => [d[0], d])), t0 = Date.parse(o.now);
       const days14 = Array.from({ length: 14 }, (_, i) => {
@@ -5449,9 +5628,11 @@ function renderOwner(o) {
       });
       const max = Math.max(1, ...days14.map((d) => d[1]));
       if (a.days.length) body += `<div class="ow-spark" title="Page views, last 14 days">${days14.map((d) => `<i style="height:${d[1] ? Math.max(6, Math.round(d[1] / max * 100)) : 2}%;${d[1] ? "" : "opacity:.25"}" title="${esc4(d[0])}: ${d[1]} views, ${d[2]} visitors"></i>`).join("")}</div><div class="ow-muted ow-small">Page views, last 14 days &middot; ${a.totalViews.toLocaleString("en-US")} all time</div>`;
+      if (typeof a.viewsAll === "number") body += `<div class="ow-muted ow-small">Your page's view count: <b>${a.viewsAll.toLocaleString("en-US")}</b> all time &middot; <b>${(a.viewsWeek || 0).toLocaleString("en-US")}</b> this week (one per visitor per day)${a.showViews === false ? " &middot; hidden from visitors" : ""}</div>`;
       const lines = [];
       if (a.pages.length) lines.push(`<li>Most read: ${a.pages.slice(0, 4).map(([p, n]) => `${esc4(pageName(p))} (${n})`).join(", ")}</li>`);
       for (const g of a.gravity.slice(0, 5)) lines.push(`<li><b>${g.from ? "@" + esc4(g.from) : "Someone"}</b> gave you gravity${g.reason ? `: &ldquo;${esc4(g.reason)}&rdquo;` : ""} <span class="ow-muted">${ago(g.ts, o.now)}</span></li>`);
+      for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc4(k.emoji)} <b>${k.from ? "@" + esc4(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
       for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc4(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
       if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} friend request${o.pending === 1 ? "" : "s"} waiting</a></li>`);
       if (a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map((l) => `@${esc4(l.src_handle)}'s &ldquo;${esc4(l.src_title)}&rdquo;`).join(", ")}</li>`);
@@ -5595,8 +5776,8 @@ var ProfileView = class extends import_obsidian5.ItemView {
     root.addClass("caldera-profile-view");
     const bar = root.createDiv("caldera-pv-bar");
     const seg = bar.createDiv("caldera-pv-seg");
-    const mine = seg.createEl("button", { text: "My view", attr: { "aria-label": "Your profile built from your vault, with private sections only you see" } });
     const pub = seg.createEl("button", { text: "Public view", attr: { "aria-label": "Your live page on the hub, exactly as visitors see it" } });
+    const mine = seg.createEl("button", { text: "Private view", attr: { "aria-label": "Your profile built from your vault, with private sections only you see" } });
     const setMode = (m) => {
       this.mode = m;
       mine.toggleClass("is-on", m === "mine");
@@ -5721,7 +5902,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
     this.frame.removeAttribute("src");
     this.frame.srcdoc = this.page(this.current.split("#")[0], this.current.split("#")[1] || "");
     const t = /* @__PURE__ */ new Date();
-    this.status.setText(`My view, built ${hm(t.getTime())}. Private sections are only visible here.`);
+    this.status.setText(`Private view, built ${hm(t.getTime())}. Private sections are only visible here.`);
   }
   page(path, hash) {
     const { text, uris } = this.built;
@@ -6111,7 +6292,7 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
     this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
     this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
-    this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
+    this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (Public view + Private view)", callback: () => this.openProfileTab() });
     this.addCommand({ id: "pop-city", name: "Pop out my city (small window that stays on top)", callback: () => void this.popCity() });
     this.addCommand({ id: "pair-device", name: "Sign in another device", callback: () => this.pairDevice() });
     this.addCommand({ id: "masthead", name: "Set my masthead (cover image)", callback: () => this.pickImage("banner") });
@@ -6387,6 +6568,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
         asks: data.asks,
         offers: data.offers,
         listed: eff.listed !== false,
+        showViews: this.settings.showViews !== false,
         page: "index.html",
         updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
@@ -6588,6 +6770,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
         }
         void this.welcomeNewMembers();
         void this.attention();
+        void this.kudosNews();
       }
       this.refreshPanel();
       if (loud || cards) new import_obsidian7.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -6697,6 +6880,33 @@ caldera_received: ${e.ts}
       const note = new import_obsidian7.Notice(frag, 15e3);
       note.noticeEl.addEventListener("click", () => this.openShare());
     } catch {
+    }
+  }
+  /** New kudos since the last sync: a Notice per batch (who sent what). */
+  async kudosNews() {
+    const s = this.settings, me = s.identity;
+    if (!me || !s.handle) return;
+    try {
+      const since = s.lastKudos || new Date(Date.now() - 864e5).toISOString();
+      const r = await this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/kudos?since=${encodeURIComponent(since)}`, void 0, true);
+      const list = r.kudos || [];
+      if (!list.length) return;
+      s.lastKudos = list[0].ts;
+      await this.saveSettings();
+      const who = list.slice(0, 3).map((k) => `${k.emoji} ${k.from ? "@" + k.from : "someone"}`).join(", ");
+      new import_obsidian7.Notice(`Caldera: kudos from ${who}${list.length > 3 ? ` and ${list.length - 3} more` : ""}`, 12e3);
+    } catch {
+    }
+  }
+  /** Send someone kudos from Obsidian (one per person per day). */
+  async sendKudos(handle, kind) {
+    const me = this.settings.identity;
+    if (!me || !this.settings.handle) return void new import_obsidian7.Notice("Publish your page first.");
+    try {
+      await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/kudos`, { to: handle, kind }, true);
+      new import_obsidian7.Notice(`Kudos sent to @${handle}`);
+    } catch (e) {
+      new import_obsidian7.Notice(e.message);
     }
   }
   /** Community hosts: a friend request (with a note) to each person who joins after the option was turned on. */
@@ -6980,6 +7190,7 @@ var CalderaView = class extends import_obsidian7.ItemView {
           }
         };
         row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
+        row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, sg.handle, p);
       }
     }
     el.createEl("h4", { text: "Invite someone new" });
@@ -6998,9 +7209,16 @@ var CalderaView = class extends import_obsidian7.ItemView {
       const row = el.createDiv("caldera-row");
       row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") });
       row.createEl("button", { text: "+ gravity" }).onclick = () => new GravityModal(this.app, f, (r) => p.giveGravity(f, r)).open();
+      if (f.handle) row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, f.handle, p);
     }
   }
 };
+function kudosMenu(ev, handle, plugin) {
+  const m = new import_obsidian7.Menu();
+  for (const [k, em] of [["heart", "\u2764\uFE0F"], ["up", "\u{1F44D}"], ["fire", "\u{1F525}"], ["sparkle", "\u2728"]])
+    m.addItem((i) => i.setTitle(`${em}  Send @${handle} ${k === "up" ? "a thumbs up" : k}`).onClick(() => void plugin.sendKudos(handle, k)));
+  m.showAtMouseEvent(ev);
+}
 var PreviewModal = class extends import_obsidian7.Modal {
   constructor(app, html) {
     super(app);

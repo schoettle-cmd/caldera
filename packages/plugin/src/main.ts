@@ -3,7 +3,7 @@
  * Network use (disclosed): only when you publish, sync your inbox, or act on friends/asks/gravity,
  * and only to the hub you configure. No telemetry.
  */
-import { App, FileSystemAdapter, ItemView, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
+import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom } from "./settings";
 import { collectProfile } from "./collect";
@@ -55,7 +55,7 @@ export default class CalderaPlugin extends Plugin {
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
     this.addCommand({ id: "open", name: "Open my public page (as owner)", callback: () => this.openProfile() });
     this.addCommand({ id: "open-private", name: "Open my private view", callback: () => this.openPrivate() });
-    this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (My view + Public view)", callback: () => this.openProfileTab() });
+    this.addCommand({ id: "profile-tab", name: "Open my profile in Obsidian (Public view + Private view)", callback: () => this.openProfileTab() });
     this.addCommand({ id: "pop-city", name: "Pop out my city (small window that stays on top)", callback: () => void this.popCity() });
     this.addCommand({ id: "pair-device", name: "Sign in another device", callback: () => this.pairDevice() });
     this.addCommand({ id: "masthead", name: "Set my masthead (cover image)", callback: () => this.pickImage("banner") });
@@ -257,7 +257,7 @@ export default class CalderaPlugin extends Plugin {
         photos: { avatar: data.avatar, banner: data.banner }, links: data.links,
         sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
-        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, page: "index.html", updated: data.updated,
+        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, showViews: this.settings.showViews !== false, page: "index.html", updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
         garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
         groups: groupsFrom((this.settings.groups || []).join(",")), languages: (data as any).code?.languages?.slice(0, 6) || [],
@@ -401,7 +401,7 @@ export default class CalderaPlugin extends Plugin {
       await this.saveSettings();
       if (this.settings.handle) {
         try { this.suggestions = (await this.api("GET", `/v1/suggest/${encodeURIComponent(me.id)}?n=4`)).suggestions || []; } catch { /* older hub */ }
-        void this.welcomeNewMembers(); void this.attention();
+        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews();
       }
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -481,6 +481,27 @@ export default class CalderaPlugin extends Plugin {
       const frag = createFragment(f => { f.createEl("b", { text: `Caldera, ${days >= 6 ? "this week" : days === 1 ? "since yesterday" : `last ${days} days`}: ` }); f.appendText(bits.join(", ") + ". "); f.createEl("u", { text: "Share your page" }); });
       const note = new Notice(frag, 15_000); note.noticeEl.addEventListener("click", () => this.openShare());
     } catch { /* offline or older hub */ }
+  }
+
+  /** New kudos since the last sync: a Notice per batch (who sent what). */
+  async kudosNews() {
+    const s = this.settings, me = s.identity; if (!me || !s.handle) return;
+    try {
+      const since = s.lastKudos || new Date(Date.now() - 86400_000).toISOString();
+      const r = await this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/kudos?since=${encodeURIComponent(since)}`, undefined, true);
+      const list: { emoji: string; from: string | null; ts: string }[] = r.kudos || [];
+      if (!list.length) return;
+      s.lastKudos = list[0]!.ts; await this.saveSettings();
+      const who = list.slice(0, 3).map(k => `${k.emoji} ${k.from ? "@" + k.from : "someone"}`).join(", ");
+      new Notice(`Caldera: kudos from ${who}${list.length > 3 ? ` and ${list.length - 3} more` : ""}`, 12_000);
+    } catch { /* offline or older hub */ }
+  }
+
+  /** Send someone kudos from Obsidian (one per person per day). */
+  async sendKudos(handle: string, kind: "heart" | "up" | "fire" | "sparkle") {
+    const me = this.settings.identity; if (!me || !this.settings.handle) return void new Notice("Publish your page first.");
+    try { await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/kudos`, { to: handle, kind }, true); new Notice(`Kudos sent to @${handle}`); }
+    catch (e: any) { new Notice(e.message); }
   }
 
   /** Community hosts: a friend request (with a note) to each person who joins after the option was turned on. */
@@ -702,6 +723,7 @@ class CalderaView extends ItemView {
         who.createDiv({ cls: "setting-item-description", text: sg.why });
         row.createEl("button", { text: "Add" }).onclick = async () => { try { await p.requestFriend(sg.handle); p.suggestions = p.suggestions.filter(x => x !== sg); this.render(); } catch (e: any) { new Notice(e.message); } };
         row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
+        row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, sg.handle, p);
       }
     }
     el.createEl("h4", { text: "Invite someone new" });
@@ -714,8 +736,17 @@ class CalderaView extends ItemView {
       const row = el.createDiv("caldera-row");
       row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") });
       row.createEl("button", { text: "+ gravity" }).onclick = () => new GravityModal(this.app, f, r => p.giveGravity(f, r)).open();
+      if (f.handle) row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, f.handle!, p);
     }
   }
+}
+
+/** A small menu: ❤️ 👍 🔥 ✨ -> send that kudos. */
+function kudosMenu(ev: MouseEvent, handle: string, plugin: CalderaPlugin) {
+  const m = new Menu();
+  for (const [k, em] of [["heart", "\u2764\uFE0F"], ["up", "\u{1F44D}"], ["fire", "\u{1F525}"], ["sparkle", "\u2728"]] as const)
+    m.addItem(i => i.setTitle(`${em}  Send @${handle} ${k === "up" ? "a thumbs up" : k}`).onClick(() => void plugin.sendKudos(handle, k)));
+  m.showAtMouseEvent(ev);
 }
 
 // ------------------------------------------------------------------ modals

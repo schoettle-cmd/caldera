@@ -42,6 +42,8 @@ export interface CalderaSettings {
   invitedBy?: string;                 // handle whose invite link brought this vault to Caldera (sent once, with the first publish)
   sharePrompted?: boolean;
   finishOffered?: boolean;            // the one-time "finish your page" offer for a bare page has been shown            // the "your page is live, share it" screen has been shown
+  showViews?: boolean;                // show the public view count on my page (default on)
+  lastKudos?: string;                 // ISO time of the newest kudos already announced
   lastAttention?: string;             // ISO time of the last "people looked at your page" notice (at most one a day)
   welcomeNew?: boolean;               // community hosts: send a friend request to each new member
   welcomeSince?: string;              // ... who joined after this time
@@ -101,6 +103,8 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
     new Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.")
       .addToggle(t => t.setValue(s.listed !== false).onChange(async v => { s.listed = v; await this.plugin.saveSettings(); }));
+    new Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.")
+      .addToggle(t => t.setValue(s.showViews !== false).onChange(async v => { s.showViews = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
 
     new Setting(containerEl).setName("Friends and sharing").setHeading();
     new Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).")
@@ -166,7 +170,7 @@ export class CalderaSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Live traffic on your city").setHeading();
     const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
     new Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length
-      ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in My view and your private address."
+      ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address."
       : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
     for (const site of sites) {
       const snippet = `<script async src="${hub}/t.js" data-site="${site.key}"></script>`;
@@ -179,7 +183,7 @@ export class CalderaSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("AI agents on your city").setHeading();
     new Setting(containerEl).setName("Show your AI agents working in your city")
-      .setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (My view and your private address); your public city only shows anonymous drones."
+      .setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (your private view and private address); your public city only shows anonymous drones."
         : "Publish once (with a city) to get your agent key.")
       .addButton(b => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
         await navigator.clipboard.writeText(agentSetupPrompt(hub, s.agentKey!)); new Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");

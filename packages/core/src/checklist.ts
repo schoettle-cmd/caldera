@@ -1,5 +1,5 @@
 /**
- * "Finish your page": the same checklist in every private view (Obsidian's My view, the hub's /me page for GitHub
+ * "Finish your page": the same checklist in every private view (Obsidian's Private view, the hub's /me page for GitHub
  * sign-ups, and one nudge in the daily email). Pure: state in, items out.
  */
 import { PRIVACY_RULES } from "./agent-prompt.js";
