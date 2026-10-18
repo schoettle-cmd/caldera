@@ -40,6 +40,7 @@ export interface CalderaSettings {
   graph: string[];                    // right rail graph: note names, sized by how many notes link to each; empty = topics
   backlinks: [string, string][];      // right rail list: [title, context]; empty = public notes
   summary: string; now: string[];      // owner-written page text (Caldera/profile.md)
+  nowAuto?: boolean;                   // "now: auto" (or no now list): Now is the last week's wins from the journal
   timeline: [string, string][];       // [year, text]
   projects: [string, string][];       // [name, "status | url"]
   knows: [string, string][];          // [label, vault folder] -> note counts

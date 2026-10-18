@@ -33,6 +33,8 @@ export interface ProfileData {
   backlinks?: [string, string][]; backlinkLabel?: string;         // right rail list
   // owner-written (Caldera/profile.md)
   summary?: string; now?: string[]; timeline?: [string, string][];
+  /** Now came from the journal (the last week's wins), not from the profile note */
+  nowAuto?: boolean;
   projects?: { name: string; status: string; url: string; commits?: number }[];
   // computed from the vault (counts only)
   heat?: { date: string; n: number }[];                    // 26 weeks, Monday-first, oldest first
@@ -184,7 +186,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   if (s.properties && p.properties.length) parts.push(`${head("At a glance", [gh ? "github" : "profile"], gh ? "From the GitHub profile." : "Facts from the profile note in the vault.")}<dl class="props">${p.properties.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`);
   if (s.numbers) parts.push(`${head("The vault in numbers", ["obsidian"], "Counts only. What the notes say stays private.")}<div class="stat-strip">${[[fmt(p.stats.notes), "notes"], [(p.stats.words / 1e6).toFixed(2) + "M", "words"], [fmt(p.stats.links), "links between notes"], [String(p.stats.activeDays), "active days, 26 weeks"], ...(p.extraNumbers || [])].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.summary !== false && p.summary) parts.push(`<div class="callout"><div class="callout-title">Summary</div>${inline(p.summary)}</div>`);
-  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : "profile"], "What's in progress right now.")}<ul class="bullets">${p.now.map(x => `<li>${inline(x)}</li>`).join("")}</ul>`);
+  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : p.nowAuto ? "obsidian" : "profile"], p.nowAuto ? "What's been happening this week, from the daily journal. Updates by itself." : "What's in progress right now.")}<ul class="bullets">${p.now.map(x => `<li>${inline(x)}</li>`).join("")}</ul>`);
   for (const m of mainMods) parts.push(`<section class="module" data-module="${esc(m.slug)}">${head(m.title, ["module"], "A section written for this page in Obsidian.")}<div class="mod-body">${m.html}</div></section>`);
   if (s.activity !== false && p.heat?.length) {
     const lvl = (n: number) => n === 0 ? 0 : n < 5 ? 1 : n < 30 ? 2 : n < 200 ? 3 : 4;

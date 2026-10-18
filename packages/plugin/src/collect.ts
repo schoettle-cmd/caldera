@@ -205,7 +205,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     topics: [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18),
     daily, publicNotes: notesSorted,
     tabs: s.tabs?.length ? s.tabs : undefined,
-    summary: s.summary || undefined, now: s.now, timeline: s.timeline, projects, heat, growth, knows,
+    summary: s.summary || undefined, ...nowOf(s, daily), timeline: s.timeline, projects, heat, growth, knows,
     inbox: extra.inbox && Array.isArray(extra.inbox.kinds) ? extra.inbox : undefined,
     code: extra.code && typeof extra.code.commits === "number" ? extra.code : undefined,
     ai: extra.ai && typeof extra.ai.total === "number" && Array.isArray(extra.ai.models) ? extra.ai : undefined,
@@ -382,4 +382,17 @@ async function growGardenFromJournal(app: App, s: CalderaSettings, daily: DailyE
     for (const m of n.markdown.matchAll(/(?<!!)\[\[([^\]|#]+)/g)) { const t = m[1].trim(); if (parseXLink(t)) continue; const sl = byTitle.get(t.split("/").pop()!.replace(/\.md$/i, "").toLowerCase()); if (sl && sl !== n.slug) out.add(sl); }
     n.out = [...out];
   }
+}
+
+/** Now: the owner's own list from the profile note, unless it says "now: auto" or has none, and then the last 7 days of
+ *  journal wins (already through the privacy filter): newest day first, one per day, then seconds, near-duplicates
+ *  dropped, 4 at most. Nothing in the journal: no Now section. */
+export function nowOf(s: { now?: string[]; nowAuto?: boolean }, daily: { date: string; wins?: string[]; focus?: string[] }[]): { now?: string[]; nowAuto?: boolean } {
+  if (!s.nowAuto && s.now?.length) return { now: s.now };
+  const week = daily.slice(-8).reverse().map(d => (d.wins?.length ? d.wins : d.focus || []).map(x => String(x).trim()).filter(x => x.length > 12));
+  const words = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 3));
+  const near = (a: string, b: string) => { const A = words(a), B = words(b); let n = 0; for (const w of A) if (B.has(w)) n++; return n / Math.max(1, Math.min(A.size, B.size)) > 0.5; };
+  const out: string[] = [];
+  for (let k = 0; k < 3 && out.length < 4; k++) for (const day of week) { const t = day[k]; if (t && out.length < 4 && !out.some(o => near(o, t))) out.push(t.replace(/\.?$/, ".")); }
+  return out.length ? { now: out, nowAuto: true } : {};
 }

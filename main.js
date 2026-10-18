@@ -5275,7 +5275,7 @@ ${(() => {
   if (s.properties && p.properties.length) parts.push(`${head("At a glance", [gh ? "github" : "profile"], gh ? "From the GitHub profile." : "Facts from the profile note in the vault.")}<dl class="props">${p.properties.map(([k, v]) => `<dt>${esc3(k)}</dt><dd>${esc3(v)}</dd>`).join("")}</dl>`);
   if (s.numbers) parts.push(`${head("The vault in numbers", ["obsidian"], "Counts only. What the notes say stays private.")}<div class="stat-strip">${[[fmt(p.stats.notes), "notes"], [(p.stats.words / 1e6).toFixed(2) + "M", "words"], [fmt(p.stats.links), "links between notes"], [String(p.stats.activeDays), "active days, 26 weeks"], ...p.extraNumbers || []].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.summary !== false && p.summary) parts.push(`<div class="callout"><div class="callout-title">Summary</div>${inline(p.summary)}</div>`);
-  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : "profile"], "What's in progress right now.")}<ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
+  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : p.nowAuto ? "obsidian" : "profile"], p.nowAuto ? "What's been happening this week, from the daily journal. Updates by itself." : "What's in progress right now.")}<ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
   for (const m of mainMods) parts.push(`<section class="module" data-module="${esc3(m.slug)}">${head(m.title, ["module"], "A section written for this page in Obsidian.")}<div class="mod-body">${m.html}</div></section>`);
   if (s.activity !== false && p.heat?.length) {
     const lvl = (n) => n === 0 ? 0 : n < 5 ? 1 : n < 30 ? 2 : n < 200 ? 3 : 4;
@@ -5710,7 +5710,7 @@ async function collectProfile(app, s, social) {
     publicNotes: notesSorted,
     tabs: s.tabs?.length ? s.tabs : void 0,
     summary: s.summary || void 0,
-    now: s.now,
+    ...nowOf(s, daily),
     timeline: s.timeline,
     projects,
     heat,
@@ -5948,6 +5948,23 @@ ${pg.markdown.replace(/^\*[^\n]*\*\n\n/, "").replace(/^## /gm, "### ")}`;
     n.out = [...out];
   }
 }
+function nowOf(s, daily) {
+  if (!s.nowAuto && s.now?.length) return { now: s.now };
+  const week = daily.slice(-8).reverse().map((d) => (d.wins?.length ? d.wins : d.focus || []).map((x) => String(x).trim()).filter((x) => x.length > 12));
+  const words = (t) => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3));
+  const near = (a, b) => {
+    const A = words(a), B = words(b);
+    let n = 0;
+    for (const w of A) if (B.has(w)) n++;
+    return n / Math.max(1, Math.min(A.size, B.size)) > 0.5;
+  };
+  const out = [];
+  for (let k = 0; k < 3 && out.length < 4; k++) for (const day of week) {
+    const t = day[k];
+    if (t && out.length < 4 && !out.some((o) => near(o, t))) out.push(t.replace(/\.?$/, "."));
+  }
+  return out.length ? { now: out, nowAuto: true } : {};
+}
 
 // src/profile-file.ts
 var import_obsidian5 = require("obsidian");
@@ -5992,6 +6009,10 @@ function effectiveSettings(app, s) {
   e.backlinks = pairs(fm.backlinks) ?? e.backlinks;
   if (typeof fm.summary === "string") e.summary = fm.summary.trim();
   if (Array.isArray(fm.now)) e.now = fm.now.map((x) => String(x).trim()).filter(Boolean).slice(0, 8);
+  if (String(fm.now ?? "").trim().toLowerCase() === "auto") {
+    e.now = [];
+    e.nowAuto = true;
+  }
   e.timeline = pairs(fm.timeline) ?? e.timeline;
   e.projects = pairs(fm.projects) ?? e.projects;
   e.knows = pairs(fm.knows) ?? e.knows;
@@ -6019,8 +6040,7 @@ sections:
 ${Object.entries(s.sections).map(([k, v]) => `  ${k}: ${v}`).join("\n")}
 listed: ${s.listed !== false}
 summary: ${q(s.summary || "")}
-now:
-${list(s.now || [])}
+now:${s.nowAuto ? " auto" : "\n" + list(s.now || [])}
 timeline:
 ${list((s.timeline || []).map(([a, b]) => `${a} | ${b}`))}
 projects:
@@ -6054,7 +6074,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **tags** - what you're building, shown as chips on your page and searchable in People (e.g. \`[Social features, Next.js]\`). **hideTags** hides tags Caldera worked out from your public GitHub; **autoTags** \`false\` turns those off entirely.
 - **privateRepos** - how private repos show on your public city: \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything.
 - **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
-- **now** - what you're doing now, one line each.
+- **now** - what you're doing now, one line each. Or \`now: auto\` (and when there's no list): your last week of journal wins, updated on every publish.
 - **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
 - **projects** - \`Name | status | https://link\`.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).

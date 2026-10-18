@@ -42,6 +42,7 @@ export function effectiveSettings(app: App, s: CalderaSettings): CalderaSettings
   e.backlinks = pairs(fm.backlinks) ?? e.backlinks;
   if (typeof fm.summary === "string") e.summary = fm.summary.trim();
   if (Array.isArray(fm.now)) e.now = fm.now.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 8);
+  if (String(fm.now ?? "").trim().toLowerCase() === "auto") { e.now = []; e.nowAuto = true; }   // "now: auto": written from the last week of the journal
   e.timeline = pairs(fm.timeline) ?? e.timeline;
   e.projects = pairs(fm.projects) ?? e.projects;
   e.knows = pairs(fm.knows) ?? e.knows;
@@ -72,8 +73,7 @@ sections:
 ${Object.entries(s.sections).map(([k, v]) => `  ${k}: ${v}`).join("\n")}
 listed: ${s.listed !== false}
 summary: ${q(s.summary || "")}
-now:
-${list(s.now || [])}
+now:${s.nowAuto ? " auto" : "\n" + list(s.now || [])}
 timeline:
 ${list((s.timeline || []).map(([a, b]) => `${a} | ${b}`))}
 projects:
@@ -107,7 +107,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **tags** - what you're building, shown as chips on your page and searchable in People (e.g. \`[Social features, Next.js]\`). **hideTags** hides tags Caldera worked out from your public GitHub; **autoTags** \`false\` turns those off entirely.
 - **privateRepos** - how private repos show on your public city: \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything.
 - **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
-- **now** - what you're doing now, one line each.
+- **now** - what you're doing now, one line each. Or \`now: auto\` (and when there's no list): your last week of journal wins, updated on every publish.
 - **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
 - **projects** - \`Name | status | https://link\`.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
