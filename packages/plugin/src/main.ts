@@ -145,6 +145,19 @@ export default class CalderaPlugin extends Plugin {
   }
 
   // ---------------------------------------------------------------- hub client
+  /** "Your GitHub people" (circle logins not on Caldera yet), loaded when the friends panel opens. */
+  ghPeople: { people: { login: string; avatar: string; url: string; relation: string; invited: boolean; canEmail: boolean }[]; message: string; invitesLeft: number } | null = null;
+  ghPeopleLoading = false;
+  async loadGithubPeople(): Promise<void> {
+    const me = this.settings.identity; if (!me || !this.settings.handle || this.ghPeopleLoading) return;
+    this.ghPeopleLoading = true;
+    try { this.ghPeople = await this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/github-people`, undefined, true); } catch { this.ghPeople = { people: [], message: "", invitesLeft: 0 }; }
+    finally { this.ghPeopleLoading = false; }
+  }
+  async githubInvite(login: string): Promise<string> {
+    const me = this.settings.identity!; const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/github-invite`, { login }, true);
+    return String(r?.message || "Invite sent.");
+  }
   private async api(method: "GET" | "POST", path: string, body?: unknown, auth = false): Promise<any> {
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (auth) headers.authorization = "Bearer " + await this.authToken();
@@ -257,7 +270,7 @@ export default class CalderaPlugin extends Plugin {
         photos: { avatar: data.avatar, banner: data.banner }, links: data.links,
         sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
-        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, ...((eff as any).autoConnectRepos === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false } : {}), showViews: this.settings.showViews !== false, page: "index.html", updated: data.updated,
+        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, ...((eff as any).autoConnectRepos === false || (eff as any).autoConnectGithub === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false, autoConnectGithub: false } : {}), showViews: this.settings.showViews !== false, page: "index.html", updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
         garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
         groups: groupsFrom((this.settings.groups || []).join(",")), languages: (data as any).code?.languages?.slice(0, 6) || [],
@@ -391,9 +404,9 @@ export default class CalderaPlugin extends Plugin {
         this.api("GET", `/v1/requests/${encodeURIComponent(me.id)}`, undefined, true).catch(() => null)]);
       this.friends = fr.friends; this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
       // shared-repo friendships the hub made: announce each once
-      const seen = new Set(this.settings.seenRepoFriends || []), fresh = this.friends.filter(f => f.kind === "repo" && f.why && !seen.has(f.id));
+      const seen = new Set(this.settings.seenRepoFriends || []), fresh = this.friends.filter(f => (f.kind === "repo" || f.kind === "github") && f.why && !seen.has(f.id));
       if (fresh.length) {
-        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} both work on ${f.why}. You're now connected.`, 10_000);
+        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} are now connected: ${f.kind === "repo" ? "you both work on " : ""}${f.why}.`, 10_000);
         this.settings.seenRepoFriends = [...seen, ...fresh.map(f => f.id)].slice(-500); await this.saveSettings();   // first sync after updating: remember, don't announce
       }
       await this.sendQueuedFriends(me.id);
@@ -756,10 +769,25 @@ class CalderaView extends ItemView {
     const inv = `${s.hubUrl.replace(/\/$/, "")}/?invite=${encodeURIComponent(s.handle)}#install`;
     new Setting(el).addText(t => { t.setValue(inv); t.inputEl.readOnly = true; t.inputEl.onfocus = () => t.inputEl.select(); })
       .addButton(b => b.setButtonText("Copy").setCta().onClick(async () => { await navigator.clipboard.writeText(inv); new Notice("Invite link copied"); }));
+    // the people in your GitHub circle who aren't on Caldera yet: invite them (when they join you start out connected)
+    if (!p.ghPeople && !p.ghPeopleLoading) void p.loadGithubPeople().then(() => { if (p.ghPeople?.people.length) this.render(); });
+    if (p.ghPeople?.people.length) {
+      el.createEl("h4", { text: "Your GitHub people" });
+      el.createEl("p", { cls: "setting-item-description", text: "People you follow, who follow you, or who work on your repos, who aren't on Caldera yet. When they join, you start out connected." });
+      new Setting(el).setName("Invite message").setDesc(p.ghPeople.message).addButton(b => b.setButtonText("Copy").onClick(async () => { await navigator.clipboard.writeText(p.ghPeople!.message); new Notice("Invite message copied. Send it to them anywhere."); }));
+      for (const x of p.ghPeople.people.slice(0, 20)) {
+        const row = el.createDiv("caldera-row");
+        const who = row.createSpan(); who.createEl("b", { text: "@" + x.login }); who.createDiv({ cls: "setting-item-description", text: x.relation });
+        row.createEl("button", { text: "GitHub" }).onclick = () => window.open(x.url);
+        if (x.invited) row.createSpan({ cls: "setting-item-description", text: "invited" });
+        else if (x.canEmail) row.createEl("button", { text: "Email invite" }).onclick = async () => {
+          try { new Notice(await p.githubInvite(x.login)); x.invited = true; this.render(); } catch (e: any) { new Notice(e.message); } };
+      }
+    }
     el.createEl("h4", { text: `Friends (${p.friends.length})` });
     for (const f of p.friends) {
       const row = el.createDiv("caldera-row");
-      row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") + (f.kind === "repo" && f.why ? ` (both work on ${f.why})` : "") });
+      row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") + (f.why && f.kind === "repo" ? ` (both work on ${f.why})` : f.why && f.kind === "github" ? ` (${f.why})` : "") });
       row.createEl("button", { text: "+ gravity" }).onclick = () => new GravityModal(this.app, f, r => p.giveGravity(f, r)).open();
       if (f.handle) row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, f.handle!, p);
     }

@@ -3135,7 +3135,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       s.listed = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("Connect me with people on the same repos").setDesc("When another Caldera member works on one of the same public GitHub repos as you, you become friends automatically. Remove one like any friend and it never comes back.").addToggle((t) => t.setValue(s.autoConnectRepos !== false).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Connect me with my GitHub people").setDesc("Become friends automatically with Caldera members you follow or who follow you on GitHub, or who work on the same public repos, including people who join later. Remove one like any friend and it never comes back.").addToggle((t) => t.setValue(s.autoConnectRepos !== false).onChange(async (v) => {
       s.autoConnectRepos = v;
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
@@ -4648,14 +4648,15 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
     pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
     if(g.url||g.block)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block})})}
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
-// them. Real friendships glow warm violet, people who work on the same repo glow code-teal; the founder's welcome links
-// are faint and thin. Dimmer by day. Links are [a, b, kind, why]: kind 0 request/invite, 1 founder, 2 shared repo.
+// them. Real friendships glow warm violet, people who work on the same repo glow code-teal, GitHub follows sky-blue; the
+// founder's welcome links are faint and thin. Dimmer by day. Links are [a, b, kind, why]: 0 request/invite, 1 founder,
+// 2 shared repo, 3 GitHub follow.
 var WLAB=[],RAYS=true;try{RAYS=localStorage.getItem('caldera-world-rays')!=='0'}catch(err){}
 function drawRays(){if(!WORLD||!RAYS)return;var ls=WORLD.links||[];if(!ls.length)return;var c=cx,tn=performance.now(),foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):WHOVER;
   var amb={day:.5,dawn:.75,dusk:.8,evening:1,night:1.1,grid:1}[sky]||.9;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.globalCompositeOperation='lighter';c.lineCap='round';
   ls.forEach(function(l,ix){var na=NBM[l[0]],nb=NBM[l[1]];if(!na||!nb)return;var p=nbTop(na),q=nbTop(nb),d=Math.hypot(q.x-p.x,q.y-p.y),mx=(p.x+q.x)/2,my=Math.min(p.y,q.y)-40-d*.28;
-    var fd=l[2]===1,rp=l[2]===2,hit=foc&&(l[0]===foc||l[1]===foc),k=amb*(foc?(hit?1.7:.22):1)*(fd?.35:1);if(k<=.02)return;
-    var col=fd?'159,180,255':rp?'90,230,200':'200,160,255',col2=fd?'159,180,255':rp?'150,255,220':'255,196,107';
+    var fd=l[2]===1,rp=l[2]===2,gf=l[2]===3,hit=foc&&(l[0]===foc||l[1]===foc),k=amb*(foc?(hit?1.7:.22):1)*(fd?.35:1);if(k<=.02)return;
+    var col=fd?'159,180,255':rp?'90,230,200':gf?'110,180,255':'200,160,255',col2=fd?'159,180,255':rp?'150,255,220':gf?'170,215,255':'255,196,107';
     var path=function(){c.beginPath();c.moveTo(p.x,p.y);c.quadraticCurveTo(mx,my,q.x,q.y)};
     var gr=c.createLinearGradient(p.x,p.y,q.x,q.y);gr.addColorStop(0,'rgba('+col+','+(.16*k)+')');gr.addColorStop(.5,'rgba('+col2+','+(.2*k)+')');gr.addColorStop(1,'rgba('+col+','+(.16*k)+')');
     path();c.strokeStyle=gr;c.lineWidth=fd?5:11;c.stroke();
@@ -4844,7 +4845,7 @@ cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return
   cv.classList.toggle('c-link',!!(h&&(h.url||h.block||(h.r&&repoUrl(h.r)))));
   if(WORLD){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
 cv.addEventListener('pointerleave',function(){if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
-function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
+function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===3&&l[3]?': '+l[3]:l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var z=Math.min(3,Math.max(D.world?.08:.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;draw()}
 cv.addEventListener('wheel',function(ev){ev.preventDefault();var r=st.getBoundingClientRect();zoom(Math.exp(-ev.deltaY*0.0015),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});
@@ -5653,6 +5654,7 @@ function effectiveSettings(app, s) {
   if (fm.sections && typeof fm.sections === "object") for (const [k, v] of Object.entries(fm.sections)) e.sections[k] = v !== false;
   if (typeof fm.listed === "boolean") e.listed = fm.listed;
   if (typeof fm.autoConnectRepos === "boolean") e.autoConnectRepos = fm.autoConnectRepos;
+  if (typeof fm.autoConnectGithub === "boolean") e.autoConnectRepos = fm.autoConnectGithub;
   if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x) => {
     const [g = "", items = "", folder = ""] = String(x ?? "").split("|").map((v) => v.trim());
     return [g, items, folder || void 0];
@@ -5719,7 +5721,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **topics** - which of your tags may be counted publicly, \`tag | Label\`. Tags not listed are never shown.
 - **sections** - switch parts of the page on or off: ${Object.keys(s.sections).join(", ")}.
 - **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
-- **autoConnectRepos** - \`false\` stops Caldera making you friends with members who work on the same public GitHub repos (on by default).
+- **autoConnectGithub** (or autoConnectRepos) - \`false\` stops Caldera making you friends with members you follow, who follow you, or who work on the same public GitHub repos (on by default).
 - **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
 - **now** - what you're doing now, one line each.
 - **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
@@ -6438,6 +6440,10 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
     this.token = null;
     this.timers = [];
     this.unloaded = false;
+    // ---------------------------------------------------------------- hub client
+    /** "Your GitHub people" (circle logins not on Caldera yet), loaded when the friends panel opens. */
+    this.ghPeople = null;
+    this.ghPeopleLoading = false;
     // republish shortly after the owner (or their agent) edits Caldera/profile.md or the activity file
     this.publishTimer = null;
     this.lastPublishError = "";
@@ -6597,7 +6603,23 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
       void this.publish(true);
     }, h * 36e5);
   }
-  // ---------------------------------------------------------------- hub client
+  async loadGithubPeople() {
+    const me = this.settings.identity;
+    if (!me || !this.settings.handle || this.ghPeopleLoading) return;
+    this.ghPeopleLoading = true;
+    try {
+      this.ghPeople = await this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/github-people`, void 0, true);
+    } catch {
+      this.ghPeople = { people: [], message: "", invitesLeft: 0 };
+    } finally {
+      this.ghPeopleLoading = false;
+    }
+  }
+  async githubInvite(login) {
+    const me = this.settings.identity;
+    const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/github-invite`, { login }, true);
+    return String(r?.message || "Invite sent.");
+  }
   async api(method, path, body, auth = false) {
     const headers = { "content-type": "application/json" };
     if (auth) headers.authorization = "Bearer " + await this.authToken();
@@ -6744,7 +6766,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
         asks: data.asks,
         offers: data.offers,
         listed: eff.listed !== false,
-        ...eff.autoConnectRepos === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false } : {},
+        ...eff.autoConnectRepos === false || eff.autoConnectGithub === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false, autoConnectGithub: false } : {},
         showViews: this.settings.showViews !== false,
         page: "index.html",
         updated: data.updated,
@@ -6928,9 +6950,9 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       ]);
       this.friends = fr.friends;
       this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
-      const seen = new Set(this.settings.seenRepoFriends || []), fresh = this.friends.filter((f) => f.kind === "repo" && f.why && !seen.has(f.id));
+      const seen = new Set(this.settings.seenRepoFriends || []), fresh = this.friends.filter((f) => (f.kind === "repo" || f.kind === "github") && f.why && !seen.has(f.id));
       if (fresh.length) {
-        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new import_obsidian7.Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} both work on ${f.why}. You're now connected.`, 1e4);
+        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new import_obsidian7.Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} are now connected: ${f.kind === "repo" ? "you both work on " : ""}${f.why}.`, 1e4);
         this.settings.seenRepoFriends = [...seen, ...fresh.map((f) => f.id)].slice(-500);
         await this.saveSettings();
       }
@@ -7413,10 +7435,38 @@ var CalderaView = class extends import_obsidian7.ItemView {
       await navigator.clipboard.writeText(inv);
       new import_obsidian7.Notice("Invite link copied");
     }));
+    if (!p.ghPeople && !p.ghPeopleLoading) void p.loadGithubPeople().then(() => {
+      if (p.ghPeople?.people.length) this.render();
+    });
+    if (p.ghPeople?.people.length) {
+      el.createEl("h4", { text: "Your GitHub people" });
+      el.createEl("p", { cls: "setting-item-description", text: "People you follow, who follow you, or who work on your repos, who aren't on Caldera yet. When they join, you start out connected." });
+      new import_obsidian7.Setting(el).setName("Invite message").setDesc(p.ghPeople.message).addButton((b) => b.setButtonText("Copy").onClick(async () => {
+        await navigator.clipboard.writeText(p.ghPeople.message);
+        new import_obsidian7.Notice("Invite message copied. Send it to them anywhere.");
+      }));
+      for (const x of p.ghPeople.people.slice(0, 20)) {
+        const row = el.createDiv("caldera-row");
+        const who = row.createSpan();
+        who.createEl("b", { text: "@" + x.login });
+        who.createDiv({ cls: "setting-item-description", text: x.relation });
+        row.createEl("button", { text: "GitHub" }).onclick = () => window.open(x.url);
+        if (x.invited) row.createSpan({ cls: "setting-item-description", text: "invited" });
+        else if (x.canEmail) row.createEl("button", { text: "Email invite" }).onclick = async () => {
+          try {
+            new import_obsidian7.Notice(await p.githubInvite(x.login));
+            x.invited = true;
+            this.render();
+          } catch (e) {
+            new import_obsidian7.Notice(e.message);
+          }
+        };
+      }
+    }
     el.createEl("h4", { text: `Friends (${p.friends.length})` });
     for (const f of p.friends) {
       const row = el.createDiv("caldera-row");
-      row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") + (f.kind === "repo" && f.why ? ` (both work on ${f.why})` : "") });
+      row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") + (f.why && f.kind === "repo" ? ` (both work on ${f.why})` : f.why && f.kind === "github" ? ` (${f.why})` : "") });
       row.createEl("button", { text: "+ gravity" }).onclick = () => new GravityModal(this.app, f, (r) => p.giveGravity(f, r)).open();
       if (f.handle) row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, f.handle, p);
     }
