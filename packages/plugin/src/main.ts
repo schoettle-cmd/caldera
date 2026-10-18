@@ -1039,6 +1039,14 @@ class WelcomeModal extends Modal {
     new Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests and kudos - only on days something happens.")
       .addText(t => t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()));
 
+    {   // consent: publishing to the hosted hub means agreeing to its terms
+      const hubBase = (s.hubUrl || "https://caldera.social").replace(/\/$/, ""), legal = c.createEl("p", { cls: "setting-item-description" });
+      legal.appendText("By publishing you agree to the ");
+      legal.createEl("a", { text: "Terms", href: `${hubBase}/terms` });
+      legal.appendText(" and ");
+      legal.createEl("a", { text: "Privacy Policy", href: `${hubBase}/privacy` });
+      legal.appendText(" of Caldera (mjonesone, LLC).");
+    }
     c.appendChild(status);
     const go = new Setting(c)
       .addButton(b => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup")))
