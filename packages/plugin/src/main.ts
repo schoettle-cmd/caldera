@@ -345,6 +345,26 @@ export default class CalderaPlugin extends Plugin {
   }
   openSettings() { const st = (this.app as any).setting; if (!st) return; st.open(); st.openTabById?.(this.manifest.id); }
   /** Copy a focused prompt that has the owner's AI agent set a masthead or profile photo. */
+  /** "Unlock more": the slice of the setup prompt for one feature (or "all" still off), with this owner's own snippets and agent hook. */
+  async copyFeaturePrompt(id: string) {
+    const a = this.app.vault.adapter, s = this.settings, hub = s.hubUrl.replace(/\/$/, "");
+    const o = { vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined, hubUrl: s.hubUrl, handle: s.handle || undefined, activityFile: s.activityFile,
+      agentSetup: s.agentKey ? agentSetupPrompt(hub, s.agentKey) : undefined };
+    const snippets = (s.traffic || []).map(t => `- ${t.project}: <script async src="${hub}/t.js" data-site="${t.key}"></script>`).join("\n");
+    const withSnippets = (t: string) => snippets ? `${t}\n\nMy snippets, one per district (these are public site keys, fine in page HTML):\n${snippets}` : t;
+    const ids = ["live", "agents", "ai", "private", "story", "code"] as const;
+    let text: string;
+    if (id === "all") {
+      const view = this.app.workspace.getLeavesOfType(PROFILE_VIEW)[0]?.view as any;
+      const left = (view?.ownerData?.unlock || []).filter((i: any) => !i.done).map((i: any) => i.id).filter((x: string) => (ids as readonly string[]).includes(x));
+      text = withSnippets(C.upgradePrompt(left.length ? left : [...ids], o));
+      if (o.agentSetup && (!left.length || left.includes("agents"))) text += `\n\nMy agent hook, exactly as Caldera gave it to me (keep the key and secret out of any repo):\n\n${o.agentSetup}`;
+    } else if ((ids as readonly string[]).includes(id)) text = id === "live" ? withSnippets(C.featurePrompt("live", o)) : C.featurePrompt(id as typeof ids[number], o);
+    else return;
+    try { await navigator.clipboard.writeText(text); new Notice("Prompt copied. Paste it into Claude Code, Codex or Cursor.", 6000); }
+    catch { new PromptModal(this.app, text).open(); }
+  }
+
   async copyImagePrompt(kind: "banner" | "photo") {
     const a = this.app.vault.adapter;
     const text = C.imagePrompt(kind, { vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined, hubUrl: this.settings.hubUrl, handle: this.settings.handle || undefined });

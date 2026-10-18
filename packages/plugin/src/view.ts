@@ -99,6 +99,7 @@ export class ProfileView extends ItemView {
 
   /** The sky over My view's city follows the owner's real weather (the hub looks it up from this request, stores nothing),
    *  and an owner without live visitors or agent drones yet gets the one-row setup under the city. */
+  ownerData: OwnerData | null = null;   // last Private view build (the Unlock more tier reads it)
   private lastLive: any = null; private wx: { at: number; data: unknown } | null = null;
   private async pushExtras() {
     if (this.mode !== "mine" || !this.current.startsWith("city.html") || !this.contentEl.isShown()) return;
@@ -130,7 +131,7 @@ export class ProfileView extends ItemView {
         uris.set(p, `data:${mime};base64,${C.b64.enc(new Uint8Array(buf))}`);
       }
       this.built = { text, data, uris, city: cityPrivate?.districts.length ? renderPrivateCity(data, cityPrivate) : undefined };
-      this.owner = renderOwner(await collectOwner(this.app, this.plugin, data, this.shownLooked));
+      this.ownerData = await collectOwner(this.app, this.plugin, data, this.shownLooked); this.owner = renderOwner(this.ownerData);
       if (this.plugin.floatSpec?.html) this.plugin.floatCity({ html: this.cityMini()!, live: true }, false);   // keep a floating city current
       await this.show();
       if (loud) new Notice("Profile refreshed");
@@ -179,6 +180,7 @@ export class ProfileView extends ItemView {
       if (d.name === "pick-banner" || d.name === "pick-photo") void this.plugin.pickImage(d.name === "pick-banner" ? "banner" : "photo").then(ok => { if (ok) void this.refresh(false); });
       if (d.name === "prompt-banner" || d.name === "prompt-photo") void this.plugin.copyImagePrompt(d.name === "prompt-banner" ? "banner" : "photo");
       if (d.name === "settings") this.plugin.openSettings();
+      if (typeof d.name === "string" && d.name.startsWith("unlock-")) void this.plugin.copyFeaturePrompt(d.name.slice(7));
       if (d.name === "garden-help") new Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12_000);
       return;
     }
@@ -337,8 +339,16 @@ export async function collectOwner(app: App, plugin: CalderaPlugin, data: Profil
     links: (data.links || []).length > 0, garden: !!data.garden?.length, friend: plugin.friends.length > 0 || plugin.social.friends > 0, group: (plugin.settings.groups || []).length > 0,
     email: activity && !("error" in activity) && typeof activity.emailConfirmed === "boolean" ? activity.emailConfirmed : !!plugin.settings.summaryEmail }) : undefined;
 
+  const un: any = (activity && !("error" in activity) && (activity as any).unlock) || {};
+  const unlock = plugin.settings.handle ? C.unlockChecklist({
+    live: !!un.live, agents: !!un.agents, ai: !!data.ai?.total,
+    private: typeof un.private === "boolean" ? un.private : !!plugin.settings.privateWeb,
+    story: (data.timeline?.length || 0) >= 3 && (data.projects || []).some(p => /^https?:\/\//.test(p.url || "")),
+    code: (!!data.city?.districts?.length && data.city.kind !== "vault") || !!data.code?.commits,
+  }) : undefined;
+
   return {
-    sources, promptOutdated, checklist,
+    sources, promptOutdated, checklist, unlock,
     now: new Date(now).toISOString(), lastLooked, activity, pending: plugin.pending.length,
     today: { date: today, headline: todayRow?.headline, focus: todayRow?.focus, wins: todayRow?.wins, counts,
       timeline: touched.slice(0, 30).map(f => ref(f, { time: hm(f.stat.mtime), kind: f.stat.ctime >= startToday.getTime() ? "new" : "edit" })) },

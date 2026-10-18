@@ -29,6 +29,7 @@ export interface OwnerData {
   sources?: { label: string; ok: boolean; hint: string }[];      // what feeds the page; missing ones = copy the setup prompt
   promptOutdated?: boolean;                                      // the routine was set up with an older setup prompt
   checklist?: { id: string; label: string; why: string; done: boolean }[];   // "Finish your page" (core pageChecklist)
+  unlock?: { id: string; label: string; why: string; done: boolean }[];      // "Unlock more" (core unlockChecklist): shown once the basics are done
 }
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -89,6 +90,25 @@ export function renderOwner(o: OwnerData): string {
     out.unshift(`<section class="ow-card ow-finish" id="ow-finish"><div class="ow-h"><h3>Finish your page</h3><span class="ow-muted ow-small">${done} of ${items.length} done</span></div>
 <div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
 <p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead, links and a first garden note in one go</span></p>
+<ul class="ow-list ow-todo">${left.map(i => `<li><b>${esc(i.label)}</b> <span class="ow-muted">${esc(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
+  }
+
+  // 1a'. Unlock more: the features that make a page great (live visitors, agents on the map, AI usage, private web view,
+  // timeline + projects, GitHub city), once the basics are done; each with a prompt for the owner's AI and/or a direct button
+  if (!o.checklist?.some(i => !i.done) && o.unlock?.some(i => !i.done)) {
+    const items = o.unlock, left = items.filter(i => !i.done), done = items.length - left.length;
+    const act = (a: string, label: string) => `<a href="#" class="ow-link ow-act" data-action="${a}">${label}</a>`;
+    const how: Record<string, string> = {
+      live: `${act("unlock-live", "Copy prompt for my AI")} ${act("settings", "See my snippets in settings")}`,
+      agents: `${act("unlock-agents", "Copy prompt for my AI")} <span class="ow-muted ow-small">paste it into Claude Code on each computer you code on</span>`,
+      ai: `${act("unlock-ai", "Copy prompt for my AI")}`,
+      private: `${act("settings", "Turn on Private web view in settings")} ${act("unlock-private", "Copy how-to")}`,
+      story: `<a href="#" class="ow-link ow-act" data-open="Caldera/profile.md">Edit Caldera/profile.md</a> ${act("unlock-story", "Copy prompt for my AI")}`,
+      code: `${act("settings", "Add your GitHub in settings")} ${act("unlock-code", "Copy prompt for my AI")}`,
+    };
+    out.unshift(`<section class="ow-card ow-finish ow-unlock" id="ow-unlock"><div class="ow-h"><h3>Unlock more</h3><span class="ow-muted ow-small">${done} of ${items.length} on</span></div>
+<div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
+<p class="ow-small ow-muted">Your basics are done. These are what make a Caldera page come alive. ${act("unlock-all", "Copy one prompt for all of them")}</p>
 <ul class="ow-list ow-todo">${left.map(i => `<li><b>${esc(i.label)}</b> <span class="ow-muted">${esc(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
 

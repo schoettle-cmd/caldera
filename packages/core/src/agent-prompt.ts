@@ -3,6 +3,8 @@
  * install the plugin, then run a public-safe daily routine that writes the journal and activity counts.
  * Single source for the landing page block and the plugin's "Copy AI agent setup prompt" command.
  */
+import { liveSteps, agentSteps, privateSteps } from "./features.js";
+
 export interface AgentPromptOptions {
   vaultPath?: string;      // absolute path, when known (the plugin fills it in)
   hubUrl?: string;
@@ -16,7 +18,7 @@ export interface AgentPromptOptions {
 
 /** Bump when the routine asks for new data: the routine writes it into activity.json, and the plugin tells the
  * owner to copy the prompt again when theirs is older. */
-export const PROMPT_VERSION = 2;
+export const PROMPT_VERSION = 3;
 
 /** One privacy policy for every prompt. The plugin also enforces most of this in code (see privacy.ts). */
 export const PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
@@ -78,7 +80,7 @@ ${install}
 Check each source below on this computer and tell me which you can reach. Use the ones that work; for the ones that don't, say what it would take (for example "connect your calendar to me") and move on.
 - Calendar: events I attended (a calendar connector, or a calendar app's local data).
 - Email: emails I sent (a mail connector, or the mail app's local data).
-- AI usage: Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -> last_token_usage.total_tokens, model from turn_context). Prompts = user messages I typed in those sessions. Add other tools only if they keep local usage logs.
+- AI usage (Caldera already reads Claude Code and Codex logs on THIS computer by itself; you add other computers and my products' API usage): Claude Code (~/.claude/projects/**/*.jsonl: assistant messages have message.model and message.usage; count each message.id once; tokens = input + output + cache read + cache write) and Codex (~/.codex/sessions/**/*.jsonl: event_msg token_count -> last_token_usage.total_tokens, model from turn_context). Prompts = user messages I typed in those sessions. Add other tools only if they keep local usage logs.
 - Code: git commits I authored, in repositories on this computer, plus my code host if I use one: GitHub (the gh CLI or the GitHub API), or Forgejo / Gitea / Codeberg (the tea CLI or the /api/v1 REST API on that server, with my access token if I have one).
 - Documents: files I produced or filed (for example new files in Documents/Downloads I saved, or attachments filed into the vault).
 Then write a small script for the routine below that computes these counts with code (no AI call per run).
@@ -101,6 +103,8 @@ B. Activity counts (every run, for today and yesterday). Update "${vault}/${acti
    One object per date: replace that date's object if it exists, keep the last 60 days, and only include counts you can actually measure (omit the rest - never guess). meetings = calendar events attended, emails = emails I sent, prompts = AI prompts I sent, commits = git commits I authored, docs = documents/attachments I produced or filed, tokens = AI tokens processed for me that day. Notes are counted by the plugin itself. Always write "prompt_version": ${PROMPT_VERSION} - Caldera uses it to tell me when this routine is out of date.
    AI usage ("tokens" per day and the "ai" block, last 45 days): group by model (readable names) and by provider. Never include prompts, file names or costs.
    Code ("code" block): count my commits in the last 52 weeks per week across my repositories, number of repos, and top 4 languages. Counts only - never names of private repositories.
+   AI sources (optional, inside "ai"): "sources": [["Coding agents (3 machines)", n], ["Product APIs", n]] and "note": one short public sentence on what's counted.
+   Optional extras (only if I have the data; each makes a section of my page): "projects": {"<public project name from profile.md>": <commits this year>} (commit counts next to each project); "knows": [["Companies", 252], ["People", 101]] (What it knows: notes per vault folder, counts only); "inbox": {"total": n, "kinds": [["Reports", 61]], "series": {"label": "Pitch decks received per week", "weeks": [["Aug 3", 5]]}} (Inbox to knowledge: if an agent files my email attachments into the vault, documents by kind - counts only, never names); "numbers": [["145", "daily digests written"]] (a few headline numbers).
 
 C. City (every run, only if I use GitHub, Forgejo, Gitea or Codeberg). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>" (or "forgejo <https://server/my login>"), "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. On GitHub use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. On Forgejo / Gitea / Codeberg use GET /api/v1/user/repos (or /api/v1/users/<me>/repos) and page through /api/v1/repos/<owner>/<repo>/commits?limit=50, counting by commit.author.date yourself (that endpoint ignores "since"). Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos, and private ones only as locked glass buildings (no names); full details only in my own Private view. If you cannot reach the API, instead make sure my profile is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>", or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg) - Caldera then builds the city from my public repos itself. With no code host at all, Caldera builds the city from my vault folders.
 
@@ -117,9 +121,13 @@ Anything that would become PUBLIC needs my explicit yes first: show me exactly w
 5. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".
 6. Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.
 
-## 5. Live city extras (ask me first for each)
-- Websites: if I run websites for my projects, offer to add each project's live-traffic snippet (Caldera settings > "Live traffic on your city") to that site's pages, so visits ride through my city in real time.
-- AI agents: offer to install the Caldera agent hook (Caldera settings > "AI agents on your city"), so my coding agents appear in the city as drones over the repo they're working in.${extras}
+## 5. The live city, my private side and my people (ask me first for each; skip what's already on)
+A. ${liveSteps(`Obsidian: Settings -> Caldera -> "Live traffic on your city" (GitHub sign-ups: ${hub}/me)`)}
+B. ${agentSteps(`Obsidian: Settings -> Caldera -> "AI agents on your city" -> Copy setup prompt (GitHub sign-ups: ${hub}/me)`)}
+C. ${privateSteps(hub)}
+D. Daily summary email: tell me I can add my email in Obsidian: Settings -> Caldera -> Daily summary email (then click the confirm link). It only sends on days something happened (visits, friend requests, kudos, links into my notes). Don't type an address for me.
+E. Groups: ask which communities I'm in and suggest short group names (lowercase, dashes, like producthunt); I join in Settings -> Caldera -> Groups. Each group is a town of everyone's cities at ${hub}/g/<name>.
+F. Friends and kudos need no setup: tell me I can add friends and send kudos from anyone's page (signed in), people I share public GitHub repos with are connected automatically, and the World map (${hub}/world) shows everyone's city.${extras}
 
 ## 6. Privacy rules (these override everything above)
 ${PRIVACY_RULES}
@@ -127,7 +135,7 @@ Themes and topics: only use topics among ${topics}.
 Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / garden / friends / private) without asking, never move notes into or out of the Garden folder, never touch .obsidian/plugins/caldera/data.json - it holds my private key.
 
 ## 7. Report
-When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text, garden, live traffic, agents - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
+When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), garden, live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
 
 ## 8. Later
 - Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
