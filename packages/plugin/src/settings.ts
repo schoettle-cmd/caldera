@@ -143,7 +143,7 @@ export class CalderaSettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.autoTags !== false).onChange(async v => { s.autoTags = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     new Setting(containerEl).setName("Private repos on my city")
       .setDesc("How your private repos appear on your public city, the World and your share card. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.")
-      .addDropdown(d => d.addOption("", "Caldera's default").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "")
+      .addDropdown(d => d.addOption("", "Caldera's default (padlocked)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "")
         .onChange(async v => { s.privateRepos = (v || undefined) as CalderaSettings["privateRepos"]; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     new Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.")
       .addToggle(t => t.setValue(s.showViews !== false).onChange(async v => { s.showViews = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
@@ -154,10 +154,10 @@ export class CalderaSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`)
       .addText(t => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async v => { s.groups = groupsFrom(v); await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     let email = s.summaryEmail || "";
-    new Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and friend requests, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.")
+    new Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and new followers, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.")
       .addText(t => t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
       .addButton(b => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
-    new Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.")
+    new Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: follow each person who joins Caldera from now on, with the note below (up to 10 a day). Off by default.")
       .addToggle(t => t.setValue(!!s.welcomeNew).onChange(async v => { s.welcomeNew = v; if (v && !s.welcomeSince) s.welcomeSince = new Date().toISOString(); await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Welcome note").addTextArea(t => { t.setValue(s.welcomeNote || WELCOME_NOTE); t.inputEl.rows = 2; t.onChange(async v => { s.welcomeNote = v.trim().slice(0, 200); await this.plugin.saveSettings(); }); });
 

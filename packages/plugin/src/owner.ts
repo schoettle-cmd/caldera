@@ -55,7 +55,7 @@ export function renderOwner(o: OwnerData): string {
     else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc(a.error)}). Your vault sections below still work offline.</p>`;
     else {
       const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"], ...(a.kudos?.length ? [[a.kudos.length, "kudos"]] : [])]
-        .concat(o.pending ? [[o.pending, o.pending === 1 ? "friend request" : "friend requests"]] : []);
+        .concat(o.pending ? [[o.pending, o.pending === 1 ? "new follower" : "new followers"]] : []);
       body += `<div class="ow-tiles">${tiles.map(([n, l]) => `<div class="ow-tile${Number(n) ? " is-up" : ""}"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`;
       const byDay = new Map(a.days.map(d => [d[0], d] as const)), t0 = Date.parse(o.now);
       const days14 = Array.from({ length: 14 }, (_, i) => { const k = new Date(t0 - (13 - i) * 86_400_000).toISOString().slice(0, 10); return byDay.get(k) || [k, 0, 0] as [string, number, number]; });
@@ -67,7 +67,7 @@ export function renderOwner(o: OwnerData): string {
       for (const g of a.gravity.slice(0, 5)) lines.push(`<li><b>${g.from ? "@" + esc(g.from) : "Someone"}</b> gave you gravity${g.reason ? `: &ldquo;${esc(g.reason)}&rdquo;` : ""} <span class="ow-muted">${ago(g.ts, o.now)}</span></li>`);
       for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc(k.emoji)} <b>${k.from ? "@" + esc(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
       for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
-      if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} friend request${o.pending === 1 ? "" : "s"} waiting</a></li>`);
+      if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} new follower${o.pending === 1 ? "" : "s"}: follow back</a></li>`);
       if (gardenEnabled() && a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map(l => `@${esc(l.src_handle)}'s &ldquo;${esc(l.src_title)}&rdquo;`).join(", ")}</li>`);
       body += lines.length ? `<ul class="ow-list">${lines.join("")}</ul>` : `<p class="ow-muted">Quiet so far. Share your invite link from the Caldera panel to bring friends in.</p>`;
     }

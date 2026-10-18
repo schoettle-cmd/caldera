@@ -16,7 +16,7 @@ test("owner layer: escaped, marked private, every section renders", () => {
     rediscovered: { title: "Forgotten", path: "f.md", excerpt: "y", why: "Connects." }, patterns: ["<b>3-day</b> streak."], goals: [{ heading: "Launch", done: 1, total: 3, open: ["Ship"] }] });
   assert.ok(html.includes("Only you can see this") && html.includes('id="owner"'));
   assert.ok(!html.includes("<img src=x") && html.includes("&lt;img src=x") && !html.includes("Shipped <b>it</b>"));
-  for (const s of ["Since you last looked", "3h ago", "12</b><span>page views", "2 friend requests", "@ana", "@bo", "Today", 'data-open="wiki/Plan.md"', "On this day", "Brought back", "Patterns", "Goals", "1/3"]) assert.ok(html.includes(s), s);
+  for (const s of ["Since you last looked", "3h ago", "12</b><span>page views", "2 new followers", "@ana", "@bo", "Today", 'data-open="wiki/Plan.md"', "On this day", "Brought back", "Patterns", "Goals", "1/3"]) assert.ok(html.includes(s), s);
 });
 
 test("owner layer: works offline / unpublished; goals prompt when there is no goals note", () => {

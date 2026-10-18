@@ -2466,7 +2466,7 @@ B. Activity counts (every run, for today and yesterday). Update "${vault}/${acti
    AI sources (optional, inside "ai"): "sources": [["Coding agents (3 machines)", n], ["Product APIs", n]] and "note": one short public sentence on what's counted.
    Optional extras (only if I have the data; each makes a section of my page): "projects": {"<public project name from profile.md>": <commits this year>} (commit counts next to each project); "knows": [["Companies", 252], ["People", 101]] (What it knows: notes per vault folder, counts only); "inbox": {"total": n, "kinds": [["Reports", 61]], "series": {"label": "Pitch decks received per week", "weeks": [["Aug 3", 5]]}} (Inbox to knowledge: if an agent files my email attachments into the vault, documents by kind - counts only, never names); "numbers": [["145", "daily digests written"]] (a few headline numbers).
 
-C. City (every run, only if I use GitHub, Forgejo, Gitea or Codeberg). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>" (or "forgejo <https://server/my login>"), "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. On GitHub use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. On Forgejo / Gitea / Codeberg use GET /api/v1/user/repos (or /api/v1/users/<me>/repos) and page through /api/v1/repos/<owner>/<repo>/commits?limit=50, counting by commit.author.date yourself (that endpoint ignores "since"). Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos; private ones never show names, and I choose how much else they show with privateRepos in Caldera/profile.md: show (locked glass buildings in place, so size, activity and the project they sit beside are visible), anonymous (one separate padlocked district, no sizes or activity; the default for new members) or hidden (no trace). Ask me once which I want and set it. Full details only in my own Private view. If you cannot reach the API, instead make sure my profile is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>", or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg) - Caldera then builds the city from my public repos itself. With no code host at all, Caldera builds the city from my vault folders.
+C. City (every run, only if I use GitHub, Forgejo, Gitea or Codeberg). Keep "${vault}/Caldera/city.json" fresh: {"generated": "<ISO time>", "source": "github <my login>" (or "forgejo <https://server/my login>"), "repos": [{"name", "project", "public", "language", "commits", "weeks", "week", "today", "pushed", "url", "description"}]} with one row per repo I own (private ones too, if the gh CLI is signed in): project = which of my projects it belongs to (group repos into districts; ask me once how to group them), public = true only for public repos, commits = commits in the last 52 weeks, weeks = the last 12 weekly commit counts, week = commits in the last 7 days, today = commits today, pushed = last push time, url and description only for public repos. On GitHub use gh api user/repos and repos/<owner>/<repo>/stats/commit_activity. On Forgejo / Gitea / Codeberg use GET /api/v1/user/repos (or /api/v1/users/<me>/repos) and page through /api/v1/repos/<owner>/<repo>/commits?limit=50, counting by commit.author.date yourself (that endpoint ignores "since"). Caldera turns it into a little city on my page: districts are projects, buildings are repos. Visitors see public repos; private ones never show names, and I choose how much else they show with privateRepos in Caldera/profile.md: show (the default: locked glass buildings in place, so size, activity and the project they sit beside are visible, never names), anonymous (one separate padlocked district, no sizes or activity) or hidden (no trace). Ask me once which I want and set it. Full details only in my own Private view. If you cannot reach the API, instead make sure my profile is a line in "links" in Caldera/profile.md ("GitHub | https://github.com/<me>", or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg) - Caldera then builds the city from my public repos itself. With no code host at all, Caldera builds the city from my vault folders.
 
 D. Publish. If Caldera auto-publish is on (Settings -> Caldera -> Auto-publish every N hours), you are done. Otherwise ask me to run "Caldera: Publish my profile" from the command palette.
 
@@ -2490,7 +2490,7 @@ B. ${agentSteps(`Obsidian: Settings -> Caldera -> "AI agents on your city" -> Co
 C. ${privateSteps(hub)}
 D. Daily summary email: tell me I can add my email in Obsidian: Settings -> Caldera -> Daily summary email (then click the confirm link). It only sends on days something happened (visits, friend requests, kudos, links into my notes). Don't type an address for me.
 E. Groups: ask which communities I'm in and suggest short group names (lowercase, dashes, like producthunt); I join in Settings -> Caldera -> Groups. Each group is a town of everyone's cities at ${hub}/g/<name>.
-F. Friends and kudos need no setup: tell me I can add friends and send kudos from anyone's page (signed in), people I share public GitHub repos with are connected automatically, and the World map (${hub}/world) shows everyone's city.${extras}
+F. Friends and kudos need no setup: tell me I can follow people and send kudos from anyone's page (signed in; people who follow each other are friends), people I share public GitHub repos with are connected automatically, and the World map (${hub}/world) shows everyone's city.${extras}
 
 ## 6. Privacy rules (these override everything above)
 ${PRIVACY_RULES}
@@ -2642,7 +2642,7 @@ function publicTextFilter(allowed = []) {
 
 // ../core/src/checklist.ts
 var ITEMS = [
-  { id: "photo", label: "Profile photo", why: "A face (or a logo) makes people trust the page and accept your friend requests." },
+  { id: "photo", label: "Profile photo", why: "A face (or a logo) makes people trust the page and follow you back." },
   { id: "banner", label: "Masthead", why: "A wide cover image across the top makes the page feel like yours and shows in link previews." },
   { id: "headline", label: "Headline", why: "One line under your name that says what you do." },
   { id: "summary", label: "About you", why: "Two sentences so a visitor knows why to follow you." },
@@ -3294,7 +3294,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
-    new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
       s.privateRepos = v || void 0;
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
@@ -3312,8 +3312,8 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.queuePublish("profile");
     }));
     let email = s.summaryEmail || "";
-    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and friend requests, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
-    new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and new followers, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
+    new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: follow each person who joins Caldera from now on, with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
       s.welcomeNew = v;
       if (v && !s.welcomeSince) s.welcomeSince = (/* @__PURE__ */ new Date()).toISOString();
       await this.plugin.saveSettings();
@@ -5364,7 +5364,7 @@ function navSidebar(p, sideOn, gardenOn, depth, current, toc = "") {
   if (p.sections?.city !== false && p.city?.districts.length) pages.push(["city.html", "City"]);
   const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${/^https?:\/\//.test(h) ? h : onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc3(l)}</a>`).join("");
   const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");
-  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc3(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc3(p.handle)}" target="_blank" rel="noopener" title="Send @${esc3(p.handle)} a friend request">+ Add @${esc3(p.handle)} as friend</a>` : "";
+  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc3(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc3(p.handle)}" target="_blank" rel="noopener" title="Send @${esc3(p.handle)} a friend request">+ Follow @${esc3(p.handle)}</a>` : "";
   const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map((r) => ({ ...r, current: r.href === "#top" && onProfile || !!r.href && r.href === current })), fix)}` : "";
   return `<nav class="sidebar tree" aria-label="Navigation"><div class="side-inner"><span class="label">Pages</span><div class="toc pages">${pageRows}${friend}</div>${toc}${tree}</div></nav>`;
 }
@@ -6104,7 +6104,7 @@ function renderOwner(o) {
     if (!a) body = `<p class="ow-muted">Publish your profile to start seeing visits, gravity and links here.</p>`;
     else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc4(a.error)}). Your vault sections below still work offline.</p>`;
     else {
-      const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"], ...a.kudos?.length ? [[a.kudos.length, "kudos"]] : []].concat(o.pending ? [[o.pending, o.pending === 1 ? "friend request" : "friend requests"]] : []);
+      const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"], ...a.kudos?.length ? [[a.kudos.length, "kudos"]] : []].concat(o.pending ? [[o.pending, o.pending === 1 ? "new follower" : "new followers"]] : []);
       body += `<div class="ow-tiles">${tiles.map(([n, l]) => `<div class="ow-tile${Number(n) ? " is-up" : ""}"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`;
       const byDay = new Map(a.days.map((d) => [d[0], d])), t0 = Date.parse(o.now);
       const days14 = Array.from({ length: 14 }, (_, i) => {
@@ -6119,7 +6119,7 @@ function renderOwner(o) {
       for (const g of a.gravity.slice(0, 5)) lines.push(`<li><b>${g.from ? "@" + esc4(g.from) : "Someone"}</b> gave you gravity${g.reason ? `: &ldquo;${esc4(g.reason)}&rdquo;` : ""} <span class="ow-muted">${ago(g.ts, o.now)}</span></li>`);
       for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc4(k.emoji)} <b>${k.from ? "@" + esc4(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
       for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc4(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
-      if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} friend request${o.pending === 1 ? "" : "s"} waiting</a></li>`);
+      if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} new follower${o.pending === 1 ? "" : "s"}: follow back</a></li>`);
       if (gardenEnabled() && a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map((l) => `@${esc4(l.src_handle)}'s &ldquo;${esc4(l.src_title)}&rdquo;`).join(", ")}</li>`);
       body += lines.length ? `<ul class="ow-list">${lines.join("")}</ul>` : `<p class="ow-muted">Quiet so far. Share your invite link from the Caldera panel to bring friends in.</p>`;
     }
@@ -7386,11 +7386,11 @@ ${o.agentSetup}`;
           } catch {
           }
           this.pending.push({ request: envelopeHash(e), from: e.from, handle, note: e.body.note, ts: e.ts });
-          new import_obsidian8.Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
+          new import_obsidian8.Notice(`Caldera: ${handle ? "@" + handle : "someone new"} followed you. Open the Caldera panel to follow back.`);
         }
         if (e.type === "friend.accept") {
           const f = this.friends.find((x) => x.id === e.from);
-          new import_obsidian8.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} accepted your friend request`);
+          new import_obsidian8.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} followed you back. You're friends.`);
         }
         if (e.type === "gravity") new import_obsidian8.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
         if (e.type === "card") {
@@ -7403,7 +7403,7 @@ ${o.agentSetup}`;
         this.pending = rq.incoming.filter((r) => !ignored.has(r.request)).map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         this.sent = rq.outgoing.map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         const fresh2 = this.pending.filter((x) => !seen2.has(x.request));
-        if (fresh2.length) new import_obsidian8.Notice(`Caldera: friend request from ${fresh2.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")}. Open the Caldera panel to accept.`, 1e4);
+        if (fresh2.length) new import_obsidian8.Notice(`Caldera: ${fresh2.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")} followed you. Open the Caldera panel to follow back.`, 1e4);
         this.settings.seenRequests = this.pending.map((x) => x.request);
       }
       this.pending = this.pending.filter((x) => !this.friends.some((f) => f.id === x.from));
@@ -7598,7 +7598,7 @@ caldera_received: ${e.ts}
       await this.saveSettings();
       const frag = createFragment((f) => {
         f.createEl("b", { text: "Caldera: get your daily summary. " });
-        f.appendText("Who visited your page, kudos and friend requests, people to meet. Only on days something happens. ");
+        f.appendText("Who visited your page, kudos and new followers, people to meet. Only on days something happens. ");
         f.createEl("u", { text: "Add your email" });
       });
       const note = new import_obsidian8.Notice(frag, 2e4);
@@ -7678,11 +7678,11 @@ caldera_received: ${e.ts}
     const h = raw.replace(/^@/, "").trim();
     if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
     if (!this.settings.identity || !this.settings.handle) {
-      new import_obsidian8.Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`);
+      new import_obsidian8.Notice(`Publish your Caldera profile first, then click "Follow @${h}" again.`);
       return void new WelcomeModal(this.app, this).open();
     }
     if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new import_obsidian8.Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
-    new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
+    new ConfirmModal(this.app, `Follow @${h}? If they follow you back, you're friends: you can share notes end-to-end encrypted and give each other gravity.`, async () => {
       try {
         await this.requestFriend(h);
       } catch (e) {
@@ -7787,7 +7787,7 @@ caldera_received: ${e.ts}
     if (pr.id === this.settings.identity?.id) throw new Error("That's your own profile");
     if (this.friends.some((f) => f.id === pr.id)) throw new Error(`You're already friends with @${pr.handle}`);
     await this.send("friend.request", { to: pr.id, note });
-    new import_obsidian8.Notice(`Friend request sent to @${pr.handle || pr.id}. You'll be friends once they accept.`);
+    new import_obsidian8.Notice(`You follow @${pr.handle || pr.id}. If they follow you back, you're friends.`);
     await this.syncInbox(false);
   }
   async giveGravity(f, reason) {
@@ -7892,11 +7892,11 @@ var CalderaView = class extends import_obsidian8.ItemView {
     actions.createEl("button", { text: "Sync" }).onclick = () => p.syncInbox(true);
     actions.createEl("button", { text: "Share" }).onclick = () => p.openShare();
     if (p.pending.length) {
-      el.createEl("h4", { text: "Friend requests" });
+      el.createEl("h4", { text: "Following you" });
       for (const r of p.pending) {
         const row = el.createDiv("caldera-row");
         row.createSpan({ text: (r.handle ? "@" + r.handle : r.from.slice(0, 14)) + (r.note ? ` - "${r.note}"` : "") });
-        row.createEl("button", { text: "Accept", cls: "mod-cta" }).onclick = () => p.acceptFriend(r);
+        row.createEl("button", { text: "Follow back", cls: "mod-cta" }).onclick = () => p.acceptFriend(r);
         row.createEl("button", { text: "Ignore" }).onclick = () => p.ignoreFriend(r);
       }
     }
@@ -7917,7 +7917,7 @@ var CalderaView = class extends import_obsidian8.ItemView {
       }
     }
     el.createEl("h4", { text: "Add a friend" });
-    el.createEl("p", { cls: "setting-item-description", text: 'Already on Caldera: enter their handle or paste their profile link. Or click "Add as friend" on their profile page.' });
+    el.createEl("p", { cls: "setting-item-description", text: 'Already on Caldera: enter their handle or paste their profile link. Or click "Follow" on their profile page.' });
     let handle = "";
     new import_obsidian8.Setting(el).addText((t) => t.setPlaceholder("@handle or profile link").onChange((v) => handle = v)).addButton((b) => b.setButtonText("Request").onClick(async () => {
       try {
@@ -8372,7 +8372,7 @@ var ShareModal = class extends import_obsidian8.Modal {
     this.modalEl.addClass("caldera-share");
     this.titleEl.setText("Your page is live");
     const c = this.contentEl;
-    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and kudos." });
+    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, followers and kudos." });
     const img = c.createEl("img", { cls: "caldera-share-card", attr: { src: `${url}card.png?t=${Date.now()}`, alt: "Your link preview" } });
     img.onerror = () => img.remove();
     const copy = async (t2, msg) => {
@@ -8388,7 +8388,7 @@ var ShareModal = class extends import_obsidian8.Modal {
     new import_obsidian8.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
     new import_obsidian8.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new import_obsidian8.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and friend requests, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
+    new import_obsidian8.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and new followers, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
     if (this.firstRun) new import_obsidian8.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));

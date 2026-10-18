@@ -261,7 +261,7 @@ export function navSidebar(p: ProfileData, sideOn: boolean, gardenOn: boolean, d
   // the hub turns this into an inline Add friend for signed-in visitors (and Friends / Requested / Accept states); the
   // href is the hub's fallback page for anyone without scripts
   const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");
-  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc(p.handle)}" target="_blank" rel="noopener" title="Send @${esc(p.handle)} a friend request">+ Add @${esc(p.handle)} as friend</a>` : "";
+  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc(p.handle)}" target="_blank" rel="noopener" title="Send @${esc(p.handle)} a friend request">+ Follow @${esc(p.handle)}</a>` : "";
   const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map(r => ({ ...r, current: (r.href === "#top" && onProfile) || (!!r.href && r.href === current) })), fix)}` : "";
   return `<nav class="sidebar tree" aria-label="Navigation"><div class="side-inner"><span class="label">Pages</span><div class="toc pages">${pageRows}${friend}</div>${toc}${tree}</div></nav>`;
 }

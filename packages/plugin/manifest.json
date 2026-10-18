@@ -1,7 +1,7 @@
 {
   "id": "caldera",
   "name": "Caldera",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "minAppVersion": "1.8.0",
   "description": "The social layer for your vault: a living profile, friends between vaults, encrypted shared notes, asks, offers and gravity. Private by default.",
   "author": "mjonesone, LLC",

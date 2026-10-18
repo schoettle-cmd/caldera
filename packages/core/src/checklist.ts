@@ -18,7 +18,7 @@ export interface PageState {
 export interface ChecklistItem { id: ChecklistId; label: string; why: string; done: boolean }
 
 const ITEMS: { id: ChecklistId; label: string; why: string }[] = [
-  { id: "photo", label: "Profile photo", why: "A face (or a logo) makes people trust the page and accept your friend requests." },
+  { id: "photo", label: "Profile photo", why: "A face (or a logo) makes people trust the page and follow you back." },
   { id: "banner", label: "Masthead", why: "A wide cover image across the top makes the page feel like yours and shows in link previews." },
   { id: "headline", label: "Headline", why: "One line under your name that says what you do." },
   { id: "summary", label: "About you", why: "Two sentences so a visitor knows why to follow you." },

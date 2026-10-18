@@ -45,7 +45,7 @@ export const FEATURES: Feature[] = [
   { id: "private", label: "Private view on the web", source: "your private sections, pushed encrypted from Obsidian", how: "Turn on Settings -> Caldera -> Private web view, then use the Public view | Private view switch when signed in.", ownerOnly: true },
   { id: "email", label: "Daily summary email", source: "your address (stored encrypted, double opt-in)", how: "Settings -> Caldera -> Daily summary email (or caldera.social/me), then click the confirm link.", ownerOnly: true },
   { id: "groups", label: "Groups", source: "the groups you join", how: "Settings -> Caldera -> Groups (or caldera.social/me); each group is a town of everyone's cities at caldera.social/g/<name>." },
-  { id: "friends", label: "Friends, kudos and views", source: "other members", how: "Nothing to set up: add friends and send kudos from anyone's page; shared GitHub repos connect people automatically." },
+  { id: "friends", label: "Friends, kudos and views", source: "other members", how: "Nothing to set up: follow people and send kudos from anyone's page (follow each other and you're friends); shared GitHub repos connect people automatically." },
 ];
 
 /** The inventory minus anything switched off (the garden is paused). Use this for anything people see. */

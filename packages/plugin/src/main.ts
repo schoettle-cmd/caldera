@@ -449,9 +449,9 @@ export default class CalderaPlugin extends Plugin {
         if (!rq && e.type === "friend.request" && !this.friends.some(f => f.id === e.from) && !this.pending.some(x => x.from === e.from)) {   // older hub
           let handle: string | undefined; try { handle = (await this.api("GET", `/v1/profiles/${encodeURIComponent(e.from)}`)).handle; } catch { /* unpublished sender */ }
           this.pending.push({ request: C.envelopeHash(e), from: e.from, handle, note: e.body.note, ts: e.ts });
-          new Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
+          new Notice(`Caldera: ${handle ? "@" + handle : "someone new"} followed you. Open the Caldera panel to follow back.`);
         }
-        if (e.type === "friend.accept") { const f = this.friends.find(x => x.id === e.from); new Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} accepted your friend request`); }
+        if (e.type === "friend.accept") { const f = this.friends.find(x => x.id === e.from); new Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} followed you back. You're friends.`); }
         if (e.type === "gravity") new Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
         if (e.type === "card") { if (await this.receiveCard(e)) cards++; }
         if (e.ts > this.settings.lastInboxSync) this.settings.lastInboxSync = e.ts;
@@ -462,7 +462,7 @@ export default class CalderaPlugin extends Plugin {
         this.pending = (rq.incoming as any[]).filter(r => !ignored.has(r.request)).map(r => ({ request: r.request, from: r.id, handle: r.handle || undefined, note: r.note || undefined, ts: r.ts }));
         this.sent = (rq.outgoing as any[]).map(r => ({ request: r.request, from: r.id, handle: r.handle || undefined, note: r.note || undefined, ts: r.ts }));
         const fresh = this.pending.filter(x => !seen.has(x.request));
-        if (fresh.length) new Notice(`Caldera: friend request from ${fresh.map(x => x.handle ? "@" + x.handle : "someone new").join(", ")}. Open the Caldera panel to accept.`, 10_000);
+        if (fresh.length) new Notice(`Caldera: ${fresh.map(x => x.handle ? "@" + x.handle : "someone new").join(", ")} followed you. Open the Caldera panel to follow back.`, 10_000);
         this.settings.seenRequests = this.pending.map(x => x.request);
       }
       this.pending = this.pending.filter(x => !this.friends.some(f => f.id === x.from));
@@ -592,7 +592,7 @@ export default class CalderaPlugin extends Plugin {
       const a = await this.ownerActivity(new Date().toISOString());
       if (a.emailConfirmed !== false) return;
       s.emailPromptShown = true; await this.saveSettings();
-      const frag = createFragment(f => { f.createEl("b", { text: "Caldera: get your daily summary. " }); f.appendText("Who visited your page, kudos and friend requests, people to meet. Only on days something happens. "); f.createEl("u", { text: "Add your email" }); });
+      const frag = createFragment(f => { f.createEl("b", { text: "Caldera: get your daily summary. " }); f.appendText("Who visited your page, kudos and new followers, people to meet. Only on days something happens. "); f.createEl("u", { text: "Add your email" }); });
       const note = new Notice(frag, 20_000); note.noticeEl.addEventListener("click", () => new SummaryEmailModal(this.app, this).open());
     } catch { /* offline or older hub */ }
   }
@@ -652,9 +652,9 @@ export default class CalderaPlugin extends Plugin {
   async confirmFriend(raw: string) {
     const h = raw.replace(/^@/, "").trim();
     if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
-    if (!this.settings.identity || !this.settings.handle) { new Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`); return void new WelcomeModal(this.app, this).open(); }
+    if (!this.settings.identity || !this.settings.handle) { new Notice(`Publish your Caldera profile first, then click "Follow @${h}" again.`); return void new WelcomeModal(this.app, this).open(); }
     if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
-    new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
+    new ConfirmModal(this.app, `Follow @${h}? If they follow you back, you're friends: you can share notes end-to-end encrypted and give each other gravity.`, async () => {
       try { await this.requestFriend(h); } catch (e: any) { new Notice(e.message); } }, "Send request", "Add a friend").open();
   }
 
@@ -748,7 +748,7 @@ export default class CalderaPlugin extends Plugin {
     const pr = await this.api("GET", `/v1/profiles/${encodeURIComponent(h)}`);
     if (pr.id === this.settings.identity?.id) throw new Error("That's your own profile");
     if (this.friends.some(f => f.id === pr.id)) throw new Error(`You're already friends with @${pr.handle}`);
-    await this.send("friend.request", { to: pr.id, note }); new Notice(`Friend request sent to @${pr.handle || pr.id}. You'll be friends once they accept.`);
+    await this.send("friend.request", { to: pr.id, note }); new Notice(`You follow @${pr.handle || pr.id}. If they follow you back, you're friends.`);
     await this.syncInbox(false);
   }
 
@@ -822,11 +822,11 @@ class CalderaView extends ItemView {
     actions.createEl("button", { text: "Share" }).onclick = () => p.openShare();
 
     if (p.pending.length) {
-      el.createEl("h4", { text: "Friend requests" });
+      el.createEl("h4", { text: "Following you" });
       for (const r of p.pending) {
         const row = el.createDiv("caldera-row");
         row.createSpan({ text: (r.handle ? "@" + r.handle : r.from.slice(0, 14)) + (r.note ? ` - "${r.note}"` : "") });
-        row.createEl("button", { text: "Accept", cls: "mod-cta" }).onclick = () => p.acceptFriend(r);
+        row.createEl("button", { text: "Follow back", cls: "mod-cta" }).onclick = () => p.acceptFriend(r);
         row.createEl("button", { text: "Ignore" }).onclick = () => p.ignoreFriend(r);
       }
     }
@@ -845,7 +845,7 @@ class CalderaView extends ItemView {
       }
     }
     el.createEl("h4", { text: "Add a friend" });
-    el.createEl("p", { cls: "setting-item-description", text: "Already on Caldera: enter their handle or paste their profile link. Or click \"Add as friend\" on their profile page." });
+    el.createEl("p", { cls: "setting-item-description", text: "Already on Caldera: enter their handle or paste their profile link. Or click \"Follow\" on their profile page." });
     let handle = "";
     new Setting(el).addText(t => t.setPlaceholder("@handle or profile link").onChange(v => handle = v)).addButton(b => b.setButtonText("Request").onClick(async () => {
       try { await p.requestFriend(handle.trim()); } catch (e: any) { new Notice(e.message); }
@@ -1139,7 +1139,7 @@ class ShareModal extends Modal {
     this.modalEl.addClass("caldera-share");
     this.titleEl.setText("Your page is live");
     const c = this.contentEl;
-    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and kudos." });
+    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, followers and kudos." });
     const img = c.createEl("img", { cls: "caldera-share-card", attr: { src: `${url}card.png?t=${Date.now()}`, alt: "Your link preview" } });
     img.onerror = () => img.remove();
     const copy = async (t: string, msg: string) => { try { await navigator.clipboard.writeText(t); new Notice(msg); } catch { new Notice(t, 10_000); } };
@@ -1153,7 +1153,7 @@ class ShareModal extends Modal {
     new Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`)
       .addButton(b => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and friend requests, people to meet. Only on days something happens.")
+    new Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and new followers, people to meet. Only on days something happens.")
       .addText(tx => tx.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
       .addButton(b => b.setButtonText("Email me").onClick(() => { if (email) void this.plugin.setSummaryEmail(email); }));
     if (this.firstRun) new Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.")
