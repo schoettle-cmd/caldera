@@ -17,7 +17,7 @@ test("setup prompt mentions every feature in the inventory (except purely automa
     assert.ok(f.id in MENTION, `inventory feature ${f.id} has no prompt check`);
     if (MENTION[f.id]) assert.ok(t.includes(MENTION[f.id]), `prompt does not cover ${f.id} (${MENTION[f.id]})`);
   }
-  assert.equal(C.PROMPT_VERSION, 4);
+  assert.equal(C.PROMPT_VERSION, 5);
   assert.ok(t.includes("SAFE TO PASTE AGAIN") && t.includes("data.json") && t.includes("## 6. Privacy rules"));
 });
 

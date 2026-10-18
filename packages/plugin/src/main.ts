@@ -276,7 +276,7 @@ export default class CalderaPlugin extends Plugin {
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
         topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, ...((eff as any).autoConnectRepos === false || (eff as any).autoConnectGithub === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false, autoConnectGithub: false } : {}), showViews: this.settings.showViews !== false,
         ...((eff as any).tags?.length ? { tags: (eff as any).tags.slice(0, 12) } : {}), ...((eff as any).hideTags?.length ? { hideTags: (eff as any).hideTags.slice(0, 40) } : {}),
-        ...((eff as any).autoTags === false || this.settings.autoTags === false ? { autoTags: false } : {}), page: "index.html", updated: data.updated,
+        ...((eff as any).autoTags === false || this.settings.autoTags === false ? { autoTags: false } : {}), ...(eff.privateRepos ? { privateRepos: eff.privateRepos } : {}), page: "index.html", updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
         garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
         groups: groupsFrom((this.settings.groups || []).join(",")), languages: (data as any).code?.languages?.slice(0, 6) || [],

@@ -127,10 +127,11 @@ Show me everything first; write only what I approve. The page republishes about 
 }
 
 export function codeSteps(vault: string, hosted?: boolean): string {
-  return hosted ? `My GitHub city is built from my public GitHub repos automatically. To add private repos as padlocked buildings (size and activity only, never names or code), install the Caldera GitHub app on the repos I choose from my account page.`
+  return hosted ? `My GitHub city is built from my public GitHub repos automatically. To add private repos (never names or code), install the Caldera GitHub app on the repos I choose from my account page, then pick how they show in Settings > Privacy > Private repos on my city: padlocked in place, anonymous (one separate district, no sizes or activity) or hidden.`
     : `GitHub city: my repos as a living city (districts are projects, buildings are repos, taller = more commits).
 1. Make sure "${vault}/Caldera/profile.md" links include my code host: "GitHub | https://github.com/<me>" (or "Forgejo | https://<server>/<me>" for Forgejo, Gitea or Codeberg). Caldera then builds the city from my public repos itself.
-2. For private repos too (shown as padlocked buildings, never named), the setup prompt's routine can write Caldera/city.json with the gh CLI - paste the full Caldera setup prompt for that.`;
+2. For private repos too (never named), the setup prompt's routine can write Caldera/city.json with the gh CLI - paste the full Caldera setup prompt for that.
+3. Choose how private repos show on my PUBLIC city: set privateRepos in "${vault}/Caldera/profile.md" to show (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), anonymous (one separate padlocked district, no sizes, activity or projects) or hidden (no trace). Ask me which I want; my private view always shows everything.`;
 }
 
 /** A short "upgrade my page" prompt for existing users: only the features still missing. */

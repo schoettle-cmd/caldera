@@ -14,8 +14,18 @@ export interface CityRepo {
   pushed?: string; created?: string; size?: number; url?: string; description?: string;
   locked?: boolean;                                   // a private repo on the public page: shape only, no details
 }
-export interface CityDistrict { name: string; notes: number; notePaths?: string[]; repos: CityRepo[] }
-export interface CityData { generated?: string; kind?: "vault"; districts: CityDistrict[]; private: boolean; totals?: { commits: number; active: number }; under?: Underground }
+export interface CityDistrict { name: string; notes: number; notePaths?: string[]; repos: CityRepo[]; apart?: boolean }   // apart: the anonymous private district, laid out on its own
+export interface CityData { generated?: string; kind?: "vault"; districts: CityDistrict[]; private: boolean; totals?: { commits: number; active: number }; under?: Underground; privateMode?: PrivateMode }
+
+/** How a member's private repos show on their PUBLIC city (their own private view always shows everything):
+ *  show = padlocked buildings in place (size and activity coarse, never names); anonymous = one separate "Private" district
+ *  of identical padlocks, the count only as a small/medium/large cluster, no activity, no project, no commits;
+ *  hidden = private repos leave no trace at all. */
+export type PrivateMode = "show" | "anonymous" | "hidden";
+export const PRIVATE_MODES: PrivateMode[] = ["show", "anonymous", "hidden"];
+export const privateModeOf = (v: unknown): PrivateMode | undefined => PRIVATE_MODES.includes(v as PrivateMode) ? v as PrivateMode : undefined;
+/** anonymous: how many identical padlocks stand for N private repos (1-5, 6-20, more), never the real count */
+export const privateCluster = (n: number) => n <= 0 ? 0 : n <= 5 ? 3 : n <= 20 ? 8 : 15;
 
 /** The Underground: the Obsidian vault under the city. Notes are nodes (size = notes linking in), links are tunnels,
  *  depth = age, and notes about a project sit under its district with light roots up into the buildings. */
@@ -126,7 +136,30 @@ export function cityData(repos: CityRepo[], notes: (project: string) => { n: num
 const LOCKED_STEPS = [1, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
 const coarse = (n: number) => n <= 0 ? 0 : LOCKED_STEPS.reduce((b, s) => n >= s ? s : b, 1);
 const locked = (r: CityRepo, project: string): CityRepo => ({ name: "", project, public: false, locked: true, language: "Private", commits: coarse(r.commits), weeks: [], week: r.week > 0 ? 1 : 0, today: 0 });
-export function publicCity(c: CityData, publicProjects: string[]): CityData {
+
+/** Apply a member's private-repos setting to an already PUBLIC city (works on any build: anything locked or not marked
+ *  public counts as private). "show" returns it as it is. Totals are recomputed from public repos only. */
+export function applyPrivateMode(c: CityData, mode: PrivateMode | undefined): CityData {
+  if (!mode || mode === "show" || c.private) return c;
+  const isPriv = (r: CityRepo) => !!r.locked || r.public !== true || !r.name;
+  let n = 0;
+  const districts: CityDistrict[] = [];
+  for (const d of c.districts) {
+    if (d.apart) { n += d.repos.length; continue; }
+    const pub = d.repos.filter(r => !isPriv(r)); n += d.repos.length - pub.length;
+    if (pub.length || (d.notes > 0 && !/^(private|vault)$/i.test(d.name))) districts.push({ ...d, repos: pub });   // a named project keeps its notes; private repos leave it
+  }
+  const label = c.kind === "vault" ? "Vault" : "Private";
+  if (mode === "anonymous" && n > 0)
+    districts.push({ name: label, notes: 0, apart: true, repos: Array.from({ length: privateCluster(n) }, () => ({ name: "", project: label, public: false, locked: true, language: "Private", commits: 25, weeks: [], week: 0, today: 0 })) });
+  const pub = districts.flatMap(d => d.repos).filter(r => !r.locked);
+  return { ...c, districts, privateMode: mode, totals: { commits: pub.reduce((s, r) => s + (Number(r.commits) || 0), 0), active: pub.filter(r => r.week > 0).length },
+    under: c.under ? publicUnderground(c.under, districts.filter(d => !d.apart).map(d => d.name)) : undefined };
+}
+export function publicCity(c: CityData, publicProjects: string[], mode: PrivateMode = "show"): CityData {
+  return applyPrivateMode(publicCityShow(c, publicProjects), mode);
+}
+function publicCityShow(c: CityData, publicProjects: string[]): CityData {
   const pub = new Set(publicProjects.map(p => p.toLowerCase()));
   const districts: CityDistrict[] = [], hidden: CityRepo[] = [];
   for (const d of c.districts) {
@@ -142,12 +175,46 @@ export function publicCity(c: CityData, publicProjects: string[]): CityData {
 
 export interface CitySite { name: string; handle?: string; github?: string; theme?: "dark" | "light"; icon?: string; nav?: (depth: number, current: string) => string; openBase?: string }
 
+
+const PADLOCK_LEGEND = '<span><i style="background:#5C6B86"></i>&#128274; Private</span>';
+const PADLOCK_SHOW = " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside.";
+const PADLOCK_ANON = " The padlocked district holds private work, kept anonymous: no names, sizes, projects or activity.";
+function cityPadlockNote(city: CityData): string {
+  const lockedAny = city.districts.some(d => d.repos.some(r => r.locked));
+  return city.kind === "vault" || city.private || !lockedAny ? "" : city.privateMode === "anonymous" ? PADLOCK_ANON : PADLOCK_SHOW;
+}
+function cityRows(city: CityData): string {
+  return city.districts.map(d => d.apart ? `<tr><td>${esc(d.name)} &#128274;</td><td colspan="4">Private work, kept anonymous</td></tr>` : `<tr><td>${esc(d.name)}</td><td>${d.repos.length}</td><td>${d.repos.reduce((s, r) => s + r.commits, 0).toLocaleString("en-US")}</td><td>${d.repos.reduce((s, r) => s + r.week, 0)}</td><td>${d.notes}</td></tr>`).join("");
+}
+function cityStats(city: CityData): string {
+  const repos = city.districts.flatMap(d => d.repos), notes = city.districts.reduce((s, d) => s + d.notes, 0);
+  const total = city.totals?.commits ?? repos.reduce((s, r) => s + r.commits, 0), active = city.totals?.active ?? repos.filter(r => r.week > 0).length;
+  const anon = !!city.privateMode && city.privateMode !== "show", nb = anon ? repos.filter(r => !r.locked).length : repos.length;
+  return `<div class="c-stats"><div><b>${nb}</b><span>${anon ? "public buildings" : "buildings"}</span></div><div><b>${total.toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes edited this year" : "commits this year"}</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${(city.kind === "vault" ? city.under?.total ?? notes : notes).toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes in the vault" : "notes in town"}</span></div></div>`;
+}
+
+/** Serve-time: apply a private-repos setting to an already published PUBLIC city.html (any plugin version). Rebuilds
+ *  the embedded data and every place the page states numbers about the city; the canvas draws from the data. */
+export function rewriteCityPage(html: string, mode: PrivateMode | undefined): string {
+  if (!mode || mode === "show") return html;
+  const m = html.match(/<script type="application\/json" id="city-data">([\s\S]*?)<\/script>/); if (!m) return html;
+  let data: any; try { data = JSON.parse(m[1]); } catch { return html; }
+  if (!data || !Array.isArray(data.districts) || data.private) return html;
+  const city = applyPrivateMode(data as CityData, mode);
+  let out = html.replace(m[0], () => `<script type="application/json" id="city-data">${JSON.stringify(city).replace(/</g, "\\u003c")}</script>`);
+  out = out.replace(/<div class="c-stats">(?:<div>[\s\S]*?<\/div>){4}<\/div>/, () => cityStats(city));
+  out = out.replace(/(<table class="c-table">[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/, (_a, x, y) => x + cityRows(city) + y);
+  out = out.split(PADLOCK_SHOW).join(cityPadlockNote(city));
+  if (!city.districts.some(d => d.repos.some(r => r.locked))) out = out.split(PADLOCK_LEGEND).join("");
+  return out;
+}
+
 export function renderCity(site: CitySite, city: CityData): string {
   const repos = city.districts.flatMap(d => d.repos);
   const total = city.totals?.commits ?? repos.reduce((s, r) => s + r.commits, 0), active = city.totals?.active ?? repos.filter(r => r.week > 0).length, notes = city.districts.reduce((s, d) => s + d.notes, 0);
   const json = JSON.stringify({ ...city, openBase: site.openBase || "" }).replace(/</g, "\\u003c");
   const icon = site.icon ? `<link rel="icon" href="${esc(site.icon)}" type="image/png">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`;
-  const rows = city.districts.map(d => `<tr><td>${esc(d.name)}</td><td>${d.repos.length}</td><td>${d.repos.reduce((s, r) => s + r.commits, 0).toLocaleString("en-US")}</td><td>${d.repos.reduce((s, r) => s + r.week, 0)}</td><td>${d.notes}</td></tr>`).join("");
+  const rows = cityRows(city);
   return `<!doctype html><html lang="en"${site.theme === "light" ? ' data-theme="light"' : ""}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(site.name)}'s city</title>
 <meta name="robots" content="noindex, nofollow"><meta name="generator" content="Caldera for Obsidian">
@@ -158,13 +225,13 @@ ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" hre
 <div class="shell">${site.nav ? site.nav(0, "city.html") : ""}<main class="note"><div class="c-main">
 <div class="g-crumbs c-crumbs"><a href="index.html">${esc(site.handle ? "@" + site.handle : site.name)}</a> / City${site.github && /^https:\/\/github\.com\/[\w.-]+\/?$/.test(site.github) ? ` &middot; <a class="c-gh" href="${esc(site.github)}" target="_blank" rel="noopener">GitHub &#8599;</a>` : ""}</div>
 <h1 class="c-title">${esc(site.name)}'s city</h1>
-<p class="c-lede">${city.kind === "vault" ? `Built from ${esc(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : repos.some(r => r.locked) ? " Glass buildings with a padlock are private repos: you can see the city grow, not what's inside." : ""}`}</p>
-<div class="c-stats"><div><b>${repos.length}</b><span>buildings</span></div><div><b>${total.toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes edited this year" : "commits this year"}</span></div><div><b>${active}</b><span>busy this week</span></div><div><b>${(city.kind === "vault" ? city.under?.total ?? notes : notes).toLocaleString("en-US")}</b><span>${city.kind === "vault" ? "notes in the vault" : "notes in town"}</span></div></div>
+<p class="c-lede">${city.kind === "vault" ? `Built from ${esc(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : cityPadlockNote(city)}`}</p>
+${cityStats(city)}
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
 <div class="c-tools"><button id="t-labels" aria-pressed="true" title="Labels">&#x1F3F7;&#xFE0F;<span class="t-txt"> Labels</span></button><button id="t-sky">Auto</button><button id="t-wx" title="Weather">Weather</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-snd" aria-pressed="false" title="Sound for arrivals, signups and sales (off)">&#x1F507;</button><button id="t-reset" title="Reset the view">&#x21BA;<span class="t-txt"> Reset</span></button><button id="t-pop" aria-label="Pop out a small window" title="Pop out a small window">&#x29C9;<span class="t-txt"> Pop out</span></button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
 <div class="c-toasts" aria-live="polite"></div><div class="c-mininame" aria-hidden="true"><i></i>${esc(site.name)}</div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
-<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some(r => r.locked) ? '<span><i style="background:#5C6B86"></i>&#128274; Private</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
+<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some(r => r.locked) ? PADLOCK_LEGEND : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
 ${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.generated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}.</p>` : ""}
 </div></main></div>
@@ -185,7 +252,8 @@ export function citySnapshot(city: CityData, o: { name: string; href?: string })
   let x = 1, y = 1, rowH = 0;
   for (const d of ds) {
     const rs = d.repos.slice(0, 36), k = Math.max(2, Math.ceil(Math.sqrt(rs.length)));
-    if (x + k > maxW && x > 1) { x = 1; y += rowH + 1; rowH = 0; }
+    if (d.apart && (x > 1 || y > 1)) { if (x > 1) { x = 1; y += rowH + 1; rowH = 0; } y += 2; }   // the anonymous private district stands apart, never beside a project
+    else if (x + k > maxW && x > 1) { x = 1; y += rowH + 1; rowH = 0; }
     blocks.push({ x, y, k });
     const cells: [number, number][] = []; for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) cells.push([x + i, y + j]);
     cells.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
@@ -221,6 +289,7 @@ export function citySnapshot(city: CityData, o: { name: string; href?: string })
   }
   const pad = 18, vb = `${f(minX - pad)} ${f(minY - pad)} ${f(maxX - minX + pad * 2)} ${f(maxY - minY + pad * 2)}`;
   const repos = city.districts.flatMap(d => d.repos), total = city.totals?.commits ?? repos.reduce((a, r) => a + r.commits, 0), busy = city.totals?.active ?? repos.filter(r => r.week > 0).length;
+  const nb = city.privateMode && city.privateMode !== "show" ? repos.filter(r => !r.locked).length : repos.length;   // the anonymous cluster size is not a count
   const e = (v: string) => v.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   return `<style>.city-peek{display:block;position:relative;margin:18px 0 26px;border-radius:12px;overflow:hidden;text-decoration:none;color:#E8EEF8;background:radial-gradient(ellipse at 50% 120%,#1d2b4a 0%,#0c1222 60%,#080b14 100%);border:1px solid rgba(140,170,220,.18);transition:border-color .2s,transform .2s}
 .city-peek:hover{border-color:rgba(140,190,255,.5);transform:translateY(-1px)}.city-peek svg{display:block;width:100%;height:auto;max-height:300px}
@@ -234,7 +303,7 @@ export function citySnapshot(city: CityData, o: { name: string; href?: string })
 .city-peek.sky-day .cp-pad,.city-peek.sky-dawn .cp-pad{fill:rgba(70,110,70,.22);stroke:rgba(50,90,60,.35)}
 .city-peek.sky-day [class*=cp-on]{fill:rgba(205,228,250,.95);animation:none}.city-peek.sky-day .cp-w{fill:rgba(40,60,90,.45)}.city-peek.sky-dawn [class*=cp-on]{fill:#FFE2A8}</style>
 <a class="city-peek" href="${e(o.href || "city.html")}" aria-label="Open ${e(o.name)}'s city"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-hidden="true">${out.join("")}</svg>
-<span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${repos.length} building${repos.length === 1 ? "" : "s"} &middot; ${total.toLocaleString("en-US")} ${city.kind === "vault" ? `note${total === 1 ? "" : "s"} edited` : `commit${total === 1 ? "" : "s"}`} this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a><script>(function(a){var d=new Date(),m=d.getHours()*60+d.getMinutes(),k=m<345?'':m<450?'dawn':m<1042?'day':m<1140?'dusk':m<1237?'evening':'';if(a&&k)a.classList.add('sky-'+k)})(document.currentScript&&document.currentScript.previousElementSibling)</script>`;
+<span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${nb} building${nb === 1 ? "" : "s"}${city.privateMode === "anonymous" && repos.some(r => r.locked) ? " + private work" : ""} &middot; ${total.toLocaleString("en-US")} ${city.kind === "vault" ? `note${total === 1 ? "" : "s"} edited` : `commit${total === 1 ? "" : "s"}`} this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a><script>(function(a){var d=new Date(),m=d.getHours()*60+d.getMinutes(),k=m<345?'':m<450?'dawn':m<1042?'day':m<1140?'dusk':m<1237?'evening':'';if(a&&k)a.classList.add('sky-'+k)})(document.currentScript&&document.currentScript.previousElementSibling)</script>`;
 }
 
 export const CITY_CSS = `
@@ -339,7 +408,7 @@ if(D.world){
   D.districts.forEach(function(d){var key=d.nb||d.name;if(!NBM[key]){NBM[key]={key:key,ds:[]};NBS.push(NBM[key])}NBM[key].ds.push(d)});
   NBS.forEach(function(n){var ar=0;n.ds.forEach(function(d){d._h=Math.min(d.notes||0,16);var need=d.repos.length+Math.ceil(d._h/4);d._k=Math.max(2,Math.ceil(Math.sqrt(need)));ar+=(d._k+1)*(d._k+1)});
     var mw=Math.max(3,Math.ceil(Math.sqrt(ar)*1.1)),lx=0,ly=0,rh=0,w=0,h=0;
-    n.ds.forEach(function(d){if(lx+d._k>mw&&lx>0){lx=0;ly+=rh+1;rh=0}d._lx=lx;d._ly=ly;lx+=d._k+1;rh=Math.max(rh,d._k);w=Math.max(w,lx-1);h=Math.max(h,ly+rh)});n.w=w;n.h=h});
+    n.ds.forEach(function(d){if(d.apart&&(lx>0||ly>0)){if(lx>0){lx=0;ly+=rh+1;rh=0}ly+=2}else if(lx+d._k>mw&&lx>0){lx=0;ly+=rh+1;rh=0}d._lx=lx;d._ly=ly;lx+=d._k+1;rh=Math.max(rh,d._k);w=Math.max(w,lx-1);h=Math.max(h,ly+rh)});n.w=w;n.h=h});
   var GAP=5,cols=Math.max(1,Math.ceil(Math.sqrt(NBS.length*1.3))),rows=Math.max(1,Math.ceil(NBS.length/cols)),CWs=[],CHs=[],X0=[1],Y0=[1];
   NBS.forEach(function(n,ix){n.cx=ix%cols;n.cy=Math.floor(ix/cols);CWs[n.cx]=Math.max(CWs[n.cx]||0,n.w);CHs[n.cy]=Math.max(CHs[n.cy]||0,n.h)});   // each column/row only as wide as its biggest member
   for(var ci=0;ci<cols;ci++)X0.push(X0[ci]+(CWs[ci]||0)+GAP);for(var rj=0;rj<rows;rj++)Y0.push(Y0[rj]+(CHs[rj]||0)+GAP);
@@ -357,7 +426,7 @@ var area=D.districts.reduce(function(s,d){var n=d.repos.length+Math.ceil(Math.mi
 var maxW=Math.max(8,Math.ceil(Math.sqrt(area)*1.25));
 D.districts.forEach(function(d){
   var houses=Math.min(d.notes,40),need=d.repos.length+Math.ceil(houses/4),k=Math.max(2,Math.ceil(Math.sqrt(need)));
-  if(x+k>maxW&&x>1){x=1;y+=rowH+1;rowH=0}
+  if(d.apart&&(x>1||y>1)){if(x>1){x=1;y+=rowH+1;rowH=0}y+=2}else if(x+k>maxW&&x>1){x=1;y+=rowH+1;rowH=0}   // the anonymous private district stands apart
   placeDistrict(d,x,y,k,houses);
   x+=k+1;rowH=Math.max(rowH,k);W=Math.max(W,x);H=Math.max(H,y+rowH+1);
 });
@@ -804,7 +873,7 @@ function tronObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.w
       for(var q2=0;q2<t.n;q2++){var hx=p.x+spots[q2][0],hy=p.y+spots[q2][1],hw=TW/2*.24,hh=TH/2*.24;c.fillStyle='#0A1220';poly(c,[[hx-hw,hy],[hx,hy+hh],[hx+hw,hy],[hx+hw,hy-6],[hx,hy-14],[hx-hw,hy-6]]);c.fill();
         glowLine(c,[[hx-hw,hy-6],[hx,hy-14],[hx+hw,hy-6]],hc,1,6);c.fillStyle=hc;c.globalAlpha=.8;c.fillRect(hx-1,hy-4,2,2);c.globalAlpha=1}}
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),col=r.locked?'#CFEFFF':dm?'#5A6A80':neon(r);
-      var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?.03:r.locked?(r.week?.45:.12):Math.min(.95,.25+(r.week/Math.max(wk,1))*.7);
+      var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?.03:r.locked?(t.d&&t.d.apart?0:r.week?.45:.12):Math.min(.95,.25+(r.week/Math.max(wk,1))*.7);
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
       for(var k=0;k<tiers.length;k++){tronPrism(c,p.x,top,tiers[k][0],tiers[k][1],col,litp,seed+k*101,r.locked);top-=tiers[k][1]}
       if(r.locked){glowLine(c,[[p.x-3,top-6],[p.x-3,top-8],[p.x,top-11],[p.x+3,top-8],[p.x+3,top-6]],col,1.2,6);c.fillStyle=col;c.fillRect(p.x-4,top-6,8,6)}
@@ -982,7 +1051,7 @@ function drawObjects(){var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(1,0,0,1,0
     if(t.t==='h'){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],sd=hash(t.d.name);for(var q=0;q<t.n;q++)houseAt(c,p.x+spots[q][0],p.y+spots[q][1],['#E8DCC8','#CFD8E6','#EAD2B8','#D2E0CC'][(sd+q)%4],sd+q)}
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked;
       var col=r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
-      var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?0:r.locked?(r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
+      var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
       for(var k=0;k<tiers.length;k++){var tw=tiers[k][0],th=tiers[k][1];var sh=prism(c,p.x,top,tw,th,col);if(!LOD)facadeWindows(c,p.x,top,tw,th,glass,litp,seed+k*101,base);top-=th}
@@ -1064,7 +1133,7 @@ function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={workin
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
 function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
-  if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">The details of this building are private. Its size and lights show roughly how much work goes on inside.</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
+  if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">'+(d.apart?'This person keeps private work anonymous: these padlocks don\'t show how many repos there are, how big they are, which projects they belong to or when they were busy.':'The details of this building are private. Its size and lights show roughly how much work goes on inside.')+'</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':'')+'</div>'
    +(r.description?'<p style="margin:6px 0 0">'+e(r.description)+'</p>':'')
    +'<div class="sp" title="Commits, last 12 weeks">'+(r.weeks||[]).map(function(w){return '<i style="height:'+Math.max(4,Math.round(w/mx*100))+'%"></i>'}).join('')+'</div><div class="k">Commits, last 12 weeks</div>'
