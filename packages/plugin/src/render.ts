@@ -250,8 +250,10 @@ export function navSidebar(p: ProfileData, sideOn: boolean, gardenOn: boolean, d
   const fix = (h: string) => /^https?:\/\//.test(h) ? h : h.startsWith("#") ? (onProfile ? h : `${up}index.html${h}`) : up + h;
   const pages: [string, string][] = [["index.html", p.name || "Profile"]];
   if (gardenOn) pages.push(["garden.html", "Garden home"]);
+  // World sits just above City: one click up to the whole map, flying to this person's neighborhood
+  if (p.handle) pages.push([`${(p.hub || "https://caldera.social").replace(/\/$/, "")}/world?focus=${encodeURIComponent(p.handle)}`, "World"]);
   if (p.sections?.city !== false && p.city?.districts.length) pages.push(["city.html", "City"]);
-  const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc(l)}</a>`).join("");
+  const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${/^https?:\/\//.test(h) ? h : onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc(l)}</a>`).join("");
   // the hub turns this into an inline Add friend for signed-in visitors (and Friends / Requested / Accept states); the
   // href is the hub's fallback page for anyone without scripts
   const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");

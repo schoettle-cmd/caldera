@@ -1087,6 +1087,8 @@ cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return
   cv.classList.toggle('c-link',!!(h&&(h.url||h.block||(h.r&&repoUrl(h.r)))));
   if(WORLD){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
 cv.addEventListener('pointerleave',function(){if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
+// /world?focus=<handle> (the World link on a profile): fly straight to that person's neighborhood
+if(D.world){try{var FQ=(new URLSearchParams(location.search).get('focus')||'').toLowerCase().replace(/^@/,'');if(FQ&&byName['@'+FQ])setTimeout(function(){worldFocus(byName['@'+FQ])},700)}catch(err){}}
 function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===3&&l[3]?': '+l[3]:l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var z=Math.min(3,Math.max(D.world?.08:.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;draw()}
