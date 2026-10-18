@@ -4,6 +4,7 @@ import type CalderaPlugin from "./main";
 import { gardenEnabled, type Identity } from "@caldera/core";
 
 export interface CalderaSettings {
+  lastMsgUnread?: number;             // unread direct messages already announced with a notice
   lastAlertTs?: string;               // newest Caldera alert already shown as a notice
   hubUrl: string;
   identity: Identity | null;          // stays on this device (plugin data); export it as your recovery key

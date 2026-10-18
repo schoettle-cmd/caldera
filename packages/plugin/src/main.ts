@@ -467,7 +467,7 @@ export default class CalderaPlugin extends Plugin {
           const seen = new Set(this.settings.seenIntros || []), fresh = this.intros.filter(i => !seen.has(i.handle + i.ts));
           if (fresh.length) new Notice(`Caldera: ${fresh.map(i => "@" + i.handle).join(", ")} would like to meet you${fresh[0]!.tag ? ` (also building ${fresh[0]!.tag})` : ""}. Open the Caldera panel to answer.`, 10_000);
           this.settings.seenIntros = this.intros.map(i => i.handle + i.ts); } catch { /* older hub */ }
-        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts(); void this.summaryPrompt();
+        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts(); void this.checkMessages(); void this.summaryPrompt();
       }
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -541,6 +541,20 @@ export default class CalderaPlugin extends Plugin {
         const frag = createFragment(f => { f.createEl("b", { text: "Caldera: " }); f.appendText(String(x.title) + " "); f.createEl("u", { text: "Read it" }); });
         const n = new Notice(frag, 20_000); n.noticeEl.addEventListener("click", () => void this.openProfile("alerts"));
       }
+    } catch { /* offline or older hub */ }
+  }
+
+  /** Unread direct messages on caldera.social: one notice when the count goes up (click: open Messages, signed in). */
+  async checkMessages() {
+    const s = this.settings; if (!s.identity || !s.handle) return;
+    try {
+      const a = await this.ownerActivity(new Date().toISOString()), m = a?.messages; if (!m) return;
+      const seen = s.lastMsgUnread || 0;
+      if (m.unread !== seen) { s.lastMsgUnread = m.unread; await this.saveSettings(); }
+      if (!m.unread || m.unread <= seen) return;
+      const who = (m.from || []).map((h: string) => "@" + h).join(", ");
+      const frag = createFragment(f => { f.createEl("b", { text: "Caldera: " }); f.appendText(`${m.unread} unread message${m.unread === 1 ? "" : "s"}${who ? ` from ${who}` : ""}. `); f.createEl("u", { text: "Open Messages" }); });
+      const n = new Notice(frag, 20_000); n.noticeEl.addEventListener("click", () => void this.openProfile("messages"));
     } catch { /* offline or older hub */ }
   }
 
