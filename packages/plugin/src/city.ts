@@ -248,6 +248,10 @@ export const CITY_CSS = `
 .c-stage{position:relative;height:min(72vh,720px);min-height:420px;border-radius:var(--radius-md,10px);overflow:hidden;border:1px solid rgba(61,242,255,.35);box-shadow:0 0 24px rgba(61,242,255,.12);background:#010207;touch-action:none}
 .c-stage canvas{width:100%;height:100%;display:block;cursor:grab}.c-stage canvas.c-link{cursor:pointer}.c-stage canvas.drag{cursor:grabbing}
 .c-tools{position:absolute;top:10px;right:10px;display:flex;gap:6px}
+.c-tools .t-sw{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;background:conic-gradient(#A78BFA 0 25%,#2DD4BF 0 50%,#FBBF24 0 75%,#FB7185 0)}
+.w-legend{position:absolute;left:10px;top:10px;z-index:3;display:flex;flex-direction:column;gap:4px;max-width:min(240px,calc(100% - 20px));padding:8px 11px;border-radius:10px;background:rgba(2,6,12,.84);border:1px solid rgba(61,242,255,.3);color:#E6F6FF;font:500 12px/1.35 'IBM Plex Sans',Arial,sans-serif;pointer-events:none}
+.w-legend b{font-weight:600;color:#BFF8FF;margin-bottom:2px}.w-legend span{display:flex;align-items:center;gap:7px}.w-legend i{width:10px;height:10px;border-radius:3px;flex:none}.w-legend[hidden]{display:none}
+@media (max-width:600px){.w-legend{top:auto;bottom:10px;flex-direction:row;flex-wrap:wrap;gap:4px 10px;max-width:calc(100% - 20px)}.w-legend b{width:100%}}
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
 .c-under{position:absolute;left:10px;bottom:10px;width:min(300px,calc(100% - 20px));background:rgba(2,6,12,.86);border:1px solid rgba(181,140,255,.45);border-radius:10px;padding:8px 10px;color:#E3DAFF;font:12px/1.45 var(--font-mono,'IBM Plex Mono',monospace)}
@@ -896,6 +900,19 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
 // founder's welcome links are faint and thin. Dimmer by day. Links are [a, b, kind, why]: 0 request/invite, 1 founder,
 // 2 shared repo, 3 GitHub follow.
 var WLAB=[],RAYS=true;try{RAYS=localStorage.getItem('caldera-world-rays')!=='0'}catch(err){}
+// Color by topic: tint each neighborhood's ground by its member's top "what they're building" tag; the legend names every
+// color, so the tint is never the only cue
+var TOPICS=false,TCOL={};try{TOPICS=localStorage.getItem('caldera-world-topics')==='1'}catch(err){}
+if(WORLD)(WORLD.topics||[]).forEach(function(x){TCOL[x.t]=x.c});
+function drawTopics(){if(!WORLD||!TOPICS)return;var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
+  NBS.forEach(function(n){var m=WORLD.m[n.key]||{},col=m.tag?(TCOL[m.tag]||'#94A3B8'):null;if(!col)return;
+    var a=iso(n.ox-.9,n.oy-.9),b=iso(n.ox+n.w+.1,n.oy-.9),d=iso(n.ox+n.w+.1,n.oy+n.h+.1),e=iso(n.ox-.9,n.oy+n.h+.1);
+    c.beginPath();c.moveTo(a.x,a.y+TH/2);c.lineTo(b.x,b.y+TH/2);c.lineTo(d.x,d.y+TH/2);c.lineTo(e.x,e.y+TH/2);c.closePath();
+    c.globalAlpha=.32;c.fillStyle=col;c.fill();c.globalAlpha=.85;c.lineWidth=2/cam.z;c.strokeStyle=col;c.stroke();c.globalAlpha=1})}
+function topicLegend(){var L=document.getElementById('w-legend');if(!WORLD)return;if(!L){L=document.createElement('div');L.id='w-legend';L.className='w-legend';L.setAttribute('role','note');L.setAttribute('aria-label','Color by topic');st.appendChild(L)}
+  L.hidden=!TOPICS;if(!TOPICS)return;var ts=WORLD.topics||[];L.innerHTML='';var h=document.createElement('b');h.textContent=ts.length?'What they\u2019re building':'No topics yet';L.appendChild(h);
+  ts.forEach(function(x){var r=document.createElement('span');var sw=document.createElement('i');sw.style.background=x.c;r.appendChild(sw);r.appendChild(document.createTextNode(x.t+' \u00b7 '+x.n));L.appendChild(r)});
+  var o=document.createElement('span');var so=document.createElement('i');so.style.background='#94A3B8';o.appendChild(so);o.appendChild(document.createTextNode('Other'));if(ts.length)L.appendChild(o)}
 function drawRays(){if(!WORLD||!RAYS)return;var ls=WORLD.links||[];if(!ls.length)return;var c=cx,tn=performance.now(),foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):WHOVER;
   var amb={day:.5,dawn:.75,dusk:.8,evening:1,night:1.1,grid:1}[sky]||.9;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.globalCompositeOperation='lighter';c.lineCap='round';
   ls.forEach(function(l,ix){var na=NBM[l[0]],nb=NBM[l[1]];if(!na||!nb)return;var p=nbTop(na),q=nbTop(nb),d=Math.hypot(q.x-p.x,q.y-p.y),mx=(p.x+q.x)/2,my=Math.min(p.y,q.y)-40-d*.28;
@@ -1029,7 +1046,7 @@ var lastPT=0;function frame(){T=performance.now();if(L1.width!==cv.width||L1.hei
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false}
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawRays();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawRays();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh)}
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
 var last=0,FPS_MS=MINI?50:30;function tick(ts){if(!document.hidden&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
@@ -1096,6 +1113,7 @@ cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var z=Math.min(3,Math.max(D.world?.08:.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;draw()}
 cv.addEventListener('wheel',function(ev){ev.preventDefault();var r=st.getBoundingClientRect();zoom(Math.exp(-ev.deltaY*0.0015),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});
 var bl=document.getElementById('t-labels'),bs=document.getElementById('t-sky');
+var btp=document.getElementById('t-topics');if(btp){btp.setAttribute('aria-pressed',String(TOPICS));topicLegend();btp.onclick=function(){TOPICS=!TOPICS;btp.setAttribute('aria-pressed',String(TOPICS));try{localStorage.setItem('caldera-world-topics',TOPICS?'1':'0')}catch(err){}topicLegend();if(reduce)frame()}}
 var bfr=document.getElementById('t-fr');if(bfr){bfr.setAttribute('aria-pressed',String(RAYS));bfr.onclick=function(){RAYS=!RAYS;bfr.setAttribute('aria-pressed',String(RAYS));try{localStorage.setItem('caldera-world-rays',RAYS?'1':'0')}catch(err){}if(reduce)frame()}}
 bl.setAttribute('aria-pressed',String(labels));bl.onclick=function(){labels=!labels;bl.setAttribute('aria-pressed',String(labels));draw()};
 var MN={auto:'Auto',grid:'Grid',dawn:'Dawn',day:'Day',dusk:'Dusk',evening:'Evening',night:'Night'};
