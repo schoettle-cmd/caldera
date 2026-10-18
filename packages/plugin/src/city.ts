@@ -850,7 +850,7 @@ function drawGround(){var c=c1;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L1.wi
   c.fillStyle=P.shadow;c.fill('nonzero');
 }
 // ---- world mode (caldera.social/world): every member is a neighborhood; friendships are highways between them
-var WORLD=D.world||null,WFOCUS=null;
+var WORLD=D.world||null,WFOCUS=null,WHOVER=null;
 function blockMid(b){var n=b.nbo;return n?iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5):iso(b.x+b.k/2-.5,b.y+b.k/2-.5)}
 function worldCard(b){var key=b.d.nb||b.d.name,m=WORLD.m[key]||{},nn=NBM[key],nrep=nn?nn.ds.reduce(function(s,d){return s+d.repos.length},0):b.d.repos.length;sel=null;
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(m.name||key)+'</h3><div class="k">'+e(key)+(m.isNew?' &middot; new this week':'')+(m.groups&&m.groups.length?' &middot; '+m.groups.map(function(g){return e(g)}).join(', '):'')+'</div>'
@@ -886,13 +886,14 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
     pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
     if(g.url||g.block)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block})})}
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
-// them. Real friendships glow warm violet; the founder's welcome links are faint and thin. Dimmer by day.
+// them. Real friendships glow warm violet, people who work on the same repo glow code-teal; the founder's welcome links
+// are faint and thin. Dimmer by day. Links are [a, b, kind, why]: kind 0 request/invite, 1 founder, 2 shared repo.
 var WLAB=[],RAYS=true;try{RAYS=localStorage.getItem('caldera-world-rays')!=='0'}catch(err){}
-function drawRays(){if(!WORLD||!RAYS)return;var ls=WORLD.links||[];if(!ls.length)return;var c=cx,tn=performance.now(),foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null;
+function drawRays(){if(!WORLD||!RAYS)return;var ls=WORLD.links||[];if(!ls.length)return;var c=cx,tn=performance.now(),foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):WHOVER;
   var amb={day:.5,dawn:.75,dusk:.8,evening:1,night:1.1,grid:1}[sky]||.9;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.globalCompositeOperation='lighter';c.lineCap='round';
   ls.forEach(function(l,ix){var na=NBM[l[0]],nb=NBM[l[1]];if(!na||!nb)return;var p=nbTop(na),q=nbTop(nb),d=Math.hypot(q.x-p.x,q.y-p.y),mx=(p.x+q.x)/2,my=Math.min(p.y,q.y)-40-d*.28;
-    var fd=!!l[2],hit=foc&&(l[0]===foc||l[1]===foc),k=amb*(foc?(hit?1.7:.22):1)*(fd?.35:1);if(k<=.02)return;
-    var col=fd?'159,180,255':'200,160,255',col2=fd?'159,180,255':'255,196,107';
+    var fd=l[2]===1,rp=l[2]===2,hit=foc&&(l[0]===foc||l[1]===foc),k=amb*(foc?(hit?1.7:.22):1)*(fd?.35:1);if(k<=.02)return;
+    var col=fd?'159,180,255':rp?'90,230,200':'200,160,255',col2=fd?'159,180,255':rp?'150,255,220':'255,196,107';
     var path=function(){c.beginPath();c.moveTo(p.x,p.y);c.quadraticCurveTo(mx,my,q.x,q.y)};
     var gr=c.createLinearGradient(p.x,p.y,q.x,q.y);gr.addColorStop(0,'rgba('+col+','+(.16*k)+')');gr.addColorStop(.5,'rgba('+col2+','+(.2*k)+')');gr.addColorStop(1,'rgba('+col+','+(.16*k)+')');
     path();c.strokeStyle=gr;c.lineWidth=fd?5:11;c.stroke();
@@ -1078,7 +1079,10 @@ if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes i
       if(g&&g.r===h.r)return {x:b.left+sx,y:b.top+sy,url:repoUrl(h.r)}}}return null}};
 cv.addEventListener('dblclick',function(ev){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);if(h&&h.r&&!MINI)openRepo(repoUrl(h.r))});
 cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return;var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
-  cv.classList.toggle('c-link',!!(h&&(h.url||h.block||(h.r&&repoUrl(h.r)))))});
+  cv.classList.toggle('c-link',!!(h&&(h.url||h.block||(h.r&&repoUrl(h.r)))));
+  if(WORLD){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
+cv.addEventListener('pointerleave',function(){if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
+function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var z=Math.min(3,Math.max(D.world?.08:.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;draw()}
 cv.addEventListener('wheel',function(ev){ev.preventDefault();var r=st.getBoundingClientRect();zoom(Math.exp(-ev.deltaY*0.0015),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});

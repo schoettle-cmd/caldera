@@ -17,7 +17,7 @@ import { renderOwner } from "./owner";
 import { QUICK_LINKS, quickLinkIndex, quickLinkUrl } from "./links";
 
 const VIEW = "caldera-panel";
-interface Friend { id: string; handle?: string; name?: string; box_key?: string; }
+interface Friend { id: string; handle?: string; name?: string; box_key?: string; kind?: string; why?: string; }
 interface Pending { request: string; from: string; handle?: string; note?: string; ts: string; }
 interface Suggestion { id: string; handle: string; name: string; headline: string; why: string; }
 
@@ -257,7 +257,7 @@ export default class CalderaPlugin extends Plugin {
         photos: { avatar: data.avatar, banner: data.banner }, links: data.links,
         sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
-        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, showViews: this.settings.showViews !== false, page: "index.html", updated: data.updated,
+        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, ...((eff as any).autoConnectRepos === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false } : {}), showViews: this.settings.showViews !== false, page: "index.html", updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
         garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
         groups: groupsFrom((this.settings.groups || []).join(",")), languages: (data as any).code?.languages?.slice(0, 6) || [],
@@ -390,6 +390,12 @@ export default class CalderaPlugin extends Plugin {
         this.api("GET", `/v1/friends/${encodeURIComponent(me.id)}`), this.api("GET", `/v1/gravity/${encodeURIComponent(me.id)}`), this.api("GET", `/v1/credits/${encodeURIComponent(me.id)}`),
         this.api("GET", `/v1/requests/${encodeURIComponent(me.id)}`, undefined, true).catch(() => null)]);
       this.friends = fr.friends; this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
+      // shared-repo friendships the hub made: announce each once
+      const seen = new Set(this.settings.seenRepoFriends || []), fresh = this.friends.filter(f => f.kind === "repo" && f.why && !seen.has(f.id));
+      if (fresh.length) {
+        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} both work on ${f.why}. You're now connected.`, 10_000);
+        this.settings.seenRepoFriends = [...seen, ...fresh.map(f => f.id)].slice(-500); await this.saveSettings();   // first sync after updating: remember, don't announce
+      }
       await this.sendQueuedFriends(me.id);
       let cards = 0;
       for (const e of envelopes as C.Envelope<any>[]) {
@@ -753,7 +759,7 @@ class CalderaView extends ItemView {
     el.createEl("h4", { text: `Friends (${p.friends.length})` });
     for (const f of p.friends) {
       const row = el.createDiv("caldera-row");
-      row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") });
+      row.createSpan({ text: "@" + (f.handle || f.id.slice(4, 12)) + (f.name ? ` - ${f.name}` : "") + (f.kind === "repo" && f.why ? ` (both work on ${f.why})` : "") });
       row.createEl("button", { text: "+ gravity" }).onclick = () => new GravityModal(this.app, f, r => p.giveGravity(f, r)).open();
       if (f.handle) row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, f.handle!, p);
     }

@@ -30,6 +30,7 @@ export function effectiveSettings(app: App, s: CalderaSettings): CalderaSettings
   const topics = pairs(fm.topics); if (topics) e.publicTopics = topics.map(([tag, label]) => [tag.replace(/^#/, ""), label]);
   if (fm.sections && typeof fm.sections === "object") for (const [k, v] of Object.entries(fm.sections)) e.sections[k] = v !== false;
   if (typeof fm.listed === "boolean") e.listed = fm.listed;
+  if (typeof fm.autoConnectRepos === "boolean") e.autoConnectRepos = fm.autoConnectRepos;
   if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x: unknown) => { const [g = "", items = "", folder = ""] = String(x ?? "").split("|").map(v => v.trim()); return [g, items, folder || undefined] as [string, string, string?]; }).filter(([g]) => g);
   if (Array.isArray(fm.graph)) e.graph = fm.graph.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 20);
   e.backlinks = pairs(fm.backlinks) ?? e.backlinks;
@@ -96,6 +97,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **topics** - which of your tags may be counted publicly, \`tag | Label\`. Tags not listed are never shown.
 - **sections** - switch parts of the page on or off: ${Object.keys(s.sections).join(", ")}.
 - **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
+- **autoConnectRepos** - \`false\` stops Caldera making you friends with members who work on the same public GitHub repos (on by default).
 - **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
 - **now** - what you're doing now, one line each.
 - **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.

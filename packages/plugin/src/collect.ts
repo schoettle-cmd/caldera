@@ -128,6 +128,8 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   // section; a group's optional folder shows a note count (count only, file names never leave the vault).
   const tree: NonNullable<ProfileData["tree"]> = [{ name: "People", child: false }, { name: s.name || "Me", child: true, current: true, href: "#top" }];
   const projUrl = new Map((s.projects || []).map(([n, rest]) => [n.toLowerCase(), (rest.split("|")[1] || "").trim()]));
+  // names linked in the timeline ([[Name|https://...]]) are public already: the sidebar links them the same way
+  for (const [, t] of s.timeline || []) for (const m of String(t).matchAll(/\[\[([^|\]]+)\|(https?:\/\/[^\]\s]+)\]\]/g)) if (!projUrl.has(m[1].trim().toLowerCase())) projUrl.set(m[1].trim().toLowerCase(), m[2]);
   const noteIds = new Set(notesSorted.map(n => n.title.toLowerCase()));
   const hrefFor = (it: string): string | undefined => {
     const k = it.toLowerCase(), u = projUrl.get(k);
@@ -143,7 +145,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   if (!s.tree?.length && !topTopics.length && !notesSorted.length)
     for (const [label, n] of kinds) tree.push({ name: label, child: false, count: n });
   for (const [g, items, folder] of groups) {
-    const count = folderCount(folder);
+    const count = items.length || folderCount(folder);   // a hand-picked list counts its own items, not every note in the folder
     if (!items.length && !count) continue;              // an empty group is noise
     tree.push({ name: g, child: false, count });
     for (const it of items) tree.push({ name: it, child: true, href: hrefFor(it) });
