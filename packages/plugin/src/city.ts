@@ -674,36 +674,46 @@ if(EX){if(EX.weather){setTimeout(fetchWx,300);setInterval(fetchWx,15*60000)}if(E
 window.addEventListener('message',function(ev){var m=ev.data;if(ev.source!==parent||!m||m.caldera!=='extras'||!m.data)return;if(m.data.weather&&m.data.weather.c){WX=m.data.weather;applyWeather()}if(m.data.owner)ownerSetup(m.data.owner)});
 
 // ---- agents: a drone over the building each AI agent is working in. Working = beam into the roof, thinking = circling,
-// waiting for you = parked at the HQ pad, blinking amber. Public pages only get district + state, never what it's doing.
+// waiting for you = docked on the agent stack, blinking amber. The stack is a thin mast on the city's corner (in the world:
+// on each neighborhood's back corner) where idle agents dock as rings, one above the other: the taller the stack, the more
+// agents are standing by. Working agents lift off it and fly to their building. Public pages only get district + state, never what it's doing.
 var AG={},AGC={working:'#3DF2FF',thinking:'#B58CFF',waiting:'#FFB020',idle:'#6F7C8F',done:'#6F7C8F'},BREPO={},BDIST={};
 for(var bk in tiles){var tb=tiles[bk];if(tb.t!=='b')continue;var bij=bk.split(','),bo={i:+bij[0],j:+bij[1],r:tb.r};if(tb.r.name)BREPO[tb.r.name.toLowerCase()]=bo;(BDIST[tb.d.name]=BDIST[tb.d.name]||[]).push(bo)}
 if(D.world)NBS.forEach(function(n){BDIST[n.key]=[];n.ds.forEach(function(d){BDIST[n.key]=BDIST[n.key].concat(BDIST[d.name]||[])})});   // a member's drones only ever fly to their own buildings
 var HQI=1.3,HQJ=H-1.3,HQP=iso(HQI,HQJ),HQS=.36;   // Agent HQ: a parking grid on the island's west corner, laid out along the streets
-function hqAt(a){var n=D.world&&a&&NBM[a.d];return n?{i:n.ox+1,j:n.oy+n.h+1.7}:{i:HQI,j:HQJ}}
+function hqAt(a){var n=D.world&&a&&NBM[a.d];return n?{i:n.ox-.75,j:n.oy-.75}:{i:HQI,j:HQJ}}
+var DOCK=6,DOCKMAX=16;   // ring spacing (px) and how many rings the mast shows before it reads "+n"
+function dockAt(a){var hq=hqAt(a);return iso(hq.i,hq.j)}
 function hqDims(n){var cols=Math.max(1,Math.ceil(Math.sqrt(n)));return {cols:cols,rows:Math.max(1,Math.ceil(n/cols))}}
 function agentsIn(list){var tn=performance.now(),seen={};list.slice(0,80).forEach(function(a){if(!a||!a.id)return;seen[a.id]=1;var g=AG[a.id];
-    if(!g){var hq0=hqAt(a),h0=iso(hq0.i,hq0.j);g=AG[a.id]={x:h0.x,y:h0.y-40,born:tn,seed:hash(String(a.id))}}g.a=a;g.gone=0});
+    if(!g){var h0=dockAt(a);g=AG[a.id]={x:h0.x,y:h0.y-40,born:tn,seed:hash(String(a.id))}}g.a=a;g.gone=0});
   for(var id in AG)if(!seen[id]&&!AG[id].gone)AG[id].gone=tn;if(D.world)dirty=true}
 function agentSpot(g,tn,slot,nslot){var a=g.a,b=null;
   if(a.state==='working'||a.state==='thinking'){b=(a.repo&&BREPO[String(a.repo).toLowerCase()])||null;if(!b&&a.d&&BDIST[a.d]){var l=BDIST[a.d];b=l[g.seed%l.length]}}
-  if(!b){var hq=hqAt(a),hd=hqDims(nslot),gi=slot%hd.cols,gj=Math.floor(slot/hd.cols),q=iso(hq.i+(gi-(hd.cols-1)/2)*HQS,hq.j+(gj-(hd.rows-1)/2)*HQS);return {x:q.x,y:q.y-9+Math.sin(tn/700+g.seed)*1,roof:null,hq:true}}
+  if(!b){var dk=dockAt(a),n=Math.min(slot,DOCKMAX-1);return {x:dk.x,y:dk.y-16-n*DOCK,roof:null,hq:true,hidden:slot>=DOCKMAX}}
   var p=iso(b.i,b.j),h=bh(b.r),y=p.y-h-24;
   if(a.state==='thinking')return {x:p.x+Math.cos(tn/900+g.seed)*14,y:y+Math.sin(tn/900+g.seed)*7,roof:null};
   return {x:p.x+Math.sin(tn/1300+g.seed)*3,y:y+Math.sin(tn/500+g.seed)*2,roof:p.y-h}}
 function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var parked=ids.filter(function(id){var s=AG[id].a.state;return !(s==='working'||s==='thinking')}),k=0;
-  // HQ pad (in the world: one per member, in front of their neighborhood; its label goes through the world label pass)
+  // the agent stack: one mast per city (in the world, per neighborhood); its label goes through the world label pass
   var groups={};ids.forEach(function(id){var key=D.world?(AG[id].a.d||''):'';(groups[key]=groups[key]||[]).push(id)});
-  Object.keys(groups).forEach(function(key){var gp=groups[key].filter(function(id){return parked.indexOf(id)>=0});if(!gp.length&&D.world)return;var hq=hqAt(AG[groups[key][0]].a);
-  c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,176,32,.55)';c.lineWidth=1.5;c.shadowColor='#FFB020';c.shadowBlur=8;var hd=hqDims(gp.length),ri=(hd.cols-1)/2*HQS+.3,rj=(hd.rows-1)/2*HQS+.3,k1=iso(hq.i-ri,hq.j-rj),k2=iso(hq.i+ri,hq.j-rj),k3=iso(hq.i+ri,hq.j+rj),k4=iso(hq.i-ri,hq.j+rj);c.fillStyle='rgba(255,176,32,.07)';c.beginPath();c.moveTo(k1.x,k1.y);c.lineTo(k2.x,k2.y);c.lineTo(k3.x,k3.y);c.lineTo(k4.x,k4.y);c.closePath();c.fill();c.stroke();c.restore();
-  if(D.world)return;
-  var nw=gp.filter(function(id){return AG[id].a.state==='waiting'}).length;var ni=gp.length-nw;var hb=iso(hq.i+(hd.cols-1)/2*HQS+.3,hq.j+(hd.rows-1)/2*HQS+.3);if(labels)tronPill(c,hb.x,hb.y+18,'AGENT HQ'+(ni?' · '+ni+' parked':'')+(nw?' · '+nw+' waiting on you':''),'#FFB020','600 9px ui-monospace,monospace')});
+  Object.keys(groups).forEach(function(key){var gp=groups[key].filter(function(id){return parked.indexOf(id)>=0});if(!gp.length&&D.world)return;var d0=dockAt(AG[groups[key][0]].a),n=Math.min(gp.length,DOCKMAX),top=d0.y-16-Math.max(0,n-1)*DOCK-12;
+    c.save();c.lineCap='round';
+    c.fillStyle='rgba(20,26,40,.55)';c.beginPath();c.ellipse(d0.x,d0.y,9,4,0,0,7);c.fill();c.strokeStyle='rgba(160,190,230,.6)';c.lineWidth=1;c.stroke();   // footing
+    var mg=c.createLinearGradient(0,d0.y,0,top);mg.addColorStop(0,'rgba(170,195,230,.85)');mg.addColorStop(1,'rgba(170,195,230,.35)');c.strokeStyle=mg;c.lineWidth=1.6;c.beginPath();c.moveTo(d0.x,d0.y);c.lineTo(d0.x,top);c.stroke();   // mast
+    c.globalCompositeOperation='lighter';var bl=.35+.65*Math.max(0,Math.sin(tn/520));var tl=c.createRadialGradient(d0.x,top,0,d0.x,top,7);tl.addColorStop(0,'rgba(255,70,70,'+bl+')');tl.addColorStop(1,'rgba(255,70,70,0)');c.fillStyle=tl;c.beginPath();c.arc(d0.x,top,7,0,7);c.fill();   // aviation light
+    c.restore();
+    if(D.world||!labels)return;
+    var nw=gp.filter(function(id){return AG[id].a.state==='waiting'}).length,ni=gp.length-nw;tronPill(c,d0.x,d0.y+16,'AGENTS'+(ni?' · '+ni+' docked':'')+(nw?' · '+nw+' waiting on you':'')+(gp.length>DOCKMAX?' · +'+(gp.length-DOCKMAX)+' more':''),'#9FC3FF','600 9px ui-monospace,monospace')});
   var slotOf={};Object.keys(groups).forEach(function(key){groups[key].filter(function(id){return parked.indexOf(id)>=0}).forEach(function(id,ix,arr){slotOf[id]=[ix,arr.length]})});
   ids.forEach(function(id){var g=AG[id],a=g.a,sp=agentSpot(g,tn,slotOf[id]?slotOf[id][0]:0,slotOf[id]?slotOf[id][1]:1);
     g.x+=(sp.x-g.x)*.05;g.y+=(sp.y-g.y)*.05;var f=g.gone?Math.max(0,1-(tn-g.gone)/1500):Math.min(1,(tn-g.born)/600);if(f<=0){delete AG[id];return}
     var col=AGC[a.state]||AGC.working,blink=a.state==='waiting'?(.55+.45*Math.abs(Math.sin(tn/380))):(a.state==='idle'||a.state==='done')?.45:1;
     c.save();c.globalAlpha=f;c.globalCompositeOperation='lighter';
     if(sp.roof!=null&&Math.abs(g.x-sp.x)<6){var gb=c.createLinearGradient(0,g.y,0,sp.roof);gb.addColorStop(0,col);gb.addColorStop(1,'rgba(61,242,255,0)');c.fillStyle=gb;c.globalAlpha=f*(.55+.25*Math.sin(tn/160));c.beginPath();c.moveTo(g.x-2,g.y);c.lineTo(g.x+2,g.y);c.lineTo(g.x+9,sp.roof);c.lineTo(g.x-9,sp.roof);c.closePath();c.fill();c.globalAlpha=f}
-    var sc=sp.hq?.6:1,gl=c.createRadialGradient(g.x,g.y,0,g.x,g.y,22*sc);gl.addColorStop(0,col);gl.addColorStop(1,'rgba(0,0,0,0)');c.globalAlpha=f*.6*blink;c.fillStyle=gl;c.beginPath();c.arc(g.x,g.y,22*sc,0,7);c.fill();c.globalAlpha=f*blink;
+    if(sp.hq){if(!sp.hidden){c.globalAlpha=f*(a.state==='waiting'?blink:.9);c.fillStyle=a.state==='waiting'?'rgba(255,176,32,.35)':'rgba(120,160,220,.22)';c.strokeStyle=a.state==='waiting'?'#FFB020':'#8FB4E8';c.lineWidth=1.3;c.shadowColor=c.strokeStyle;c.shadowBlur=a.state==='waiting'?10:4;
+      c.beginPath();c.ellipse(g.x,g.y,8,2.8,0,0,7);c.fill();c.stroke()}c.restore();g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;return}
+    var sc=1,gl=c.createRadialGradient(g.x,g.y,0,g.x,g.y,22*sc);gl.addColorStop(0,col);gl.addColorStop(1,'rgba(0,0,0,0)');c.globalAlpha=f*.6*blink;c.fillStyle=gl;c.beginPath();c.arc(g.x,g.y,22*sc,0,7);c.fill();c.globalAlpha=f*blink;
     c.strokeStyle=col;c.lineWidth=1.4;c.shadowColor=col;c.shadowBlur=8;c.setLineDash([4,3]);c.lineDashOffset=-tn/40;c.beginPath();c.ellipse(g.x,g.y,11*sc,5.5*sc,0,0,7);c.stroke();c.setLineDash([]);
     c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(g.x,g.y-6*sc);c.lineTo(g.x+5*sc,g.y);c.lineTo(g.x,g.y+3.5*sc);c.lineTo(g.x-5*sc,g.y);c.closePath();c.fill();c.restore();
     g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;
@@ -950,8 +960,8 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
   NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y);cand.push({pr:n.key===foc?0:1,x:sp[0],y:sp[1],text:(vw<600&&n.key.length>16?n.key.slice(0,15)+'…':n.key)+(wm.isNew?(vw<600?' ✦':' ✦ new'):''),bg:wm.isNew?'rgba(46,170,120,.95)':'rgba(139,108,246,.96)',fg:'#fff',font:vw<600?'700 11px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
   if(z>=.55)blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
-    Object.keys(per).forEach(function(k){if(!NBM[k])return;var hq=hqAt({d:k}),hb=iso(hq.i,hq.j+.9),sp=S(hb.x,hb.y),q=per[k];
-      cand.push({pr:1.9,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
+    Object.keys(per).forEach(function(k){if(!NBM[k])return;var hb=dockAt({d:k}),sp=S(hb.x,hb.y),q=per[k];
+      cand.push({pr:1.9,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' docked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
   tags.forEach(function(g){var sp=S(g.x,g.y);cand.push({pr:3,x:sp[0],y:sp[1],text:g.text,bg:'rgba(17,20,32,.88)',fg:'#F2F2F5',font:'600 10.5px IBM Plex Sans,Arial,sans-serif',url:g.url})});
   cand.sort(function(a,b){return a.pr-b.pr});WLAB=placed;
   cand.forEach(function(g){c.font=g.font;var w=c.measureText(g.text).width+12,bx={x0:g.x-w/2-3,x1:g.x+w/2+3,y0:g.y-20,y1:g.y+5};
