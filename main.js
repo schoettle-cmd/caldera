@@ -3297,7 +3297,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.queuePublish("profile");
     }));
     let email = s.summaryEmail || "";
-    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests and kudos. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
+    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and friend requests, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
     new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
       s.welcomeNew = v;
       if (v && !s.welcomeSince) s.welcomeSince = (/* @__PURE__ */ new Date()).toISOString();
@@ -7263,6 +7263,7 @@ ${o.agentSetup}`;
         void this.attention();
         void this.kudosNews();
         void this.checkAlerts();
+        void this.summaryPrompt();
       }
       this.refreshPanel();
       if (loud || cards) new import_obsidian7.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -7395,6 +7396,25 @@ caldera_received: ${e.ts}
       });
       const note = new import_obsidian7.Notice(frag, 15e3);
       note.noticeEl.addEventListener("click", () => this.openShare());
+    } catch {
+    }
+  }
+  /** Once: members without the daily summary get a notice; clicking it asks for the address right there. */
+  async summaryPrompt() {
+    const s = this.settings;
+    if (s.emailPromptShown || s.summaryEmail || !s.identity || !s.handle) return;
+    try {
+      const a = await this.ownerActivity((/* @__PURE__ */ new Date()).toISOString());
+      if (a.emailConfirmed !== false) return;
+      s.emailPromptShown = true;
+      await this.saveSettings();
+      const frag = createFragment((f) => {
+        f.createEl("b", { text: "Caldera: get your daily summary. " });
+        f.appendText("Who visited your page, kudos and friend requests, people to meet. Only on days something happens. ");
+        f.createEl("u", { text: "Add your email" });
+      });
+      const note = new import_obsidian7.Notice(frag, 2e4);
+      note.noticeEl.addEventListener("click", () => new SummaryEmailModal(this.app, this).open());
     } catch {
     }
   }
@@ -7824,6 +7844,29 @@ var FriendPicker = class extends import_obsidian7.SuggestModal {
     void this.pick(f);
   }
 };
+var SummaryEmailModal = class extends import_obsidian7.Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+  onOpen() {
+    const c = this.contentEl;
+    this.titleEl.setText("Where should we send your daily summary?");
+    c.createEl("p", { text: "Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens, with a one-click unsubscribe. We send a confirmation link first.", cls: "setting-item-description" });
+    let email = this.plugin.settings.summaryEmail || "";
+    new import_obsidian7.Setting(c).setName("Email").addText((t) => {
+      t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim());
+      t.inputEl.type = "email";
+    }).addButton((b) => b.setButtonText("Email me").setCta().onClick(async () => {
+      if (!email) return;
+      await this.plugin.setSummaryEmail(email);
+      this.close();
+    }));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 var GravityModal = class extends import_obsidian7.Modal {
   constructor(app, f, done) {
     super(app);
@@ -8060,8 +8103,21 @@ var WelcomeModal = class extends import_obsidian7.Modal {
     }
     head("Staying in touch");
     new import_obsidian7.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
+    head("Where should we send your daily summary?");
     let email = s.summaryEmail || "";
-    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests and kudos - only on days something happens.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim()));
+    new import_obsidian7.Setting(c).setName("Your email").setDesc("Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens; one-click unsubscribe.").addText((t) => {
+      t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim());
+      t.inputEl.type = "email";
+      t.inputEl.addClass("caldera-email-wide");
+    });
+    {
+      const hubBase = (s.hubUrl || "https://caldera.social").replace(/\/$/, ""), legal = c.createEl("p", { cls: "setting-item-description" });
+      legal.appendText("By publishing you agree to the ");
+      legal.createEl("a", { text: "Terms", href: `${hubBase}/terms` });
+      legal.appendText(" and ");
+      legal.createEl("a", { text: "Privacy Policy", href: `${hubBase}/privacy` });
+      legal.appendText(" of Caldera (mjonesone, LLC).");
+    }
     c.appendChild(status);
     const go = new import_obsidian7.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
       if (!name) {
@@ -8144,7 +8200,7 @@ var ShareModal = class extends import_obsidian7.Modal {
     new import_obsidian7.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
     new import_obsidian7.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests and kudos. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
+    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and friend requests, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
     if (this.firstRun) new import_obsidian7.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
