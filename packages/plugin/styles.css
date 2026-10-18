@@ -47,3 +47,6 @@ body.caldera-float-window .workspace-leaf-content, body.caldera-float-window .vi
 .caldera-conn-dot.is-on { background: var(--color-green); }
 .caldera-conn-name { font-weight: var(--font-semibold); min-width: 12em; }
 .caldera-conn-status { color: var(--text-muted); font-size: var(--font-ui-small); }
+
+/* the daily summary email field in the Welcome form */
+.caldera-email-wide { min-width: 260px; }

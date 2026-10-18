@@ -52,6 +52,7 @@ export interface CalderaSettings {
   showViews?: boolean;                // show the public view count on my page (default on)
   lastKudos?: string;                 // ISO time of the newest kudos already announced
   lastAttention?: string;             // ISO time of the last "people looked at your page" notice (at most one a day)
+  emailPromptShown?: boolean;         // the one-time "get your daily summary" notice was shown
   welcomeNew?: boolean;               // community hosts: send a friend request to each new member
   welcomeSince?: string;              // ... who joined after this time
   welcomeNote?: string;               // the note that goes with it
@@ -147,7 +148,7 @@ export class CalderaSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`)
       .addText(t => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async v => { s.groups = groupsFrom(v); await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     let email = s.summaryEmail || "";
-    new Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests and kudos. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.")
+    new Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and friend requests, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.")
       .addText(t => t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
       .addButton(b => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
     new Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.")

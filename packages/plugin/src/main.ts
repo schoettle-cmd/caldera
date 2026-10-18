@@ -467,7 +467,7 @@ export default class CalderaPlugin extends Plugin {
           const seen = new Set(this.settings.seenIntros || []), fresh = this.intros.filter(i => !seen.has(i.handle + i.ts));
           if (fresh.length) new Notice(`Caldera: ${fresh.map(i => "@" + i.handle).join(", ")} would like to meet you${fresh[0]!.tag ? ` (also building ${fresh[0]!.tag})` : ""}. Open the Caldera panel to answer.`, 10_000);
           this.settings.seenIntros = this.intros.map(i => i.handle + i.ts); } catch { /* older hub */ }
-        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts();
+        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts(); void this.summaryPrompt();
       }
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -561,6 +561,18 @@ export default class CalderaPlugin extends Plugin {
       const days = Math.max(1, Math.round((Date.now() - Date.parse(since)) / 86400_000));
       const frag = createFragment(f => { f.createEl("b", { text: `Caldera, ${days >= 6 ? "this week" : days === 1 ? "since yesterday" : `last ${days} days`}: ` }); f.appendText(bits.join(", ") + ". "); f.createEl("u", { text: "Share your page" }); });
       const note = new Notice(frag, 15_000); note.noticeEl.addEventListener("click", () => this.openShare());
+    } catch { /* offline or older hub */ }
+  }
+
+  /** Once: members without the daily summary get a notice; clicking it asks for the address right there. */
+  async summaryPrompt() {
+    const s = this.settings; if (s.emailPromptShown || s.summaryEmail || !s.identity || !s.handle) return;
+    try {
+      const a = await this.ownerActivity(new Date().toISOString());
+      if (a.emailConfirmed !== false) return;
+      s.emailPromptShown = true; await this.saveSettings();
+      const frag = createFragment(f => { f.createEl("b", { text: "Caldera: get your daily summary. " }); f.appendText("Who visited your page, kudos and friend requests, people to meet. Only on days something happens. "); f.createEl("u", { text: "Add your email" }); });
+      const note = new Notice(frag, 20_000); note.noticeEl.addEventListener("click", () => new SummaryEmailModal(this.app, this).open());
     } catch { /* offline or older hub */ }
   }
 
@@ -885,6 +897,19 @@ class FriendPicker extends SuggestModal<Friend> {
   onChooseSuggestion(f: Friend) { void this.pick(f); }
 }
 
+/** "Where should we send your daily summary?" - one field, one button. */
+class SummaryEmailModal extends Modal {
+  constructor(app: App, private plugin: CalderaPlugin) { super(app); }
+  onOpen() {
+    const c = this.contentEl; this.titleEl.setText("Where should we send your daily summary?");
+    c.createEl("p", { text: "Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens, with a one-click unsubscribe. We send a confirmation link first.", cls: "setting-item-description" });
+    let email = this.plugin.settings.summaryEmail || "";
+    new Setting(c).setName("Email").addText(t => { t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()); t.inputEl.type = "email"; })
+      .addButton(b => b.setButtonText("Email me").setCta().onClick(async () => { if (!email) return; await this.plugin.setSummaryEmail(email); this.close(); }));
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
 class GravityModal extends Modal {
   constructor(app: App, private f: Friend, private done: (reason: string) => unknown) { super(app); }
   onOpen() {
@@ -1035,9 +1060,10 @@ class WelcomeModal extends Modal {
 
     head("Staying in touch");
     new Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle(t => t.setValue(listed).onChange(v => listed = v));
+    head("Where should we send your daily summary?");
     let email = s.summaryEmail || "";
-    new Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests and kudos - only on days something happens.")
-      .addText(t => t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()));
+    new Setting(c).setName("Your email").setDesc("Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens; one-click unsubscribe.")
+      .addText(t => { t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()); t.inputEl.type = "email"; t.inputEl.addClass("caldera-email-wide"); });
 
     {   // consent: publishing to the hosted hub means agreeing to its terms
       const hubBase = (s.hubUrl || "https://caldera.social").replace(/\/$/, ""), legal = c.createEl("p", { cls: "setting-item-description" });
@@ -1106,7 +1132,7 @@ class ShareModal extends Modal {
     new Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`)
       .addButton(b => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests and kudos. Only on days something happens.")
+    new Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and friend requests, people to meet. Only on days something happens.")
       .addText(tx => tx.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
       .addButton(b => b.setButtonText("Email me").onClick(() => { if (email) void this.plugin.setSummaryEmail(email); }));
     if (this.firstRun) new Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.")
