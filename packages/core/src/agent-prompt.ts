@@ -127,7 +127,6 @@ G ? `My garden (public notes). Find 3-8 notes that would be good to grow in publ
 `Custom modules. ${MODULES_HELP} Suggest 2-3 modules that fit me (draft the full Markdown of each from things that are already public), and create only the ones I approve.`,
 `Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.`,
 `Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.`,
-`Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".`,
 `Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.`])}
 
 ## 5. The live city, my private side and my people (ask me first for each; skip what's already on)

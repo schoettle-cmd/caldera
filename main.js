@@ -2480,7 +2480,6 @@ ${richItems([
     `Custom modules. ${MODULES_HELP} Suggest 2-3 modules that fit me (draft the full Markdown of each from things that are already public), and create only the ones I approve.`,
     `Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.`,
     `Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.`,
-    `Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".`,
     `Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.`
   ])}
 
@@ -2820,9 +2819,6 @@ function activityScore(c) {
     s += w * Math.min(c[k] ?? 0, ACTIVITY_CAPS[k] ?? Infinity);
   }
   return Math.round(s);
-}
-function newId(prefix) {
-  return prefix + "_" + b58encode(import_tweetnacl.default.randomBytes(12));
 }
 
 // src/auto.ts
@@ -3178,7 +3174,7 @@ var DEFAULT_SETTINGS = {
   bannerPath: "",
   links: [],
   properties: [],
-  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true, sidebar: true, rail: true, modules: true },
+  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, links: true, sidebar: true, rail: true, modules: true },
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json",
   historyDays: 45,
@@ -3214,8 +3210,6 @@ var SECTION_LABELS = {
   numbers: "Vault numbers (notes, words, links, active days)",
   topics: "Topics (allow-listed tags only)",
   notes: "Notes marked caldera: public",
-  asks: "Help exchange (asks and offers)",
-  social: "Friends, gravity and credits",
   links: "Links elsewhere",
   garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
   city: "City (your GitHub as a little city: add GitHub | https://github.com/you to Links, or write Caldera/city.json yourself)"
@@ -5323,10 +5317,6 @@ ${(() => {
   if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${timelineRows(p.timeline)}</div>`);
   if (gardenEnabled() && s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
   if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map((n) => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc3(n.title)}</div><div class="pn-ex">${esc3(n.excerpt)}</div><div class="pn-date">${esc3(n.updated.slice(0, 10))}</div></div>`).join("")}`);
-  if (s.asks && (p.asks.length || p.offers.length)) parts.push(`<h2>Help exchange</h2><div class="hx-grid">
-<div class="hx-card"><div class="label">I could use help with</div>${p.asks.map((a) => `<div class="hx-row"><span>${esc3(a.title)}</span><span class="bounty">+${a.bounty}</span></div>`).join("") || '<div class="muted">Nothing right now</div>'}</div>
-<div class="hx-card"><div class="label">I can help with</div>${p.offers.map((o) => `<div class="hx-row"><span>${esc3(o.title)}</span></div>`).join("") || '<div class="muted">Ask me</div>'}</div></div>`);
-  if (s.social && p.social) parts.push(`<div class="stat-strip">${[[fmt(p.social.friends), "friends"], [String(p.social.gravity), "gravity"], [fmt(p.social.credits), "help credits"]].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.links && p.links.length) parts.push(`<h2>Elsewhere</h2><ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc3(u)}" rel="noopener">${esc3(l)}</a></li>`).join("")}</ul>`);
   parts.push(`<div class="foot">Grown from an Obsidian vault with Caldera. Updated ${esc3(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc3((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
   if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc3(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc3(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc3(t)}</span><div class="ctx">${esc3(c)}</div></div>`).join("")}</div>` : ""}${sideMods.map((m) => `<div class="module side" data-module="${esc3(m.slug)}"><div class="label">${esc3(m.title)}</div><div class="mod-body">${m.html}</div></div>`).join("")}</aside>`);
@@ -6898,8 +6888,6 @@ var CalderaPlugin = class extends import_obsidian8.Plugin {
     }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
     this.addCommand({ id: "share-page", name: "Share my page (link preview, invite link)", callback: () => this.openShare() });
-    this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
-    this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
     this.app.workspace.onLayoutReady(() => {
       if (this.settings.openProfileOnStartup) void this.openProfileTab();
       this.schedulePrivatePush();
@@ -8092,34 +8080,6 @@ var ConfirmModal = class extends import_obsidian8.Modal {
     });
   }
 };
-var AskModal = class extends import_obsidian8.Modal {
-  constructor(app, plugin, kind) {
-    super(app);
-    this.plugin = plugin;
-    this.kind = kind;
-  }
-  onOpen() {
-    const ask = this.kind === "ask";
-    this.titleEl.setText(ask ? "I could use help with..." : "I can help with...");
-    let title = "", bounty = 20;
-    new import_obsidian8.Setting(this.contentEl).setName("What").addText((t) => t.onChange((v) => title = v));
-    if (ask) new import_obsidian8.Setting(this.contentEl).setName("Bounty (help credits)").setDesc("Held until you award it to whoever helps").addText((t) => t.setValue("20").onChange((v) => bounty = Math.max(0, Number(v) || 0)));
-    new import_obsidian8.Setting(this.contentEl).addButton((b) => b.setButtonText(ask ? "Post ask" : "Post offer").setCta().onClick(async () => {
-      if (!title.trim()) return;
-      try {
-        const id = newId(ask ? "ask" : "off");
-        await this.plugin.send(ask ? "ask" : "offer", ask ? { id, title, bounty, tags: [], visibility: "public" } : { id, title, tags: [] });
-        if (ask) this.plugin.settings.asks.push({ id, title, bounty });
-        else this.plugin.settings.offers.push({ id, title });
-        await this.plugin.saveSettings();
-        new import_obsidian8.Notice(ask ? "Ask posted" : "Offer posted");
-        this.close();
-      } catch (e) {
-        new import_obsidian8.Notice(e.message);
-      }
-    }));
-  }
-};
 var PairModal = class extends import_obsidian8.Modal {
   constructor(app, approve, page2) {
     super(app);
@@ -8386,7 +8346,7 @@ var ShareModal = class extends import_obsidian8.Modal {
     new import_obsidian8.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
     const text = `My page on Caldera: a living profile built from my Obsidian vault, with my work as a little city. ${url}`, t = encodeURIComponent(text);
     new import_obsidian8.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
-    new import_obsidian8.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
+    new import_obsidian8.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
     new import_obsidian8.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and new followers, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);

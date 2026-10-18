@@ -95,8 +95,6 @@ export default class CalderaPlugin extends Plugin {
       try { await this.send("profile.delete", {}); new Notice("Your Caldera profile was deleted from the hub."); } catch (e: any) { new Notice(e.message); } }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
     this.addCommand({ id: "share-page", name: "Share my page (link preview, invite link)", callback: () => this.openShare() });
-    this.addCommand({ id: "ask", name: "Post an ask (I could use help with...)", callback: () => new AskModal(this.app, this, "ask").open() });
-    this.addCommand({ id: "offer", name: "Post an offer (I can help with...)", callback: () => new AskModal(this.app, this, "offer").open() });
 
     this.app.workspace.onLayoutReady(() => {
       if (this.settings.openProfileOnStartup) void this.openProfileTab();
@@ -1150,7 +1148,7 @@ class ShareModal extends Modal {
       .addButton(b => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`)))
       .addButton(b => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`)))
       .addButton(b => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
-    new Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`)
+    new Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click.`)
       .addButton(b => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
     new Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and new followers, people to meet. Only on days something happens.")

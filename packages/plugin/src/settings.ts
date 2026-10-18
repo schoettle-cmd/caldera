@@ -68,7 +68,7 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   identity: null, handle: "", name: "", headline: "", theme: "dark",
   avatarPath: "", bannerPath: "",
   links: [], properties: [],
-  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true, sidebar: true, rail: true, modules: true },
+  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, links: true, sidebar: true, rail: true, modules: true },
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",
@@ -83,7 +83,7 @@ export const groupsFrom = (v: unknown) => [...new Set(String(v || "").toLowerCas
 const SECTION_LABELS: Record<string, string> = {
   journal: "Daily journal (flip through days)", scoreboard: "Scoreboard (streak, rank, 30-day bars)", properties: "Properties",
   numbers: "Vault numbers (notes, words, links, active days)", topics: "Topics (allow-listed tags only)", notes: "Notes marked caldera: public",
-  asks: "Help exchange (asks and offers)", social: "Friends, gravity and credits", links: "Links elsewhere", garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
+  links: "Links elsewhere", garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
   city: "City (your GitHub as a little city: add GitHub | https://github.com/you to Links, or write Caldera/city.json yourself)",
 };
 

@@ -24,7 +24,7 @@ test("renders a complete static profile and escapes user text", () => {
   assert.deepEqual(Object.keys(files).sort(), ["assets/favicon.svg", "assets/profile.css", "assets/theme.css", "index.html"]);
   const html = files["index.html"];
   assert.ok(!html.includes("<script>alert(1)</script>"), "name is escaped");
-  assert.ok(html.includes("Need a designer") && html.includes("Why local-first") && html.includes('id="journal-data"'));
+  assert.ok(!html.includes("Need a designer") && !html.includes("Help exchange"), "the help exchange is retired"); assert.ok(html.includes("Why local-first") && html.includes('id="journal-data"'));
   assert.ok(files["assets/theme.css"].includes("--accent"), "design tokens shipped");
   assert.ok(files["assets/profile.css"].includes(".journal"), "components shipped");
 });
