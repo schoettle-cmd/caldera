@@ -28,6 +28,8 @@ export default class CalderaPlugin extends Plugin {
   friends: Friend[] = [];
   social = { friends: 0, gravity: 0, credits: 0 };
   suggestions: Suggestion[] = [];
+  /** members who asked to meet you (double opt-in introductions waiting for your answer) */
+  intros: { id: string; handle: string; name: string; headline: string; tag: string; ts: string }[] = [];
   private token: { value: string; until: number } | null = null;
   private timers: number[] = [];
 
@@ -270,7 +272,9 @@ export default class CalderaPlugin extends Plugin {
         photos: { avatar: data.avatar, banner: data.banner }, links: data.links,
         sections: Object.keys(data.sections).filter(k => data.sections[k]), stats: data.stats,
         daily: data.daily.map(d => ({ date: d.date, score: C.activityScore(d.counts), headline: d.headline || "", counts: d.counts })),
-        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, ...((eff as any).autoConnectRepos === false || (eff as any).autoConnectGithub === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false, autoConnectGithub: false } : {}), showViews: this.settings.showViews !== false, page: "index.html", updated: data.updated,
+        topics: data.topics, asks: data.asks, offers: data.offers, listed: eff.listed !== false, ...((eff as any).autoConnectRepos === false || (eff as any).autoConnectGithub === false || this.settings.autoConnectRepos === false ? { autoConnectRepos: false, autoConnectGithub: false } : {}), showViews: this.settings.showViews !== false,
+        ...((eff as any).tags?.length ? { tags: (eff as any).tags.slice(0, 12) } : {}), ...((eff as any).hideTags?.length ? { hideTags: (eff as any).hideTags.slice(0, 40) } : {}),
+        ...((eff as any).autoTags === false || this.settings.autoTags === false ? { autoTags: false } : {}), page: "index.html", updated: data.updated,
         // the garden: every public note with its stage, license and a sha256 of the published text, signed with the profile
         garden: data.garden?.length && eff.sections.garden !== false ? gardenManifest(data.garden) : undefined, gardenUrl: data.gardenExternal,
         groups: groupsFrom((this.settings.groups || []).join(",")), languages: (data as any).code?.languages?.slice(0, 6) || [],
@@ -457,7 +461,11 @@ export default class CalderaPlugin extends Plugin {
       await this.saveSettings();
       if (this.settings.handle) {
         try { this.suggestions = (await this.api("GET", `/v1/suggest/${encodeURIComponent(me.id)}?n=4`)).suggestions || []; } catch { /* older hub */ }
-        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts();
+        try { const r = await this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/intros`, undefined, true); this.intros = r.intros || [];
+          const seen = new Set(this.settings.seenIntros || []), fresh = this.intros.filter(i => !seen.has(i.handle + i.ts));
+          if (fresh.length) new Notice(`Caldera: ${fresh.map(i => "@" + i.handle).join(", ")} would like to meet you${fresh[0]!.tag ? ` (also building ${fresh[0]!.tag})` : ""}. Open the Caldera panel to answer.`, 10_000);
+          this.settings.seenIntros = this.intros.map(i => i.handle + i.ts); } catch { /* older hub */ }
+                void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts();
       }
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -569,6 +577,15 @@ export default class CalderaPlugin extends Plugin {
   }
 
   /** Send someone kudos from Obsidian (one per person per day). */
+  /** answer an introduction (accept -> friends; not now -> closed, they aren't told), or ask to meet someone */
+  async introduce(handle: string, how: "accept" | "decline" | "ask") {
+    const me = this.settings.identity; if (!me) return;
+    try { const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/intros/${encodeURIComponent(handle)}`, how === "ask" ? { ask: true } : { accept: how === "accept" }, true);
+      this.intros = this.intros.filter(i => i.handle !== handle);
+      new Notice(how === "accept" || r.state === "friends" ? `You and @${handle} are now friends` : how === "ask" ? `Asked to meet @${handle}. They can accept or say not now.` : "Closed. They won't be told.");
+      if (how === "accept" || r.state === "friends") await this.syncInbox(false); else this.refreshPanel();
+    } catch (e: any) { new Notice(e.message); }
+  }
   async sendKudos(handle: string, kind: "heart" | "up" | "fire" | "sparkle") {
     const me = this.settings.identity; if (!me || !this.settings.handle) return void new Notice("Publish your page first.");
     try { await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/kudos`, { to: handle, kind }, true); new Notice(`Kudos sent to @${handle}`); }
@@ -782,6 +799,16 @@ class CalderaView extends ItemView {
       el.createEl("h4", { text: "Waiting for them to accept" });
       for (const r of p.sent) el.createDiv({ cls: "caldera-row", text: (r.handle ? "@" + r.handle : r.from.slice(0, 14)) + ` - sent ${r.ts.slice(0, 10)}` });
     }
+    if (p.intros.length) {
+      el.createEl("h4", { text: "Introductions" });
+      for (const it of p.intros) {
+        const row = el.createDiv("caldera-row");
+        const who = row.createSpan(); who.createEl("b", { text: it.name || "@" + it.handle }); who.appendText(` @${it.handle}`);
+        who.createDiv({ cls: "setting-item-description", text: `${it.tag ? `Also building ${it.tag}. ` : ""}Would like to connect.` });
+        row.createEl("button", { text: "Accept", cls: "mod-cta" }).onclick = () => void p.introduce(it.handle, "accept");
+        row.createEl("button", { text: "Not now" }).onclick = () => void p.introduce(it.handle, "decline");
+      }
+    }
     el.createEl("h4", { text: "Add a friend" });
     el.createEl("p", { cls: "setting-item-description", text: "Already on Caldera: enter their handle or paste their profile link. Or click \"Add as friend\" on their profile page." });
     let handle = "";
@@ -797,6 +824,7 @@ class CalderaView extends ItemView {
         row.createEl("button", { text: "Add" }).onclick = async () => { try { await p.requestFriend(sg.handle); p.suggestions = p.suggestions.filter(x => x !== sg); this.render(); } catch (e: any) { new Notice(e.message); } };
         row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
         row.createEl("button", { text: "Kudos" }).onclick = (ev) => kudosMenu(ev, sg.handle, p);
+        if (/both building/i.test(sg.why || "")) row.createEl("button", { text: "Introduce me" }).onclick = () => void p.introduce(sg.handle, "ask");
       }
     }
     el.createEl("h4", { text: "Invite someone new" });

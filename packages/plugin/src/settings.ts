@@ -28,6 +28,9 @@ export interface CalderaSettings {
   welcomed: boolean;                  // first-run welcome finished
   listed: boolean;                    // shown in the public directory at hub/people
   autoConnectRepos?: boolean;         // become friends with members who work on the same public GitHub repos (default on)
+  tags?: string[]; hideTags?: string[];   // what I'm building: tags I add, and extracted ones to hide (Caldera/profile.md tags / hideTags)
+  autoTags?: boolean;                  // tag me automatically from my public GitHub repos (default on)
+  seenIntros?: string[];
   seenRepoFriends?: string[];         // shared-repo friendships already announced
   lastSeenRelease: string;            // newest release the owner has been shown (What's new)
   lastPublished: number;              // ms epoch of the last successful publish (catch-up publish on start)
@@ -132,6 +135,9 @@ export class CalderaSettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.listed !== false).onChange(async v => { s.listed = v; await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Connect me with my GitHub people").setDesc("Become friends automatically with Caldera members you follow or who follow you on GitHub, or who work on the same public repos, including people who join later. Remove one like any friend and it never comes back.")
       .addToggle(t => t.setValue(s.autoConnectRepos !== false).onChange(async v => { s.autoConnectRepos = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
+    new Setting(containerEl).setName("Tag me from my public GitHub")
+      .setDesc("Shows what you're building (like AI agents or Next.js) on your page and in People, worked out from your public repos' topics, descriptions, READMEs and dependencies. Private repos only ever add a language. Add or hide tags with tags / hideTags in Caldera/profile.md, or on caldera.social/me/building.")
+      .addToggle(t => t.setValue(s.autoTags !== false).onChange(async v => { s.autoTags = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     new Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.")
       .addToggle(t => t.setValue(s.showViews !== false).onChange(async v => { s.showViews = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
 
