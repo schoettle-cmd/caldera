@@ -553,11 +553,11 @@ function sunKeys(){if(!WX||!WX.sunrise||!WX.sunset)return null;var r=new Date(WX
   if(!(sr>120&&ss>sr+240&&ss<1430))return null;var k=[[0,'night'],[sr-75,'night'],[sr+15,'dawn'],[sr+120,'day'],[ss-110,'day'],[ss-10,'dusk'],[ss+60,'evening'],[Math.min(1439,ss+150),'night'],[1440,'night']];
   for(var i=1;i<k.length;i++)if(k[i][0]<=k[i-1][0])k[i][0]=k[i-1][0]+1;return k}
 function applyWeather(){var k=sunKeys();if(k)DAYKEYS=k;applySky();if(typeof skyLabel==='function')skyLabel();if(typeof wxLabel==='function')wxLabel();dirty=true}
-// ---- today: "142 visited today · 9 here now", from the live feed
+// ---- today: "142 site visits today · 9 people on the sites now", from the live feed
 var todayEl=null;function todayLine(){if(!TODAY||MINI)return;var v=0;Object.keys(TODAY).forEach(function(k){v+=+TODAY[k].v||0});
   var here=LV.mode==='private'?Object.keys(LV.d).reduce(function(s,k){return s+(+LV.d[k].now||0)},0):null,any=Object.keys(LV.d).some(function(k){return LV.d[k].level>0});
   if(!todayEl){todayEl=document.createElement('div');todayEl.className='c-today';st.appendChild(todayEl)}
-  todayEl.textContent=v.toLocaleString('en-US')+' visited today'+(here!=null?' · '+here+' here now':any?' · people here now':'')}
+  todayEl.textContent=v.toLocaleString('en-US')+(v===1?' site visit':' site visits')+' today'+(here!=null?' · '+here+(here===1?' person':' people')+' on the sites now':any?' · live now':'');todayEl.title='Visits to the sites in this city in the last 24 hours, and people on them right now'}
 function onDay(data){if(data.today&&typeof data.today==='object'){TODAY=data.today;buildTraces();todayLine()}
   var plan=[];
   if(Array.isArray(data.departures))data.departures.forEach(function(x){var id=x.v+'|'+x.ts;if(DEPSEEN[id]||!x.d)return;DEPSEEN[id]=1;plan.push(byName[x.d]||byName.Private)});
