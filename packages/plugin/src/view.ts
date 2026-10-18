@@ -333,7 +333,7 @@ export async function collectOwner(app: App, plugin: CalderaPlugin, data: Profil
     { label: "City", ok: cityOn, hint: data.city?.kind === "vault" ? "your city is built from your vault folders; add your GitHub username or Forgejo / Codeberg profile in settings to build it from your repos" : "your repos as a city: add your GitHub username or Forgejo / Codeberg profile in settings" },
     { label: "Page text", ok: !!data.summary, hint: "headline, summary, now, timeline" },
     { label: "Garden", ok: !!data.garden?.length, hint: "a few notes grown in public" },
-  ];
+  ].filter(r => r.label !== "Garden" || C.gardenEnabled());   // the garden is paused (core flags.ts)
   const promptOutdated = !!act?.days?.length && (Number(act.prompt_version) || 1) < C.PROMPT_VERSION;
   const checklist = plugin.settings.handle ? C.pageChecklist({ photo: !!data.avatar, banner: !!data.banner, headline: !!data.headline?.trim(), summary: !!data.summary?.trim(),
     links: (data.links || []).length > 0, garden: !!data.garden?.length, friend: plugin.friends.length > 0 || plugin.social.friends > 0, group: (plugin.settings.groups || []).length > 0,

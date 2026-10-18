@@ -4,6 +4,8 @@
  * Vault links use data-open="<path>" and actions use data-action="<name>"; the tab's bridge script handles both.
  */
 
+import { gardenEnabled } from "@caldera/core";
+
 export interface OwnerActivity {
   since: string; views: number; visitors: number; totalViews: number;
   pages: [string, number][]; days: [string, number, number][];
@@ -66,7 +68,7 @@ export function renderOwner(o: OwnerData): string {
       for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc(k.emoji)} <b>${k.from ? "@" + esc(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
       for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
       if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} friend request${o.pending === 1 ? "" : "s"} waiting</a></li>`);
-      if (a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map(l => `@${esc(l.src_handle)}'s &ldquo;${esc(l.src_title)}&rdquo;`).join(", ")}</li>`);
+      if (gardenEnabled() && a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map(l => `@${esc(l.src_handle)}'s &ldquo;${esc(l.src_title)}&rdquo;`).join(", ")}</li>`);
       body += lines.length ? `<ul class="ow-list">${lines.join("")}</ul>` : `<p class="ow-muted">Quiet so far. Share your invite link from the Caldera panel to bring friends in.</p>`;
     }
     card("ow-since", "Since you last looked", body, `<span class="ow-muted ow-small">${esc(when)}</span>`);
@@ -89,7 +91,7 @@ export function renderOwner(o: OwnerData): string {
     };
     out.unshift(`<section class="ow-card ow-finish" id="ow-finish"><div class="ow-h"><h3>Finish your page</h3><span class="ow-muted ow-small">${done} of ${items.length} done</span></div>
 <div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
-<p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead, links and a first garden note in one go</span></p>
+<p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead and links${gardenEnabled() ? " and a first garden note" : ""} in one go</span></p>
 <ul class="ow-list ow-todo">${left.map(i => `<li><b>${esc(i.label)}</b> <span class="ow-muted">${esc(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
 

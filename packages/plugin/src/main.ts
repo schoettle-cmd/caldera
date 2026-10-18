@@ -72,11 +72,13 @@ export default class CalderaPlugin extends Plugin {
       else if (/^\d{4}-\d{2}-\d{2}$/.test(f.basename) && cache?.frontmatter && Object.keys(cache.frontmatter).some(k => k.startsWith("caldera_"))) this.queuePublish("activity");
     }));
     this.registerEvent(this.app.vault.on("modify", f => { if (f.path === this.settings.activityFile) this.queuePublish("activity"); }));
-    this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
-    this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
-      const f = this.app.workspace.getActiveFile(); if (!f || f.extension !== "md") return false; if (!check) void this.plantNote(f); return true; } });
+    if (C.gardenEnabled()) {   // the garden is paused (core flags.ts): its commands only exist while it's on
+      this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
+      this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
+        const f = this.app.workspace.getActiveFile(); if (!f || f.extension !== "md") return false; if (!check) void this.plantNote(f); return true; } });
+    }
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
-    this.addCommand({ id: "finish", name: "Finish my page (name, photo, masthead, links, first garden note)", callback: () => this.openFinish() });
+    this.addCommand({ id: "finish", name: C.gardenEnabled() ? "Finish my page (name, photo, masthead, links, first garden note)" : "Finish my page (name, photo, masthead, links)", callback: () => this.openFinish() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
     this.addCommand({ id: "sync", name: "Sync inbox now", callback: () => this.syncInbox(true) });
@@ -345,7 +347,7 @@ export default class CalderaPlugin extends Plugin {
       const keep = old.filter(l => { const [a = "", ...b] = l.split("|"); return quickLinkIndex(a, b.join("|").trim()) < 0; });
       fm.links = [...f.links.filter(([, u]) => u).map(([l, u]) => `${l} | ${u}`), ...keep];
     });
-    if (f.plant) await this.plantNote(f.plant);
+    if (f.plant && C.gardenEnabled()) await this.plantNote(f.plant);
   }
   openSettings() { const st = (this.app as any).setting; if (!st) return; st.open(); st.openTabById?.(this.manifest.id); }
   /** Copy a focused prompt that has the owner's AI agent set a masthead or profile photo. */
@@ -554,7 +556,7 @@ export default class CalderaPlugin extends Plugin {
       if (a.visitors) bits.push(n(a.visitors, "visitor"));
       if (a.friends?.length) bits.push(n(a.friends.length, "new friend"));
       if (a.gravity?.length) bits.push(n(a.gravity.length, "gift of gravity", "gifts of gravity"));
-      if (a.links?.length) bits.push(n(a.links.length, "link into your garden", "links into your garden"));
+      if (C.gardenEnabled() && a.links?.length) bits.push(n(a.links.length, "link into your garden", "links into your garden"));
       if (!bits.length) return;
       const days = Math.max(1, Math.round((Date.now() - Date.parse(since)) / 86400_000));
       const frag = createFragment(f => { f.createEl("b", { text: `Caldera, ${days >= 6 ? "this week" : days === 1 ? "since yesterday" : `last ${days} days`}: ` }); f.appendText(bits.join(", ") + ". "); f.createEl("u", { text: "Share your page" }); });
@@ -1024,15 +1026,17 @@ class WelcomeModal extends Modal {
     const quick = QUICK_LINKS.map((_, i) => have.find(h => h.i === i)?.u || "");
     QUICK_LINKS.forEach((q, i) => new Setting(c).setName(q.label).addText(t => t.setPlaceholder(q.ph).setValue(quick[i]!).onChange(v => quick[i] = v.trim())));
 
-    head("Your garden");
     let plant: TFile | null = null;
-    const gs = new Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
-    gs.addButton(b => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, f => { plant = f; gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`); b.setButtonText("Change"); }).open()));
+    if (C.gardenEnabled()) {   // paused garden: no "plant your first note" step
+      head("Your garden");
+      const gs = new Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
+      gs.addButton(b => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, f => { plant = f; gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`); b.setButtonText("Change"); }).open()));
+    }
 
     head("Staying in touch");
     new Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle(t => t.setValue(listed).onChange(v => listed = v));
     let email = s.summaryEmail || "";
-    new Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests, links into your garden - only on days something happens.")
+    new Setting(c).setName("Daily summary email").setDesc("Optional. Who visited, friend requests and kudos - only on days something happens.")
       .addText(t => t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()));
 
     c.appendChild(status);
@@ -1080,7 +1084,7 @@ class ShareModal extends Modal {
     this.modalEl.addClass("caldera-share");
     this.titleEl.setText("Your page is live");
     const c = this.contentEl;
-    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and links into your garden." });
+    c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, friend requests and kudos." });
     const img = c.createEl("img", { cls: "caldera-share-card", attr: { src: `${url}card.png?t=${Date.now()}`, alt: "Your link preview" } });
     img.onerror = () => img.remove();
     const copy = async (t: string, msg: string) => { try { await navigator.clipboard.writeText(t); new Notice(msg); } catch { new Notice(t, 10_000); } };
@@ -1094,7 +1098,7 @@ class ShareModal extends Modal {
     new Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`)
       .addButton(b => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests, links into your garden. Only on days something happens.")
+    new Setting(c).setName("Daily summary email").setDesc("Who visited, friend requests and kudos. Only on days something happens.")
       .addText(tx => tx.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
       .addButton(b => b.setButtonText("Email me").onClick(() => { if (email) void this.plugin.setSummaryEmail(email); }));
     if (this.firstRun) new Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.")

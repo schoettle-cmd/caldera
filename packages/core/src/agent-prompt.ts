@@ -5,6 +5,8 @@
  */
 import { liveSteps, agentSteps, privateSteps } from "./features.js";
 
+import { gardenEnabled } from "./flags.js";
+
 export interface AgentPromptOptions {
   vaultPath?: string;      // absolute path, when known (the plugin fills it in)
   hubUrl?: string;
@@ -18,7 +20,7 @@ export interface AgentPromptOptions {
 
 /** Bump when the routine asks for new data: the routine writes it into activity.json, and the plugin tells the
  * owner to copy the prompt again when theirs is older. */
-export const PROMPT_VERSION = 3;
+export const PROMPT_VERSION = 4;
 
 /** One privacy policy for every prompt. The plugin also enforces most of this in code (see privacy.ts). */
 export const PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
@@ -27,7 +29,7 @@ export const PRIVACY_RULES = `Everything public is on the open internet, can be 
 - Times and places: no times of day, schedules, travel, cities, venues, addresses, offices, home or "where I am".
 - Secret or sensitive work: no unannounced, stealth, confidential or NDA projects, codenames, deals, fundraising, investors, acquisitions, valuations, hiring, firing or anything said in confidence.
 - Things that can get someone in trouble: legal, medical, health, HR, money, salaries, debts, relationships, family, children, politics, religion.
-- Proprietary methods: no trading strategies, signals, indicators, thresholds, regime or risk rules, entry/exit logic, win rates, model weights, prompts, data sources or other trade secrets - in the journal, the garden or anywhere public. Name the theme only ("worked on the trading system").
+- Proprietary methods: no trading strategies, signals, indicators, thresholds, regime or risk rules, entry/exit logic, win rates, model weights, prompts, data sources or other trade secrets - in the journal, my notes or anywhere public. Name the theme only ("worked on the trading system").
 - Contact details and links: no emails, phone numbers or links to private documents. No money amounts at all.
 Describe work only by its public theme ("shipped a release", "wrote about design") and only name things I have already made public on my page (my own public projects, topics and links). If you are unsure, leave it out - an empty field is fine. Caldera also drops any journal line that looks sensitive before publishing.`;
 
@@ -68,6 +70,8 @@ ${plugin.replace(/<vault>/g, vault)}
 `;
 
   const extras = o.extras ? `\n${o.extras.trim()}\n` : "";
+  const G = gardenEnabled();   // the garden is paused (flags.ts): its steps drop out of the prompt
+  const richItems = (xs: (string | null)[]) => xs.filter((x): x is string => !!x).map((x, i) => `${i + 1}. ${x}`).join("\n");
   return `You are helping me run Caldera, the social layer for my Obsidian vault (${hub}). Caldera builds a public profile page from my vault; the more of my real activity it can count, the richer that page is. Follow these instructions exactly. (Caldera setup prompt v${PROMPT_VERSION})
 
 Vault: ${vault}${o.vaultPath ? "" : "\n(If I did not fill this in, find my vault yourself: it is the folder that contains a .obsidian folder. If there is more than one, ask me which. If there is none, I probably don't have Obsidian yet - many people don't - so start with step 0.)"}
@@ -93,7 +97,7 @@ A. Journal entry (first run of each workday only, for YESTERDAY; on Monday also 
    caldera_wins: 1-3 short items, what got done
    caldera_themes: 1-3 single words
    Write them from my notes, calendar, sent email, commits and AI sessions for that day - whatever you can access.
-   Name my projects the way they appear in Caldera/profile.md "projects" when they come up: Caldera grows a garden page for each project (and each distinctive theme) from these journal lines, adding a dated entry whenever it comes up.
+   Name my projects the way they appear in Caldera/profile.md "projects" when they come up${G ? ": Caldera grows a garden page for each project (and each distinctive theme) from these journal lines, adding a dated entry whenever it comes up" : ", so the journal and the projects line up"}.
 
 B. Activity counts (every run, for today and yesterday). Update "${vault}/${activity}" (create it if missing). Format:
    { "prompt_version": ${PROMPT_VERSION},
@@ -114,12 +118,13 @@ After setting up the job, run it once now, then backfill: for each of the last 1
 
 ## 4. Make the page rich (once; on a re-paste, only fill what is still empty)
 Anything that would become PUBLIC needs my explicit yes first: show me exactly what you propose, wait for my answer, then make only the approved changes.
-1. Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Optional: offer a masthead (the wide cover image across the top of the page, about 3:1 such as 1800x600, under 2 MB): an image I choose or a free-to-use one I approve, saved into "Caldera/img/" with "banner" set to its path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).
-2. My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.
-3. Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.
-4. Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.
-5. Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".
-6. Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.
+${richItems([
+`Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Optional: offer a masthead (the wide cover image across the top of the page, about 3:1 such as 1800x600, under 2 MB): an image I choose or a free-to-use one I approve, saved into "Caldera/img/" with "banner" set to its path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).`,
+G ? `My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.` : null,
+`Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.`,
+`Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.`,
+`Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".`,
+`Goals. If "${vault}/Caldera/Goals.md" doesn't exist, offer to create it with my current goals (checkboxes under ## headings). It stays private: it powers the goals section only I see.`])}
 
 ## 5. The live city, my private side and my people (ask me first for each; skip what's already on)
 A. ${liveSteps(`Obsidian: Settings -> Caldera -> "Live traffic on your city" (GitHub sign-ups: ${hub}/me)`)}
@@ -132,15 +137,15 @@ F. Friends and kudos need no setup: tell me I can add friends and send kudos fro
 ## 6. Privacy rules (these override everything above)
 ${PRIVACY_RULES}
 Themes and topics: only use topics among ${topics}.
-Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public / garden / friends / private) without asking, never move notes into or out of the Garden folder, never touch .obsidian/plugins/caldera/data.json - it holds my private key.
+Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public${G ? " / garden" : ""} / friends / private) without asking, ${G ? "never move notes into or out of the Garden folder, " : ""}never touch .obsidian/plugins/caldera/data.json - it holds my private key.
 
 ## 7. Report
-When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), garden, live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
+When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), ${G ? "garden, " : ""}live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
 
 ## 8. Later
 - Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
-- My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
-- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "Private view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
+${G ? `- My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
+` : ""}- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "Private view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
 - When Caldera tells me my setup prompt is out of date, I copy it again ("Caldera: Copy the AI setup prompt") and paste it here; you upgrade the routine in place.`;
 }
 

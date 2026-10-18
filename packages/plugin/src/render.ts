@@ -6,7 +6,7 @@
 // @ts-ignore - esbuild loads .css as text via the define below
 import THEME_CSS from "./assets/theme.css";
 import { PROFILE_CSS } from "./profile.css";
-import { activityScore, ACTIVITY_WEIGHTS, externalLinksNewWindow, type DailyCounts } from "@caldera/core";
+import { activityScore, ACTIVITY_WEIGHTS, externalLinksNewWindow, gardenEnabled, type DailyCounts } from "@caldera/core";
 import { gardenSection, renderGarden, type GardenNote } from "./garden";
 import { citySnapshot, renderCity, type CityData } from "./city";
 
@@ -139,11 +139,11 @@ export function renderProfile(p: ProfileData): Record<string, string> {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
-<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
+<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${(gardenEnabled() && s.garden !== false) && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
 <div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc(p.source || "vault")} <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
-  const gardenOn = s.garden !== false && !!p.garden?.length;
+  const gardenOn = (gardenEnabled() && s.garden !== false) && !!p.garden?.length;
   const nav = (depth: number, current: string, toc = "") => s.sidebar === false ? "" : navSidebar(p, sideOn, gardenOn, depth, current, toc);
   parts.push(nav(0, "index.html", "%%TOC%%"));
   parts.push(`<main class="note">`);
@@ -212,7 +212,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     parts.push(`<h2>AI usage</h2><p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc(a.note)}</span>` : ""}</p>${td.some(x => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map(x => `<span class="${x.n >= tpeak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>${a.sources && a.sources.length > 1 ? `<div style="margin-top:var(--space-4)"><div class="label">Where the tokens come from</div>${bars(a.sources, true)}</div>` : ""}`);
   }
   if (s.timeline !== false && p.timeline?.length) parts.push(`<h2>Timeline</h2><div class="timeline">${timelineRows(p.timeline)}</div>`);
-  if (s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
+  if ((gardenEnabled() && s.garden !== false) && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
   if (s.notes && p.publicNotes.length) parts.push(`<h2>Notes</h2>${p.publicNotes.map(n => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc(n.title)}</div><div class="pn-ex">${esc(n.excerpt)}</div><div class="pn-date">${esc(n.updated.slice(0, 10))}</div></div>`).join("")}`);
   if (s.asks && (p.asks.length || p.offers.length)) parts.push(`<h2>Help exchange</h2><div class="hx-grid">
 <div class="hx-card"><div class="label">I could use help with</div>${p.asks.map(a => `<div class="hx-row"><span>${esc(a.title)}</span><span class="bounty">+${a.bounty}</span></div>`).join("") || '<div class="muted">Nothing right now</div>'}</div>
@@ -230,7 +230,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   const seen = new Set<string>();
   let html = parts.join("\n").replace(/<h2>([^<]+)<\/h2>/g, (_m, t: string) => { let id = slug(t); while (seen.has(id)) id += "-2"; seen.add(id); toc.push([id, t]); return `<h2 id="${id}">${t}</h2>`; });
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
-  const garden = s.garden !== false && p.garden?.length
+  const garden = (gardenEnabled() && s.garden !== false) && p.garden?.length
     ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   const city: Record<string, string> = s.city !== false && p.city?.districts.length
     ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
@@ -341,6 +341,6 @@ function githubOf(p: ProfileData): string | undefined {
 
 export function renderPrivateCity(p: ProfileData, city: CityData, openBase = ""): string {
   const q = { ...p, city: p.city?.districts.length ? p.city : city };   // the nav shows City even when nothing is public
-  const sideOn = p.sections.sidebar !== false && !!p.tree?.length, gardenOn = p.sections.garden !== false && !!p.garden?.length;
+  const sideOn = p.sections.sidebar !== false && !!p.tree?.length, gardenOn = gardenEnabled() && p.sections.garden !== false && !!p.garden?.length;
   return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, github: githubOf(p), nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q, sideOn, gardenOn, d, cur) }, city);
 }

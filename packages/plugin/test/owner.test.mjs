@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderOwner } from "./owner.build.mjs";
 import { renderProfile } from "./render.build.mjs";
+import * as C from "@caldera/core";
 
 const now = "2026-10-15T20:00:00.000Z";
 const base = () => ({ now, today: { date: "2026-10-15", timeline: [] }, onThisDay: [], patterns: [] });
@@ -15,7 +16,7 @@ test("owner layer: escaped, marked private, every section renders", () => {
     rediscovered: { title: "Forgotten", path: "f.md", excerpt: "y", why: "Connects." }, patterns: ["<b>3-day</b> streak."], goals: [{ heading: "Launch", done: 1, total: 3, open: ["Ship"] }] });
   assert.ok(html.includes("Only you can see this") && html.includes('id="owner"'));
   assert.ok(!html.includes("<img src=x") && html.includes("&lt;img src=x") && !html.includes("Shipped <b>it</b>"));
-  for (const s of ["Since you last looked", "3h ago", "12</b><span>page views", "2 friend requests", "@ana", "@bo", "On gardens", "Today", 'data-open="wiki/Plan.md"', "On this day", "Brought back", "Patterns", "Goals", "1/3"]) assert.ok(html.includes(s), s);
+  for (const s of ["Since you last looked", "3h ago", "12</b><span>page views", "2 friend requests", "@ana", "@bo", "Today", 'data-open="wiki/Plan.md"', "On this day", "Brought back", "Patterns", "Goals", "1/3"]) assert.ok(html.includes(s), s);
 });
 
 test("owner layer: works offline / unpublished; goals prompt when there is no goals note", () => {

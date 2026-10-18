@@ -13,11 +13,11 @@ const MENTION = {
 
 test("setup prompt mentions every feature in the inventory (except purely automatic ones)", () => {
   const t = C.agentPrompt({ hubUrl: "https://caldera.social" });
-  for (const f of C.FEATURES) {
+  for (const f of C.activeFeatures()) {
     assert.ok(f.id in MENTION, `inventory feature ${f.id} has no prompt check`);
     if (MENTION[f.id]) assert.ok(t.includes(MENTION[f.id]), `prompt does not cover ${f.id} (${MENTION[f.id]})`);
   }
-  assert.equal(C.PROMPT_VERSION, 3);
+  assert.equal(C.PROMPT_VERSION, 4);
   assert.ok(t.includes("SAFE TO PASTE AGAIN") && t.includes("data.json") && t.includes("## 6. Privacy rules"));
 });
 
@@ -38,4 +38,19 @@ test("feature prompts: each slice is self-contained, privacy-safe and never asks
   const up = C.upgradePrompt(["live", "private"], { handle: "x" });
   assert.ok(up.includes("1. Live visitors") && up.includes("2. Private web view") && up.includes("t.js") && up.includes("data.json") && !up.includes("agent-hook"));
   assert.ok(C.upgradePrompt([], { handle: "x" }).includes("Nothing to do"));
+});
+
+test("garden paused: left out of the prompt, the inventory and the checklist; switching it on brings it all back", () => {
+  assert.equal(C.gardenEnabled(), false);
+  const off = C.agentPrompt({ hubUrl: "https://caldera.social" });
+  assert.ok(!/garden/i.test(off), "no garden wording in the setup prompt while paused");
+  assert.ok(!C.activeFeatures().some(f => f.id === "garden") && C.FEATURES.some(f => f.id === "garden"), "kept in the code, not shown");
+  assert.ok(!C.pageChecklist({ garden: false }).some(i => i.id === "garden"));
+  assert.match(off, /\n1\. Page text, in [\s\S]*\n2\. Notes friends can receive/, "section 4 renumbers cleanly");
+  C.FLAGS.garden = true;
+  try {
+    const on = C.agentPrompt({ hubUrl: "https://caldera.social" });
+    assert.ok(on.includes("caldera: garden") && on.includes("garden.html") && on.includes("2. My garden (public notes)"));
+    assert.ok(C.activeFeatures().some(f => f.id === "garden") && C.pageChecklist({ garden: false }).some(i => i.id === "garden"));
+  } finally { C.FLAGS.garden = false; }
 });

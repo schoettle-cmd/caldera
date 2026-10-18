@@ -14,7 +14,7 @@
 import { App, TFile, getAllTags } from "obsidian";
 import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
-import { publicTextFilter } from "@caldera/core";
+import { publicTextFilter, gardenEnabled } from "@caldera/core";
 import { aiUsage, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
@@ -56,7 +56,8 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     }
   }
 
-  const { garden, gardenImages, gardenFiles, gardenReport } = await collectGarden(app, s, md);
+  // the garden is paused (core flags.ts): nothing is collected, so nothing is published, listed or linked
+  const { garden, gardenImages, gardenFiles, gardenReport } = gardenEnabled() ? await collectGarden(app, s, md) : { garden: [] as GardenNote[], gardenImages: {} as Record<string, string>, gardenFiles: {} as Record<string, ArrayBuffer>, gardenReport: [] as GardenReport[] };
 
   // outside activity (calendar, email, git, AI sessions ...) written by your own scripts
   const external = new Map<string, any>();
@@ -102,7 +103,8 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     });
   }
   // the garden also grows on its own from the public journal (text above already passed the privacy filter)
-  if (s.gardenJournal !== false && s.sections.garden !== false) await growGardenFromJournal(app, s, daily, garden, gardenReport);
+  // while paused the journal history is still kept (so pages can grow again later), but nothing is planted
+  if (s.gardenJournal !== false && s.sections.garden !== false) await growGardenFromJournal(app, s, daily, gardenEnabled() ? garden : [], gardenEnabled() ? gardenReport : []);
 
   let activeDays = 0;
   for (let i = 0; i < 182; i++) { const d = iso(today - i * DAY); if ((created.get(d) || 0) + (changed.get(d) || 0) > 0) activeDays++; }
@@ -210,7 +212,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     tree, graph, graphLabel: s.graph?.length ? "Local graph / sized by linked notes" : topTopics.length ? "Topics / sized by notes" : "The vault / sized by notes",
     backlinks, backlinkLabel: s.backlinks?.length ? `Backlinks / ${fmtN(linkCount(s.name || ""))} notes link here` : "Public notes",
     asks: s.asks, offers: s.offers, social, updated: new Date().toISOString(),
-    garden: garden.length ? garden : undefined, gardenExternal: s.gardenUrl || undefined, gardenImages,
+    garden: garden.length ? garden : undefined, gardenExternal: gardenEnabled() ? s.gardenUrl || undefined : undefined, gardenImages,
   };
   Object.assign(files, gardenFiles);
   // Caldera City: Caldera/city.json (repos + commit counts, written by the owner's tools). Houses = notes linking to the project's note.

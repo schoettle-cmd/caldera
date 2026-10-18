@@ -2,6 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mdToHtml, renderGarden, redact, parseXLink, excerptOf, gardenManifest, normStage, normLicense, journalGarden } from "./garden.build.mjs";
 import { renderProfile } from "./render.build.mjs";
+import * as C from "@caldera/core";
+
+// the garden is paused (core flags.ts); these tests cover it switched back on
+C.FLAGS.garden = true;
 
 const note = (title, markdown, extra = {}) => ({ slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"), title, stage: "seedling", license: "all-rights",
   created: "2026-10-01T00:00:00.000Z", updated: "2026-10-12T00:00:00.000Z", markdown, sha256: "f".repeat(64), words: 10, excerpt: excerptOf(markdown), out: [], xlinks: [], tags: [], ...extra });

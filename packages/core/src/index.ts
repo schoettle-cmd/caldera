@@ -179,5 +179,6 @@ export type { PublicTextFilter } from "./privacy.js";
 export { pageChecklist, nextStep, imagePrompt } from "./checklist.js";
 export type { PageState, ChecklistItem, ChecklistId } from "./checklist.js";
 export { externalLinksNewWindow, isExternalHref } from "./links.js";
-export { FEATURES, unlockChecklist, featurePrompt, upgradePrompt } from "./features.js";
+export { FEATURES, activeFeatures, unlockChecklist, featurePrompt, upgradePrompt } from "./features.js";
+export { FLAGS, gardenEnabled } from "./flags.js";
 export type { Feature, UnlockId, UnlockState, UnlockItem, FeaturePromptOptions } from "./features.js";

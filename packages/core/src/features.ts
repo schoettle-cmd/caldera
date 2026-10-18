@@ -3,6 +3,7 @@
  * the "Unlock more" checklist tier, the site guide and llms.txt, so no feature is ever left undiscoverable.
  */
 import { PRIVACY_RULES } from "./agent-prompt.js";
+import { gardenEnabled } from "./flags.js";
 
 export interface Feature {
   id: string;
@@ -14,6 +15,8 @@ export interface Feature {
   how: string;
   /** shown only to the owner */
   ownerOnly?: boolean;
+  /** behind a feature switch (see flags.ts): left out of everything while the switch is off */
+  flag?: "garden";
 }
 
 export const FEATURES: Feature[] = [
@@ -31,7 +34,7 @@ export const FEATURES: Feature[] = [
   { id: "timeline", label: "Timeline with eras and links", source: '"timeline" in Caldera/profile.md: "Year | milestone | detail" lines, chapters as "era | Name | 2015-2020", links as [[Name|https://...]]', how: "Only things already public; linked names also become links in the side menu." },
   { id: "sidebar", label: "Side menu groups", source: '"sidebar" in Caldera/profile.md (Group | item, item | optional vault folder)', how: "Hand-pick companies, projects or sources to list; items named in your timeline or projects link to their sites." },
   { id: "graph", label: "Local graph and backlinks", source: '"graph" (note names) and "backlinks" (Title | context) in Caldera/profile.md', how: "Pick names you're comfortable showing; the page shows how many notes link to each." },
-  { id: "garden", label: "Garden and garden home", source: 'notes in your Garden folder or marked "caldera: garden" (stage + license)', how: "Plant a note; the whole note becomes a public page with backlinks from other gardens." },
+  { id: "garden", label: "Garden and garden home", source: 'notes in your Garden folder or marked "caldera: garden" (stage + license)', how: "Plant a note; the whole note becomes a public page with backlinks from other gardens.", flag: "garden" },
   { id: "asks", label: "Help exchange (asks and offers)", source: "asks and offers you post", how: 'Run "Caldera: Post an ask" / "Caldera: Post an offer" in Obsidian.' },
   { id: "links", label: "Elsewhere (links)", source: '"links" in Caldera/profile.md (Label | https://url)', how: "Your site, GitHub, socials." },
   { id: "masthead", label: "Masthead and photo", source: '"banner" and "photo" in Caldera/profile.md (images inside the vault)', how: "Choose images in Private view, or copy the masthead prompt for your AI." },
@@ -43,6 +46,9 @@ export const FEATURES: Feature[] = [
   { id: "groups", label: "Groups", source: "the groups you join", how: "Settings -> Caldera -> Groups (or caldera.social/me); each group is a town of everyone's cities at caldera.social/g/<name>." },
   { id: "friends", label: "Friends, kudos and views", source: "other members", how: "Nothing to set up: add friends and send kudos from anyone's page; shared GitHub repos connect people automatically." },
 ];
+
+/** The inventory minus anything switched off (the garden is paused). Use this for anything people see. */
+export const activeFeatures = (): Feature[] => FEATURES.filter(f => f.flag !== "garden" || gardenEnabled());
 
 export type UnlockId = "live" | "agents" | "ai" | "private" | "story" | "code";
 export interface UnlockState {

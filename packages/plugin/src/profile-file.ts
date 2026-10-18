@@ -5,6 +5,7 @@
  */
 import { App, TFile } from "obsidian";
 import type { CalderaSettings } from "./settings";
+import { gardenEnabled } from "@caldera/core";
 
 export const PROFILE_FILE = "Caldera/profile.md";
 
@@ -80,10 +81,10 @@ knows:
 ${list((s.knows || []).map(([a, b]) => `${a} | ${b}`))}
 tabs:
 ${list(s.tabs || [])}
-garden: ${q(s.gardenFolder ?? "Garden")}
+${gardenEnabled() ? `garden: ${q(s.gardenFolder ?? "Garden")}
 garden_url: ${q(s.gardenUrl || "")}
 garden_journal: ${s.gardenJournal !== false}
-sidebar:
+` : ""}sidebar:
 ${list((s.tree || []).map(([a, b, c]) => `${a} | ${b}${c ? ` | ${c}` : ""}`))}
 graph:
 ${list(s.graph || [])}
@@ -109,10 +110,10 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **projects** - \`Name | status | https://link\`.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
 - **tabs** - extra tab labels in the top bar, like \`Now.md\`.
-- **garden** - a folder whose notes are published as full pages (your digital garden). Default \`Garden\`. Any note can also opt in with \`caldera: garden\`; \`caldera: private\` keeps a note out. In a garden note, \`stage: seedling | budding | evergreen\` and \`license: all-rights | cc-by | cc-by-nc | cc0 | ai-licensable\`. Email addresses and phone numbers are removed automatically. Link a friend's note with \`[[@handle/Their note]]\`.
+${gardenEnabled() ? `- **garden** - a folder whose notes are published as full pages (your digital garden). Default \`Garden\`. Any note can also opt in with \`caldera: garden\`; \`caldera: private\` keeps a note out. In a garden note, \`stage: seedling | budding | evergreen\` and \`license: all-rights | cc-by | cc-by-nc | cc0 | ai-licensable\`. Email addresses and phone numbers are removed automatically. Link a friend's note with \`[[@handle/Their note]]\`.
 - **garden_journal** - \`true\` (default) grows garden pages from your daily journal: one per public project it keeps mentioning and one per recurring theme. Only journal text that is already public is used. \`false\` turns it off.
 - **garden_url** - an existing garden elsewhere (Quartz, Obsidian Publish...), linked from your page.
-- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Garden app, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
+` : ""}- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Caldera, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
 - **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
 - **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.
 

@@ -1,7 +1,7 @@
 import { githubUser } from "./auto";
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import type CalderaPlugin from "./main";
-import type { Identity } from "@caldera/core";
+import { gardenEnabled, type Identity } from "@caldera/core";
 
 export interface CalderaSettings {
   lastAlertTs?: string;               // newest Caldera alert already shown as a notice
@@ -147,7 +147,7 @@ export class CalderaSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`)
       .addText(t => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async v => { s.groups = groupsFrom(v); await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     let email = s.summaryEmail || "";
-    new Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests, links into your garden. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.")
+    new Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited, friend requests and kudos. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.")
       .addText(t => t.setPlaceholder("you@example.com").setValue(email).onChange(v => email = v.trim()))
       .addButton(b => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
     new Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: send each person who joins Caldera from now on a friend request with the note below (up to 10 a day). Off by default.")
@@ -181,12 +181,15 @@ export class CalderaSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("What is public").setHeading();
     for (const [k, label] of Object.entries(SECTION_LABELS)) {
+      if (k === "garden" && !gardenEnabled()) continue;   // the garden is paused (core flags.ts)
       new Setting(containerEl).setName(label).addToggle(t => t.setValue(s.sections[k] !== undefined ? !!s.sections[k] : k === "garden" || k === "city").onChange(async v => { s.sections[k] = v; await this.plugin.saveSettings(); }));
     }
+    if (gardenEnabled()) {
     this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", v => v.replace(/^\/+|\/+$/g, ""));
     new Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.")
       .addToggle(t => t.setValue(s.gardenJournal !== false).onChange(async v => { s.gardenJournal = v; await this.plugin.saveSettings(); }));
     this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", v => /^https:\/\//.test(v) ? v : "");
+    }
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
 

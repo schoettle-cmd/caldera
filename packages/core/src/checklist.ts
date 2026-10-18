@@ -2,6 +2,7 @@
  * "Finish your page": the same checklist in every private view (Obsidian's Private view, the hub's /me page for GitHub
  * sign-ups, and one nudge in the daily email). Pure: state in, items out.
  */
+import { gardenEnabled } from "./flags.js";
 import { PRIVACY_RULES } from "./agent-prompt.js";
 
 export type ChecklistId = "photo" | "banner" | "headline" | "summary" | "links" | "garden" | "friend" | "group" | "email";
@@ -29,7 +30,7 @@ const ITEMS: { id: ChecklistId; label: string; why: string }[] = [
 ];
 
 export function pageChecklist(s: PageState): ChecklistItem[] {
-  return ITEMS.filter(i => !(i.id === "garden" && s.garden === undefined))
+  return ITEMS.filter(i => !(i.id === "garden" && (s.garden === undefined || !gardenEnabled())))
     .map(i => ({ ...i, done: i.id === "summary" ? s.summary !== false : i.id === "garden" ? !!s.garden : !!(s as any)[i.id] }));
 }
 

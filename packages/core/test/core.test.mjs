@@ -102,7 +102,9 @@ test("page checklist: done/undone, garden only for vault profiles, unknown summa
   assert.equal(hosted.find(i => i.id === "summary").done, false);
   const vault = C.pageChecklist({ ...base, garden: false });
   assert.equal(vault.find(i => i.id === "summary").done, true);
-  assert.equal(vault.find(i => i.id === "garden").done, false);
+  assert.ok(!vault.some(i => i.id === "garden"), "garden is paused: never nudged");
+  C.FLAGS.garden = true;
+  try { assert.equal(C.pageChecklist({ ...base, garden: false }).find(i => i.id === "garden").done, false); } finally { C.FLAGS.garden = false; }
   assert.equal(C.nextStep({ ...base, garden: true }).id, "banner");
   assert.equal(C.nextStep({ photo: true, banner: true, headline: true, links: true, garden: true, friend: true, group: true, email: true }), undefined);
   const pr = C.imagePrompt("banner", { vaultPath: "/v", handle: "x" });
