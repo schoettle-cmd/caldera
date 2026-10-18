@@ -75,6 +75,9 @@
   --heat-3: #8B6CF6;
   --heat-4: #C7B8FF;
   --chart-alt: var(--accent-2);  /* second chart color */
+  --chart-github: var(--text-strong);  /* scoreboard: GitHub commits */
+  --chart-ai: #E0A458;               /* scoreboard + tags: AI sessions */
+  --chart-work: #5B8DEF;             /* scoreboard: meetings and email */
 }
 
 /* --- Color: light theme ------------------------------------------------- */

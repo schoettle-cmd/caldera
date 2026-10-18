@@ -6,7 +6,7 @@
 // @ts-ignore - esbuild loads .css as text via the define below
 import THEME_CSS from "./assets/theme.css";
 import { PROFILE_CSS } from "./profile.css";
-import { activityScore, ACTIVITY_WEIGHTS, externalLinksNewWindow, gardenEnabled, type DailyCounts } from "@caldera/core";
+import { activityScore, ACTIVITY_WEIGHTS, ACTIVITY_CAPS, externalLinksNewWindow, gardenEnabled, type DailyCounts } from "@caldera/core";
 import { gardenSection, renderGarden, type GardenNote } from "./garden";
 import { citySnapshot, renderCity, type CityData } from "./city";
 import type { ProfileModule } from "./modules";
@@ -116,8 +116,8 @@ export function scored(daily: DailyEntry[]) {
 
 /** Where each part of a profile comes from: a small tag beside every section header, so a visitor can tell what is
  *  Obsidian, what is GitHub and what is Caldera's own. */
-type Src = "obsidian" | "github" | "caldera" | "agents" | "profile" | "module";
-const SRC_LABEL: Record<Src, string> = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", profile: "Profile note", module: "Custom module" };
+type Src = "obsidian" | "github" | "caldera" | "agents" | "calendar" | "profile" | "module";
+const SRC_LABEL: Record<Src, string> = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", profile: "Profile note", module: "Custom module" };
 const srcLine = (src: Src[], what: string) => `<p class="sec-src">${src.map(x => `<span class="src s-${x}">${SRC_LABEL[x]}</span>`).join("")}<span class="sec-what">${what}</span></p>`;
 /** a section header: the h2 (listed in "On this page") plus its source tags and one line on what it is */
 const head = (title: string, src: Src[], what: string) => `<h2>${esc(title)}</h2>${srcLine(src, what)}`;
@@ -170,13 +170,22 @@ ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="a
 <div class="j-title"><div class="label">Daily journal</div><div class="j-date" id="jdate"></div></div><button class="j-nav" id="jnext" aria-label="Next day">&#8250;</button></div>${srcLine(["obsidian"], "Each day, summarized from the daily notes in the vault. Use the arrows to go back.")}
 <div class="j-body" id="jbody" aria-live="polite"></div></section><script id="journal-data" type="application/json">${JSON.stringify(journal).replace(/</g, "\\u003c")}</script>`);
 
+  // each day's points split by where they came from, so a bar shows its GitHub, Obsidian, AI and work parts
+  const GROUPS: [string, string, (keyof typeof ACTIVITY_WEIGHTS)[]][] = [["github", "GitHub commits", ["commits"]], ["ai", "AI sessions", ["prompts"]], ["work", "Meetings and email", ["meetings", "emails"]], ["obsidian", "Obsidian notes and docs", ["notes", "docs"]]];
+  const pts = (c: DailyCounts, ks: (keyof typeof ACTIVITY_WEIGHTS)[]) => ks.reduce((a, k) => a + ACTIVITY_WEIGHTS[k] * Math.min((c as any)[k] ?? 0, (ACTIVITY_CAPS as any)[k] ?? Infinity), 0);
+  const groupsOn = GROUPS.filter(g => days.some(d => pts(d.counts, g[2]) > 0));
+  const weekPts = groupsOn.map(g => [g, Math.round(days.slice(-8, -1).reduce((a, d) => a + pts(d.counts, g[2]), 0))] as const);
+  const barOf = (d: typeof days[number]) => { if (groupsOn.length < 2) return "";   // one source (GitHub-only pages): plain bars
+    const tot = groupsOn.reduce((a, g) => a + pts(d.counts, g[2]), 0) || 1;
+    return groupsOn.map(g => { const v = pts(d.counts, g[2]); return v > 0 ? `<i class="g-${g[0]}" style="flex-grow:${(v / tot * 100).toFixed(1)}"></i>` : ""; }).join(""); };
   const counted = present.map(k => labels[k].toLowerCase().replace(/^ai /, "AI ")), countedTxt = counted.length > 1 ? counted.slice(0, -1).join(", ") + " and " + counted[counted.length - 1] : counted[0] || "activity";
-  const sbSrc: Src[] = gh ? ["github", "caldera"] : present.includes("commits") ? ["obsidian", "github", "caldera"] : ["obsidian", "caldera"];
+  const sbSrc: Src[] = [...groupsOn.map(g => ({ github: "github", ai: "agents", work: "calendar", obsidian: "obsidian" } as Record<string, Src>)[g[0]]), "caldera"];
   if (s.scoreboard && days.length > 2) parts.push(`<section class="scoreboard" id="scoreboard"><h2 class="t">Scoreboard</h2>${srcLine(sbSrc, `Points for each day's ${esc(countedTxt)}. The leaderboard compares this week with friends on Caldera.`)}<div class="sb-stats">
 <div class="sb-stat"><div class="v">${streak}<small> days</small></div><div class="l">active streak</div></div>
 <div class="sb-stat"><div class="v">#${yrank}</div><div class="l">yesterday's rank of ${days.length - 1} days</div></div>
 <div class="sb-stat"><div class="v">${avg(last7)}</div><div class="l">7-day average, ${trend >= 0 ? `<span class="up">&#9650; ${trend}%</span>` : `<span class="down">&#9660; ${-trend}%</span>`} vs prior week</div></div></div>
-<div class="sb-bars" role="img" aria-label="Daily activity score">${days.slice(-30).map((d, i, a) => `<span class="${i === a.length - 2 ? "yday" : i === a.length - 1 ? "today" : ""}" style="height:${Math.max(2, Math.round(d.score / smax * 100))}%" title="${d.date}: ${d.score}"></span>`).join("")}</div><div class="bars-legend"><span>${Math.min(30, days.length)} days ago</span><span>yesterday highlighted / today in progress</span></div>
+<div class="sb-bars" role="img" aria-label="Daily activity score, by source">${days.slice(-30).map((d, i, a) => `<span class="${i === a.length - 2 ? "yday" : i === a.length - 1 ? "today" : ""}" style="height:${Math.max(2, Math.round(d.score / smax * 100))}%" title="${d.date}: ${d.score}${groupsOn.map(g => { const v = Math.round(pts(d.counts, g[2])); return v ? `, ${g[1].toLowerCase()} ${v}` : ""; }).join("")}">${barOf(d)}</span>`).join("")}</div><div class="bars-legend"><span>${Math.min(30, days.length)} days ago</span><span>yesterday highlighted / today in progress</span></div>
+${groupsOn.length > 1 ? `<div class="sb-split"><span class="label">Points this week, by source</span>${weekPts.map(([g, v]) => `<span class="sb-key"><i class="g-${g[0]}"></i>${esc(g[1])} <b>${fmt(v)}</b></span>`).join("")}</div>` : ""}
 ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) => b.d.score - a.d.score).slice(0, 5);
     const lb = [`<div class="lb-row me"><span class="rank">1</span><span class="who">You</span><span class="num">${fmt(days.slice(-8, -1).reduce((x, d) => x + d.score, 0))}</span></div>`]
       .concat([2, 3, 4].map(r => `<div class="lb-row empty"><span class="rank">${r}</span><a class="who invite-btn" data-invite href="${esc(inviteHref(p))}" target="_blank" rel="noopener">Invite a friend</a><span class="num">-</span></div>`));
