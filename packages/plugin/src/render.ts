@@ -6,7 +6,7 @@
 // @ts-ignore - esbuild loads .css as text via the define below
 import THEME_CSS from "./assets/theme.css";
 import { PROFILE_CSS } from "./profile.css";
-import { activityScore, ACTIVITY_WEIGHTS, type DailyCounts } from "@caldera/core";
+import { activityScore, ACTIVITY_WEIGHTS, externalLinksNewWindow, type DailyCounts } from "@caldera/core";
 import { gardenSection, renderGarden, type GardenNote } from "./garden";
 import { citySnapshot, renderCity, type CityData } from "./city";
 
@@ -234,7 +234,11 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   const city: Record<string, string> = s.city !== false && p.city?.districts.length
     ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
-  return { ...garden, ...city, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  const out: Record<string, string> = { ...garden, ...city, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  // every link that leaves the hub opens in a new window
+  let own = "caldera.social"; try { own = new URL(p.hub || "https://caldera.social").host; } catch { /* default hub */ }
+  for (const k of Object.keys(out)) if (k.endsWith(".html")) out[k] = externalLinksNewWindow(out[k], [own]);
+  return out;
 }
 
 /** The standard left nav, identical on the profile, the garden home and every garden note: a Pages block (profile,
@@ -248,7 +252,10 @@ export function navSidebar(p: ProfileData, sideOn: boolean, gardenOn: boolean, d
   if (gardenOn) pages.push(["garden.html", "Garden home"]);
   if (p.sections?.city !== false && p.city?.districts.length) pages.push(["city.html", "City"]);
   const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc(l)}</a>`).join("");
-  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="obsidian://caldera?friend=${encodeURIComponent(p.handle)}" target="_blank" rel="noopener" title="Opens Obsidian and sends @${esc(p.handle)} a friend request (needs the Caldera plugin)">+ Add @${esc(p.handle)} as friend</a>` : "";
+  // the hub turns this into an inline Add friend for signed-in visitors (and Friends / Requested / Accept states); the
+  // href is the hub's fallback page for anyone without scripts
+  const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");
+  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc(p.handle)}" target="_blank" rel="noopener" title="Send @${esc(p.handle)} a friend request">+ Add @${esc(p.handle)} as friend</a>` : "";
   const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map(r => ({ ...r, current: (r.href === "#top" && onProfile) || (!!r.href && r.href === current) })), fix)}` : "";
   return `<nav class="sidebar tree" aria-label="Navigation"><div class="side-inner"><span class="label">Pages</span><div class="toc pages">${pageRows}${friend}</div>${toc}${tree}</div></nav>`;
 }

@@ -366,6 +366,22 @@ export default class CalderaPlugin extends Plugin {
   }
 
   // ---------------------------------------------------------------- inbox
+  /** Add friend / Accept tapped on caldera.social while signed in: the hub queues it (it never holds this vault's key);
+   *  this signs and sends it, and the hub clears the queue entry when the request or acceptance lands. */
+  async sendQueuedFriends(myId: string) {
+    let list: { id: string; handle: string | null; kind: "add" | "accept"; request?: string | null }[] = [];
+    try { list = (await this.api("GET", `/v1/owner/${encodeURIComponent(myId)}/intents`, undefined, true))?.intents || []; } catch { return; }
+    const done: string[] = [];
+    for (const x of list.slice(0, 20)) {
+      try {
+        if (x.kind === "accept" && x.request) await this.send("friend.accept", { request: x.request, to: x.id });
+        else await this.send("friend.request", { to: x.id, note: "" });
+        done.push((x.kind === "accept" ? "accepted @" : "sent a request to @") + (x.handle || "someone"));
+      } catch (e: any) { console.warn("Caldera queued friend failed:", e?.message); }
+    }
+    if (done.length) new Notice(`Caldera: from your taps on the web, ${done.join(", ")}.`, 8000);
+  }
+
   async syncInbox(loud: boolean) {
     try {
       const me = await this.ensureIdentity();
@@ -374,6 +390,7 @@ export default class CalderaPlugin extends Plugin {
         this.api("GET", `/v1/friends/${encodeURIComponent(me.id)}`), this.api("GET", `/v1/gravity/${encodeURIComponent(me.id)}`), this.api("GET", `/v1/credits/${encodeURIComponent(me.id)}`),
         this.api("GET", `/v1/requests/${encodeURIComponent(me.id)}`, undefined, true).catch(() => null)]);
       this.friends = fr.friends; this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
+      await this.sendQueuedFriends(me.id);
       let cards = 0;
       for (const e of envelopes as C.Envelope<any>[]) {
         if (!C.verify(e)) continue;

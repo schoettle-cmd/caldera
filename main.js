@@ -2555,6 +2555,39 @@ ${PRIVACY_RULES}
 - Never read or edit .obsidian/plugins/caldera/data.json - it holds my private key.`;
 }
 
+// ../core/src/links.ts
+var A_TAG = /<a\b([^>]*)>/gi;
+var attr = (attrs, name) => {
+  const m = attrs.match(new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i"));
+  return m ? m[2] ?? m[3] ?? m[4] ?? "" : null;
+};
+var setAttr = (attrs, name, value) => {
+  const re = new RegExp(`\\s${name}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s"'>]+)`, "i");
+  return re.test(attrs) ? attrs.replace(re, ` ${name}="${value}"`) : `${attrs.replace(/\s*\/?$/, "")} ${name}="${value}"`;
+};
+function isExternalHref(href, ownHosts) {
+  const h = href.trim();
+  if (!/^https?:\/\//i.test(h) && !h.startsWith("//")) return false;
+  try {
+    const host = new URL(h.startsWith("//") ? "https:" + h : h).host.toLowerCase();
+    return !ownHosts.some((o) => o && host === o.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+function externalLinksNewWindow(html, ownHosts) {
+  return html.replace(A_TAG, (whole, attrs) => {
+    const href = attr(attrs, "href");
+    if (href == null || !isExternalHref(href, ownHosts)) return whole;
+    const rel = new Set(String(attr(attrs, "rel") || "").split(/\s+/).filter(Boolean).map((x) => x.toLowerCase()));
+    rel.add("noopener");
+    rel.add("noreferrer");
+    let a = setAttr(attrs, "target", "_blank");
+    a = setAttr(a, "rel", [...rel].join(" "));
+    return `<a${a}>`;
+  });
+}
+
 // ../core/src/index.ts
 var PROTOCOL_VERSION = 1;
 var B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -4949,7 +4982,14 @@ ${(() => {
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
   const garden = s.garden !== false && p.garden?.length ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   const city = s.city !== false && p.city?.districts.length ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
-  return { ...garden, ...city, "index.html": html, "assets/theme.css": theme_default, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  const out = { ...garden, ...city, "index.html": html, "assets/theme.css": theme_default, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  let own = "caldera.social";
+  try {
+    own = new URL(p.hub || "https://caldera.social").host;
+  } catch {
+  }
+  for (const k of Object.keys(out)) if (k.endsWith(".html")) out[k] = externalLinksNewWindow(out[k], [own]);
+  return out;
 }
 function navSidebar(p, sideOn, gardenOn, depth, current, toc = "") {
   const up = "../".repeat(depth), onProfile = current === "index.html";
@@ -4958,7 +4998,8 @@ function navSidebar(p, sideOn, gardenOn, depth, current, toc = "") {
   if (gardenOn) pages.push(["garden.html", "Garden home"]);
   if (p.sections?.city !== false && p.city?.districts.length) pages.push(["city.html", "City"]);
   const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc3(l)}</a>`).join("");
-  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="obsidian://caldera?friend=${encodeURIComponent(p.handle)}" target="_blank" rel="noopener" title="Opens Obsidian and sends @${esc3(p.handle)} a friend request (needs the Caldera plugin)">+ Add @${esc3(p.handle)} as friend</a>` : "";
+  const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");
+  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc3(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc3(p.handle)}" target="_blank" rel="noopener" title="Send @${esc3(p.handle)} a friend request">+ Add @${esc3(p.handle)} as friend</a>` : "";
   const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map((r) => ({ ...r, current: r.href === "#top" && onProfile || !!r.href && r.href === current })), fix)}` : "";
   return `<nav class="sidebar tree" aria-label="Navigation"><div class="side-inner"><span class="label">Pages</span><div class="toc pages">${pageRows}${friend}</div>${toc}${tree}</div></nav>`;
 }
@@ -6750,6 +6791,27 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     new import_obsidian7.Notice(`Exported to ${root}. Upload that folder to any static host.`);
   }
   // ---------------------------------------------------------------- inbox
+  /** Add friend / Accept tapped on caldera.social while signed in: the hub queues it (it never holds this vault's key);
+   *  this signs and sends it, and the hub clears the queue entry when the request or acceptance lands. */
+  async sendQueuedFriends(myId) {
+    let list = [];
+    try {
+      list = (await this.api("GET", `/v1/owner/${encodeURIComponent(myId)}/intents`, void 0, true))?.intents || [];
+    } catch {
+      return;
+    }
+    const done = [];
+    for (const x of list.slice(0, 20)) {
+      try {
+        if (x.kind === "accept" && x.request) await this.send("friend.accept", { request: x.request, to: x.id });
+        else await this.send("friend.request", { to: x.id, note: "" });
+        done.push((x.kind === "accept" ? "accepted @" : "sent a request to @") + (x.handle || "someone"));
+      } catch (e) {
+        console.warn("Caldera queued friend failed:", e?.message);
+      }
+    }
+    if (done.length) new import_obsidian7.Notice(`Caldera: from your taps on the web, ${done.join(", ")}.`, 8e3);
+  }
   async syncInbox(loud) {
     try {
       const me = await this.ensureIdentity();
@@ -6762,6 +6824,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       ]);
       this.friends = fr.friends;
       this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
+      await this.sendQueuedFriends(me.id);
       let cards = 0;
       for (const e of envelopes) {
         if (!verify(e)) continue;

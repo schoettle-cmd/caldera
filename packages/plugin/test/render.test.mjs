@@ -59,7 +59,7 @@ test("vault sidebar: linked items, collapsible groups, folder counts, on-this-pa
       { name: "Projects", child: false }, { name: "Garden app", child: true, href: "https://garden.example" }, { name: "Plain", child: true },
       { name: "Bad", child: true, href: "javascript:alert(1)" }, { name: "Concepts", child: false, count: 54 }] };
   const html = renderProfile(p)["index.html"];
-  assert.ok(html.includes('<details class="tree-group" open>') && html.includes('href="https://garden.example" target="_blank" rel="noopener"'));
+  assert.ok(html.includes('<details class="tree-group" open>') && html.includes('href="https://garden.example" target="_blank" rel="noopener noreferrer"'));
   assert.ok(html.includes('<div class="tree-row child"><span>Plain</span></div>'), "unmatched items stay plain text");
   assert.ok(/class="tree-row group leaf">.*Concepts.*title="54 notes">54</.test(html), "folder-only group shows its count without a caret");
   assert.ok(html.includes('aria-current="page"') && !html.includes("javascript:"), "current marked; only http(s) and #anchors link");
@@ -81,7 +81,7 @@ test("full page: summary/now/activity/growth/knows/inbox/projects/code/timeline;
   const html = renderProfile(p)["index.html"];
   for (const h of ["Summary", ">Now</h2>", ">Activity</h2>", ">Growth</h2>", ">What it knows</h2>", ">Inbox to knowledge</h2>", ">Projects</h2>", ">Code</h2>", ">Timeline</h2>", "daily digests written", "Your best other days"])
     assert.ok(html.includes(h), "missing " + h);
-  assert.ok(html.includes('<a href="https://example.com/venice" rel="noopener">Venice</a>') && html.includes("<b>Bold</b>"));
+  assert.ok(html.includes('<a href="https://example.com/venice" rel="noopener noreferrer" target="_blank">Venice</a>') && html.includes("<b>Bold</b>"));
   assert.ok(!/href="javascript/i.test(html), "no javascript: links anywhere");
   assert.ok(!html.includes("<b>raw</b>"), "raw HTML in text is escaped");
   const off = renderProfile({ ...p, sections: { ...p.sections, code: false, timeline: false, inbox: false } })["index.html"];

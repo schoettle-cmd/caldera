@@ -82,7 +82,7 @@ test("navigation standard: profile, garden home and every note share one left na
     assert.ok(h.includes('class="sidebar tree"') && h.includes('class="toc pages"'), k + " has the nav");
     assert.ok(h.includes(`href="${up}garden.html">Garden home</a>`) || h.includes(`href="${up}garden.html" aria-current`) || h.includes('aria-current="page">Garden home'), k + " links garden home");
     assert.ok(h.includes(`class="g-name g-link" href="${up}garden.html"`), k + " Garden group is clickable");
-    assert.ok(h.includes('href="obsidian://caldera?friend=mike"'), k + " add-friend");
+    assert.ok(h.includes('data-caldera-friend="mike"') && h.includes('/kudos/mike"'), k + " add-friend (inline on the hub, kudos page as fallback)");
   }
   assert.ok(f["garden.html"].includes('href="index.html#top"') && f["n/gardens.html"].includes('href="../index.html#top"'));
   assert.ok(f["n/gardens.html"].includes('href="../n/gardens.html"') && f["n/gardens.html"].includes('aria-current="page"'));
