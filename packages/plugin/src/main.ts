@@ -465,7 +465,7 @@ export default class CalderaPlugin extends Plugin {
           const seen = new Set(this.settings.seenIntros || []), fresh = this.intros.filter(i => !seen.has(i.handle + i.ts));
           if (fresh.length) new Notice(`Caldera: ${fresh.map(i => "@" + i.handle).join(", ")} would like to meet you${fresh[0]!.tag ? ` (also building ${fresh[0]!.tag})` : ""}. Open the Caldera panel to answer.`, 10_000);
           this.settings.seenIntros = this.intros.map(i => i.handle + i.ts); } catch { /* older hub */ }
-                void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts();
+        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts();
       }
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
