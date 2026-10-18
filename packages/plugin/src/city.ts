@@ -1001,7 +1001,7 @@ function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.
   show(h)}}
 if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes in page coordinates, for automated checks
   buildings:function(){var b=st.getBoundingClientRect();return hits.filter(function(h){return h.r}).map(function(h){return {name:h.r.locked?'':h.r.name,locked:!!h.r.locked,url:repoUrl(h.r),x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0*.35+h.y1*.65)*cam.z}})},
-  labels:function(){var b=st.getBoundingClientRect();return tagHits.map(function(t){return {url:t.url,x:b.left+cam.x+(t.x0+t.x1)/2*cam.z,y:b.top+cam.y+(t.y0+t.y1)/2*cam.z}})},
+  labels:function(){var b=st.getBoundingClientRect();return tagHits.map(function(t){return {url:t.url,b:t.block?t.block.d.name:'',x:b.left+cam.x+(t.x0+t.x1)/2*cam.z,y:b.top+cam.y+(t.y0+t.y1)/2*cam.z}})},
   walks:function(){var b=st.getBoundingClientRect(),tn=performance.now();return WALKS.filter(function(w){return tn>=w.born}).map(function(w){var p=walkAt(w);return {id:w.id,ghost:w.ghost,f:w.d/w.len,x:b.left+cam.x+p.x*cam.z,y:b.top+cam.y+p.y*cam.z}})},
   traces:function(){var r=st.getBoundingClientRect();return TRACES.map(function(t){var m=t.pts[Math.floor(t.pts.length/2)];return {a:t.a,x:r.left+cam.x+m.x*cam.z,y:r.top+cam.y+m.y*cam.z}})},
   clouds:function(){return CLOUDS.map(function(c){return {x:c.x,y:c.y,gone:c.gone}})},
