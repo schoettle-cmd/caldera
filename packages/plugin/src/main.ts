@@ -457,7 +457,7 @@ export default class CalderaPlugin extends Plugin {
       await this.saveSettings();
       if (this.settings.handle) {
         try { this.suggestions = (await this.api("GET", `/v1/suggest/${encodeURIComponent(me.id)}?n=4`)).suggestions || []; } catch { /* older hub */ }
-        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews();
+        void this.welcomeNewMembers(); void this.attention(); void this.kudosNews(); void this.checkAlerts();
       }
       this.refreshPanel();
       if (loud || cards) new Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
@@ -517,6 +517,21 @@ export default class CalderaPlugin extends Plugin {
       this.settings.summaryEmail = email; await this.saveSettings();
       new Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8000);
     } catch (e: any) { new Notice("Couldn't save: " + e.message); }
+  }
+
+  /** New alerts from Caldera (welcome, release notes, announcements) appear once as a notice; click opens them, signed in. */
+  async checkAlerts() {
+    const s = this.settings; if (!s.identity || !s.handle) return;
+    try {
+      const r = await this.api("GET", `/v1/owner/${encodeURIComponent(s.identity.id)}/alerts`, undefined, true);
+      const fresh = (r?.alerts || []).filter((x: any) => !x.read && (!s.lastAlertTs || x.ts > s.lastAlertTs)).slice(0, 2);
+      const newest = (r?.alerts || []).reduce((m: string, x: any) => x.ts > m ? x.ts : m, s.lastAlertTs || "");
+      if (newest !== (s.lastAlertTs || "")) { s.lastAlertTs = newest; await this.saveSettings(); }
+      for (const x of fresh) {
+        const frag = createFragment(f => { f.createEl("b", { text: "Caldera: " }); f.appendText(String(x.title) + " "); f.createEl("u", { text: "Read it" }); });
+        const n = new Notice(frag, 20_000); n.noticeEl.addEventListener("click", () => void this.openProfile("alerts"));
+      }
+    } catch { /* offline or older hub */ }
   }
 
   /** At most once a day: if people looked at the page, linked to it or befriended you, say so (click: share it). */

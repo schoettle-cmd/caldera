@@ -4,6 +4,7 @@ import type CalderaPlugin from "./main";
 import type { Identity } from "@caldera/core";
 
 export interface CalderaSettings {
+  lastAlertTs?: string;               // newest Caldera alert already shown as a notice
   hubUrl: string;
   identity: Identity | null;          // stays on this device (plugin data); export it as your recovery key
   handle: string; name: string; headline: string; theme: "dark" | "light";
@@ -88,6 +89,29 @@ export class CalderaSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
 
+    // Connections: the same lights as caldera.social/settings, so it's obvious what's connected and what isn't
+    new Setting(containerEl).setName("Connections").setHeading();
+    const lights = containerEl.createDiv({ cls: "caldera-conn" });
+    lights.createEl("p", { text: s.identity && s.handle ? "Checking..." : "Publish your page to see your connections.", cls: "setting-item-description" });
+    if (s.identity && s.handle) void this.plugin.ownerActivity(new Date(Date.now() - 86400_000).toISOString()).then((a: any) => {
+      const c = a?.connections; lights.empty(); if (!c) { lights.createEl("p", { text: "Update the hub to see connections.", cls: "setting-item-description" }); return; }
+      const rows: [string, boolean, string][] = [
+        ["GitHub", !!c.github?.on, c.github?.on ? `Connected as @${c.github.login}` : c.github?.listed ? `Listed (github.com/${c.github.listed}), sign in with GitHub once to link it` : "Not connected"],
+        ["Obsidian", true, "Connected (this vault)"],
+        ["Live visitors on your city", !!c.live, c.live ? "Visits in the last 7 days" : "No visits in the last 7 days"],
+        ["AI agents on the map", !!c.agents, c.agents ? "Agents in the last 7 days" : "No agents in the last 7 days"],
+        ["Private view", !!c.private, c.private ? "Up to date" : "Not turned on"],
+        ["Daily summary email", !!c.email, c.email ? "On" : "Off"],
+      ];
+      for (const [name, on, status] of rows) {
+        const r = lights.createDiv({ cls: "caldera-conn-row" });
+        r.createSpan({ cls: "caldera-conn-dot" + (on ? " is-on" : ""), attr: { "aria-label": on ? "Connected" : "Not connected" } });
+        r.createSpan({ text: name, cls: "caldera-conn-name" }); r.createSpan({ text: status, cls: "caldera-conn-status" });
+      }
+    }).catch(() => { lights.empty(); lights.createEl("p", { text: "Couldn't reach the hub.", cls: "setting-item-description" }); });
+    new Setting(containerEl).setName("Set them up on caldera.social").setDesc("Opens your settings page, already signed in, with a step-by-step for anything that's grey.")
+      .addButton(b => b.setButtonText("Open settings").setDisabled(!s.identity || !s.handle).onClick(() => void this.plugin.openProfile("settings")));
+
     new Setting(containerEl).setName("Identity").setHeading();
     new Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet")
       .addButton(b => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
@@ -100,7 +124,7 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", v => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
     let claim = "";
     new Setting(containerEl).setName("Import a GitHub sign-up")
-      .setDesc("Started your Caldera profile with GitHub on the website? Get a code on your account page (caldera.social/me) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.")
+      .setDesc("Started your Caldera profile with GitHub on the website? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.")
       .addText(t => t.setPlaceholder("CAL-...").onChange(v => { claim = v.trim(); }))
       .addButton(b => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then(ok => { if (ok) this.display(); })));
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
