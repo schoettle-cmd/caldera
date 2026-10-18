@@ -110,6 +110,15 @@ export function mdToHtml(md: string, link: (target: string) => string | null, im
     }
     const q = line.match(/^\s*>\s?(.*)$/);
     if (q) { flushPara(); flushList(); quote.push(q[1].replace(/^\[!(\w+)\][+-]?\s*/, (_m, k) => `**${k.charAt(0).toUpperCase() + k.slice(1)}:** `)); continue; } else flushQuote();
+    // tables: a header row, a |---|---| row, then rows (cells split on | that isn't escaped)
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[i + 1])) {
+      flush(); const cells = (l: string) => l.trim().replace(/^\|/, "").replace(/\|$/, "").replace(/\[\[[^\]]*\]\]/g, w => w.replace(/\|/g, "\uE001")).split(/(?<!\\)\|/).map(c => inl(c.trim().replace(/\\\|/g, "|").replace(/\uE001/g, "|")));
+      const head = cells(line); const rows: string[][] = [];
+      for (i += 2; i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i]); i++) rows.push(cells(lines[i]));
+      i--;
+      out.push(`<table><thead><tr>${head.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${head.map((_c, k) => `<td>${r[k] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+      continue;
+    }
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) { flush(); const lvl = Math.min(6, h[1].length + 1); out.push(`<h${lvl}>${inl(h[2])}</h${lvl}>`); continue; }
     if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flush(); out.push("<hr>"); continue; }
@@ -324,4 +333,14 @@ export function journalGarden(days: JournalDay[], projects: string[], o: { minPr
     if (hits.length >= minT) { out.push(page(t, hits)); picked.push(set); }
   }
   return out;
+}
+
+/** Module Markdown -> page HTML: headings sit one level under the module title, tables and lists use the page's styles. */
+export function moduleHtml(md: string, hub: string, image: (t: string) => string | null = () => null): string {
+  const base = hub.replace(/\/$/, "");
+  const link = (t: string) => { const x = parseXLink(t); return x ? `${base}/@${x.handle}/` : null; };
+  return mdToHtml(md, link, image)
+    .replace(/<(\/?)h([2-6])>/g, (_m, c, n) => `<${c}h${Math.min(6, Number(n) + 1)}>`)
+    .replace(/<table>/g, '<div class="table-wrap"><table class="data">').replace(/<\/table>/g, "</table></div>")
+    .replace(/<ul>/g, '<ul class="bullets">');
 }

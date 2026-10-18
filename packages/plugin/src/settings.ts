@@ -68,7 +68,7 @@ export const DEFAULT_SETTINGS: CalderaSettings = {
   identity: null, handle: "", name: "", headline: "", theme: "dark",
   avatarPath: "", bannerPath: "",
   links: [], properties: [],
-  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true, sidebar: true, rail: true },
+  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true, sidebar: true, rail: true, modules: true },
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json", historyDays: 45,
   inboxFolder: "Caldera/Inbox", lastInboxSync: "1970-01-01T00:00:00.000Z",

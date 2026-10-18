@@ -125,3 +125,15 @@ test("AI usage: token sources shown when there is more than one", () => {
   assert.ok(renderProfile({ ...sample(), ai })["index.html"].includes("Where the tokens come from"));
   assert.ok(!renderProfile({ ...sample(), ai: { ...ai, sources: [["Coding agents", 100]] } })["index.html"].includes("Where the tokens come from"));
 });
+
+test("custom modules render in the main column and the rail, and the modules switch hides them", () => {
+  const p = { ...sample(), modules: [
+    { title: "Reading list", slug: "m-reading-list", place: "main", order: 1, html: "<ul class=\"bullets\"><li>SICP</li></ul>" },
+    { title: "Office hours", slug: "m-office-hours", place: "side", order: 2, html: "<p>Fridays</p>" }] };
+  const html = renderProfile(p)["index.html"];
+  assert.match(html, /<section class="module" data-module="m-reading-list"><h2 id="reading-list">Reading list<\/h2>/);
+  assert.match(html, /<aside class="rail">[\s\S]*data-module="m-office-hours"><div class="label">Office hours<\/div><div class="mod-body"><p>Fridays<\/p>/);
+  assert.match(html, /href="#reading-list"/, "a main module is in On this page");
+  const off = renderProfile({ ...p, sections: { ...p.sections, modules: false } })["index.html"];
+  assert.doesNotMatch(off, /data-module=/);
+});

@@ -9,6 +9,7 @@ import { PROFILE_CSS } from "./profile.css";
 import { activityScore, ACTIVITY_WEIGHTS, externalLinksNewWindow, gardenEnabled, type DailyCounts } from "@caldera/core";
 import { gardenSection, renderGarden, type GardenNote } from "./garden";
 import { citySnapshot, renderCity, type CityData } from "./city";
+import type { ProfileModule } from "./modules";
 
 export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
 export interface ProfileData {
@@ -48,6 +49,7 @@ export interface ProfileData {
   gardenImages?: Record<string, string>;                   // embed target -> bundle path
   id?: string;                                             // cal: id, shown in note provenance
   city?: CityData;                                         // public subset only (see city.ts publicCity)
+  modules?: ProfileModule[];                               // owner/agent-written sections from Caldera/modules/*.md (already safe HTML)
   ai?: { total: number; window_days?: number; models: [string, number][]; providers?: [string, number][]; sources?: [string, number][]; note?: string };   // AI tokens, counts only
 }
 
@@ -142,7 +144,8 @@ ${p.icon ? `<link rel="icon" href="${esc(p.icon)}" type="image/png"><link rel="a
 <link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${(gardenEnabled() && s.garden !== false) && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
 <div class="tabs"><span class="tab is-active">${esc(p.name)}.md</span>${(p.tabs || []).map(t => `<span class="tab">${esc(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc(p.source || "vault")} <span id="ago" data-ts="${esc(p.updated)}">just now</span></span></div>
 <div class="shell">`);
-  const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
+  const sideOn = s.sidebar !== false && !!p.tree?.length, modOn = s.modules !== false, mainMods = modOn ? (p.modules || []).filter(m => m.place === "main") : [], sideMods = modOn ? (p.modules || []).filter(m => m.place === "side") : [];
+  const railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length || sideMods.length > 0);
   const gardenOn = (gardenEnabled() && s.garden !== false) && !!p.garden?.length;
   const nav = (depth: number, current: string, toc = "") => s.sidebar === false ? "" : navSidebar(p, sideOn, gardenOn, depth, current, toc);
   parts.push(nav(0, "index.html", "%%TOC%%"));
@@ -172,6 +175,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   if (s.numbers) parts.push(`<div class="stat-strip">${[[fmt(p.stats.notes), "notes"], [(p.stats.words / 1e6).toFixed(2) + "M", "words"], [fmt(p.stats.links), "links between notes"], [String(p.stats.activeDays), "active days, 26 weeks"], ...(p.extraNumbers || [])].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.summary !== false && p.summary) parts.push(`<div class="callout"><div class="callout-title">Summary</div>${inline(p.summary)}</div>`);
   if (s.now !== false && p.now?.length) parts.push(`<h2>Now</h2><ul class="bullets">${p.now.map(x => `<li>${inline(x)}</li>`).join("")}</ul>`);
+  for (const m of mainMods) parts.push(`<section class="module" data-module="${esc(m.slug)}"><h2>${esc(m.title)}</h2><div class="mod-body">${m.html}</div></section>`);
   if (s.activity !== false && p.heat?.length) {
     const lvl = (n: number) => n === 0 ? 0 : n < 5 ? 1 : n < 30 ? 2 : n < 200 ? 3 : 4;
     const pad = (new Date(p.heat[0].date + "T12:00:00Z").getUTCDay() + 6) % 7;
@@ -220,7 +224,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
   if (s.social && p.social) parts.push(`<div class="stat-strip">${[[fmt(p.social.friends), "friends"], [String(p.social.gravity), "gravity"], [fmt(p.social.credits), "help credits"]].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.links && p.links.length) parts.push(`<h2>Elsewhere</h2><ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc(u)}" rel="noopener">${esc(l)}</a></li>`).join("")}</ul>`);
   parts.push(`<div class="foot">Grown from an Obsidian vault with Caldera. Updated ${esc(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
-  if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc(t)}</span><div class="ctx">${esc(c)}</div></div>`).join("")}</div>` : ""}</aside>`);
+  if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc(t)}</span><div class="ctx">${esc(c)}</div></div>`).join("")}</div>` : ""}${sideMods.map(m => `<div class="module side" data-module="${esc(m.slug)}"><div class="label">${esc(m.title)}</div><div class="mod-body">${m.html}</div></div>`).join("")}</aside>`);
   parts.push(`</div>`);
   parts.push(`<script>${CLIENT_JS}</script></body></html>`);
   // every h2 gets an anchor; the sidebar's "On this page" lists them (journal + scoreboard first)

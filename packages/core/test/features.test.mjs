@@ -8,7 +8,7 @@ const MENTION = {
   knows: '"knows"', inbox: '"inbox"', topics: "Public topics", projects: '"projects"', code: "city.json", ai: '"ai"',
   timeline: '"timeline"', sidebar: '"sidebar"', graph: '"graph"', garden: "caldera: garden", asks: "Post an ask", links: '"links"',
   masthead: "masthead", live: "t.js", agents: "agent-hook.mjs", weather: null, private: "Private web view", email: "Daily summary email",
-  groups: "Groups", friends: "kudos",
+  groups: "Groups", friends: "kudos", modules: "Caldera/modules/",
 };
 
 test("setup prompt mentions every feature in the inventory (except purely automatic ones)", () => {
@@ -17,7 +17,7 @@ test("setup prompt mentions every feature in the inventory (except purely automa
     assert.ok(f.id in MENTION, `inventory feature ${f.id} has no prompt check`);
     if (MENTION[f.id]) assert.ok(t.includes(MENTION[f.id]), `prompt does not cover ${f.id} (${MENTION[f.id]})`);
   }
-  assert.equal(C.PROMPT_VERSION, 5);
+  assert.equal(C.PROMPT_VERSION, 6);
   assert.ok(t.includes("SAFE TO PASTE AGAIN") && t.includes("data.json") && t.includes("## 6. Privacy rules"));
 });
 
@@ -46,7 +46,7 @@ test("garden paused: left out of the prompt, the inventory and the checklist; sw
   assert.ok(!/garden/i.test(off), "no garden wording in the setup prompt while paused");
   assert.ok(!C.activeFeatures().some(f => f.id === "garden") && C.FEATURES.some(f => f.id === "garden"), "kept in the code, not shown");
   assert.ok(!C.pageChecklist({ garden: false }).some(i => i.id === "garden"));
-  assert.match(off, /\n1\. Page text, in [\s\S]*\n2\. Notes friends can receive/, "section 4 renumbers cleanly");
+  assert.match(off, /\n1\. Page text, in [\s\S]*\n2\. Custom modules[\s\S]*\n3\. Notes friends can receive/, "section 4 renumbers cleanly");
   C.FLAGS.garden = true;
   try {
     const on = C.agentPrompt({ hubUrl: "https://caldera.social" });

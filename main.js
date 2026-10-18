@@ -2266,7 +2266,7 @@ __export(main_exports, {
   default: () => CalderaPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // ../core/src/index.ts
 var import_tweetnacl = __toESM(require_nacl_fast(), 1);
@@ -2317,6 +2317,12 @@ ${PRIVACY_RULES}
       return head("the daily summary email") + `1. In ${o.hosted ? `${hub}/me` : "Obsidian: Settings -> Caldera -> Daily summary email"}, I type my email address (you don't need to - it's my choice which address).
 2. Caldera emails a confirm link; I click it. Every email has a one-click unsubscribe.
 It arrives about 8am Pacific, only on days something happened: visits, friend requests, kudos, links into my notes.` + rules;
+    case "modules":
+      return head("my own sections (custom modules)") + `${MODULES_HELP}
+
+1. Ask me what I'd like on my page that the standard sections don't cover, and suggest 3 modules that fit me (only from things that are already public).
+2. Draft the full Markdown of each one and show me.
+3. Create only the ones I approve, one note each in "Caldera/modules/". Use place: side for short ones (office hours, links, stack).` + rules;
     case "groups":
       return head("groups") + `1. Ask me which communities I belong to (a class, a Discord, a company, a cohort) and suggest short group names (lowercase, dashes), for example producthunt.
 2. I join in ${o.hosted ? `${hub}/me` : "Obsidian: Settings -> Caldera -> Groups"} (comma separated). Each group is a town of everyone's cities at ${hub}/g/<name>; share that link with the group.` + rules;
@@ -2373,7 +2379,8 @@ ${PRIVACY_RULES}
 }
 
 // ../core/src/agent-prompt.ts
-var PROMPT_VERSION = 5;
+var PROMPT_VERSION = 6;
+var MODULES_HELP = `Custom modules: I can add my own sections to the page. Each module is one Markdown note in "Caldera/modules/" (for example "Caldera/modules/Reading list.md"); the note becomes a section titled with its file name. Optional frontmatter: title (a different title), place (main = the main column under "Now", side = the right-hand column), order (lower numbers first, default 50), publish (false keeps it as a draft). The body is ordinary Markdown: paragraphs, ## subheadings, lists, checkboxes, tables, quotes, code, links ([label](https://...)), images from the vault (![[image.png]], under 2 MB each), and [[@handle/Their note]] links to other members. No HTML, scripts or embeds (they show as plain text), and email addresses and phone numbers are removed. Up to 12 modules. The page republishes about a minute after any change in that folder; deleting the note removes the section. Good modules: reading list, talks and podcasts, my stack, office hours, what I'm looking for, FAQ, press, a changelog of what I shipped. Everything in a module is public.`;
 var PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
 - Other people: no names, initials, handles, photos or descriptions that identify anyone I meet, work with, hire, date, advise or invest with. Say "a founder", "the team", "a friend" only when it adds nothing identifying - usually leave it out.
 - Meetings: no meetings, calls, lunches, dinners, interviews or events - not their titles, times, dates, attendees, or that they happened with someone specific.
@@ -2470,6 +2477,7 @@ Anything that would become PUBLIC needs my explicit yes first: show me exactly w
 ${richItems([
     `Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Optional: offer a masthead (the wide cover image across the top of the page, about 3:1 such as 1800x600, under 2 MB): an image I choose or a free-to-use one I approve, saved into "Caldera/img/" with "banner" set to its path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).`,
     G2 ? `My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.` : null,
+    `Custom modules. ${MODULES_HELP} Suggest 2-3 modules that fit me (draft the full Markdown of each from things that are already public), and create only the ones I approve.`,
     `Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.`,
     `Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.`,
     `Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".`,
@@ -2490,10 +2498,10 @@ Themes and topics: only use topics among ${topics}.
 Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public${G2 ? " / garden" : ""} / friends / private) without asking, ${G2 ? "never move notes into or out of the Garden folder, " : ""}never touch .obsidian/plugins/caldera/data.json - it holds my private key.
 
 ## 7. Report
-When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), ${G2 ? "garden, " : ""}live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
+When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), custom modules, extras (what it knows, inbox to knowledge, project commits), ${G2 ? "garden, " : ""}live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
 
 ## 8. Later
-- Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
+- Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. New sections of my own are modules: one note each in "${vault}/Caldera/modules/". Guide: ${hub}/guide.html
 ${G2 ? `- My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
 ` : ""}- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "Private view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
 - When Caldera tells me my setup prompt is out of date, I copy it again ("Caldera: Copy the AI setup prompt") and paste it here; you upgrade the routine in place.`;
@@ -2510,7 +2518,8 @@ Where things live:
 - A note on my page: add "caldera: public" to that note's frontmatter (title and first paragraph are shown). Remove it to take the note down.
 - My daily journal: caldera_headline / caldera_focus / caldera_wins / caldera_themes in daily notes named YYYY-MM-DD.md.
 - Activity counts: "Caldera/activity.json".
-The page republishes automatically about a minute after Caldera/profile.md changes. For anything else, tell me to run "Caldera: Publish my profile".
+- ${MODULES_HELP}
+The page republishes automatically about a minute after Caldera/profile.md or a module changes. For anything else, tell me to run "Caldera: Publish my profile".
 
 Rules:
 - Show me the exact change before you make it, and only make what I approve.
@@ -3169,7 +3178,7 @@ var DEFAULT_SETTINGS = {
   bannerPath: "",
   links: [],
   properties: [],
-  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true, sidebar: true, rail: true },
+  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, asks: true, social: true, links: true, sidebar: true, rail: true, modules: true },
   publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
   activityFile: "Caldera/activity.json",
   historyDays: 45,
@@ -3437,7 +3446,7 @@ Keep the key and secret out of any repo.`;
 }
 
 // src/collect.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/assets/theme.css
 var theme_default = `/* ============================================================================
@@ -3544,7 +3553,7 @@ var theme_default = `/* ========================================================
 `;
 
 // src/profile.css.ts
-var PROFILE_CSS = '/* ============================================================================\n   LIVING PROFILE - COMPONENTS\n   Layout and components only. No raw colors, fonts or sizes here:\n   everything comes from theme.css. To restyle, edit theme.css.\n   ========================================================================== */\n\n* { box-sizing: border-box; }\nhtml, body { margin: 0; }\nbody {\n  background: var(--bg);\n  color: var(--text);\n  font-family: var(--font-body);\n  font-size: var(--text-md);\n  line-height: var(--leading);\n  -webkit-font-smoothing: antialiased;\n}\na { color: var(--accent-text); text-decoration: none; }\na:hover { text-decoration: underline; }\n.mono { font-family: var(--font-mono); }\n.muted { color: var(--text-muted); }\n\n/* --- Top tab bar ------------------------------------------------------- */\n.tabs {\n  display: flex; align-items: center; gap: var(--space-1);\n  background: var(--bg-tab); border-bottom: 1px solid var(--line);\n  padding: 0 var(--space-3); overflow-x: auto;\n}\n.tab { padding: 10px 14px; font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }\n.tab.is-active {\n  color: var(--text); background: var(--bg);\n  border: 1px solid var(--line); border-bottom: 0;\n  border-radius: var(--radius-md) var(--radius-md) 0 0;\n}\n.tabs .spacer { flex: 1; }\n.sync { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; padding-right: var(--space-2); }\n.sync .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); margin-right: 6px; animation: pulse 2.4s ease-in-out infinite; }\n\n/* --- Three-column shell ------------------------------------------------ */\n.shell { display: flex; flex-wrap: wrap; align-items: stretch; }\n.sidebar {\n  flex: 0 1 var(--sidebar-width); min-width: 200px;\n  background: var(--bg-sunken); border-right: 1px solid var(--line);\n  padding: var(--space-3) var(--space-2); font-size: var(--text-sm);\n}\n.note { flex: 999 1 560px; min-width: 0; padding-bottom: var(--space-8); }\n.rail {\n  flex: 0 1 var(--rail-width); min-width: 240px;\n  background: var(--bg-sunken); border-left: 1px solid var(--line);\n  padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-4);\n}\n@media (max-width: 900px) {\n  .sidebar { display: none; }\n  .rail { border-left: 0; border-top: 1px solid var(--line); flex-basis: 100%; }\n}\n\n/* --- File tree --------------------------------------------------------- */\n.label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase; }\n.tree .label { padding: 0 var(--space-2) var(--space-2); display: block; }\n.side-inner { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; padding-bottom: var(--space-4); scrollbar-width: none; } .side-inner::-webkit-scrollbar { display: none; }\n.tree .label + .toc, .tree .label + .tree-group, .tree .label + .tree-row { margin-top: 0; }\n.toc { margin-bottom: var(--space-4); border-left: 1px solid var(--line); margin-left: var(--space-2); }\n.tree-row { display: flex; align-items: center; gap: 6px; padding: 4px var(--space-2); border-radius: var(--radius-sm); color: var(--text); line-height: 1.35; }\na.tree-row { text-decoration: none; }\na.tree-row:hover, summary.tree-row:hover { background: var(--bg-raised); color: var(--text-strong); text-decoration: none; }\n.tree-row.child { padding-left: calc(var(--space-2) + 18px); color: var(--text-muted); }\n.tree-row.child.is-link { color: var(--text); }\n.tree-row.is-current { background: var(--bg-raised); color: var(--text-strong); box-shadow: inset 2px 0 0 var(--accent); }\n.tree-row > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.tree-row .ext { flex: 0 0 auto; font-size: 11px; color: var(--text-muted); opacity: 0; transition: opacity .15s; }\n.tree-row:hover .ext, .tree-row:focus-visible .ext { opacity: 1; }\n.tree-row .count { flex: 0 0 auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }\n.tree-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }\n.toc-row { margin-left: -1px; border-left: 2px solid transparent; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text-muted); padding-left: var(--space-3); }\n.toc-row.is-active { color: var(--text-strong); border-left-color: var(--accent); background: var(--accent-soft); }\n.tree-group > summary { list-style: none; cursor: pointer; user-select: none; }\n.tree-group > summary::-webkit-details-marker { display: none; }\n.tree-row.group .g-name { flex: 1; font-weight: 500; }\n.tree-row.group .caret { flex: 0 0 12px; width: 12px; height: 12px; display: inline-block; }\n.tree-group > summary .caret::before { content: ""; display: block; width: 0; height: 0; margin: 2px 0 0 2px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--text-muted); transform: rotate(-90deg); transition: transform .15s; }\n.tree-group[open] > summary .caret::before { transform: none; }\n.tree-row.group.leaf .caret::before { content: ""; display: block; width: 5px; height: 5px; margin: 3px 0 0 3px; border-radius: 50%; background: var(--line-strong); }\nhtml { scroll-behavior: smooth; } h2[id], section[id], .pnote[id] { scroll-margin-top: var(--space-4); }\n@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }\n@media (max-width: 900px) {\n  .sidebar.tree { display: block; flex-basis: 100%; min-width: 0; position: sticky; top: 0; z-index: 5; padding: 0; border-right: 0; border-bottom: 1px solid var(--line); }\n  .side-inner { position: static; max-height: none; overflow: visible; padding: 0; }\n  .side-inner > .label, .side-inner > .tree-group, .side-inner > .tree-row { display: none; }\n  .toc { display: flex; overflow-x: auto; gap: 2px; margin: 0; border: 0; padding: 6px var(--space-3); scrollbar-width: none; }\n  .toc-row { white-space: nowrap; border: 0; border-radius: var(--radius-round); padding: 4px 12px; margin: 0; }\n  .side-inner:not(:has(.toc)) { display: none; }\n}\n\n/* --- Banner & title ---------------------------------------------------- */\n.banner { position: relative; height: var(--banner-height); }   /* no overflow:hidden, so the avatar can hang below */\n.banner::after { z-index: 1; }\n.banner img.cover { width: 100%; height: 100%; object-fit: cover; object-position: var(--banner-focus); opacity: .92; display: block; }\n.banner::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, var(--bg) 100%); }\n.banner img.avatar {\n  position: absolute; left: 48px; bottom: calc(var(--avatar-size) * -0.32); z-index: 2;\n  width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%;\n  object-fit: cover; object-position: center 25%; border: 4px solid var(--bg);\n}\n/* No cover photo: the avatar sits above the name instead of hanging off an empty banner */\n.page img.avatar.solo { display: block; width: calc(var(--avatar-size) * .8); height: calc(var(--avatar-size) * .8); border-radius: 50%; object-fit: cover; object-position: center 25%; margin-bottom: var(--space-4);}\n.page { max-width: var(--content-width); margin: 0 auto; padding: calc(var(--space-8) + var(--space-4)) var(--space-8) 0; }\n.crumb { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }\nh1.title { margin: 6px 0 var(--space-4); font-family: var(--font-display); font-weight: 600; font-size: var(--text-h1); color: var(--text-strong); line-height: 1.1; }\nh1.title .caret { color: var(--accent); animation: blink 1s step-end infinite; }\nh2 { font-family: var(--font-display); font-weight: 600; font-size: var(--text-h2); color: var(--text-strong); margin: var(--space-8) 0 var(--space-2); }\n\n/* --- Properties -------------------------------------------------------- */\n.props {\n  display: grid; grid-template-columns: 150px 1fr; gap: 6px 14px;\n  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);\n  padding: 10px 0; margin-bottom: var(--space-6); font-size: var(--text-sm);\n}\n.props dt { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); margin: 0; }\n.props dd { margin: 0; }\n@media (max-width: 560px) { .props { grid-template-columns: 1fr; } .props dd { margin-bottom: 6px; } }\n\n/* --- Callout ----------------------------------------------------------- */\n.callout { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-md) var(--radius-md) 0; padding: 12px 16px; margin-bottom: var(--space-6); }\n.callout-title { font-weight: 600; color: var(--accent-text); font-size: var(--text-sm); }\n\n/* --- Lists, tables ----------------------------------------------------- */\nul.bullets { margin: 0; padding-left: 20px; }\nul.bullets li { margin: 4px 0; }\n.query { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 6px; }\n.table-wrap { overflow-x: auto; }\ntable.data { width: 100%; border-collapse: collapse; font-size: 14px; }\ntable.data th { text-align: left; padding: 8px; border-bottom: 1px solid var(--line-strong); color: var(--text-muted); font-weight: 500; }\ntable.data td { padding: 8px; border-bottom: 1px solid var(--line); }\ntable.data .num { text-align: right; font-family: var(--font-mono); }\n\n/* --- Commit chart ------------------------------------------------------ */\n.bars { height: 110px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.bars span { flex: 1; max-width: 28px; background: var(--chart-bar); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1.1s cubic-bezier(.2,.8,.2,1) both; }\n.bars span.quiet { background: var(--chart-bar-quiet); }\n.bars-legend { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 4px; }\n\n/* --- Timeline ---------------------------------------------------------- */\n.timeline { position: relative; }\n.timeline .row { display: grid; grid-template-columns: 64px 14px 1fr; gap: 0 12px; padding: 7px 0; position: relative; }\n.timeline .row::before { content: ""; position: absolute; left: calc(64px + 12px + 6px); top: 0; bottom: 0; width: 2px; background: var(--line); }\n.timeline .year { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); padding-top: 2px; font-variant-numeric: tabular-nums; }\n.timeline .dot { position: relative; z-index: 1; width: 10px; height: 10px; margin: 7px 0 0 2px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }\n.timeline .row.same .dot { width: 6px; height: 6px; margin: 9px 0 0 4px; border: 0; background: var(--line-strong); }\n.timeline .what { min-width: 0; }\n.timeline .detail { color: var(--text-muted); font-size: var(--text-sm); margin-top: 2px; }\n.timeline .era { display: flex; align-items: baseline; gap: 10px; margin: var(--space-4) 0 2px; padding-left: calc(64px + 12px + 14px + 12px); }\n.timeline .era:first-child { margin-top: 0; }\n.timeline .era-name { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); }\n.timeline .era-range { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n@media (max-width: 560px) { .timeline .row { grid-template-columns: 44px 14px 1fr; gap: 0 8px; } .timeline .row::before { left: calc(44px + 8px + 6px); } .timeline .era { padding-left: calc(44px + 8px + 14px + 8px); } }\n\n/* --- Right rail -------------------------------------------------------- */\n.graph svg { width: 100%; height: 240px; display: block; }\n.graph .edge { stroke: var(--graph-edge); stroke-width: 1; }\n.graph .node { fill: var(--graph-node); }\n.graph .node.hot { fill: var(--graph-node-hot); }\n.graph .center { fill: var(--accent); }\n.graph text { fill: var(--text-muted); font-family: var(--font-body); font-size: 8.5px; }\n.graph .float { animation: float 4s ease-in-out infinite; }\n.backlink { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.backlink .ctx { color: var(--text-muted); font-size: 12px; }\n.pulse-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }\n.pulse-cell { background: var(--bg-raised); border-radius: var(--radius-sm); padding: var(--space-2); }\n.pulse-cell .v { font-size: 20px; color: var(--text-strong); }\n.pulse-cell .l { font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Help exchange (off by default in config) -------------------------- */\n.hx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); }\n.hx-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-4); }\n.hx-row { display: flex; justify-content: space-between; gap: var(--space-2); padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.hx-row .bounty { color: var(--accent-2); font-family: var(--font-mono); }\n\n\n/* --- Stat strip -------------------------------------------------------- */\n.stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin-bottom: var(--space-6); }\n.stat { background: var(--bg); padding: var(--space-3) var(--space-2); }\n.stat .v { font-size: 22px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.small { font-size: var(--text-sm); margin: 0 0 var(--space-2); }\n\n/* --- Activity heatmap -------------------------------------------------- */\n.heat-box { position: relative; }\n.heat-frame { display: flex; gap: 6px; }\n.heat-days { display: grid; grid-template-rows: repeat(7, 12px); gap: 3px; padding-top: 18px; font-family: var(--font-mono); font-size: 10px; line-height: 12px; color: var(--text-muted); }\n.heat-wrap { overflow-x: auto; min-width: 0; }\n.heat-months { position: relative; height: 18px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n.heat-months span { position: absolute; top: 0; white-space: nowrap; }\n.heat { outline: none; border-radius: 3px; width: max-content; }\n.heat:focus-visible { box-shadow: 0 0 0 2px var(--accent); }\n.heat i[data-d] { cursor: pointer; transition: transform .12s ease; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.25); box-shadow: 0 0 0 1.5px var(--text-strong); position: relative; z-index: 1; }\n.heat i.is-today { box-shadow: inset 0 0 0 1.5px var(--accent-2); }\n.heat i.is-pin { box-shadow: 0 0 0 1.5px var(--accent); }\n.heat-tip { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 8px)); pointer-events: none; white-space: nowrap; background: var(--text-strong); color: var(--bg); font-size: var(--text-xs); font-family: var(--font-mono); padding: 4px 8px; border-radius: var(--radius-sm); box-shadow: 0 4px 14px rgba(0,0,0,.25); }\n.heat-tip::after { content: ""; position: absolute; left: calc(50% + var(--ax, 0px)); bottom: -4px; margin-left: -4px; border: 4px solid transparent; border-bottom: 0; border-top-color: var(--text-strong); }\n.heat-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; align-items: center; margin-top: 8px; }\n.heat-read { font-size: var(--text-sm); color: var(--text-muted); min-height: 1.4em; font-variant-numeric: tabular-nums; }\n.heat-read b { color: var(--text-strong); font-weight: 500; }\n.heat-foot .heat-legend { margin-top: 0; }\n@media (prefers-reduced-motion: reduce) { .heat i[data-d] { transition: none; } }\n.heat { display: grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; }\n.heat i, .heat-legend i { width: 12px; height: 12px; border-radius: 2px; display: block; background: var(--heat-0); }\n.heat i.l1, .heat-legend i.l1 { background: var(--heat-1); }\n.heat i.l2, .heat-legend i.l2 { background: var(--heat-2); }\n.heat i.l3, .heat-legend i.l3 { background: var(--heat-3); }\n.heat i.l4, .heat-legend i.l4 { background: var(--heat-4); }\n.heat-legend { display: flex; gap: 4px; align-items: center; justify-content: flex-end; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 6px; }\n\n/* --- Two columns, growth line, horizontal bars ------------------------- */\n.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-6); }\n.growth { width: 100%; height: auto; display: block; }\n.growth .axis { stroke: var(--line-strong); }\n.growth .area { fill: var(--accent-soft); }\n.growth .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-dasharray: 2000; animation: draw 2.6s ease-out both; }\n.growth .now { fill: var(--accent); animation: pulse 2s ease-in-out infinite; }\n.growth text { fill: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }\n.hbar { display: grid; grid-template-columns: 130px 1fr 52px; gap: 10px; align-items: center; font-size: var(--text-sm); padding: 4px 0; }\n.hbar .track { height: 8px; background: var(--bg-raised); border-radius: 4px; overflow: hidden; }\n.hbar .fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; transform-origin: left; animation: grow 1.2s cubic-bezier(.2,.8,.2,1) both; }\n.hbar .fill.alt { background: var(--chart-alt); }\n.hbar .num { text-align: right; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n.cols { height: 120px; display: flex; gap: 4px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); margin-top: var(--space-2); }\n.cols span { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; align-items: center; }\n.cols b { display: block; width: 100%; background: var(--chart-alt); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.cols em { font-style: normal; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n\n/* --- Topic cloud ------------------------------------------------------- */\n.cloud { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }\n.cloud span { color: var(--text-strong); line-height: 1.3; }\n.cloud sup { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: 2px; }\n\n@keyframes draw { from { stroke-dashoffset: 2000; } to { stroke-dashoffset: 0; } }\n@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }\n\n\n/* --- Daily journal ----------------------------------------------------- */\n.journal { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-6); overflow: hidden; }\n.j-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }\n.j-title { flex: 1; text-align: center; }\n.j-date { font-family: var(--font-display); font-size: 22px; color: var(--text-strong); }\n.j-nav { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font-size: 22px; cursor: pointer; }\n.j-nav:disabled { opacity: .3; cursor: default; }\n.j-top { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }\n.ring-wrap { position: relative; width: 96px; height: 96px; flex: 0 0 96px; }\n.ring { width: 96px; height: 96px; transform: rotate(-90deg); display: block; }\n.ring .trk { fill: none; stroke: var(--line); stroke-width: 9; }\n.ring .val { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1); }\n.j-score { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }\n.j-score .v { font-size: 26px; color: var(--text-strong); line-height: 1; }\n.j-score .l { font-size: 10px; color: var(--text-muted); }\n.j-delta { font-family: var(--font-mono); font-size: var(--text-xs); margin-bottom: 4px; }\n.j-headline { flex: 1 1 260px; font-family: var(--font-display); font-size: 21px; color: var(--text-strong); line-height: 1.3; }\n.j-themes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-family: var(--font-body); }\n.j-themes span { font-size: var(--text-xs); color: var(--accent-text); background: var(--accent-soft); border-radius: var(--radius-round); padding: 2px 10px; }\n.j-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin: var(--space-4) 0; }\n.chip { background: var(--bg); padding: var(--space-2); }\n.chip .v { font-size: 20px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.chip .l { font-size: var(--text-xs); color: var(--text-muted); }\n.chip .dd { font-family: var(--font-mono); font-size: var(--text-xs); min-height: 1em; }\n.up { color: var(--accent-2); } .down { color: var(--text-muted); } .flat { color: var(--text-muted); }\n.j-lists ul { margin-top: 4px; }\n.flip-l { animation: flipL .45s ease both; } .flip-r { animation: flipR .45s ease both; }\n@keyframes flipL { from { opacity: 0; transform: translateX(-24px) rotateY(8deg); } to { opacity: 1; transform: none; } }\n@keyframes flipR { from { opacity: 0; transform: translateX(24px) rotateY(-8deg); } to { opacity: 1; transform: none; } }\n\n/* --- Scoreboard -------------------------------------------------------- */\n.scoreboard { margin-bottom: var(--space-6); }\n.sb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }\n.sb-stat .v { font-size: 30px; color: var(--text-strong); line-height: 1.1; }\n.sb-stat .v small { font-size: 14px; color: var(--text-muted); }\n.sb-stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.sb-bars { height: 90px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.sb-bars span { flex: 1; background: var(--chart-bar-quiet); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.sb-bars span.yday { background: var(--accent); }\n.sb-bars span.today { background: repeating-linear-gradient(45deg, var(--chart-bar-quiet), var(--chart-bar-quiet) 3px, transparent 3px, transparent 6px); }\n.sb-lower { margin-top: var(--space-4); }\n.lb-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.lb-row .rank { font-family: var(--font-mono); color: var(--text-muted); }\n.lb-row .num { font-family: var(--font-mono); }\n.lb-row.me .who { color: var(--text-strong); font-weight: 600; }\n.lb-row.empty .who { color: var(--text-muted); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 2px 8px; justify-self: start; }\n.sb-how { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-muted); }\n.sb-how summary { cursor: pointer; color: var(--accent-text); }\n\n/* --- Footer ------------------------------------------------------------ */\n.foot { margin-top: var(--space-8); padding-top: var(--space-3); border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Motion (respects reduced-motion) ---------------------------------- */\n@keyframes pulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }\n@keyframes blink { 50% { opacity: 0; } }\n@keyframes rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }\n@keyframes float { 0%,100% { transform: translate(0,0); } 50% { transform: translate(3px,-4px); } }\n@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }\n\n.note { max-width: 100%; }\n.lede { font-size: var(--text-lg); color: var(--text-muted); margin: -8px 0 var(--space-6); }\n.pnote { padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }\n.pn-title { font-family: var(--font-display); font-size: 19px; color: var(--text-strong); }\n.pn-ex { color: var(--text); font-size: var(--text-sm); }\n.pn-date { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n.lb-wrap { position: relative; }\n.lb-row.empty .invite-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: transparent; color: var(--accent-text); border: 1px dashed var(--accent); border-radius: var(--radius-sm); padding: 2px 10px; justify-self: start; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }\n.lb-row.empty .invite-btn::before { content: "+"; font-family: var(--font-mono); }\n.lb-row.empty .invite-btn:hover, .lb-row.empty .invite-btn[aria-expanded="true"] { background: var(--accent-soft); border-style: solid; text-decoration: none; }\n.lb-row.empty .invite-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n.invite-pop { position: absolute; z-index: 20; width: min(340px, 100%); background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }\n.invite-pop .inv-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }\n.invite-pop .inv-title { font-weight: 600; color: var(--text-strong); font-size: var(--text-sm); }\n.invite-pop .inv-sub { color: var(--text-muted); font-size: var(--text-xs); margin: 2px 0 10px; line-height: 1.45; }\n.invite-pop .inv-close { background: none; border: 0; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }\n.invite-pop .inv-link { display: flex; gap: 6px; }\n.invite-pop .inv-url { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 8px; }\n.invite-pop button.inv-copy { background: var(--accent); color: var(--bg); border: 0; border-radius: var(--radius-sm); padding: 6px 12px; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }\n.invite-pop .inv-ways { display: flex; gap: 6px; margin-top: 8px; }\n.invite-pop .inv-ways a, .invite-pop .inv-ways button { flex: 1; text-align: center; font: inherit; font-size: var(--text-sm); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 0; cursor: pointer; text-decoration: none; }\n.invite-pop .inv-ways a:hover, .invite-pop .inv-ways button:hover { border-color: var(--accent); color: var(--text-strong); text-decoration: none; }\n.invite-pop .inv-status { min-height: 1.2em; margin-top: 6px; font-size: var(--text-xs); color: var(--accent-2); }\n.invite-pop button:focus-visible, .invite-pop a:focus-visible, .invite-pop input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }\n\n/* Heatmap sizing (2026-10-12): cells grow with the column (11-18px), room for the hover zoom, no stray scrollbar */\n.heat-box { container-type: inline-size; }\n.heat-frame { --gap: 3px; --cell: clamp(8px, calc((100cqw - 46px - 25 * var(--gap)) / 26), 18px); }\n@container (max-width: 460px) { .heat-frame { --gap: 2px; } }\n.heat, .heat-days { gap: var(--gap, 3px); }\n.heat-days { grid-template-rows: repeat(7, var(--cell, 12px)); line-height: var(--cell, 12px); }\n.heat-wrap { overflow-x: auto; overflow-y: hidden; padding: 4px; margin: -4px; scrollbar-width: none; }\n.heat-wrap::-webkit-scrollbar { display: none; }\n.heat { grid-template-rows: repeat(7, var(--cell, 12px)); grid-auto-columns: var(--cell, 12px); }\n.heat i { width: var(--cell, 12px); height: var(--cell, 12px); border-radius: 3px; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.18); }\n\n/* --- Standard nav: pages block + add-friend --------------------------- */\n.toc.pages .friend-row { color: var(--accent); }\n.toc.pages .friend-row:hover { color: var(--accent); background: var(--accent-soft); }\n.tree-row.group .g-link { color: inherit; text-decoration: none; }\n.tree-row.group .g-link:hover { color: var(--accent); text-decoration: underline; }\n';
+var PROFILE_CSS = '/* ============================================================================\n   LIVING PROFILE - COMPONENTS\n   Layout and components only. No raw colors, fonts or sizes here:\n   everything comes from theme.css. To restyle, edit theme.css.\n   ========================================================================== */\n\n* { box-sizing: border-box; }\nhtml, body { margin: 0; }\nbody {\n  background: var(--bg);\n  color: var(--text);\n  font-family: var(--font-body);\n  font-size: var(--text-md);\n  line-height: var(--leading);\n  -webkit-font-smoothing: antialiased;\n}\na { color: var(--accent-text); text-decoration: none; }\na:hover { text-decoration: underline; }\n.mono { font-family: var(--font-mono); }\n.muted { color: var(--text-muted); }\n\n/* --- Top tab bar ------------------------------------------------------- */\n.tabs {\n  display: flex; align-items: center; gap: var(--space-1);\n  background: var(--bg-tab); border-bottom: 1px solid var(--line);\n  padding: 0 var(--space-3); overflow-x: auto;\n}\n.tab { padding: 10px 14px; font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }\n.tab.is-active {\n  color: var(--text); background: var(--bg);\n  border: 1px solid var(--line); border-bottom: 0;\n  border-radius: var(--radius-md) var(--radius-md) 0 0;\n}\n.tabs .spacer { flex: 1; }\n.sync { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; padding-right: var(--space-2); }\n.sync .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); margin-right: 6px; animation: pulse 2.4s ease-in-out infinite; }\n\n/* --- Three-column shell ------------------------------------------------ */\n.shell { display: flex; flex-wrap: wrap; align-items: stretch; }\n.sidebar {\n  flex: 0 1 var(--sidebar-width); min-width: 200px;\n  background: var(--bg-sunken); border-right: 1px solid var(--line);\n  padding: var(--space-3) var(--space-2); font-size: var(--text-sm);\n}\n.note { flex: 999 1 560px; min-width: 0; padding-bottom: var(--space-8); }\n.rail {\n  flex: 0 1 var(--rail-width); min-width: 240px;\n  background: var(--bg-sunken); border-left: 1px solid var(--line);\n  padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-4);\n}\n@media (max-width: 900px) {\n  .sidebar { display: none; }\n  .rail { border-left: 0; border-top: 1px solid var(--line); flex-basis: 100%; }\n}\n\n/* --- File tree --------------------------------------------------------- */\n.label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase; }\n.tree .label { padding: 0 var(--space-2) var(--space-2); display: block; }\n.side-inner { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; padding-bottom: var(--space-4); scrollbar-width: none; } .side-inner::-webkit-scrollbar { display: none; }\n.tree .label + .toc, .tree .label + .tree-group, .tree .label + .tree-row { margin-top: 0; }\n.toc { margin-bottom: var(--space-4); border-left: 1px solid var(--line); margin-left: var(--space-2); }\n.tree-row { display: flex; align-items: center; gap: 6px; padding: 4px var(--space-2); border-radius: var(--radius-sm); color: var(--text); line-height: 1.35; }\na.tree-row { text-decoration: none; }\na.tree-row:hover, summary.tree-row:hover { background: var(--bg-raised); color: var(--text-strong); text-decoration: none; }\n.tree-row.child { padding-left: calc(var(--space-2) + 18px); color: var(--text-muted); }\n.tree-row.child.is-link { color: var(--text); }\n.tree-row.is-current { background: var(--bg-raised); color: var(--text-strong); box-shadow: inset 2px 0 0 var(--accent); }\n.tree-row > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.tree-row .ext { flex: 0 0 auto; font-size: 11px; color: var(--text-muted); opacity: 0; transition: opacity .15s; }\n.tree-row:hover .ext, .tree-row:focus-visible .ext { opacity: 1; }\n.tree-row .count { flex: 0 0 auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }\n.tree-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }\n.toc-row { margin-left: -1px; border-left: 2px solid transparent; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text-muted); padding-left: var(--space-3); }\n.toc-row.is-active { color: var(--text-strong); border-left-color: var(--accent); background: var(--accent-soft); }\n.tree-group > summary { list-style: none; cursor: pointer; user-select: none; }\n.tree-group > summary::-webkit-details-marker { display: none; }\n.tree-row.group .g-name { flex: 1; font-weight: 500; }\n.tree-row.group .caret { flex: 0 0 12px; width: 12px; height: 12px; display: inline-block; }\n.tree-group > summary .caret::before { content: ""; display: block; width: 0; height: 0; margin: 2px 0 0 2px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--text-muted); transform: rotate(-90deg); transition: transform .15s; }\n.tree-group[open] > summary .caret::before { transform: none; }\n.tree-row.group.leaf .caret::before { content: ""; display: block; width: 5px; height: 5px; margin: 3px 0 0 3px; border-radius: 50%; background: var(--line-strong); }\nhtml { scroll-behavior: smooth; } h2[id], section[id], .pnote[id] { scroll-margin-top: var(--space-4); }\n@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }\n@media (max-width: 900px) {\n  .sidebar.tree { display: block; flex-basis: 100%; min-width: 0; position: sticky; top: 0; z-index: 5; padding: 0; border-right: 0; border-bottom: 1px solid var(--line); }\n  .side-inner { position: static; max-height: none; overflow: visible; padding: 0; }\n  .side-inner > .label, .side-inner > .tree-group, .side-inner > .tree-row { display: none; }\n  .toc { display: flex; overflow-x: auto; gap: 2px; margin: 0; border: 0; padding: 6px var(--space-3); scrollbar-width: none; }\n  .toc-row { white-space: nowrap; border: 0; border-radius: var(--radius-round); padding: 4px 12px; margin: 0; }\n  .side-inner:not(:has(.toc)) { display: none; }\n}\n\n/* --- Banner & title ---------------------------------------------------- */\n.banner { position: relative; height: var(--banner-height); }   /* no overflow:hidden, so the avatar can hang below */\n.banner::after { z-index: 1; }\n.banner img.cover { width: 100%; height: 100%; object-fit: cover; object-position: var(--banner-focus); opacity: .92; display: block; }\n.banner::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, var(--bg) 100%); }\n.banner img.avatar {\n  position: absolute; left: 48px; bottom: calc(var(--avatar-size) * -0.32); z-index: 2;\n  width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%;\n  object-fit: cover; object-position: center 25%; border: 4px solid var(--bg);\n}\n/* No cover photo: the avatar sits above the name instead of hanging off an empty banner */\n.page img.avatar.solo { display: block; width: calc(var(--avatar-size) * .8); height: calc(var(--avatar-size) * .8); border-radius: 50%; object-fit: cover; object-position: center 25%; margin-bottom: var(--space-4);}\n.page { max-width: var(--content-width); margin: 0 auto; padding: calc(var(--space-8) + var(--space-4)) var(--space-8) 0; }\n.crumb { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }\nh1.title { margin: 6px 0 var(--space-4); font-family: var(--font-display); font-weight: 600; font-size: var(--text-h1); color: var(--text-strong); line-height: 1.1; }\nh1.title .caret { color: var(--accent); animation: blink 1s step-end infinite; }\nh2 { font-family: var(--font-display); font-weight: 600; font-size: var(--text-h2); color: var(--text-strong); margin: var(--space-8) 0 var(--space-2); }\n\n/* --- Properties -------------------------------------------------------- */\n.props {\n  display: grid; grid-template-columns: 150px 1fr; gap: 6px 14px;\n  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);\n  padding: 10px 0; margin-bottom: var(--space-6); font-size: var(--text-sm);\n}\n.props dt { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); margin: 0; }\n.props dd { margin: 0; }\n@media (max-width: 560px) { .props { grid-template-columns: 1fr; } .props dd { margin-bottom: 6px; } }\n\n/* --- Callout ----------------------------------------------------------- */\n.callout { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-md) var(--radius-md) 0; padding: 12px 16px; margin-bottom: var(--space-6); }\n.callout-title { font-weight: 600; color: var(--accent-text); font-size: var(--text-sm); }\n\n/* --- Lists, tables ----------------------------------------------------- */\nul.bullets { margin: 0; padding-left: 20px; }\nul.bullets li { margin: 4px 0; }\n.query { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 6px; }\n.table-wrap { overflow-x: auto; }\ntable.data { width: 100%; border-collapse: collapse; font-size: 14px; }\ntable.data th { text-align: left; padding: 8px; border-bottom: 1px solid var(--line-strong); color: var(--text-muted); font-weight: 500; }\ntable.data td { padding: 8px; border-bottom: 1px solid var(--line); }\ntable.data .num { text-align: right; font-family: var(--font-mono); }\n\n/* --- Commit chart ------------------------------------------------------ */\n.bars { height: 110px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.bars span { flex: 1; max-width: 28px; background: var(--chart-bar); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1.1s cubic-bezier(.2,.8,.2,1) both; }\n.bars span.quiet { background: var(--chart-bar-quiet); }\n.bars-legend { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 4px; }\n\n/* --- Timeline ---------------------------------------------------------- */\n.timeline { position: relative; }\n.timeline .row { display: grid; grid-template-columns: 64px 14px 1fr; gap: 0 12px; padding: 7px 0; position: relative; }\n.timeline .row::before { content: ""; position: absolute; left: calc(64px + 12px + 6px); top: 0; bottom: 0; width: 2px; background: var(--line); }\n.timeline .year { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); padding-top: 2px; font-variant-numeric: tabular-nums; }\n.timeline .dot { position: relative; z-index: 1; width: 10px; height: 10px; margin: 7px 0 0 2px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }\n.timeline .row.same .dot { width: 6px; height: 6px; margin: 9px 0 0 4px; border: 0; background: var(--line-strong); }\n.timeline .what { min-width: 0; }\n.timeline .detail { color: var(--text-muted); font-size: var(--text-sm); margin-top: 2px; }\n.timeline .era { display: flex; align-items: baseline; gap: 10px; margin: var(--space-4) 0 2px; padding-left: calc(64px + 12px + 14px + 12px); }\n.timeline .era:first-child { margin-top: 0; }\n.timeline .era-name { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); }\n.timeline .era-range { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n@media (max-width: 560px) { .timeline .row { grid-template-columns: 44px 14px 1fr; gap: 0 8px; } .timeline .row::before { left: calc(44px + 8px + 6px); } .timeline .era { padding-left: calc(44px + 8px + 14px + 8px); } }\n\n/* --- Right rail -------------------------------------------------------- */\n.graph svg { width: 100%; height: 240px; display: block; }\n.graph .edge { stroke: var(--graph-edge); stroke-width: 1; }\n.graph .node { fill: var(--graph-node); }\n.graph .node.hot { fill: var(--graph-node-hot); }\n.graph .center { fill: var(--accent); }\n.graph text { fill: var(--text-muted); font-family: var(--font-body); font-size: 8.5px; }\n.graph .float { animation: float 4s ease-in-out infinite; }\n.backlink { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.backlink .ctx { color: var(--text-muted); font-size: 12px; }\n.pulse-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }\n.pulse-cell { background: var(--bg-raised); border-radius: var(--radius-sm); padding: var(--space-2); }\n.pulse-cell .v { font-size: 20px; color: var(--text-strong); }\n.pulse-cell .l { font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Help exchange (off by default in config) -------------------------- */\n.hx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); }\n.hx-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-4); }\n.hx-row { display: flex; justify-content: space-between; gap: var(--space-2); padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.hx-row .bounty { color: var(--accent-2); font-family: var(--font-mono); }\n\n\n/* --- Stat strip -------------------------------------------------------- */\n.stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin-bottom: var(--space-6); }\n.stat { background: var(--bg); padding: var(--space-3) var(--space-2); }\n.stat .v { font-size: 22px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.small { font-size: var(--text-sm); margin: 0 0 var(--space-2); }\n\n/* --- Activity heatmap -------------------------------------------------- */\n.heat-box { position: relative; }\n.heat-frame { display: flex; gap: 6px; }\n.heat-days { display: grid; grid-template-rows: repeat(7, 12px); gap: 3px; padding-top: 18px; font-family: var(--font-mono); font-size: 10px; line-height: 12px; color: var(--text-muted); }\n.heat-wrap { overflow-x: auto; min-width: 0; }\n.heat-months { position: relative; height: 18px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n.heat-months span { position: absolute; top: 0; white-space: nowrap; }\n.heat { outline: none; border-radius: 3px; width: max-content; }\n.heat:focus-visible { box-shadow: 0 0 0 2px var(--accent); }\n.heat i[data-d] { cursor: pointer; transition: transform .12s ease; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.25); box-shadow: 0 0 0 1.5px var(--text-strong); position: relative; z-index: 1; }\n.heat i.is-today { box-shadow: inset 0 0 0 1.5px var(--accent-2); }\n.heat i.is-pin { box-shadow: 0 0 0 1.5px var(--accent); }\n.heat-tip { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 8px)); pointer-events: none; white-space: nowrap; background: var(--text-strong); color: var(--bg); font-size: var(--text-xs); font-family: var(--font-mono); padding: 4px 8px; border-radius: var(--radius-sm); box-shadow: 0 4px 14px rgba(0,0,0,.25); }\n.heat-tip::after { content: ""; position: absolute; left: calc(50% + var(--ax, 0px)); bottom: -4px; margin-left: -4px; border: 4px solid transparent; border-bottom: 0; border-top-color: var(--text-strong); }\n.heat-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; align-items: center; margin-top: 8px; }\n.heat-read { font-size: var(--text-sm); color: var(--text-muted); min-height: 1.4em; font-variant-numeric: tabular-nums; }\n.heat-read b { color: var(--text-strong); font-weight: 500; }\n.heat-foot .heat-legend { margin-top: 0; }\n@media (prefers-reduced-motion: reduce) { .heat i[data-d] { transition: none; } }\n.heat { display: grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; }\n.heat i, .heat-legend i { width: 12px; height: 12px; border-radius: 2px; display: block; background: var(--heat-0); }\n.heat i.l1, .heat-legend i.l1 { background: var(--heat-1); }\n.heat i.l2, .heat-legend i.l2 { background: var(--heat-2); }\n.heat i.l3, .heat-legend i.l3 { background: var(--heat-3); }\n.heat i.l4, .heat-legend i.l4 { background: var(--heat-4); }\n.heat-legend { display: flex; gap: 4px; align-items: center; justify-content: flex-end; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 6px; }\n\n/* --- Two columns, growth line, horizontal bars ------------------------- */\n.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-6); }\n.growth { width: 100%; height: auto; display: block; }\n.growth .axis { stroke: var(--line-strong); }\n.growth .area { fill: var(--accent-soft); }\n.growth .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-dasharray: 2000; animation: draw 2.6s ease-out both; }\n.growth .now { fill: var(--accent); animation: pulse 2s ease-in-out infinite; }\n.growth text { fill: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }\n.hbar { display: grid; grid-template-columns: 130px 1fr 52px; gap: 10px; align-items: center; font-size: var(--text-sm); padding: 4px 0; }\n.hbar .track { height: 8px; background: var(--bg-raised); border-radius: 4px; overflow: hidden; }\n.hbar .fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; transform-origin: left; animation: grow 1.2s cubic-bezier(.2,.8,.2,1) both; }\n.hbar .fill.alt { background: var(--chart-alt); }\n.hbar .num { text-align: right; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n.cols { height: 120px; display: flex; gap: 4px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); margin-top: var(--space-2); }\n.cols span { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; align-items: center; }\n.cols b { display: block; width: 100%; background: var(--chart-alt); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.cols em { font-style: normal; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n\n/* --- Topic cloud ------------------------------------------------------- */\n.cloud { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }\n.cloud span { color: var(--text-strong); line-height: 1.3; }\n.cloud sup { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: 2px; }\n\n@keyframes draw { from { stroke-dashoffset: 2000; } to { stroke-dashoffset: 0; } }\n@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }\n\n\n/* --- Daily journal ----------------------------------------------------- */\n.journal { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-6); overflow: hidden; }\n.j-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }\n.j-title { flex: 1; text-align: center; }\n.j-date { font-family: var(--font-display); font-size: 22px; color: var(--text-strong); }\n.j-nav { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font-size: 22px; cursor: pointer; }\n.j-nav:disabled { opacity: .3; cursor: default; }\n.j-top { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }\n.ring-wrap { position: relative; width: 96px; height: 96px; flex: 0 0 96px; }\n.ring { width: 96px; height: 96px; transform: rotate(-90deg); display: block; }\n.ring .trk { fill: none; stroke: var(--line); stroke-width: 9; }\n.ring .val { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1); }\n.j-score { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }\n.j-score .v { font-size: 26px; color: var(--text-strong); line-height: 1; }\n.j-score .l { font-size: 10px; color: var(--text-muted); }\n.j-delta { font-family: var(--font-mono); font-size: var(--text-xs); margin-bottom: 4px; }\n.j-headline { flex: 1 1 260px; font-family: var(--font-display); font-size: 21px; color: var(--text-strong); line-height: 1.3; }\n.j-themes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-family: var(--font-body); }\n.j-themes span { font-size: var(--text-xs); color: var(--accent-text); background: var(--accent-soft); border-radius: var(--radius-round); padding: 2px 10px; }\n.j-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin: var(--space-4) 0; }\n.chip { background: var(--bg); padding: var(--space-2); }\n.chip .v { font-size: 20px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.chip .l { font-size: var(--text-xs); color: var(--text-muted); }\n.chip .dd { font-family: var(--font-mono); font-size: var(--text-xs); min-height: 1em; }\n.up { color: var(--accent-2); } .down { color: var(--text-muted); } .flat { color: var(--text-muted); }\n.j-lists ul { margin-top: 4px; }\n.flip-l { animation: flipL .45s ease both; } .flip-r { animation: flipR .45s ease both; }\n@keyframes flipL { from { opacity: 0; transform: translateX(-24px) rotateY(8deg); } to { opacity: 1; transform: none; } }\n@keyframes flipR { from { opacity: 0; transform: translateX(24px) rotateY(-8deg); } to { opacity: 1; transform: none; } }\n\n/* --- Scoreboard -------------------------------------------------------- */\n.scoreboard { margin-bottom: var(--space-6); }\n.sb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }\n.sb-stat .v { font-size: 30px; color: var(--text-strong); line-height: 1.1; }\n.sb-stat .v small { font-size: 14px; color: var(--text-muted); }\n.sb-stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.sb-bars { height: 90px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.sb-bars span { flex: 1; background: var(--chart-bar-quiet); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.sb-bars span.yday { background: var(--accent); }\n.sb-bars span.today { background: repeating-linear-gradient(45deg, var(--chart-bar-quiet), var(--chart-bar-quiet) 3px, transparent 3px, transparent 6px); }\n.sb-lower { margin-top: var(--space-4); }\n.lb-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.lb-row .rank { font-family: var(--font-mono); color: var(--text-muted); }\n.lb-row .num { font-family: var(--font-mono); }\n.lb-row.me .who { color: var(--text-strong); font-weight: 600; }\n.lb-row.empty .who { color: var(--text-muted); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 2px 8px; justify-self: start; }\n.sb-how { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-muted); }\n.sb-how summary { cursor: pointer; color: var(--accent-text); }\n\n/* --- Footer ------------------------------------------------------------ */\n.foot { margin-top: var(--space-8); padding-top: var(--space-3); border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Motion (respects reduced-motion) ---------------------------------- */\n@keyframes pulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }\n@keyframes blink { 50% { opacity: 0; } }\n@keyframes rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }\n@keyframes float { 0%,100% { transform: translate(0,0); } 50% { transform: translate(3px,-4px); } }\n@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }\n\n.note { max-width: 100%; }\n.lede { font-size: var(--text-lg); color: var(--text-muted); margin: -8px 0 var(--space-6); }\n.pnote { padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }\n.pn-title { font-family: var(--font-display); font-size: 19px; color: var(--text-strong); }\n.pn-ex { color: var(--text); font-size: var(--text-sm); }\n.pn-date { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n.lb-wrap { position: relative; }\n.lb-row.empty .invite-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: transparent; color: var(--accent-text); border: 1px dashed var(--accent); border-radius: var(--radius-sm); padding: 2px 10px; justify-self: start; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }\n.lb-row.empty .invite-btn::before { content: "+"; font-family: var(--font-mono); }\n.lb-row.empty .invite-btn:hover, .lb-row.empty .invite-btn[aria-expanded="true"] { background: var(--accent-soft); border-style: solid; text-decoration: none; }\n.lb-row.empty .invite-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n.invite-pop { position: absolute; z-index: 20; width: min(340px, 100%); background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }\n.invite-pop .inv-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }\n.invite-pop .inv-title { font-weight: 600; color: var(--text-strong); font-size: var(--text-sm); }\n.invite-pop .inv-sub { color: var(--text-muted); font-size: var(--text-xs); margin: 2px 0 10px; line-height: 1.45; }\n.invite-pop .inv-close { background: none; border: 0; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }\n.invite-pop .inv-link { display: flex; gap: 6px; }\n.invite-pop .inv-url { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 8px; }\n.invite-pop button.inv-copy { background: var(--accent); color: var(--bg); border: 0; border-radius: var(--radius-sm); padding: 6px 12px; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }\n.invite-pop .inv-ways { display: flex; gap: 6px; margin-top: 8px; }\n.invite-pop .inv-ways a, .invite-pop .inv-ways button { flex: 1; text-align: center; font: inherit; font-size: var(--text-sm); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 0; cursor: pointer; text-decoration: none; }\n.invite-pop .inv-ways a:hover, .invite-pop .inv-ways button:hover { border-color: var(--accent); color: var(--text-strong); text-decoration: none; }\n.invite-pop .inv-status { min-height: 1.2em; margin-top: 6px; font-size: var(--text-xs); color: var(--accent-2); }\n.invite-pop button:focus-visible, .invite-pop a:focus-visible, .invite-pop input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }\n\n/* Heatmap sizing (2026-10-12): cells grow with the column (11-18px), room for the hover zoom, no stray scrollbar */\n.heat-box { container-type: inline-size; }\n.heat-frame { --gap: 3px; --cell: clamp(8px, calc((100cqw - 46px - 25 * var(--gap)) / 26), 18px); }\n@container (max-width: 460px) { .heat-frame { --gap: 2px; } }\n.heat, .heat-days { gap: var(--gap, 3px); }\n.heat-days { grid-template-rows: repeat(7, var(--cell, 12px)); line-height: var(--cell, 12px); }\n.heat-wrap { overflow-x: auto; overflow-y: hidden; padding: 4px; margin: -4px; scrollbar-width: none; }\n.heat-wrap::-webkit-scrollbar { display: none; }\n.heat { grid-template-rows: repeat(7, var(--cell, 12px)); grid-auto-columns: var(--cell, 12px); }\n.heat i { width: var(--cell, 12px); height: var(--cell, 12px); border-radius: 3px; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.18); }\n\n/* --- Standard nav: pages block + add-friend --------------------------- */\n.toc.pages .friend-row { color: var(--accent); }\n.toc.pages .friend-row:hover { color: var(--accent); background: var(--accent-soft); }\n.tree-row.group .g-link { color: inherit; text-decoration: none; }\n.tree-row.group .g-link:hover { color: var(--accent); text-decoration: underline; }\n\n/* custom modules (Caldera/modules/*.md) */\n.module .mod-body > :first-child { margin-top: 0; }\n.module .mod-body h3, .module .mod-body h4 { font-family: var(--font-display); color: var(--text-strong); margin: var(--space-4) 0 var(--space-2); }\n.module .mod-body p { margin: 0 0 var(--space-3); }\n.module .mod-body img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-md); border: 1px solid var(--line); margin: var(--space-2) 0; }\n.module .mod-body blockquote { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text); }\n.module .mod-body blockquote p:last-child { margin-bottom: 0; }\n.module .mod-body code { font-family: var(--font-mono); font-size: .92em; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 4px; }\n.module .mod-body pre { overflow-x: auto; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); }\n.module .mod-body pre code { border: 0; padding: 0; background: none; }\n.module .mod-body hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-4) 0; }\n.module .mod-body ol { padding-left: 1.4em; }\n.module .mod-body input[type=checkbox] { margin-right: 6px; }\n.module .mod-body li:has(> input[type=checkbox]) { list-style: none; margin-left: -1.2em; }\n.module.side .mod-body { font-size: var(--text-sm); }\n.module.side .mod-body ul.bullets, .module.side .mod-body ol { margin: 0; }\n.module.side .mod-body p { margin: 0 0 var(--space-2); }\n';
 
 // src/garden.ts
 var STAGES = ["seedling", "budding", "evergreen"];
@@ -3657,6 +3666,16 @@ function mdToHtml(md, link, image = () => null) {
       quote.push(q2[1].replace(/^\[!(\w+)\][+-]?\s*/, (_m, k) => `**${k.charAt(0).toUpperCase() + k.slice(1)}:** `));
       continue;
     } else flushQuote();
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[i + 1])) {
+      flush();
+      const cells = (l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").replace(/\[\[[^\]]*\]\]/g, (w) => w.replace(/\|/g, "\uE001")).split(/(?<!\\)\|/).map((c) => inl(c.trim().replace(/\\\|/g, "|").replace(/\uE001/g, "|")));
+      const head = cells(line);
+      const rows = [];
+      for (i += 2; i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i]); i++) rows.push(cells(lines[i]));
+      i--;
+      out.push(`<table><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${head.map((_c, k) => `<td>${r[k] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+      continue;
+    }
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) {
       flush();
@@ -3913,6 +3932,14 @@ ${body}
     }
   }
   return out;
+}
+function moduleHtml(md, hub, image = () => null) {
+  const base = hub.replace(/\/$/, "");
+  const link = (t) => {
+    const x = parseXLink(t);
+    return x ? `${base}/@${x.handle}/` : null;
+  };
+  return mdToHtml(md, link, image).replace(/<(\/?)h([2-6])>/g, (_m, c, n) => `<${c}h${Math.min(6, Number(n) + 1)}>`).replace(/<table>/g, '<div class="table-wrap"><table class="data">').replace(/<\/table>/g, "</table></div>").replace(/<ul>/g, '<ul class="bullets">');
 }
 
 // src/city.ts
@@ -5222,7 +5249,8 @@ ${p.icon ? `<link rel="icon" href="${esc3(p.icon)}" type="image/png"><link rel="
 <link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${gardenEnabled() && s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
 <div class="tabs"><span class="tab is-active">${esc3(p.name)}.md</span>${(p.tabs || []).map((t) => `<span class="tab">${esc3(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc3(p.source || "vault")} <span id="ago" data-ts="${esc3(p.updated)}">just now</span></span></div>
 <div class="shell">`);
-  const sideOn = s.sidebar !== false && !!p.tree?.length, railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length);
+  const sideOn = s.sidebar !== false && !!p.tree?.length, modOn = s.modules !== false, mainMods = modOn ? (p.modules || []).filter((m) => m.place === "main") : [], sideMods = modOn ? (p.modules || []).filter((m) => m.place === "side") : [];
+  const railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length || sideMods.length > 0);
   const gardenOn = gardenEnabled() && s.garden !== false && !!p.garden?.length;
   const nav = (depth, current, toc2 = "") => s.sidebar === false ? "" : navSidebar(p, sideOn, gardenOn, depth, current, toc2);
   parts.push(nav(0, "index.html", "%%TOC%%"));
@@ -5249,6 +5277,7 @@ ${(() => {
   if (s.numbers) parts.push(`<div class="stat-strip">${[[fmt(p.stats.notes), "notes"], [(p.stats.words / 1e6).toFixed(2) + "M", "words"], [fmt(p.stats.links), "links between notes"], [String(p.stats.activeDays), "active days, 26 weeks"], ...p.extraNumbers || []].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.summary !== false && p.summary) parts.push(`<div class="callout"><div class="callout-title">Summary</div>${inline(p.summary)}</div>`);
   if (s.now !== false && p.now?.length) parts.push(`<h2>Now</h2><ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
+  for (const m of mainMods) parts.push(`<section class="module" data-module="${esc3(m.slug)}"><h2>${esc3(m.title)}</h2><div class="mod-body">${m.html}</div></section>`);
   if (s.activity !== false && p.heat?.length) {
     const lvl = (n) => n === 0 ? 0 : n < 5 ? 1 : n < 30 ? 2 : n < 200 ? 3 : 4;
     const pad = ((/* @__PURE__ */ new Date(p.heat[0].date + "T12:00:00Z")).getUTCDay() + 6) % 7;
@@ -5300,7 +5329,7 @@ ${(() => {
   if (s.social && p.social) parts.push(`<div class="stat-strip">${[[fmt(p.social.friends), "friends"], [String(p.social.gravity), "gravity"], [fmt(p.social.credits), "help credits"]].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.links && p.links.length) parts.push(`<h2>Elsewhere</h2><ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc3(u)}" rel="noopener">${esc3(l)}</a></li>`).join("")}</ul>`);
   parts.push(`<div class="foot">Grown from an Obsidian vault with Caldera. Updated ${esc3(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc3((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
-  if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc3(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc3(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc3(t)}</span><div class="ctx">${esc3(c)}</div></div>`).join("")}</div>` : ""}</aside>`);
+  if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc3(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc3(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc3(t)}</span><div class="ctx">${esc3(c)}</div></div>`).join("")}</div>` : ""}${sideMods.map((m) => `<div class="module side" data-module="${esc3(m.slug)}"><div class="label">${esc3(m.title)}</div><div class="mod-body">${m.html}</div></div>`).join("")}</aside>`);
   parts.push(`</div>`);
   parts.push(`<script>${CLIENT_JS}<\/script></body></html>`);
   const toc = [];
@@ -5420,6 +5449,60 @@ function renderPrivateCity(p, city, openBase = "") {
   return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, github: githubOf(p), nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q2, sideOn, gardenOn, d, cur) }, city);
 }
 
+// src/modules.ts
+var import_obsidian3 = require("obsidian");
+var MODULES_FOLDER = "Caldera/modules";
+var MODULE_LIMITS = { count: 12, chars: 2e4, imgMax: 2e6, imgTotal: 6e6 };
+var IMG_EXT = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "webp", "gif"]);
+async function collectModules(app, hub) {
+  const pre = MODULES_FOLDER + "/";
+  const picked = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(pre) && !f.path.slice(pre.length).includes("/") && !/^_|^README$/i.test(f.basename)).sort((a, b) => a.basename.localeCompare(b.basename));
+  const modules = [], files = {}, report = [];
+  const used = /* @__PURE__ */ new Set();
+  let imgTotal = 0;
+  for (const f of picked) {
+    const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
+    const title = String(fm.title || f.basename).replace(/\s+/g, " ").trim().slice(0, 80) || f.basename;
+    const place = /^(side|sidebar|rail|right)$/i.test(String(fm.place || "")) ? "side" : "main";
+    const r = { path: f.path, title, place, published: false, removed: 0 };
+    report.push(r);
+    if (fm.publish === false || String(fm.publish).toLowerCase() === "false") {
+      r.why = "draft (publish: false)";
+      continue;
+    }
+    if (modules.length >= MODULE_LIMITS.count) {
+      r.why = `only ${MODULE_LIMITS.count} modules show`;
+      continue;
+    }
+    const raw = (await app.vault.cachedRead(f)).replace(/^---[\s\S]*?\n---\s*/, "").replace(/%%[\s\S]*?%%/g, "").trim();
+    if (!raw) {
+      r.why = "empty";
+      continue;
+    }
+    const { text, removed } = redact(raw.slice(0, MODULE_LIMITS.chars));
+    r.removed = removed;
+    let sl = "m-" + slug(title), k = 2;
+    while (used.has(sl)) sl = `m-${slug(title)}-${k++}`;
+    used.add(sl);
+    const images = {};
+    for (const m of text.matchAll(/!\[\[([^\]|#]+)/g)) {
+      const t = m[1].trim();
+      if (images[t]) continue;
+      const dest = app.metadataCache.getFirstLinkpathDest?.(t, f.path) ?? app.vault.getAbstractFileByPath(t);
+      if (!(dest instanceof import_obsidian3.TFile) || !IMG_EXT.has(dest.extension.toLowerCase()) || dest.stat.size > MODULE_LIMITS.imgMax || imgTotal + dest.stat.size > MODULE_LIMITS.imgTotal) continue;
+      const out = `m/img/${slug(dest.basename)}-${dest.stat.size}.${dest.extension.toLowerCase()}`;
+      files[out] = await app.vault.readBinary(dest);
+      imgTotal += dest.stat.size;
+      images[t] = out;
+    }
+    const order = Number.isFinite(Number(fm.order)) ? Number(fm.order) : 50;
+    modules.push({ title, slug: sl, place, order, html: moduleHtml(text, hub, (t) => images[t] || null) });
+    r.published = true;
+  }
+  modules.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+  return { modules, files, report };
+}
+
 // src/collect.ts
 var DAY = 864e5;
 var fmtN = (n) => n.toLocaleString("en-US");
@@ -5441,7 +5524,7 @@ async function collectProfile(app, s, social) {
     const cache = app.metadataCache.getFileCache(f);
     links += (cache?.links?.length || 0) + (cache?.embeds?.length || 0) + (cache?.frontmatterLinks?.length || 0);
     words += Math.round(f.stat.size / 6);
-    for (const t of cache ? (0, import_obsidian3.getAllTags)(cache) || [] : []) {
+    for (const t of cache ? (0, import_obsidian4.getAllTags)(cache) || [] : []) {
       const k = t.replace(/^#/, "").toLowerCase();
       if (allow.has(k)) tagCounts.set(allow.get(k), (tagCounts.get(allow.get(k)) || 0) + 1);
     }
@@ -5461,7 +5544,7 @@ async function collectProfile(app, s, social) {
   const external = /* @__PURE__ */ new Map();
   let extra = {};
   const actFile = app.vault.getAbstractFileByPath(s.activityFile);
-  if (actFile instanceof import_obsidian3.TFile) {
+  if (actFile instanceof import_obsidian4.TFile) {
     try {
       extra = JSON.parse(await app.vault.cachedRead(actFile)) || {};
       for (const d of extra.days || []) external.set(d.date, d);
@@ -5524,7 +5607,7 @@ async function collectProfile(app, s, social) {
   const files = {};
   const img = async (vaultPath, name) => {
     const f = vaultPath && app.vault.getAbstractFileByPath(vaultPath);
-    if (f instanceof import_obsidian3.TFile) {
+    if (f instanceof import_obsidian4.TFile) {
       const out = `img/${name}.${f.extension}`;
       files[out] = await app.vault.readBinary(f);
       return out;
@@ -5656,6 +5739,13 @@ async function collectProfile(app, s, social) {
     gardenImages
   };
   Object.assign(files, gardenFiles);
+  let modulesReport = [];
+  if (s.sections.modules !== false) {
+    const mo = await collectModules(app, s.hubUrl || "https://caldera.social");
+    if (mo.modules.length) data.modules = mo.modules;
+    Object.assign(files, mo.files);
+    modulesReport = mo.report;
+  }
   let cityPrivate;
   if (s.sections.city !== false) {
     try {
@@ -5714,14 +5804,14 @@ async function collectProfile(app, s, social) {
       console.warn("Caldera city.json unreadable:", e);
     }
   }
-  return { data, files, gardenReport, cityPrivate };
+  return { data, files, gardenReport, modulesReport, cityPrivate };
 }
 function asList(v) {
   if (Array.isArray(v)) return v.map(String).filter(Boolean).slice(0, 3);
   if (typeof v === "string" && v.trim()) return [v.trim()];
   return [];
 }
-var IMG_EXT = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "webp"]);
+var IMG_EXT2 = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "webp"]);
 var IMG_MAX = 2e6;
 var IMG_TOTAL = 6e6;
 function inGarden(path, fm, folder) {
@@ -5771,7 +5861,7 @@ async function collectGarden(app, s, md) {
       const t = m[1].trim();
       if (gardenImages[t]) continue;
       const dest = app.metadataCache.getFirstLinkpathDest?.(t, f.path) ?? app.vault.getAbstractFileByPath(t);
-      if (!(dest instanceof import_obsidian3.TFile) || !IMG_EXT.has(dest.extension.toLowerCase()) || dest.stat.size > IMG_MAX || imgTotal + dest.stat.size > IMG_TOTAL) continue;
+      if (!(dest instanceof import_obsidian4.TFile) || !IMG_EXT2.has(dest.extension.toLowerCase()) || dest.stat.size > IMG_MAX || imgTotal + dest.stat.size > IMG_TOTAL) continue;
       const outPath = `n/img/${slug(dest.basename)}-${slug(String(dest.stat.size))}.${dest.extension.toLowerCase()}`;
       gardenFiles[outPath] = await app.vault.readBinary(dest);
       imgTotal += dest.stat.size;
@@ -5865,7 +5955,7 @@ ${pg.markdown.replace(/^\*[^\n]*\*\n\n/, "").replace(/^## /gm, "### ")}`;
 }
 
 // src/profile-file.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var PROFILE_FILE = "Caldera/profile.md";
 var pair = (v) => {
   const [a, ...b] = String(v ?? "").split("|");
@@ -5875,7 +5965,7 @@ var pair = (v) => {
 var pairs = (v) => Array.isArray(v) ? v.map(pair).filter(Boolean) : null;
 function effectiveSettings(app, s) {
   const f = app.vault.getAbstractFileByPath(PROFILE_FILE);
-  const fm = f instanceof import_obsidian4.TFile ? app.metadataCache.getFileCache(f)?.frontmatter : null;
+  const fm = f instanceof import_obsidian5.TFile ? app.metadataCache.getFileCache(f)?.frontmatter : null;
   if (!fm) return s;
   const e = { ...s, sections: { ...s.sections } };
   if (typeof fm.name === "string" && fm.name.trim()) e.name = fm.name.trim();
@@ -5980,20 +6070,21 @@ ${gardenEnabled() ? `- **garden** - a folder whose notes are published as full p
 ` : ""}- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Caldera, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
 - **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
 - **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.
+- **Your own sections (modules)** - add a note to \`Caldera/modules/\` (e.g. \`Caldera/modules/Reading list.md\`) and it becomes a section on your page, titled with the file name. Write ordinary Markdown: lists, tables, quotes, links, images from the vault. Optional frontmatter: \`place: side\` (right-hand column), \`order: 10\`, \`publish: false\` (draft). Or ask your AI agent: "add a Talks module with my last five talks".
 
 Your handle and identity key live in Settings -> Caldera, never here. Guide: ${hubUrl.replace(/\/$/, "")}/guide.html
 `;
 }
 async function ensureProfileFile(app, s, hubUrl) {
   const existing = app.vault.getAbstractFileByPath(PROFILE_FILE);
-  if (existing instanceof import_obsidian4.TFile) return existing;
+  if (existing instanceof import_obsidian5.TFile) return existing;
   if (!app.vault.getAbstractFileByPath("Caldera")) await app.vault.createFolder("Caldera").catch(() => {
   });
   return app.vault.create(PROFILE_FILE, profileFileText(s, hubUrl));
 }
 
 // src/view.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/owner.ts
 var esc4 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -6157,7 +6248,7 @@ var o=a.getAttribute('data-open'),ac=a.getAttribute('data-action');if(o){e.preve
 var h=a.getAttribute('href');if(!h||h.charAt(0)==='#')return;e.preventDefault();P.postMessage({caldera:/^[a-z][a-z0-9+.-]*:/i.test(h)?'ext':'nav',href:h},'*')},true);
 var t;addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(function(){P.postMessage({caldera:'scroll',y:scrollY},'*')},250)});
 addEventListener('load',function(){var H=%%HASH%%,Y=%%Y%%;var el=H&&document.getElementById(H);if(el)el.scrollIntoView();else if(Y)scrollTo(0,Y)})})();`;
-var ProfileView = class extends import_obsidian5.ItemView {
+var ProfileView = class extends import_obsidian6.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -6207,11 +6298,11 @@ var ProfileView = class extends import_obsidian5.ItemView {
     this.status = bar.createSpan({ cls: "caldera-pv-status" });
     const btn = (icon, label, fn) => {
       const b = bar.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label } });
-      (0, import_obsidian5.setIcon)(b, icon);
+      (0, import_obsidian6.setIcon)(b, icon);
       b.onclick = () => fn();
     };
     btn("refresh-cw", "Refresh", () => this.refresh(true));
-    btn("external-link", "Open in browser (signed in as you)", () => this.plugin.settings.handle ? void this.plugin.openProfile(this.current === "index.html" ? "" : this.current) : new import_obsidian5.Notice("Publish your profile first"));
+    btn("external-link", "Open in browser (signed in as you)", () => this.plugin.settings.handle ? void this.plugin.openProfile(this.current === "index.html" ? "" : this.current) : new import_obsidian6.Notice("Publish your profile first"));
     if (this.plugin.settings.privateUrl) btn("lock", "Open my private web view (Tailscale)", async () => {
       await this.plugin.pushPrivate(false);
       window.open(this.plugin.settings.privateUrl);
@@ -6264,7 +6355,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
   async popOut() {
     const handle = this.plugin.settings.handle;
     if (this.mode === "mine" && this.built) return this.plugin.floatCity({ html: this.cityMini(), live: true });
-    if (!handle) return void new import_obsidian5.Notice("Publish your profile first");
+    if (!handle) return void new import_obsidian6.Notice("Publish your profile first");
     return this.plugin.floatCity({ src: `${this.plugin.profileUrl()}city.html?caldera=owner#mini` });
   }
   async pushLive() {
@@ -6317,7 +6408,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
       this.owner = renderOwner(this.ownerData);
       if (this.plugin.floatSpec?.html) this.plugin.floatCity({ html: this.cityMini(), live: true }, false);
       await this.show();
-      if (loud) new import_obsidian5.Notice("Profile refreshed");
+      if (loud) new import_obsidian6.Notice("Profile refreshed");
     } catch (e) {
       this.status.setText("Couldn't build: " + e.message);
     } finally {
@@ -6379,7 +6470,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
       if (d.name === "prompt-banner" || d.name === "prompt-photo") void this.plugin.copyImagePrompt(d.name === "prompt-banner" ? "banner" : "photo");
       if (d.name === "settings") this.plugin.openSettings();
       if (typeof d.name === "string" && d.name.startsWith("unlock-")) void this.plugin.copyFeaturePrompt(d.name.slice(7));
-      if (d.name === "garden-help") new import_obsidian5.Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12e3);
+      if (d.name === "garden-help") new import_obsidian6.Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12e3);
       return;
     }
     if (d.caldera === "ext" && d.href) {
@@ -6403,7 +6494,7 @@ var ProfileView = class extends import_obsidian5.ItemView {
     const p = "Caldera/Goals.md";
     let f = this.app.vault.getAbstractFileByPath(p);
     if (!f) f = await this.app.vault.create(p, "# Goals\n\nOnly you see these, in the My profile tab. One heading per goal, checkboxes for the steps.\n\n## Example goal\n- [ ] First step\n- [ ] Second step\n");
-    if (f instanceof import_obsidian5.TFile) await this.app.workspace.getLeaf(true).openFile(f);
+    if (f instanceof import_obsidian6.TFile) await this.app.workspace.getLeaf(true).openFile(f);
   }
 };
 async function excerpt(app, f, n = 220) {
@@ -6508,7 +6599,7 @@ async function collectOwner(app, plugin, data, lastLooked) {
   }
   let goals = null;
   const gf = app.vault.getAbstractFileByPath("Caldera/Goals.md");
-  if (gf instanceof import_obsidian5.TFile) {
+  if (gf instanceof import_obsidian6.TFile) {
     goals = [];
     let cur = null;
     for (const line of (await app.vault.cachedRead(gf)).split("\n")) {
@@ -6595,12 +6686,12 @@ async function collectOwner(app, plugin, data, lastLooked) {
 }
 
 // src/float.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var CITY_FLOAT_VIEW = "caldera-city-float";
 var W = 420;
 var H = 280;
 var TITLE = "Caldera city";
-var CityFloatView = class extends import_obsidian6.ItemView {
+var CityFloatView = class extends import_obsidian7.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -6662,7 +6753,7 @@ var CityFloatView = class extends import_obsidian6.ItemView {
   }
 };
 function pinWindow() {
-  if (!import_obsidian6.Platform.isDesktopApp) return;
+  if (!import_obsidian7.Platform.isDesktopApp) return;
   try {
     const remote = window.require("@electron/remote");
     const bw = remote.BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith(TITLE));
@@ -6704,7 +6795,7 @@ function quickLinkIndex(label, url) {
 
 // src/main.ts
 var VIEW = "caldera-panel";
-var CalderaPlugin = class extends import_obsidian7.Plugin {
+var CalderaPlugin = class extends import_obsidian8.Plugin {
   constructor() {
     super(...arguments);
     this.pending = [];
@@ -6768,6 +6859,15 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
     this.registerEvent(this.app.vault.on("modify", (f) => {
       if (f.path === this.settings.activityFile) this.queuePublish("activity");
     }));
+    const isModule = (path) => path.startsWith(MODULES_FOLDER + "/") && path.endsWith(".md");
+    this.app.workspace.onLayoutReady(() => {
+      for (const ev of ["create", "modify", "delete"]) this.registerEvent(this.app.vault.on(ev, (f) => {
+        if (isModule(f.path)) this.queuePublish("profile");
+      }));
+      this.registerEvent(this.app.vault.on("rename", (f, old) => {
+        if (isModule(f.path) || isModule(old)) this.queuePublish("profile");
+      }));
+    });
     if (gardenEnabled()) {
       this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
       this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
@@ -6791,9 +6891,9 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try {
         await this.send("profile.delete", {});
-        new import_obsidian7.Notice("Your Caldera profile was deleted from the hub.");
+        new import_obsidian8.Notice("Your Caldera profile was deleted from the hub.");
       } catch (e) {
-        new import_obsidian7.Notice(e.message);
+        new import_obsidian8.Notice(e.message);
       }
     }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
@@ -6835,7 +6935,7 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
   /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
   async importGithub(code) {
     if (!/^CAL-[\w-]{6,}$/.test(code)) {
-      new import_obsidian7.Notice("Paste the code from your account page (it starts with CAL-).");
+      new import_obsidian8.Notice("Paste the code from your account page (it starts with CAL-).");
       return false;
     }
     const go = async () => {
@@ -6848,12 +6948,12 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
         if (!this.settings.name && r.name) this.settings.name = r.name;
         if (!this.settings.headline && r.headline) this.settings.headline = r.headline;
         await this.saveSettings();
-        new import_obsidian7.Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
+        new import_obsidian8.Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
         const url = await this.publish(true);
-        if (url) new import_obsidian7.Notice("Published: " + url);
+        if (url) new import_obsidian8.Notice("Published: " + url);
         return true;
       } catch (e) {
-        new import_obsidian7.Notice("Couldn't import: " + e.message);
+        new import_obsidian8.Notice("Couldn't import: " + e.message);
         return false;
       }
     };
@@ -6872,7 +6972,7 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
     if (!this.settings.identity) {
       this.settings.identity = newIdentity();
       await this.saveSettings();
-      if (!quiet) new import_obsidian7.Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
+      if (!quiet) new import_obsidian8.Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
     }
     return this.settings.identity;
   }
@@ -6903,7 +7003,7 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
   async api(method, path, body, auth = false) {
     const headers = { "content-type": "application/json" };
     if (auth) headers.authorization = "Bearer " + await this.authToken();
-    const r = await (0, import_obsidian7.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + path, method, headers, body: body ? JSON.stringify(body) : void 0, throw: false });
+    const r = await (0, import_obsidian8.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + path, method, headers, body: body ? JSON.stringify(body) : void 0, throw: false });
     if (r.status >= 400) throw new Error(r.json?.error || `hub error ${r.status}`);
     return r.json;
   }
@@ -6955,17 +7055,17 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
     this.publishTimer = window.setTimeout(() => {
       this.publishTimer = null;
       void this.publish(true).then((url) => {
-        if (url && reason === "profile") new import_obsidian7.Notice("Caldera: your public page was updated.");
+        if (url && reason === "profile") new import_obsidian8.Notice("Caldera: your public page was updated.");
       });
     }, 45e3);
   }
   // What's new: the hub's release feed, shown only to the owner, inside Obsidian
   async checkReleases(manual = false) {
     try {
-      const r = await (0, import_obsidian7.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + "/releases.json", throw: false });
+      const r = await (0, import_obsidian8.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + "/releases.json", throw: false });
       const list = r.status === 200 ? r.json?.releases || [] : [];
       if (!list.length) {
-        if (manual) new import_obsidian7.Notice("Couldn't load release notes.");
+        if (manual) new import_obsidian8.Notice("Couldn't load release notes.");
         return;
       }
       const seen = list.findIndex((x) => x.version === this.settings.lastSeenRelease);
@@ -6987,17 +7087,17 @@ var CalderaPlugin = class extends import_obsidian7.Plugin {
         f.appendText(unseen[0].title + " ");
         f.createEl("u", { text: "See what's new" });
       });
-      const n = new import_obsidian7.Notice(frag, 2e4);
+      const n = new import_obsidian8.Notice(frag, 2e4);
       n.noticeEl.addEventListener("click", open3);
     } catch {
-      if (manual) new import_obsidian7.Notice("Couldn't load release notes.");
+      if (manual) new import_obsidian8.Notice("Couldn't load release notes.");
     }
   }
   async preview() {
     const { text, binaries } = await this.build();
     let html = text["index.html"].replace('<link rel="stylesheet" href="assets/theme.css">', `<style>${text["assets/theme.css"]}</style>`).replace('<link rel="stylesheet" href="assets/profile.css">', `<style>${text["assets/profile.css"]}</style>`);
     for (const [p, buf] of Object.entries(binaries)) {
-      const mime = p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : "image/jpeg";
+      const mime = p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : p.endsWith(".gif") ? "image/gif" : "image/jpeg";
       html = html.split(`src="${p}"`).join(`src="data:${mime};base64,${b64.enc(new Uint8Array(buf))}"`);
     }
     new PreviewModal(this.app, html).open();
@@ -7011,7 +7111,7 @@ My agent hook (only if I say yes above), exactly as Caldera gave it to me:
 ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     const text = (kind === "edit" ? editPrompt : agentPrompt)({
       extras,
-      vaultPath: a instanceof import_obsidian7.FileSystemAdapter ? a.getBasePath() : void 0,
+      vaultPath: a instanceof import_obsidian8.FileSystemAdapter ? a.getBasePath() : void 0,
       hubUrl: this.settings.hubUrl,
       handle: this.settings.handle || void 0,
       activityFile: this.settings.activityFile,
@@ -7020,7 +7120,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     });
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian7.Notice(kind === "edit" ? "Prompt copied. Paste it into your AI agent." : "Setup prompt copied. Paste it into Claude Code, Codex or Cursor: it connects every source it can find, keeps it fresh, and asks before anything goes public.", 8e3);
+      new import_obsidian8.Notice(kind === "edit" ? "Prompt copied. Paste it into your AI agent." : "Setup prompt copied. Paste it into Claude Code, Codex or Cursor: it connects every source it can find, keeps it fresh, and asks before anything goes public.", 8e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
@@ -7071,7 +7171,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (this.settings.privateWeb) void this.pushPrivate(false);
       void this.syncSites(cityPrivate, data.city?.districts.map((d) => d.name) || []);
       const url = this.profileUrl();
-      if (!quiet) new import_obsidian7.Notice(`Published: ${url}`);
+      if (!quiet) new import_obsidian8.Notice(`Published: ${url}`);
       if (!this.settings.sharePrompted && this.settings.welcomed) {
         this.settings.sharePrompted = true;
         await this.saveSettings();
@@ -7080,7 +7180,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       return url;
     } catch (e) {
       this.lastPublishError = e.message;
-      if (!quiet) new import_obsidian7.Notice("Caldera publish failed: " + e.message);
+      if (!quiet) new import_obsidian8.Notice("Caldera publish failed: " + e.message);
       else console.warn("Caldera publish failed:", e.message);
       return null;
     }
@@ -7096,7 +7196,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (!fm.stage) fm.stage = "seedling";
       if (!fm.license) fm.license = "all-rights";
     });
-    new import_obsidian7.Notice(`"${f.basename}" is now in your garden as a seedling. It goes public on the next publish; run "Preview my garden" to check it first.`);
+    new import_obsidian8.Notice(`"${f.basename}" is now in your garden as a seedling. It goes public on the next publish; run "Preview my garden" to check it first.`);
   }
   profileUrl() {
     return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`;
@@ -7115,10 +7215,10 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   }
   /** Approve a sign-in code shown on another device (caldera.social/signin): that browser becomes the owner's. */
   pairDevice() {
-    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian7.Notice("Publish your profile first.");
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian8.Notice("Publish your profile first.");
     new PairModal(this.app, async (code) => {
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/pair`, { code }, true);
-      new import_obsidian7.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
+      new import_obsidian8.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
     }, this.profileUrl()).open();
   }
   /** Write the setup form into Caldera/profile.md: name, headline, listed, chosen images (saved as Caldera/photo|banner.ext),
@@ -7130,8 +7230,8 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (!im) continue;
       if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
       });
-      const path = (0, import_obsidian7.normalizePath)(`Caldera/${kind}.${im.ext}`), old = v.getAbstractFileByPath(path);
-      if (old instanceof import_obsidian7.TFile) await v.modifyBinary(old, im.buf);
+      const path = (0, import_obsidian8.normalizePath)(`Caldera/${kind}.${im.ext}`), old = v.getAbstractFileByPath(path);
+      if (old instanceof import_obsidian8.TFile) await v.modifyBinary(old, im.buf);
       else await v.createBinary(path, im.buf);
       paths[kind] = path;
     }
@@ -7162,7 +7262,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   async copyFeaturePrompt(id) {
     const a = this.app.vault.adapter, s = this.settings, hub = s.hubUrl.replace(/\/$/, "");
     const o = {
-      vaultPath: a instanceof import_obsidian7.FileSystemAdapter ? a.getBasePath() : void 0,
+      vaultPath: a instanceof import_obsidian8.FileSystemAdapter ? a.getBasePath() : void 0,
       hubUrl: s.hubUrl,
       handle: s.handle || void 0,
       activityFile: s.activityFile,
@@ -7188,17 +7288,17 @@ ${o.agentSetup}`;
     else return;
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian7.Notice("Prompt copied. Paste it into Claude Code, Codex or Cursor.", 6e3);
+      new import_obsidian8.Notice("Prompt copied. Paste it into Claude Code, Codex or Cursor.", 6e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
   }
   async copyImagePrompt(kind) {
     const a = this.app.vault.adapter;
-    const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian7.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
+    const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian8.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian7.Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8e3);
+      new import_obsidian8.Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
@@ -7206,17 +7306,17 @@ ${o.agentSetup}`;
   /** Choose an image from disk: copied into the vault as Caldera/<kind>.<ext>, set in Caldera/profile.md (which republishes). */
   pickImage(kind) {
     return new Promise((done) => new ImagePickModal(this.app, kind, async (buf, ext) => {
-      const path = (0, import_obsidian7.normalizePath)(`Caldera/${kind}.${ext}`), v = this.app.vault;
+      const path = (0, import_obsidian8.normalizePath)(`Caldera/${kind}.${ext}`), v = this.app.vault;
       if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
       });
       const old = v.getAbstractFileByPath(path);
-      if (old instanceof import_obsidian7.TFile) await v.modifyBinary(old, buf);
+      if (old instanceof import_obsidian8.TFile) await v.modifyBinary(old, buf);
       else await v.createBinary(path, buf);
       const pf = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
       await this.app.fileManager.processFrontMatter(pf, (fm) => {
         fm[kind === "banner" ? "banner" : "photo"] = path;
       });
-      new import_obsidian7.Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
+      new import_obsidian8.Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
       done(true);
     }, () => done(false)).open());
   }
@@ -7233,7 +7333,7 @@ ${o.agentSetup}`;
     const root = "Caldera/site";
     for (const [p, t] of Object.entries(text)) await this.write(`${root}/${p}`, t);
     for (const [p, b] of Object.entries(binaries)) await this.writeBinary(`${root}/${p}`, b);
-    new import_obsidian7.Notice(`Exported to ${root}. Upload that folder to any static host.`);
+    new import_obsidian8.Notice(`Exported to ${root}. Upload that folder to any static host.`);
   }
   // ---------------------------------------------------------------- inbox
   /** Add friend / Accept tapped on caldera.social while signed in: the hub queues it (it never holds this vault's key);
@@ -7255,7 +7355,7 @@ ${o.agentSetup}`;
         console.warn("Caldera queued friend failed:", e?.message);
       }
     }
-    if (done.length) new import_obsidian7.Notice(`Caldera: from your taps on the web, ${done.join(", ")}.`, 8e3);
+    if (done.length) new import_obsidian8.Notice(`Caldera: from your taps on the web, ${done.join(", ")}.`, 8e3);
   }
   async syncInbox(loud) {
     try {
@@ -7271,7 +7371,7 @@ ${o.agentSetup}`;
       this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
       const seen = new Set(this.settings.seenRepoFriends || []), fresh = this.friends.filter((f) => (f.kind === "repo" || f.kind === "github") && f.why && !seen.has(f.id));
       if (fresh.length) {
-        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new import_obsidian7.Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} are now connected: ${f.kind === "repo" ? "you both work on " : ""}${f.why}.`, 1e4);
+        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new import_obsidian8.Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} are now connected: ${f.kind === "repo" ? "you both work on " : ""}${f.why}.`, 1e4);
         this.settings.seenRepoFriends = [...seen, ...fresh.map((f) => f.id)].slice(-500);
         await this.saveSettings();
       }
@@ -7286,13 +7386,13 @@ ${o.agentSetup}`;
           } catch {
           }
           this.pending.push({ request: envelopeHash(e), from: e.from, handle, note: e.body.note, ts: e.ts });
-          new import_obsidian7.Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
+          new import_obsidian8.Notice(`Caldera: friend request from ${handle ? "@" + handle : "someone new"}. Open the Caldera panel to accept.`);
         }
         if (e.type === "friend.accept") {
           const f = this.friends.find((x) => x.id === e.from);
-          new import_obsidian7.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} accepted your friend request`);
+          new import_obsidian8.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} accepted your friend request`);
         }
-        if (e.type === "gravity") new import_obsidian7.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
+        if (e.type === "gravity") new import_obsidian8.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
         if (e.type === "card") {
           if (await this.receiveCard(e)) cards++;
         }
@@ -7303,7 +7403,7 @@ ${o.agentSetup}`;
         this.pending = rq.incoming.filter((r) => !ignored.has(r.request)).map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         this.sent = rq.outgoing.map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         const fresh2 = this.pending.filter((x) => !seen2.has(x.request));
-        if (fresh2.length) new import_obsidian7.Notice(`Caldera: friend request from ${fresh2.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")}. Open the Caldera panel to accept.`, 1e4);
+        if (fresh2.length) new import_obsidian8.Notice(`Caldera: friend request from ${fresh2.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")}. Open the Caldera panel to accept.`, 1e4);
         this.settings.seenRequests = this.pending.map((x) => x.request);
       }
       this.pending = this.pending.filter((x) => !this.friends.some((f) => f.id === x.from));
@@ -7318,7 +7418,7 @@ ${o.agentSetup}`;
           const r = await this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/intros`, void 0, true);
           this.intros = r.intros || [];
           const seen2 = new Set(this.settings.seenIntros || []), fresh2 = this.intros.filter((i) => !seen2.has(i.handle + i.ts));
-          if (fresh2.length) new import_obsidian7.Notice(`Caldera: ${fresh2.map((i) => "@" + i.handle).join(", ")} would like to meet you${fresh2[0].tag ? ` (also building ${fresh2[0].tag})` : ""}. Open the Caldera panel to answer.`, 1e4);
+          if (fresh2.length) new import_obsidian8.Notice(`Caldera: ${fresh2.map((i) => "@" + i.handle).join(", ")} would like to meet you${fresh2[0].tag ? ` (also building ${fresh2[0].tag})` : ""}. Open the Caldera panel to answer.`, 1e4);
           this.settings.seenIntros = this.intros.map((i) => i.handle + i.ts);
         } catch {
         }
@@ -7330,9 +7430,9 @@ ${o.agentSetup}`;
         void this.summaryPrompt();
       }
       this.refreshPanel();
-      if (loud || cards) new import_obsidian7.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
+      if (loud || cards) new import_obsidian8.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
     } catch (e) {
-      if (loud) new import_obsidian7.Notice("Caldera sync failed: " + e.message);
+      if (loud) new import_obsidian8.Notice("Caldera sync failed: " + e.message);
     }
   }
   async receiveCard(e) {
@@ -7358,12 +7458,12 @@ caldera_received: ${e.ts}
     try {
       await this.send("friend.accept", { request: p.request, to: p.from });
     } catch (e) {
-      return void new import_obsidian7.Notice("Couldn't accept: " + e.message);
+      return void new import_obsidian8.Notice("Couldn't accept: " + e.message);
     }
     this.pending = this.pending.filter((x) => x !== p);
     this.settings.pendingRequests = this.pending;
     await this.syncInbox(false);
-    new import_obsidian7.Notice(`You and ${p.handle ? "@" + p.handle : "your new friend"} are now friends`);
+    new import_obsidian8.Notice(`You and ${p.handle ? "@" + p.handle : "your new friend"} are now friends`);
   }
   async ignoreFriend(p) {
     this.settings.ignoredRequests = [...this.settings.ignoredRequests || [], p.request].slice(-200);
@@ -7376,12 +7476,12 @@ caldera_received: ${e.ts}
   async joinGroup(raw) {
     const g = groupsFrom(raw)[0];
     if (!g) return;
-    if ((this.settings.groups || []).includes(g)) return void new import_obsidian7.Notice(`You're already in ${g}.`);
+    if ((this.settings.groups || []).includes(g)) return void new import_obsidian8.Notice(`You're already in ${g}.`);
     this.settings.groups = [...this.settings.groups || [], g];
     await this.saveSettings();
-    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian7.Notice(`You'll join ${g} when you publish your profile.`);
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian8.Notice(`You'll join ${g} when you publish your profile.`);
     const url = await this.publish(true);
-    new import_obsidian7.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
+    new import_obsidian8.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
   }
   openFinish() {
     new WelcomeModal(this.app, this, this.settings.handle && this.settings.identity ? "finish" : "welcome").open();
@@ -7408,9 +7508,9 @@ caldera_received: ${e.ts}
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/email`, { email: email || null }, true);
       this.settings.summaryEmail = email;
       await this.saveSettings();
-      new import_obsidian7.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
+      new import_obsidian8.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
     } catch (e) {
-      new import_obsidian7.Notice("Couldn't save: " + e.message);
+      new import_obsidian8.Notice("Couldn't save: " + e.message);
     }
   }
   /** New alerts from Caldera (welcome, release notes, announcements) appear once as a notice; click opens them, signed in. */
@@ -7431,7 +7531,7 @@ caldera_received: ${e.ts}
           f.appendText(String(x.title) + " ");
           f.createEl("u", { text: "Read it" });
         });
-        const n = new import_obsidian7.Notice(frag, 2e4);
+        const n = new import_obsidian8.Notice(frag, 2e4);
         n.noticeEl.addEventListener("click", () => void this.openProfile("alerts"));
       }
     } catch {
@@ -7456,7 +7556,7 @@ caldera_received: ${e.ts}
         f.appendText(`${m.unread} unread message${m.unread === 1 ? "" : "s"}${who ? ` from ${who}` : ""}. `);
         f.createEl("u", { text: "Open Messages" });
       });
-      const n = new import_obsidian7.Notice(frag, 2e4);
+      const n = new import_obsidian8.Notice(frag, 2e4);
       n.noticeEl.addEventListener("click", () => void this.openProfile("messages"));
     } catch {
     }
@@ -7482,7 +7582,7 @@ caldera_received: ${e.ts}
         f.appendText(bits.join(", ") + ". ");
         f.createEl("u", { text: "Share your page" });
       });
-      const note = new import_obsidian7.Notice(frag, 15e3);
+      const note = new import_obsidian8.Notice(frag, 15e3);
       note.noticeEl.addEventListener("click", () => this.openShare());
     } catch {
     }
@@ -7501,7 +7601,7 @@ caldera_received: ${e.ts}
         f.appendText("Who visited your page, kudos and friend requests, people to meet. Only on days something happens. ");
         f.createEl("u", { text: "Add your email" });
       });
-      const note = new import_obsidian7.Notice(frag, 2e4);
+      const note = new import_obsidian8.Notice(frag, 2e4);
       note.noticeEl.addEventListener("click", () => new SummaryEmailModal(this.app, this).open());
     } catch {
     }
@@ -7518,7 +7618,7 @@ caldera_received: ${e.ts}
       s.lastKudos = list[0].ts;
       await this.saveSettings();
       const who = list.slice(0, 3).map((k) => `${k.emoji} ${k.from ? "@" + k.from : "someone"}`).join(", ");
-      new import_obsidian7.Notice(`Caldera: kudos from ${who}${list.length > 3 ? ` and ${list.length - 3} more` : ""}`, 12e3);
+      new import_obsidian8.Notice(`Caldera: kudos from ${who}${list.length > 3 ? ` and ${list.length - 3} more` : ""}`, 12e3);
     } catch {
     }
   }
@@ -7530,21 +7630,21 @@ caldera_received: ${e.ts}
     try {
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/intros/${encodeURIComponent(handle)}`, how === "ask" ? { ask: true } : { accept: how === "accept" }, true);
       this.intros = this.intros.filter((i) => i.handle !== handle);
-      new import_obsidian7.Notice(how === "accept" || r.state === "friends" ? `You and @${handle} are now friends` : how === "ask" ? `Asked to meet @${handle}. They can accept or say not now.` : "Closed. They won't be told.");
+      new import_obsidian8.Notice(how === "accept" || r.state === "friends" ? `You and @${handle} are now friends` : how === "ask" ? `Asked to meet @${handle}. They can accept or say not now.` : "Closed. They won't be told.");
       if (how === "accept" || r.state === "friends") await this.syncInbox(false);
       else this.refreshPanel();
     } catch (e) {
-      new import_obsidian7.Notice(e.message);
+      new import_obsidian8.Notice(e.message);
     }
   }
   async sendKudos(handle, kind) {
     const me = this.settings.identity;
-    if (!me || !this.settings.handle) return void new import_obsidian7.Notice("Publish your page first.");
+    if (!me || !this.settings.handle) return void new import_obsidian8.Notice("Publish your page first.");
     try {
       await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/kudos`, { to: handle, kind }, true);
-      new import_obsidian7.Notice(`Kudos sent to @${handle}`);
+      new import_obsidian8.Notice(`Kudos sent to @${handle}`);
     } catch (e) {
-      new import_obsidian7.Notice(e.message);
+      new import_obsidian8.Notice(e.message);
     }
   }
   /** Community hosts: a friend request (with a note) to each person who joins after the option was turned on. */
@@ -7578,15 +7678,15 @@ caldera_received: ${e.ts}
     const h = raw.replace(/^@/, "").trim();
     if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
     if (!this.settings.identity || !this.settings.handle) {
-      new import_obsidian7.Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`);
+      new import_obsidian8.Notice(`Publish your Caldera profile first, then click "Add @${h} as a friend" again.`);
       return void new WelcomeModal(this.app, this).open();
     }
-    if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new import_obsidian7.Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
+    if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new import_obsidian8.Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
     new ConfirmModal(this.app, `Send @${h} a friend request? Once they accept, you can share notes end-to-end encrypted and give each other gravity.`, async () => {
       try {
         await this.requestFriend(h);
       } catch (e) {
-        new import_obsidian7.Notice(e.message);
+        new import_obsidian8.Notice(e.message);
       }
     }, "Send request", "Add a friend").open();
   }
@@ -7638,10 +7738,10 @@ caldera_received: ${e.ts}
         this.settings.privateUrl = r.url;
         await this.saveSettings();
       }
-      if (loud) new import_obsidian7.Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
+      if (loud) new import_obsidian8.Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
       return r.url;
     } catch (e) {
-      if (loud) new import_obsidian7.Notice("Couldn't push the private view: " + e.message);
+      if (loud) new import_obsidian8.Notice("Couldn't push the private view: " + e.message);
       else console.warn("Caldera private push failed:", e.message);
       return null;
     }
@@ -7687,18 +7787,18 @@ caldera_received: ${e.ts}
     if (pr.id === this.settings.identity?.id) throw new Error("That's your own profile");
     if (this.friends.some((f) => f.id === pr.id)) throw new Error(`You're already friends with @${pr.handle}`);
     await this.send("friend.request", { to: pr.id, note });
-    new import_obsidian7.Notice(`Friend request sent to @${pr.handle || pr.id}. You'll be friends once they accept.`);
+    new import_obsidian8.Notice(`Friend request sent to @${pr.handle || pr.id}. You'll be friends once they accept.`);
     await this.syncInbox(false);
   }
   async giveGravity(f, reason) {
     const r = await this.send("gravity", { to: f.id, reason: reason.slice(0, 140) });
-    new import_obsidian7.Notice(`Gravity sent. @${f.handle || "friend"} now has ${r.gravity}`);
+    new import_obsidian8.Notice(`Gravity sent. @${f.handle || "friend"} now has ${r.gravity}`);
   }
   async shareNote(file) {
     if (!this.friends.length) await this.syncInbox(false);
-    if (!this.friends.length) return new import_obsidian7.Notice("Add a friend first (Caldera panel)");
+    if (!this.friends.length) return new import_obsidian8.Notice("Add a friend first (Caldera panel)");
     new FriendPicker(this.app, this.friends, async (f) => {
-      if (!f.box_key) return new import_obsidian7.Notice("That friend has not published a profile yet");
+      if (!f.box_key) return new import_obsidian8.Notice("That friend has not published a profile yet");
       const me = await this.ensureIdentity();
       const text = await this.app.vault.read(file);
       const version = Date.now();
@@ -7709,12 +7809,12 @@ caldera_received: ${e.ts}
         payload: { [f.id]: seal(text, f.box_key, me) },
         version
       });
-      new import_obsidian7.Notice(`Shared "${file.basename}" with @${f.handle || "friend"} (end-to-end encrypted)`);
+      new import_obsidian8.Notice(`Shared "${file.basename}" with @${f.handle || "friend"} (end-to-end encrypted)`);
     }).open();
   }
   // ---------------------------------------------------------------- utils
   async ensureFolder(path) {
-    const parts = (0, import_obsidian7.normalizePath)(path).split("/").slice(0, -1);
+    const parts = (0, import_obsidian8.normalizePath)(path).split("/").slice(0, -1);
     let cur = "";
     for (const p of parts) {
       cur = cur ? `${cur}/${p}` : p;
@@ -7723,17 +7823,17 @@ caldera_received: ${e.ts}
     }
   }
   async write(path, text) {
-    path = (0, import_obsidian7.normalizePath)(path);
+    path = (0, import_obsidian8.normalizePath)(path);
     await this.ensureFolder(path);
     const f = this.app.vault.getAbstractFileByPath(path);
-    if (f instanceof import_obsidian7.TFile) await this.app.vault.modify(f, text);
+    if (f instanceof import_obsidian8.TFile) await this.app.vault.modify(f, text);
     else await this.app.vault.create(path, text);
   }
   async writeBinary(path, data) {
-    path = (0, import_obsidian7.normalizePath)(path);
+    path = (0, import_obsidian8.normalizePath)(path);
     await this.ensureFolder(path);
     const f = this.app.vault.getAbstractFileByPath(path);
-    if (f instanceof import_obsidian7.TFile) await this.app.vault.modifyBinary(f, data);
+    if (f instanceof import_obsidian8.TFile) await this.app.vault.modifyBinary(f, data);
     else await this.app.vault.createBinary(path, data);
   }
   async openPanel() {
@@ -7748,7 +7848,7 @@ caldera_received: ${e.ts}
     for (const l of this.app.workspace.getLeavesOfType(VIEW)) l.view.render();
   }
 };
-var CalderaView = class extends import_obsidian7.ItemView {
+var CalderaView = class extends import_obsidian8.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -7774,7 +7874,7 @@ var CalderaView = class extends import_obsidian7.ItemView {
     el.createEl("h3", { text: "Caldera" });
     if (!s.identity || !s.handle) {
       el.createEl("p", { text: "Set your name and handle in settings, then publish your profile to join." });
-      new import_obsidian7.Setting(el).addButton((b) => b.setButtonText("Open settings").setCta().onClick(() => {
+      new import_obsidian8.Setting(el).addButton((b) => b.setButtonText("Open settings").setCta().onClick(() => {
         this.app.setting.open();
         this.app.setting.openTabById("caldera");
       }));
@@ -7819,11 +7919,11 @@ var CalderaView = class extends import_obsidian7.ItemView {
     el.createEl("h4", { text: "Add a friend" });
     el.createEl("p", { cls: "setting-item-description", text: 'Already on Caldera: enter their handle or paste their profile link. Or click "Add as friend" on their profile page.' });
     let handle = "";
-    new import_obsidian7.Setting(el).addText((t) => t.setPlaceholder("@handle or profile link").onChange((v) => handle = v)).addButton((b) => b.setButtonText("Request").onClick(async () => {
+    new import_obsidian8.Setting(el).addText((t) => t.setPlaceholder("@handle or profile link").onChange((v) => handle = v)).addButton((b) => b.setButtonText("Request").onClick(async () => {
       try {
         await p.requestFriend(handle.trim());
       } catch (e) {
-        new import_obsidian7.Notice(e.message);
+        new import_obsidian8.Notice(e.message);
       }
     }));
     if (p.suggestions.length) {
@@ -7840,7 +7940,7 @@ var CalderaView = class extends import_obsidian7.ItemView {
             p.suggestions = p.suggestions.filter((x) => x !== sg);
             this.render();
           } catch (e) {
-            new import_obsidian7.Notice(e.message);
+            new import_obsidian8.Notice(e.message);
           }
         };
         row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
@@ -7851,13 +7951,13 @@ var CalderaView = class extends import_obsidian7.ItemView {
     el.createEl("h4", { text: "Invite someone new" });
     el.createEl("p", { cls: "setting-item-description", text: "Not on Caldera yet: send them this link. It walks them through installing, then they add you with one click." });
     const inv = `${s.hubUrl.replace(/\/$/, "")}/?invite=${encodeURIComponent(s.handle)}#install`;
-    new import_obsidian7.Setting(el).addText((t) => {
+    new import_obsidian8.Setting(el).addText((t) => {
       t.setValue(inv);
       t.inputEl.readOnly = true;
       t.inputEl.onfocus = () => t.inputEl.select();
     }).addButton((b) => b.setButtonText("Copy").setCta().onClick(async () => {
       await navigator.clipboard.writeText(inv);
-      new import_obsidian7.Notice("Invite link copied");
+      new import_obsidian8.Notice("Invite link copied");
     }));
     if (!p.ghPeople && !p.ghPeopleLoading) void p.loadGithubPeople().then(() => {
       if (p.ghPeople?.people.length) this.render();
@@ -7865,9 +7965,9 @@ var CalderaView = class extends import_obsidian7.ItemView {
     if (p.ghPeople?.people.length) {
       el.createEl("h4", { text: "Your GitHub people" });
       el.createEl("p", { cls: "setting-item-description", text: "People you follow, who follow you, or who work on your repos, who aren't on Caldera yet. When they join, you start out connected." });
-      new import_obsidian7.Setting(el).setName("Invite message").setDesc(p.ghPeople.message).addButton((b) => b.setButtonText("Copy").onClick(async () => {
+      new import_obsidian8.Setting(el).setName("Invite message").setDesc(p.ghPeople.message).addButton((b) => b.setButtonText("Copy").onClick(async () => {
         await navigator.clipboard.writeText(p.ghPeople.message);
-        new import_obsidian7.Notice("Invite message copied. Send it to them anywhere.");
+        new import_obsidian8.Notice("Invite message copied. Send it to them anywhere.");
       }));
       for (const x of p.ghPeople.people.slice(0, 20)) {
         const row = el.createDiv("caldera-row");
@@ -7878,11 +7978,11 @@ var CalderaView = class extends import_obsidian7.ItemView {
         if (x.invited) row.createSpan({ cls: "setting-item-description", text: "invited" });
         else if (x.canEmail) row.createEl("button", { text: "Email invite" }).onclick = async () => {
           try {
-            new import_obsidian7.Notice(await p.githubInvite(x.login));
+            new import_obsidian8.Notice(await p.githubInvite(x.login));
             x.invited = true;
             this.render();
           } catch (e) {
-            new import_obsidian7.Notice(e.message);
+            new import_obsidian8.Notice(e.message);
           }
         };
       }
@@ -7897,12 +7997,12 @@ var CalderaView = class extends import_obsidian7.ItemView {
   }
 };
 function kudosMenu(ev, handle, plugin) {
-  const m = new import_obsidian7.Menu();
+  const m = new import_obsidian8.Menu();
   for (const [k, em] of [["heart", "\u2764\uFE0F"], ["up", "\u{1F44D}"], ["fire", "\u{1F525}"], ["sparkle", "\u2728"]])
     m.addItem((i) => i.setTitle(`${em}  Send @${handle} ${k === "up" ? "a thumbs up" : k}`).onClick(() => void plugin.sendKudos(handle, k)));
   m.showAtMouseEvent(ev);
 }
-var PreviewModal = class extends import_obsidian7.Modal {
+var PreviewModal = class extends import_obsidian8.Modal {
   constructor(app, html) {
     super(app);
     this.html = html;
@@ -7915,7 +8015,7 @@ var PreviewModal = class extends import_obsidian7.Modal {
     frame.srcdoc = this.html;
   }
 };
-var FriendPicker = class extends import_obsidian7.SuggestModal {
+var FriendPicker = class extends import_obsidian8.SuggestModal {
   constructor(app, list, pick) {
     super(app);
     this.list = list;
@@ -7932,7 +8032,7 @@ var FriendPicker = class extends import_obsidian7.SuggestModal {
     void this.pick(f);
   }
 };
-var SummaryEmailModal = class extends import_obsidian7.Modal {
+var SummaryEmailModal = class extends import_obsidian8.Modal {
   constructor(app, plugin) {
     super(app);
     this.plugin = plugin;
@@ -7942,7 +8042,7 @@ var SummaryEmailModal = class extends import_obsidian7.Modal {
     this.titleEl.setText("Where should we send your daily summary?");
     c.createEl("p", { text: "Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens, with a one-click unsubscribe. We send a confirmation link first.", cls: "setting-item-description" });
     let email = this.plugin.settings.summaryEmail || "";
-    new import_obsidian7.Setting(c).setName("Email").addText((t) => {
+    new import_obsidian8.Setting(c).setName("Email").addText((t) => {
       t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim());
       t.inputEl.type = "email";
     }).addButton((b) => b.setButtonText("Email me").setCta().onClick(async () => {
@@ -7955,7 +8055,7 @@ var SummaryEmailModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
   }
 };
-var GravityModal = class extends import_obsidian7.Modal {
+var GravityModal = class extends import_obsidian8.Modal {
   constructor(app, f, done) {
     super(app);
     this.f = f;
@@ -7965,13 +8065,13 @@ var GravityModal = class extends import_obsidian7.Modal {
     this.titleEl.setText(`Add gravity to @${this.f.handle || "friend"}`);
     this.contentEl.createEl("p", { text: "Gravity is positive only. Say what they helped with (optional)." });
     let reason = "";
-    new import_obsidian7.Setting(this.contentEl).addText((t) => t.setPlaceholder("They found me an operator").onChange((v) => reason = v)).addButton((b) => b.setButtonText("Add gravity").setCta().onClick(() => {
+    new import_obsidian8.Setting(this.contentEl).addText((t) => t.setPlaceholder("They found me an operator").onChange((v) => reason = v)).addButton((b) => b.setButtonText("Add gravity").setCta().onClick(() => {
       void this.done(reason);
       this.close();
     }));
   }
 };
-var ConfirmModal = class extends import_obsidian7.Modal {
+var ConfirmModal = class extends import_obsidian8.Modal {
   constructor(app, msg, yes, label = "Delete", title = "Are you sure?") {
     super(app);
     this.msg = msg;
@@ -7982,7 +8082,7 @@ var ConfirmModal = class extends import_obsidian7.Modal {
   onOpen() {
     this.titleEl.setText(this.title);
     this.contentEl.createEl("p", { text: this.msg });
-    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
+    new import_obsidian8.Setting(this.contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
       b.setButtonText(this.label).onClick(() => {
         void this.yes();
         this.close();
@@ -7992,7 +8092,7 @@ var ConfirmModal = class extends import_obsidian7.Modal {
     });
   }
 };
-var AskModal = class extends import_obsidian7.Modal {
+var AskModal = class extends import_obsidian8.Modal {
   constructor(app, plugin, kind) {
     super(app);
     this.plugin = plugin;
@@ -8002,9 +8102,9 @@ var AskModal = class extends import_obsidian7.Modal {
     const ask = this.kind === "ask";
     this.titleEl.setText(ask ? "I could use help with..." : "I can help with...");
     let title = "", bounty = 20;
-    new import_obsidian7.Setting(this.contentEl).setName("What").addText((t) => t.onChange((v) => title = v));
-    if (ask) new import_obsidian7.Setting(this.contentEl).setName("Bounty (help credits)").setDesc("Held until you award it to whoever helps").addText((t) => t.setValue("20").onChange((v) => bounty = Math.max(0, Number(v) || 0)));
-    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(ask ? "Post ask" : "Post offer").setCta().onClick(async () => {
+    new import_obsidian8.Setting(this.contentEl).setName("What").addText((t) => t.onChange((v) => title = v));
+    if (ask) new import_obsidian8.Setting(this.contentEl).setName("Bounty (help credits)").setDesc("Held until you award it to whoever helps").addText((t) => t.setValue("20").onChange((v) => bounty = Math.max(0, Number(v) || 0)));
+    new import_obsidian8.Setting(this.contentEl).addButton((b) => b.setButtonText(ask ? "Post ask" : "Post offer").setCta().onClick(async () => {
       if (!title.trim()) return;
       try {
         const id = newId(ask ? "ask" : "off");
@@ -8012,15 +8112,15 @@ var AskModal = class extends import_obsidian7.Modal {
         if (ask) this.plugin.settings.asks.push({ id, title, bounty });
         else this.plugin.settings.offers.push({ id, title });
         await this.plugin.saveSettings();
-        new import_obsidian7.Notice(ask ? "Ask posted" : "Offer posted");
+        new import_obsidian8.Notice(ask ? "Ask posted" : "Offer posted");
         this.close();
       } catch (e) {
-        new import_obsidian7.Notice(e.message);
+        new import_obsidian8.Notice(e.message);
       }
     }));
   }
 };
-var PairModal = class extends import_obsidian7.Modal {
+var PairModal = class extends import_obsidian8.Modal {
   constructor(app, approve, page2) {
     super(app);
     this.approve = approve;
@@ -8032,15 +8132,15 @@ var PairModal = class extends import_obsidian7.Modal {
     this.contentEl.createEl("p", { cls: "setting-item-description", text: "Only approve a code on a screen you're holding yourself: approving signs that browser in as you." });
     let code = "";
     const go = async () => {
-      if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new import_obsidian7.Notice("The code has 6 characters.");
+      if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new import_obsidian8.Notice("The code has 6 characters.");
       try {
         await this.approve(code);
         this.close();
       } catch (e) {
-        new import_obsidian7.Notice(e.message);
+        new import_obsidian8.Notice(e.message);
       }
     };
-    new import_obsidian7.Setting(this.contentEl).setName("Code").addText((t) => {
+    new import_obsidian8.Setting(this.contentEl).setName("Code").addText((t) => {
       t.setPlaceholder("ABC 123").onChange((v) => code = v);
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") void go();
@@ -8052,7 +8152,7 @@ var PairModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
   }
 };
-var ImagePickModal = class extends import_obsidian7.Modal {
+var ImagePickModal = class extends import_obsidian8.Modal {
   constructor(app, kind, use, cancelled) {
     super(app);
     this.kind = kind;
@@ -8069,15 +8169,15 @@ var ImagePickModal = class extends import_obsidian7.Modal {
     const take = async (f) => {
       if (!f) return;
       const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : f.type === "image/jpeg" ? "jpg" : "";
-      if (!ext) return void new import_obsidian7.Notice("Use a JPG, PNG or WebP image.");
-      if (f.size > 5 * 1024 * 1024) return void new import_obsidian7.Notice("That image is over 5 MB. Try a smaller one.");
+      if (!ext) return void new import_obsidian8.Notice("Use a JPG, PNG or WebP image.");
+      if (f.size > 5 * 1024 * 1024) return void new import_obsidian8.Notice("That image is over 5 MB. Try a smaller one.");
       try {
         this.chosen = true;
         await this.use(await f.arrayBuffer(), ext);
         this.close();
       } catch (e) {
         this.chosen = false;
-        new import_obsidian7.Notice("Couldn't set it: " + e.message);
+        new import_obsidian8.Notice("Couldn't set it: " + e.message);
       }
     };
     input.addEventListener("change", () => void take(input.files?.[0]));
@@ -8086,14 +8186,14 @@ var ImagePickModal = class extends import_obsidian7.Modal {
       e.preventDefault();
       void take(e.dataTransfer?.files?.[0]);
     });
-    new import_obsidian7.Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton((b) => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
+    new import_obsidian8.Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton((b) => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
   }
   onClose() {
     this.contentEl.empty();
     if (!this.chosen) this.cancelled();
   }
 };
-var PromptModal = class extends import_obsidian7.Modal {
+var PromptModal = class extends import_obsidian8.Modal {
   constructor(app, text) {
     super(app);
     this.text = text;
@@ -8110,7 +8210,7 @@ var PromptModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
   }
 };
-var NotePickModal = class extends import_obsidian7.SuggestModal {
+var NotePickModal = class extends import_obsidian8.SuggestModal {
   constructor(app, pick) {
     super(app);
     this.pick = pick;
@@ -8128,7 +8228,7 @@ var NotePickModal = class extends import_obsidian7.SuggestModal {
     this.pick(f);
   }
 };
-var WelcomeModal = class extends import_obsidian7.Modal {
+var WelcomeModal = class extends import_obsidian8.Modal {
   constructor(app, plugin, mode = "welcome") {
     super(app);
     this.plugin = plugin;
@@ -8146,22 +8246,22 @@ var WelcomeModal = class extends import_obsidian7.Modal {
     const status = createDiv({ cls: "caldera-welcome-status" });
     const head = (t) => c.createEl("h4", { text: t, cls: "caldera-welcome-h" });
     head("You");
-    new import_obsidian7.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
-    if (finish) new import_obsidian7.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
-    else new import_obsidian7.Setting(c).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
+    new import_obsidian8.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
+    if (finish) new import_obsidian8.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
+    else new import_obsidian8.Setting(c).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
       handle = clean(v);
       if (v !== handle) t.setValue(handle);
       status.setText("");
     }));
     const examples = ["Designer writing about tools for thought", "Founder building in public", "Researcher: notes on climate and cities"];
-    new import_obsidian7.Setting(c).setName("Headline").setDesc("One line about what you do or think about").addText((t) => {
+    new import_obsidian8.Setting(c).setName("Headline").setDesc("One line about what you do or think about").addText((t) => {
       t.setPlaceholder(examples[Math.floor(Math.random() * examples.length)]).setValue(headline).onChange((v) => headline = v.trim());
       t.inputEl.addClass("caldera-wide");
     });
     head("Pictures");
     const img = { photo: null, banner: null };
     const picRow = (kind, label, desc, current) => {
-      const st = new import_obsidian7.Setting(c).setName(label).setDesc(current ? `${desc} Now: ${current}` : desc);
+      const st = new import_obsidian8.Setting(c).setName(label).setDesc(current ? `${desc} Now: ${current}` : desc);
       st.addButton((b) => b.setButtonText(current ? "Change" : "Choose an image").onClick(() => new ImagePickModal(this.app, kind, async (buf, ext) => {
         img[kind] = { buf, ext };
         st.setDesc(`${desc} Chosen. It's saved when you publish.`);
@@ -8178,11 +8278,11 @@ var WelcomeModal = class extends import_obsidian7.Modal {
     head("Links");
     const have = (eff.links || []).map(([l, u]) => ({ l, u, i: quickLinkIndex(l, u) }));
     const quick = QUICK_LINKS.map((_, i) => have.find((h) => h.i === i)?.u || "");
-    QUICK_LINKS.forEach((q2, i) => new import_obsidian7.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
+    QUICK_LINKS.forEach((q2, i) => new import_obsidian8.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
     let plant = null;
     if (gardenEnabled()) {
       head("Your garden");
-      const gs = new import_obsidian7.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
+      const gs = new import_obsidian8.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
       gs.addButton((b) => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, (f) => {
         plant = f;
         gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`);
@@ -8190,10 +8290,10 @@ var WelcomeModal = class extends import_obsidian7.Modal {
       }).open()));
     }
     head("Staying in touch");
-    new import_obsidian7.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
+    new import_obsidian8.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
     head("Where should we send your daily summary?");
     let email = s.summaryEmail || "";
-    new import_obsidian7.Setting(c).setName("Your email").setDesc("Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens; one-click unsubscribe.").addText((t) => {
+    new import_obsidian8.Setting(c).setName("Your email").setDesc("Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens; one-click unsubscribe.").addText((t) => {
       t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim());
       t.inputEl.type = "email";
       t.inputEl.addClass("caldera-email-wide");
@@ -8207,7 +8307,7 @@ var WelcomeModal = class extends import_obsidian7.Modal {
       legal.appendText(" of Caldera (mjonesone, LLC).");
     }
     c.appendChild(status);
-    const go = new import_obsidian7.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
+    const go = new import_obsidian8.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
       if (!name) {
         status.setText("Add your name.");
         return;
@@ -8226,7 +8326,7 @@ var WelcomeModal = class extends import_obsidian7.Modal {
       try {
         const me = await this.plugin.ensureIdentity(true);
         if (!finish) {
-          const r = await (0, import_obsidian7.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
+          const r = await (0, import_obsidian8.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
           if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. Try another.`);
           s.handle = handle;
           if (!s.autoPublishHours) s.autoPublishHours = 6;
@@ -8261,7 +8361,7 @@ var WelcomeModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
   }
 };
-var ShareModal = class extends import_obsidian7.Modal {
+var ShareModal = class extends import_obsidian8.Modal {
   constructor(app, plugin, firstRun = false) {
     super(app);
     this.plugin = plugin;
@@ -8278,27 +8378,27 @@ var ShareModal = class extends import_obsidian7.Modal {
     const copy = async (t2, msg) => {
       try {
         await navigator.clipboard.writeText(t2);
-        new import_obsidian7.Notice(msg);
+        new import_obsidian8.Notice(msg);
       } catch {
-        new import_obsidian7.Notice(t2, 1e4);
+        new import_obsidian8.Notice(t2, 1e4);
       }
     };
-    new import_obsidian7.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
+    new import_obsidian8.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
     const text = `My page on Caldera: a living profile built from my Obsidian vault, with my work as a little city. ${url}`, t = encodeURIComponent(text);
-    new import_obsidian7.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
-    new import_obsidian7.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
+    new import_obsidian8.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
+    new import_obsidian8.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click. You get 25 help credits for each person who joins.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new import_obsidian7.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and friend requests, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
+    new import_obsidian8.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and friend requests, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
-    if (this.firstRun) new import_obsidian7.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
-    new import_obsidian7.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
+    if (this.firstRun) new import_obsidian8.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
+    new import_obsidian8.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var WhatsNewModal = class extends import_obsidian7.Modal {
+var WhatsNewModal = class extends import_obsidian8.Modal {
   constructor(app, plugin, releases) {
     super(app);
     this.plugin = plugin;
@@ -8315,7 +8415,7 @@ var WhatsNewModal = class extends import_obsidian7.Modal {
     if (newest && older(have, newest)) {
       const up = this.contentEl.createDiv({ cls: "caldera-release-howto" });
       up.createEl("p", { text: `You have Caldera ${have}. Version ${newest} is out: open Community plugins, click "Check for updates", then update Caldera.` });
-      new import_obsidian7.Setting(up).addButton((b) => b.setButtonText("Open Community plugins").setCta().onClick(() => {
+      new import_obsidian8.Setting(up).addButton((b) => b.setButtonText("Open Community plugins").setCta().onClick(() => {
         const st = this.app.setting;
         if (st) {
           st.open();
@@ -8333,13 +8433,13 @@ var WhatsNewModal = class extends import_obsidian7.Modal {
       if (r.howto) box.createEl("p", { cls: "caldera-release-howto", text: r.howto });
     }
     const hub = this.plugin.settings.hubUrl.replace(/\/$/, "");
-    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText("All release notes").onClick(() => window.open(hub + "/changelog.html"))).addButton((b) => b.setButtonText("Guide").onClick(() => window.open(hub + "/guide.html"))).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
+    new import_obsidian8.Setting(this.contentEl).addButton((b) => b.setButtonText("All release notes").onClick(() => window.open(hub + "/changelog.html"))).addButton((b) => b.setButtonText("Guide").onClick(() => window.open(hub + "/guide.html"))).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var GardenPreviewModal = class extends import_obsidian7.Modal {
+var GardenPreviewModal = class extends import_obsidian8.Modal {
   constructor(app, report, folder, url) {
     super(app);
     this.report = report;

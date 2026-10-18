@@ -118,6 +118,7 @@ ${gardenEnabled() ? `- **garden** - a folder whose notes are published as full p
 ` : ""}- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Caldera, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
 - **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
 - **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.
+- **Your own sections (modules)** - add a note to \`Caldera/modules/\` (e.g. \`Caldera/modules/Reading list.md\`) and it becomes a section on your page, titled with the file name. Write ordinary Markdown: lists, tables, quotes, links, images from the vault. Optional frontmatter: \`place: side\` (right-hand column), \`order: 10\`, \`publish: false\` (draft). Or ask your AI agent: "add a Talks module with my last five talks".
 
 Your handle and identity key live in Settings -> Caldera, never here. Guide: ${hubUrl.replace(/\/$/, "")}/guide.html
 `;

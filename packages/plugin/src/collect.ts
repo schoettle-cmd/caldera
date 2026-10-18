@@ -17,6 +17,7 @@ import type { CalderaSettings } from "./settings";
 import { publicTextFilter, gardenEnabled } from "@caldera/core";
 import { aiUsage, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
+import { collectModules, type ModuleReport } from "./modules";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
 
 const DAY = 86_400_000;
@@ -24,7 +25,7 @@ const fmtN = (n: number) => n.toLocaleString("en-US");
 // the owner's local calendar day (UTC would roll 'today' over hours early for anyone west of Greenwich)
 const iso = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
-export async function collectProfile(app: App, s: CalderaSettings, social?: ProfileData["social"]): Promise<{ data: ProfileData; files: Record<string, ArrayBuffer>; gardenReport: GardenReport[]; cityPrivate?: CityData }> {
+export async function collectProfile(app: App, s: CalderaSettings, social?: ProfileData["social"]): Promise<{ data: ProfileData; files: Record<string, ArrayBuffer>; gardenReport: GardenReport[]; modulesReport: ModuleReport[]; cityPrivate?: CityData }> {
   const md = app.vault.getMarkdownFiles();
   let words = 0, links = 0;
   const created = new Map<string, number>(), changed = new Map<string, number>();
@@ -215,6 +216,9 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     garden: garden.length ? garden : undefined, gardenExternal: gardenEnabled() ? s.gardenUrl || undefined : undefined, gardenImages,
   };
   Object.assign(files, gardenFiles);
+  // custom modules: Caldera/modules/*.md, one section each (the owner's or their agent's own Markdown)
+  let modulesReport: ModuleReport[] = [];
+  if (s.sections.modules !== false) { const mo = await collectModules(app, s.hubUrl || "https://caldera.social"); if (mo.modules.length) data.modules = mo.modules; Object.assign(files, mo.files); modulesReport = mo.report; }
   // Caldera City: Caldera/city.json (repos + commit counts, written by the owner's tools). Houses = notes linking to the project's note.
   let cityPrivate: CityData | undefined;
   if (s.sections.city !== false) {
@@ -268,7 +272,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
       }
     } catch (e) { console.warn("Caldera city.json unreadable:", e); }
   }
-  return { data, files, gardenReport, cityPrivate };
+  return { data, files, gardenReport, modulesReport, cityPrivate };
 }
 
 function asList(v: unknown): string[] {

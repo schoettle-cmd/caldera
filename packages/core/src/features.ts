@@ -2,7 +2,7 @@
  * Every feature a Caldera page can show, what feeds it and how to turn it on: one inventory for the setup prompt,
  * the "Unlock more" checklist tier, the site guide and llms.txt, so no feature is ever left undiscoverable.
  */
-import { PRIVACY_RULES } from "./agent-prompt.js";
+import { PRIVACY_RULES, MODULES_HELP } from "./agent-prompt.js";
 import { gardenEnabled } from "./flags.js";
 
 export interface Feature {
@@ -36,6 +36,7 @@ export const FEATURES: Feature[] = [
   { id: "graph", label: "Local graph and backlinks", source: '"graph" (note names) and "backlinks" (Title | context) in Caldera/profile.md', how: "Pick names you're comfortable showing; the page shows how many notes link to each." },
   { id: "garden", label: "Garden and garden home", source: 'notes in your Garden folder or marked "caldera: garden" (stage + license)', how: "Plant a note; the whole note becomes a public page with backlinks from other gardens.", flag: "garden" },
   { id: "asks", label: "Help exchange (asks and offers)", source: "asks and offers you post", how: 'Run "Caldera: Post an ask" / "Caldera: Post an offer" in Obsidian.' },
+  { id: "modules", label: "Your own sections (modules)", source: 'one Markdown note per section in Caldera/modules/ (frontmatter: title, place main | side, order, publish)', how: 'Write one yourself, or ask your AI: "add a Reading list module". Lists, tables, links and vault images all work.' },
   { id: "links", label: "Elsewhere (links)", source: '"links" in Caldera/profile.md (Label | https://url)', how: "Your site, GitHub, socials." },
   { id: "masthead", label: "Masthead and photo", source: '"banner" and "photo" in Caldera/profile.md (images inside the vault)', how: "Choose images in Private view, or copy the masthead prompt for your AI." },
   { id: "live", label: "Live visitors on your city", source: "the Caldera snippet (t.js with your site key) on each of your websites", how: "Copy each district's snippet from Settings -> Caldera -> Live traffic (or caldera.social/me) into that site's shared layout." },
@@ -74,7 +75,7 @@ export function unlockChecklist(s: UnlockState): UnlockItem[] {
 export interface FeaturePromptOptions { vaultPath?: string; hubUrl?: string; handle?: string; activityFile?: string; agentSetup?: string; hosted?: boolean }
 
 /** The slice of the setup prompt for one feature: what to paste into an AI agent to turn just that on. */
-export function featurePrompt(id: UnlockId | "email" | "groups", o: FeaturePromptOptions = {}): string {
+export function featurePrompt(id: UnlockId | "email" | "groups" | "modules", o: FeaturePromptOptions = {}): string {
   const hub = (o.hubUrl || "https://caldera.social").replace(/\/$/, ""), vault = o.vaultPath || "<ABSOLUTE PATH TO MY OBSIDIAN VAULT>";
   const page = `${hub}/@${o.handle || "<my handle>"}/`, act = o.activityFile || "Caldera/activity.json";
   const keys = o.hosted ? `${hub}/me (signed in with GitHub), section "Live traffic on your city"` : `Obsidian: Settings -> Caldera -> "Live traffic on your city"`;
@@ -88,6 +89,7 @@ export function featurePrompt(id: UnlockId | "email" | "groups", o: FeaturePromp
     case "story": return head("a timeline and projects with links") + storySteps(vault) + rules;
     case "code": return head("my GitHub city") + codeSteps(vault, o.hosted) + rules;
     case "email": return head("the daily summary email") + `1. In ${o.hosted ? `${hub}/me` : "Obsidian: Settings -> Caldera -> Daily summary email"}, I type my email address (you don't need to - it's my choice which address).\n2. Caldera emails a confirm link; I click it. Every email has a one-click unsubscribe.\nIt arrives about 8am Pacific, only on days something happened: visits, friend requests, kudos, links into my notes.` + rules;
+    case "modules": return head("my own sections (custom modules)") + `${MODULES_HELP}\n\n1. Ask me what I'd like on my page that the standard sections don't cover, and suggest 3 modules that fit me (only from things that are already public).\n2. Draft the full Markdown of each one and show me.\n3. Create only the ones I approve, one note each in "Caldera/modules/". Use place: side for short ones (office hours, links, stack).` + rules;
     case "groups": return head("groups") + `1. Ask me which communities I belong to (a class, a Discord, a company, a cohort) and suggest short group names (lowercase, dashes), for example producthunt.\n2. I join in ${o.hosted ? `${hub}/me` : "Obsidian: Settings -> Caldera -> Groups"} (comma separated). Each group is a town of everyone's cities at ${hub}/g/<name>; share that link with the group.` + rules;
   }
 }

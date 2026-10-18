@@ -92,3 +92,15 @@ test("navigation standard: profile, garden home and every note share one left na
   assert.ok(f["n/gardens.html"].includes('href="../n/gardens.html"') && f["n/gardens.html"].includes('aria-current="page"'));
   assert.ok(f["garden.html"].includes('page-row is-active" href="garden.html"'));
 });
+
+test("custom modules: safe Markdown with tables, demoted headings, page styles, and no raw HTML", async () => {
+  const { moduleHtml } = await import("./garden.build.mjs");
+  const h = moduleHtml(`# Talks\n\n| Year | Talk |\n|---|---|\n| 2026 | [AI agents](https://example.com/t) |\n| 2025 | [[@ana/Notes|Ana's notes]] |\n\n- one\n- two\n\n<script>alert(1)</script>\n\n![[photo.png]]`, "https://caldera.social", t => t === "photo.png" ? "m/img/photo.png" : null);
+  assert.match(h, /<h3>Talks<\/h3>/);
+  assert.match(h, /<div class="table-wrap"><table class="data"><thead><tr><th>Year<\/th><th>Talk<\/th>/);
+  assert.match(h, /<td><a href="https:\/\/example.com\/t"/);
+  assert.match(h, /href="https:\/\/caldera.social\/@ana\/"[^>]*>Ana&#39;s notes/);
+  assert.match(h, /<ul class="bullets"><li>one<\/li>/);
+  assert.doesNotMatch(h, /<script/); assert.match(h, /&lt;script&gt;/);
+  assert.match(h, /<img src="m\/img\/photo.png"/);
+});

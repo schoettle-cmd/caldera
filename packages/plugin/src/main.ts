@@ -11,6 +11,7 @@ import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
 import type { GardenReport } from "./collect";
 import { PROFILE_FILE, effectiveSettings, ensureProfileFile } from "./profile-file";
+import { MODULES_FOLDER } from "./modules";
 import { ProfileView, PROFILE_VIEW, collectOwner } from "./view";
 import { CityFloatView, CITY_FLOAT_VIEW, FLOAT_SIZE, type FloatSpec } from "./float";
 import { renderOwner } from "./owner";
@@ -72,6 +73,12 @@ export default class CalderaPlugin extends Plugin {
       else if (/^\d{4}-\d{2}-\d{2}$/.test(f.basename) && cache?.frontmatter && Object.keys(cache.frontmatter).some(k => k.startsWith("caldera_"))) this.queuePublish("activity");
     }));
     this.registerEvent(this.app.vault.on("modify", f => { if (f.path === this.settings.activityFile) this.queuePublish("activity"); }));
+    // custom modules: any change in Caldera/modules/ republishes (new, edited, renamed or deleted notes)
+    const isModule = (path: string) => path.startsWith(MODULES_FOLDER + "/") && path.endsWith(".md");
+    this.app.workspace.onLayoutReady(() => {   // after load: Obsidian reports every existing file as "created" while it starts
+      for (const ev of ["create", "modify", "delete"] as const) this.registerEvent(this.app.vault.on(ev as any, (f: any) => { if (isModule(f.path)) this.queuePublish("profile"); }));
+      this.registerEvent(this.app.vault.on("rename", (f, old) => { if (isModule(f.path) || isModule(old)) this.queuePublish("profile"); }));
+    });
     if (C.gardenEnabled()) {   // the garden is paused (core flags.ts): its commands only exist while it's on
       this.addCommand({ id: "garden-preview", name: "Preview my garden (what goes public + privacy check)", callback: () => this.previewGarden() });
       this.addCommand({ id: "garden-plant", name: "Plant this note in my garden (make it public)", checkCallback: (check) => {
@@ -243,7 +250,7 @@ export default class CalderaPlugin extends Plugin {
       .replace('<link rel="stylesheet" href="assets/theme.css">', `<style>${text["assets/theme.css"]}</style>`)
       .replace('<link rel="stylesheet" href="assets/profile.css">', `<style>${text["assets/profile.css"]}</style>`);
     for (const [p, buf] of Object.entries(binaries)) {
-      const mime = p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : "image/jpeg";
+      const mime = p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : p.endsWith(".gif") ? "image/gif" : "image/jpeg";
       html = html.split(`src="${p}"`).join(`src="data:${mime};base64,${C.b64.enc(new Uint8Array(buf))}"`);
     }
     new PreviewModal(this.app, html).open();

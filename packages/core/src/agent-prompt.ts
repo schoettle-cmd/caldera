@@ -20,9 +20,12 @@ export interface AgentPromptOptions {
 
 /** Bump when the routine asks for new data: the routine writes it into activity.json, and the plugin tells the
  * owner to copy the prompt again when theirs is older. */
-export const PROMPT_VERSION = 5;
+export const PROMPT_VERSION = 6;
 
 /** One privacy policy for every prompt. The plugin also enforces most of this in code (see privacy.ts). */
+/** How custom profile modules work: shared by the setup prompt, the edit prompt and the guide. */
+export const MODULES_HELP = `Custom modules: I can add my own sections to the page. Each module is one Markdown note in "Caldera/modules/" (for example "Caldera/modules/Reading list.md"); the note becomes a section titled with its file name. Optional frontmatter: title (a different title), place (main = the main column under "Now", side = the right-hand column), order (lower numbers first, default 50), publish (false keeps it as a draft). The body is ordinary Markdown: paragraphs, ## subheadings, lists, checkboxes, tables, quotes, code, links ([label](https://...)), images from the vault (![[image.png]], under 2 MB each), and [[@handle/Their note]] links to other members. No HTML, scripts or embeds (they show as plain text), and email addresses and phone numbers are removed. Up to 12 modules. The page republishes about a minute after any change in that folder; deleting the note removes the section. Good modules: reading list, talks and podcasts, my stack, office hours, what I'm looking for, FAQ, press, a changelog of what I shipped. Everything in a module is public.`;
+
 export const PRIVACY_RULES = `Everything public is on the open internet, can be copied forever, and can affect other people. Be very cautious. Never write any of these into anything public:
 - Other people: no names, initials, handles, photos or descriptions that identify anyone I meet, work with, hire, date, advise or invest with. Say "a founder", "the team", "a friend" only when it adds nothing identifying - usually leave it out.
 - Meetings: no meetings, calls, lunches, dinners, interviews or events - not their titles, times, dates, attendees, or that they happened with someone specific.
@@ -121,6 +124,7 @@ Anything that would become PUBLIC needs my explicit yes first: show me exactly w
 ${richItems([
 `Page text, in "${vault}/Caldera/profile.md": "headline" (one line), "summary" (2 sentences, links as [[Label|https://...]]), "now" (3 lines on what I'm doing now), "timeline" (only things already public: "Year | milestone | one-line detail", grouped into chapters with "era | Name | 2015-2020" lines), "projects" (Name | status | https://link, only public projects) and "links" (Label | https://url - include my GitHub profile if I have one: that turns on the Code section and the city). Offer to set a profile photo: save an image I choose into "Caldera/img/" and set "photo" to that path. Optional: offer a masthead (the wide cover image across the top of the page, about 3:1 such as 1800x600, under 2 MB): an image I choose or a free-to-use one I approve, saved into "Caldera/img/" with "banner" set to its path. Also suggest "sidebar" groups (Group | item, item), up to 14 "graph" note names (people/companies/projects I'm comfortable showing - the page shows how many notes link to each), and 6 "backlinks" (Title | short context).`,
 G ? `My garden (public notes). Find 3-8 notes that would be good to grow in public: evergreen essays, how-tos, reading notes, overviews of work that is already public. Skip anything about people, clients, deals, money, health, family or unannounced work. List them with one line each on why, and a suggested stage (seedling = rough, budding = taking shape, evergreen = worked through). After I approve, add to the frontmatter of the approved notes only: "caldera: garden", "stage: <stage>" and "license: all-rights" (ask me if I want "cc-by" instead). The WHOLE note becomes a public page, so read every line and point out anything private first.` : null,
+`Custom modules. ${MODULES_HELP} Suggest 2-3 modules that fit me (draft the full Markdown of each from things that are already public), and create only the ones I approve.`,
 `Notes friends can receive. Suggest notes I might want to share with friends as encrypted cards (frameworks, checklists, templates). After I approve, add "caldera: friends" to their frontmatter.`,
 `Public topics. List my 10 most-used tags that are safe to show publicly (no client, company or people tags), with a short label for each. I add them myself in Settings -> Caldera -> Public topics. Do not edit plugin settings.`,
 `Asks and offers. Draft 2 asks ("I could use help with...") and 2 offers ("I can help with...") that fit what I work on. I post the ones I like with "Caldera: Post an ask" / "Caldera: Post an offer".`,
@@ -140,10 +144,10 @@ Themes and topics: only use topics among ${topics}.
 Also: never write to any other part of the vault, never change notes' privacy markings (caldera: public${G ? " / garden" : ""} / friends / private) without asking, ${G ? "never move notes into or out of the Garden folder, " : ""}never touch .obsidian/plugins/caldera/data.json - it holds my private key.
 
 ## 7. Report
-When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), extras (what it knows, inbox to knowledge, project commits), ${G ? "garden, " : ""}live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
+When you finish, show me a short checklist of every source and feature - calendar, email, AI usage, code, documents, journal, city, page text (headline, summary, now, timeline, projects, sidebar, photo, masthead), custom modules, extras (what it knows, inbox to knowledge, project commits), ${G ? "garden, " : ""}live visitors, agents on the map, private web view, daily email, groups - marked connected, skipped (and why) or needs me. After each scheduled run, the job only needs to log what it wrote. Then tell me to run "Caldera: Preview my public profile", check it, and publish.
 
 ## 8. Later
-- Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. Guide: ${hub}/guide.html
+- Changing my page: name, headline, photo, banner, links, properties, topics, which sections show and whether I'm listed live in the frontmatter of "${vault}/Caldera/profile.md". Edit it (same privacy rules) and the page republishes within about a minute. New sections of my own are modules: one note each in "${vault}/Caldera/modules/". Guide: ${hub}/guide.html
 ${G ? `- My garden home: ${hub}/@<my handle>/garden.html shows live my notes, links from other gardens, gravity (goodwill friends give), help credits (100 to start; ask bounties are held until awarded, returned after 30 days, no cash value), my open asks and offers, friends and weekly rank.
 ` : ""}- My profile inside Obsidian: the ribbon icon "My Caldera profile" opens my page as a tab. "Private view" adds private sections only I see (visits, today, on this day, patterns, goals, and a checklist of which sources are connected); "Public view" shows the page as visitors see it.
 - When Caldera tells me my setup prompt is out of date, I copy it again ("Caldera: Copy the AI setup prompt") and paste it here; you upgrade the routine in place.`;
@@ -165,7 +169,8 @@ Where things live:
 - A note on my page: add "caldera: public" to that note's frontmatter (title and first paragraph are shown). Remove it to take the note down.
 - My daily journal: caldera_headline / caldera_focus / caldera_wins / caldera_themes in daily notes named YYYY-MM-DD.md.
 - Activity counts: "Caldera/activity.json".
-The page republishes automatically about a minute after Caldera/profile.md changes. For anything else, tell me to run "Caldera: Publish my profile".
+- ${MODULES_HELP}
+The page republishes automatically about a minute after Caldera/profile.md or a module changes. For anything else, tell me to run "Caldera: Publish my profile".
 
 Rules:
 - Show me the exact change before you make it, and only make what I approve.

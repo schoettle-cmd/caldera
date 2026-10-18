@@ -170,7 +170,7 @@ export function newId(prefix: "ask" | "off" | "card" | "msg"): string {
   return prefix + "_" + b58encode(nacl.randomBytes(12));
 }
 
-export { agentPrompt, richerPrompt, editPrompt, PRIVACY_RULES, PROMPT_VERSION } from "./agent-prompt.js";
+export { agentPrompt, richerPrompt, editPrompt, PRIVACY_RULES, PROMPT_VERSION, MODULES_HELP } from "./agent-prompt.js";
 export type { AgentPromptOptions } from "./agent-prompt.js";
 
 export { publicTextFilter } from "./privacy.js";
