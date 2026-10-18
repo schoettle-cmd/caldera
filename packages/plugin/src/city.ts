@@ -251,7 +251,7 @@ export const CITY_CSS = `
 .c-tools .t-sw{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;background:conic-gradient(#A78BFA 0 25%,#2DD4BF 0 50%,#FBBF24 0 75%,#FB7185 0)}
 .w-topics{position:absolute;left:10px;top:10px;z-index:3;display:flex;flex-direction:column;gap:4px;max-width:min(240px,calc(100% - 20px));padding:8px 11px;border-radius:10px;background:rgba(2,6,12,.84);border:1px solid rgba(61,242,255,.3);color:#E6F6FF;font:500 12px/1.35 'IBM Plex Sans',Arial,sans-serif;pointer-events:none}
 .w-topics b{font-weight:600;color:#BFF8FF;margin-bottom:2px}.w-topics span{display:flex;align-items:center;gap:7px}.w-topics i{display:inline-block;width:10px;min-width:10px;height:10px;border-radius:3px;flex:0 0 10px}.w-topics[hidden]{display:none}
-@media (max-width:600px){.w-topics{top:84px;gap:3px;padding:7px 9px;font-size:11px;max-width:min(200px,calc(100% - 20px))}}
+@media (max-width:600px){.w-topics{top:52px;gap:3px;padding:7px 9px;font-size:11px;max-width:min(200px,calc(100% - 20px))}}
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
 .c-under{position:absolute;left:10px;bottom:10px;width:min(300px,calc(100% - 20px));background:rgba(2,6,12,.86);border:1px solid rgba(181,140,255,.45);border-radius:10px;padding:8px 10px;color:#E3DAFF;font:12px/1.45 var(--font-mono,'IBM Plex Mono',monospace)}
