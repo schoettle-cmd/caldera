@@ -7,7 +7,7 @@ const MENTION = {
   journal: "caldera_headline", scoreboard: '"days"', now: '"now"', activity: "Activity counts", growth: "Notes are counted by the plugin",
   knows: '"knows"', inbox: '"inbox"', topics: "Public topics", projects: '"projects"', code: "city.json", ai: '"ai"',
   timeline: '"timeline"', sidebar: '"sidebar"', graph: '"graph"', garden: "caldera: garden", asks: "Post an ask", links: '"links"',
-  masthead: "masthead", live: "t.js", agents: "agent-hook.mjs", weather: null, private: "Private web view", email: "Daily summary email",
+  masthead: "masthead", live: "t/1.js", agents: "agent-hook.mjs", weather: null, private: "Private web view", email: "Daily summary email",
   groups: "Groups", friends: "kudos", modules: "Caldera/modules/",
 };
 
@@ -36,7 +36,7 @@ test("feature prompts: each slice is self-contained, privacy-safe and never asks
   assert.ok(C.featurePrompt("agents", { agentSetup: "MY OWN PROMPT" }) === "MY OWN PROMPT");
   assert.ok(C.featurePrompt("live", { hosted: true }).includes("/me"));
   const up = C.upgradePrompt(["live", "private"], { handle: "x" });
-  assert.ok(up.includes("1. Live visitors") && up.includes("2. Private web view") && up.includes("t.js") && up.includes("data.json") && !up.includes("agent-hook"));
+  assert.ok(up.includes("1. Live visitors") && up.includes("2. Private web view") && up.includes("t/1.js") && up.includes("data.json") && !up.includes("agent-hook"));
   assert.ok(C.upgradePrompt([], { handle: "x" }).includes("Nothing to do"));
 });
 

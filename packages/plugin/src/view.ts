@@ -4,7 +4,7 @@
  *  - Public view: the live page on the hub, exactly as visitors see it (with the hub's live blocks).
  * The page runs in a sandboxed iframe with no access to the vault; a tiny bridge script posts clicks back here.
  */
-import { agentSetupPrompt } from "./settings";
+import { TRACK_SRI, agentSetupPrompt } from "./settings";
 import { ItemView, Notice, TFile, WorkspaceLeaf, setIcon, type App } from "obsidian";
 import * as C from "@caldera/core";
 import type CalderaPlugin from "./main";
@@ -107,7 +107,7 @@ export class ProfileView extends ItemView {
     if (!this.wx || Date.now() - this.wx.at > 15 * 60_000) { try { this.wx = { at: Date.now(), data: await this.plugin.weather() }; } catch { this.wx = { at: Date.now(), data: null }; } }
     const L = this.lastLive, liveOn = !!L && (Object.values(L.today || {}).some((x: any) => x?.v > 0) || Object.values(L.districts || {}).some((x: any) => x?.views > 0));
     const agentsOn = !!L && Array.isArray(L.agents) && L.agents.length > 0, sites = (s.traffic || []).map(t => ({ key: t.key, project: t.project }));
-    const owner = s.citySetupDismissed ? null : { liveOff: !liveOn, agentsOff: !agentsOn, hub, sites: liveOn ? [] : sites, agentPrompt: !agentsOn && s.agentKey ? agentSetupPrompt(hub, s.agentKey) : "" };
+    const owner = s.citySetupDismissed ? null : { liveOff: !liveOn, agentsOff: !agentsOn, hub, sri: TRACK_SRI, sites: liveOn ? [] : sites, agentPrompt: !agentsOn && s.agentKey ? agentSetupPrompt(hub, s.agentKey) : "" };
     this.frame.contentWindow?.postMessage({ caldera: "extras", data: { weather: this.wx?.data || null, owner } }, "*");
   }
 

@@ -38,7 +38,7 @@ export const FEATURES: Feature[] = [
   { id: "modules", label: "Your own sections (modules)", source: 'one Markdown note per section in Caldera/modules/ (frontmatter: title, place main | side, order, publish)', how: 'Write one yourself, or ask your AI: "add a Reading list module". Lists, tables, links and vault images all work.' },
   { id: "links", label: "Elsewhere (links)", source: '"links" in Caldera/profile.md (Label | https://url)', how: "Your site, GitHub, socials." },
   { id: "masthead", label: "Masthead and photo", source: '"banner" and "photo" in Caldera/profile.md (images inside the vault)', how: "Choose images in Private view, or copy the masthead prompt for your AI." },
-  { id: "live", label: "Live visitors on your city", source: "the Caldera snippet (t.js with your site key) on each of your websites", how: "Copy each district's snippet from Settings -> Caldera -> Live traffic (or caldera.social/me) into that site's shared layout." },
+  { id: "live", label: "Live visitors on your city", source: "the Caldera snippet (t/1.js with your site key) on each of your websites", how: "Copy each district's snippet from Settings -> Caldera -> Live traffic (or caldera.social/me) into that site's shared layout." },
   { id: "agents", label: "Your AI agents on the map", source: "the Caldera agent hook (agent-hook.mjs + Claude Code hooks) on each computer you code on", how: "Copy the agent setup prompt from Settings -> Caldera -> AI agents on your city (or caldera.social/me) and paste it into Claude Code." },
   { id: "weather", label: "Time of day and weather", source: "the viewer's own clock and local weather", how: "Automatic; anyone can override it with the sky buttons." },
   { id: "private", label: "Private view on the web", source: "your private sections, pushed encrypted from Obsidian", how: "Turn on Settings -> Caldera -> Private web view, then use the Public view | Private view switch when signed in.", ownerOnly: true },
@@ -95,7 +95,7 @@ export function featurePrompt(id: UnlockId | "email" | "groups" | "modules", o: 
 
 export function liveSteps(keys: string): string {
   return `Live visitors: every visit to my websites rides through my Caldera city in real time (new visitors parachute in, signups get a celebration). Counts only: no cookies, no IP addresses, no personal data.
-1. Get my snippets from ${keys}: one line per district (project), like <script async src="https://caldera.social/t.js" data-site="KEY"></script>. Districts marked private stay "Private" to visitors.
+1. Get my snippets from ${keys}: one line per district (project), like <script async src="https://caldera.social/t/1.js" integrity="sha384-..." crossorigin="anonymous" data-site="KEY"></script>. Paste each line exactly as given, integrity included: it makes the browser refuse any script that isn't the published one. Districts marked private stay "Private" to visitors.
 2. For each website I run, find its repo on this computer and the project/district it belongs to (ask me if unsure), and add that district's line to the site's shared layout so every page has it (for example the root layout, _app/_document, base template or index.html head). Don't add it twice.
 3. Mark conversions where they happen: call caldera('signup') after a signup and caldera('buy') after a purchase (guard with if (window.caldera)).
 4. Deploy each site the way it's normally deployed (ask me first if it goes to production), open the site, then open my city: the visit should appear within a minute.`;

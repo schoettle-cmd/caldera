@@ -44,7 +44,7 @@ test("activity score caps bulk imports", () => {
 test("agent prompt: privacy rules always present; install steps only when not installed", async () => {
   const { agentPrompt } = await import("../dist/index.js");
   const fresh = agentPrompt({ hubUrl: "https://hub.example/" });
-  assert.ok(fresh.includes("## 6. Privacy rules") && fresh.includes("Download https://hub.example/download/caldera-latest.zip"));
+  assert.ok(fresh.includes("## 6. Privacy rules") && fresh.includes("https://github.com/schoettle-cmd/caldera/releases/latest/download/<file> (only from that address)") && !fresh.includes("hub.example/download"));
   assert.ok(fresh.includes("SAFE TO PASTE AGAIN") && fresh.includes('"prompt_version": ') && fresh.includes("Never create a second scheduled job"));
   assert.ok(fresh.includes("data.json"), "warns agent away from the key file");
   const mine = agentPrompt({ installed: true, vaultPath: "/v", handle: "mike", publicTopics: ["ai"] });

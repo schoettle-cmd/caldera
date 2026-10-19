@@ -113,7 +113,9 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   const files: Record<string, ArrayBuffer> = {};
   const img = async (vaultPath: string, name: string) => {
     const f = vaultPath && app.vault.getAbstractFileByPath(vaultPath);
-    if (f instanceof TFile) { const out = `img/${name}.${f.extension}`; files[out] = await app.vault.readBinary(f); return out; }
+    // images only, and not huge: a mistyped path can't publish a note, a PDF or a key file as your "photo"
+    if (f instanceof TFile && /^(png|jpe?g|gif|webp|avif|svg)$/i.test(f.extension) && f.stat.size <= 8 * 1024 * 1024) {
+      const out = `img/${name}.${f.extension.toLowerCase()}`; files[out] = await app.vault.readBinary(f); return out; }
     return undefined;
   };
 

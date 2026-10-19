@@ -219,7 +219,7 @@ export class CalderaSettingTab extends PluginSettingTab {
       ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address."
       : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
     for (const site of sites) {
-      const snippet = `<script async src="${hub}/t.js" data-site="${site.key}"></script>`;
+      const snippet = trackTag(hub, site.key);
       new Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)"))
         .addButton(b => b.setButtonText("Copy snippet").onClick(async () => { await navigator.clipboard.writeText(snippet); new Notice(`Snippet for ${site.project} copied`); }))
         .addExtraButton(b => b.setIcon("key-round").setTooltip("Copy server key (for sending events from your own server: POST " + hub + "/v1/t/" + site.key + "/events)").onClick(async () => {
@@ -256,14 +256,21 @@ export class CalderaSettingTab extends PluginSettingTab {
   }
 }
 
+/** The agent hook this release was built against (hub site/agent-hook.mjs); the setup prompt refuses any other file. */
+/** The live-traffic script, frozen at /t/1.js: snippets carry its integrity hash so a changed file never runs on your sites. */
+export const TRACK_SRI = "sha384-UCnwKWu6Be2g87+ZI1+h367D6yOXEuXFQL2U2Z7PuSoH3oSCsu/cmZMbj4s70JlC";
+export const trackTag = (hub: string, key: string) => `<script async src="${hub.replace(/\/$/, "")}/t/1.js" integrity="${TRACK_SRI}" crossorigin="anonymous" data-site="${key}"></script>`;
+export const AGENT_HOOK_SHA256 = "bfe8dbde26fdc5e8b2e33805cdd4cadb98020ecaf34fe3f7c2e491ed636aedae";
+
 /** A prompt the owner pastes into Claude Code: installs the Caldera agent hook (one small script, no dependencies). */
 export function agentSetupPrompt(hub: string, k: { key: string; secret: string }): string {
   return `Set up the Caldera agent hook on this computer, so my Caldera city shows what my AI agents are working on.
 
 1. Download ${hub}/agent-hook.mjs to ~/.caldera/agent-hook.mjs (create the folder). Read it first: it reads the hook event from stdin, works out the repo (git remote name) and a short task title, and posts only that to my Caldera hub, with a 1.5 second timeout. It never blocks or changes anything.
+   Before using it, check its SHA-256 is ${AGENT_HOOK_SHA256} (shasum -a 256 ~/.caldera/agent-hook.mjs). If it doesn't match, delete it, stop and tell me.
 2. Write ~/.caldera/agent.json (chmod 600): {"hub": "${hub}", "key": "${k.key}", "secret": "${k.secret}", "machine": "<a short name for this computer>"}
 3. In ~/.claude/settings.json, add hooks (keep any existing ones) that run \`node ~/.caldera/agent-hook.mjs\` for UserPromptSubmit, PostToolUse, Stop, Notification and SessionEnd.
 4. Test it: echo '{"hook_event_name":"UserPromptSubmit","session_id":"caldera-test-1","cwd":"'$PWD'","prompt":"Testing the Caldera agent hook"}' | node ~/.caldera/agent-hook.mjs and confirm it exits quietly, then send SessionEnd for the same session to clear the test drone.
 
-Keep the key and secret out of any repo.`;
+Keep the key and secret out of any repo. If I'd rather not send task titles at all, add "tasks": false to agent.json (drones still fly, without words).`;
 }

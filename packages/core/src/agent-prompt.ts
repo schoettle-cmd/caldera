@@ -44,7 +44,9 @@ export function agentPrompt(o: AgentPromptOptions = {}): string {
   const topics = o.publicTopics?.length ? o.publicTopics.map(t => "#" + t).join(", ") : "the tags I allow-listed in Settings -> Caldera -> Public topics";
   const page = o.handle ? `${hub}/@${o.handle}/` : `${hub}/@<my handle>/`;
 
-  const plugin = `1. Download ${zip} and unzip it into "<vault>/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css (create the folders if needed).
+  // the official GitHub release, not the hub: a hub that was taken over still couldn't hand out a changed plugin
+  const rel = "https://github.com/schoettle-cmd/caldera/releases/latest/download";
+  const plugin = `1. ${o.zipUrl ? `Download ${zip} and unzip it into "<vault>/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css` : `Download main.js, manifest.json and styles.css from the official GitHub release, ${rel}/<file> (only from that address), into "<vault>/.obsidian/plugins/caldera/". Check manifest.json says "id": "caldera" and "author": "mjonesone, LLC"`} (create the folders if needed).
 2. Add "caldera" to the JSON array in "<vault>/.obsidian/community-plugins.json" (create the file as ["caldera"] if it does not exist). Do not remove other entries.`;
   const welcome = `Caldera opens a Welcome window where I type my name and pick a handle; it creates my identity on this device, publishes my profile and opens it in my browser. Do NOT create the identity, read the plugin's data.json, or handle my keys yourself - that file holds my private key. Wait until I tell you my profile is live, then continue with step 2.`;
 

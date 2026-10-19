@@ -2330,7 +2330,7 @@ It arrives about 8am Pacific, only on days something happened: visits, friend re
 }
 function liveSteps(keys) {
   return `Live visitors: every visit to my websites rides through my Caldera city in real time (new visitors parachute in, signups get a celebration). Counts only: no cookies, no IP addresses, no personal data.
-1. Get my snippets from ${keys}: one line per district (project), like <script async src="https://caldera.social/t.js" data-site="KEY"><\/script>. Districts marked private stay "Private" to visitors.
+1. Get my snippets from ${keys}: one line per district (project), like <script async src="https://caldera.social/t/1.js" integrity="sha384-..." crossorigin="anonymous" data-site="KEY"><\/script>. Paste each line exactly as given, integrity included: it makes the browser refuse any script that isn't the published one. Districts marked private stay "Private" to visitors.
 2. For each website I run, find its repo on this computer and the project/district it belongs to (ask me if unsure), and add that district's line to the site's shared layout so every page has it (for example the root layout, _app/_document, base template or index.html head). Don't add it twice.
 3. Mark conversions where they happen: call caldera('signup') after a signup and caldera('buy') after a purchase (guard with if (window.caldera)).
 4. Deploy each site the way it's normally deployed (ask me first if it goes to production), open the site, then open my city: the visit should appear within a minute.`;
@@ -2397,7 +2397,8 @@ function agentPrompt(o = {}) {
   const zip = o.zipUrl || hub + "/download/caldera-latest.zip";
   const topics = o.publicTopics?.length ? o.publicTopics.map((t) => "#" + t).join(", ") : "the tags I allow-listed in Settings -> Caldera -> Public topics";
   const page2 = o.handle ? `${hub}/@${o.handle}/` : `${hub}/@<my handle>/`;
-  const plugin = `1. Download ${zip} and unzip it into "<vault>/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css (create the folders if needed).
+  const rel = "https://github.com/schoettle-cmd/caldera/releases/latest/download";
+  const plugin = `1. ${o.zipUrl ? `Download ${zip} and unzip it into "<vault>/.obsidian/plugins/caldera/" so that folder contains main.js, manifest.json and styles.css` : `Download main.js, manifest.json and styles.css from the official GitHub release, ${rel}/<file> (only from that address), into "<vault>/.obsidian/plugins/caldera/". Check manifest.json says "id": "caldera" and "author": "mjonesone, LLC"`} (create the folders if needed).
 2. Add "caldera" to the JSON array in "<vault>/.obsidian/community-plugins.json" (create the file as ["caldera"] if it does not exist). Do not remove other entries.`;
   const welcome = `Caldera opens a Welcome window where I type my name and pick a handle; it creates my identity on this device, publishes my profile and opens it in my browser. Do NOT create the identity, read the plugin's data.json, or handle my keys yourself - that file holds my private key. Wait until I tell you my profile is live, then continue with step 2.`;
   const install = o.installed ? `## 1. Install
@@ -3389,7 +3390,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
     new import_obsidian2.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
     for (const site of sites) {
-      const snippet = `<script async src="${hub}/t.js" data-site="${site.key}"><\/script>`;
+      const snippet = trackTag(hub, site.key);
       new import_obsidian2.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
         await navigator.clipboard.writeText(snippet);
         new import_obsidian2.Notice(`Snippet for ${site.project} copied`);
@@ -3428,15 +3429,19 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     });
   }
 };
+var TRACK_SRI = "sha384-UCnwKWu6Be2g87+ZI1+h367D6yOXEuXFQL2U2Z7PuSoH3oSCsu/cmZMbj4s70JlC";
+var trackTag = (hub, key) => `<script async src="${hub.replace(/\/$/, "")}/t/1.js" integrity="${TRACK_SRI}" crossorigin="anonymous" data-site="${key}"><\/script>`;
+var AGENT_HOOK_SHA256 = "bfe8dbde26fdc5e8b2e33805cdd4cadb98020ecaf34fe3f7c2e491ed636aedae";
 function agentSetupPrompt(hub, k) {
   return `Set up the Caldera agent hook on this computer, so my Caldera city shows what my AI agents are working on.
 
 1. Download ${hub}/agent-hook.mjs to ~/.caldera/agent-hook.mjs (create the folder). Read it first: it reads the hook event from stdin, works out the repo (git remote name) and a short task title, and posts only that to my Caldera hub, with a 1.5 second timeout. It never blocks or changes anything.
+   Before using it, check its SHA-256 is ${AGENT_HOOK_SHA256} (shasum -a 256 ~/.caldera/agent-hook.mjs). If it doesn't match, delete it, stop and tell me.
 2. Write ~/.caldera/agent.json (chmod 600): {"hub": "${hub}", "key": "${k.key}", "secret": "${k.secret}", "machine": "<a short name for this computer>"}
 3. In ~/.claude/settings.json, add hooks (keep any existing ones) that run \`node ~/.caldera/agent-hook.mjs\` for UserPromptSubmit, PostToolUse, Stop, Notification and SessionEnd.
 4. Test it: echo '{"hook_event_name":"UserPromptSubmit","session_id":"caldera-test-1","cwd":"'$PWD'","prompt":"Testing the Caldera agent hook"}' | node ~/.caldera/agent-hook.mjs and confirm it exits quietly, then send SessionEnd for the same session to clear the test drone.
 
-Keep the key and secret out of any repo.`;
+Keep the key and secret out of any repo. If I'd rather not send task titles at all, add "tasks": false to agent.json (drones still fly, without words).`;
 }
 
 // src/collect.ts
@@ -4576,7 +4581,7 @@ function fallbackCopy(t){try{var ta=document.createElement('textarea');ta.value=
 function setupDismissed(){try{return localStorage.getItem('caldera-setup-dismissed')==='1'}catch(err){return false}}
 function ownerSetup(o){SETUP=o;if(MINI||!o||setupDismissed()||o.dismissed)return;var needLive=o.liveOff&&o.sites&&o.sites.length,needAg=o.agentsOff&&o.agentPrompt;if(!needLive&&!needAg){if(setupEl)setupEl.remove();return}
   if(!setupEl){setupEl=document.createElement('div');setupEl.className='c-setup';st.parentNode.insertBefore(setupEl,st.nextSibling)}
-  var snip=function(s){return '<script async src="'+o.hub+'/t.js" data-site="'+s.key+'"></'+'script>'};
+  var snip=function(s){return '<script async src="'+o.hub+(o.sri?'/t/1.js" integrity="'+o.sri+'" crossorigin="anonymous':'/t.js')+'" data-site="'+s.key+'"></'+'script>'};
   var aiLive='Add Caldera live traffic to my websites, so visits show up as people arriving in my Caldera city.\n\nFor each site below, find the repo that builds that site, add the tag to the shared layout so it loads on every page (in <head>), deploy it, then open the live site and confirm a visit appears in my city at '+o.hub+(HND?'/@'+HND+'/city.html':'')+' (it shows within about 10 seconds).\n\nOn the signup success step call window.caldera && caldera(\'signup\'), and after a purchase caldera(\'buy\').\n\n'+(o.sites||[]).map(function(s){return '- '+s.project+':\n  '+snip(s)}).join('\n');
   setupEl.innerHTML=(needLive?'<div class="c-su-row"><span>Live visitors are off. See people arrive in your city as they visit your sites.</span><button type="button" class="c-su-go" data-p="live">Set up &rarr;</button></div>':'')
     +(needAg?'<div class="c-su-row"><span>Watch your AI agents work in your city.</span><button type="button" class="c-su-go" data-p="agents">Set up &rarr;</button></div>':'')
@@ -5254,11 +5259,11 @@ function scored(daily) {
     return { ...d, score, delta: prev ? Math.round((score - prev) / prev * 100) : null };
   });
 }
-var SRC_LABEL = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", profile: "Profile note", module: "Custom module" };
+var SRC_LABEL = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", self: "In their words", profile: "Profile note", module: "Custom module" };
 var srcLine = (src, what) => `<p class="sec-src">${src.map((x) => `<span class="src s-${x}">${SRC_LABEL[x]}</span>`).join("")}<span class="sec-what">${what}</span></p>`;
 var head = (title, src, what) => `<h2>${esc3(title)}</h2>${srcLine(src, what)}`;
 function renderProfile(p) {
-  const s = p.sections, gh = p.source === "GitHub";
+  const s = p.sections, gh = p.source === "GitHub", em = p.source === "Caldera";
   const days = scored(p.daily);
   const labels = { meetings: "Meetings", emails: "Emails sent", prompts: "AI sessions", commits: "Commits", notes: "Notes", docs: "Docs filed" };
   const present = Object.keys(labels).filter((k) => days.some((d) => d.counts[k]));
@@ -5340,10 +5345,10 @@ ${(() => {
     return `<div class="two-col sb-lower"><div class="lb-wrap"><div class="label">Leaderboard / points this week</div>${lb.join("")}${invitePop(p)}</div><div><div class="label">Your best other days</div>${best.map((b, k) => `<div class="lb-row"><span class="rank">${k + 1}</span><span class="who">${esc3((/* @__PURE__ */ new Date(b.d.date + "T12:00:00Z")).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }))}</span><span class="num">${b.d.score}</span></div>`).join("")}</div></div>`;
   })()}
 <details class="sb-how"><summary>How the score works</summary>Weighted daily counts: ${Object.entries(ACTIVITY_WEIGHTS).map(([k, w]) => `${labels[k] || k} x${w}`).join(", ")}. Bulk imports are capped. Counts only.</details></section>`);
-  if (s.properties && p.properties.length) parts.push(`${head("At a glance", [gh ? "github" : "profile"], gh ? "From the GitHub profile." : "Facts from the profile note in the vault.")}<dl class="props">${p.properties.map(([k, v]) => `<dt>${esc3(k)}</dt><dd>${esc3(v)}</dd>`).join("")}</dl>`);
+  if (s.properties && p.properties.length) parts.push(`${head("At a glance", [gh ? "github" : em ? "self" : "profile"], gh ? "From the GitHub profile." : em ? "A few facts." : "Facts from the profile note in the vault.")}<dl class="props">${p.properties.map(([k, v]) => `<dt>${esc3(k)}</dt><dd>${esc3(v)}</dd>`).join("")}</dl>`);
   if (s.numbers) parts.push(`${head("The vault in numbers", ["obsidian"], "Counts only. What the notes say stays private.")}<div class="stat-strip">${[[fmt(p.stats.notes), "notes"], [(p.stats.words / 1e6).toFixed(2) + "M", "words"], [fmt(p.stats.links), "links between notes"], [String(p.stats.activeDays), "active days, 26 weeks"], ...p.extraNumbers || []].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.summary !== false && p.summary) parts.push(`<div class="callout"><div class="callout-title">Summary</div>${inline(p.summary)}</div>`);
-  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : p.nowAuto ? "obsidian" : "profile"], gh ? "Public repos pushed in the last two weeks. Updates by itself." : p.nowAuto ? "What's been happening this week, from the daily journal. Updates by itself." : "What's in progress right now.")}<ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
+  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : em ? "self" : p.nowAuto ? "obsidian" : "profile"], gh ? "Public repos pushed in the last two weeks. Updates by itself." : p.nowAuto ? "What's been happening this week, from the daily journal. Updates by itself." : "What's in progress right now.")}<ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
   for (const m of mainMods) parts.push(`<section class="module" data-module="${esc3(m.slug)}">${head(m.title, ["module"], "A section written for this page in Obsidian.")}<div class="mod-body">${m.html}</div></section>`);
   if (s.activity !== false && p.heat?.length) {
     const lvl = (n) => n === 0 ? 0 : n < 5 ? 1 : n < 30 ? 2 : n < 200 ? 3 : 4;
@@ -5369,10 +5374,10 @@ ${(() => {
     const se = ib.series, smax2 = Math.max(1, ...(se?.weeks || []).map((w) => w[1]));
     parts.push(`${head("Inbox to knowledge", ["obsidian"], esc3(ib.note || `Every email attachment is read, summarized and linked into the vault overnight. ${fmt(total)} documents so far, by kind. Contents stay private.`))}<div class="two-col"><div>${ib.kinds.map(([l, n]) => `<div class="hbar"><span>${esc3(l)}</span><span class="track"><span class="fill alt" style="width:${(n / kmax * 100).toFixed(1)}%"></span></span><span class="num">${fmt(n)}</span></div>`).join("")}</div>${se?.weeks?.length ? `<div><div class="label">${esc3(se.label)} / ${fmt(se.weeks.reduce((a, w) => a + w[1], 0))} in ${se.weeks.length} weeks</div><div class="cols">${se.weeks.map(([l, n]) => `<span title="${esc3(l)}: ${n}"><b style="height:${Math.max(3, n / smax2 * 100).toFixed(1)}%"></b><em>${n || ""}</em></span>`).join("")}</div><div class="bars-legend"><span>${esc3(se.weeks[0][0])}</span><span>this week</span></div></div>` : ""}</div>`);
   }
-  if (s.topics && p.topics.length) parts.push(`${gh ? head("Topics", ["github"], "Repo topics and languages, from public repos.") : head("Topics", ["obsidian"], "The tags used most in the vault.")}<div class="cloud">${p.topics.map(([t, n]) => `<span style="font-size:${(13 + n / tmax * 15).toFixed(1)}px">${esc3(t)}<sup>${n}</sup></span>`).join("")}</div>`);
+  if (s.topics && p.topics.length) parts.push(`${gh ? head("Topics", ["github"], "Repo topics and languages, from public repos.") : em ? head("Topics", ["self"], "What they work on.") : head("Topics", ["obsidian"], "The tags used most in the vault.")}<div class="cloud">${p.topics.map(([t, n]) => `<span style="font-size:${(13 + n / tmax * 15).toFixed(1)}px">${esc3(t)}<sup>${n}</sup></span>`).join("")}</div>`);
   if (s.projects !== false && p.projects?.length) {
     const hasC = p.projects.some((x) => x.commits);
-    parts.push(`${gh ? head("Projects", ["github"], "Public repositories with the most commits.") : head("Projects", hasC ? ["obsidian", "github"] : ["obsidian"], `Notes in the vault's Projects folder${hasC ? ", with commit counts from GitHub" : ""}.`) + `<div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div>`}<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? '<th class="num">commits</th>' : ""}<th>link</th></tr></thead><tbody>${p.projects.map((x) => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.name)}</a>` : esc3(x.name)}</td><td>${esc3(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
+    parts.push(`${gh ? head("Projects", ["github"], "Public repositories with the most commits.") : em ? head("Projects", ["self"], "What they're building, with the number of updates on each.") : head("Projects", hasC ? ["obsidian", "github"] : ["obsidian"], `Notes in the vault's Projects folder${hasC ? ", with commit counts from GitHub" : ""}.`) + `<div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div>`}<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? `<th class="num">${em ? "updates" : "commits"}</th>` : ""}<th>link</th></tr></thead><tbody>${p.projects.map((x) => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.name)}</a>` : esc3(x.name)}</td><td>${esc3(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
   }
   if (s.code !== false && p.code && p.code.commits > 0) {
     const c = p.code, wk = c.weekly || [], f = Math.max(0, Math.min(wk.findIndex((x) => x > 0), wk.length - 26)), w2 = [...Array(Math.max(0, 26 - wk.length)).fill(0), ...wk.slice(f)], peak = Math.max(1, ...w2);
@@ -5387,11 +5392,11 @@ ${(() => {
     };
     parts.push(`${head("AI usage", ["agents"], "Tokens used by AI models and coding agents.")}<p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc3(a.note)}</span>` : ""}</p>${td.some((x) => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map((x) => `<span class="${x.n >= tpeak * 0.5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc3(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc3(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>${a.sources && a.sources.length > 1 ? `<div style="margin-top:var(--space-4)"><div class="label">Where the tokens come from</div>${bars(a.sources, true)}</div>` : ""}`);
   }
-  if (s.timeline !== false && p.timeline?.length) parts.push(`${gh ? head("Timeline", ["github"], "Milestones from public GitHub: joining, then the repos that stand out.") : head("Timeline", ["profile"], "Milestones, from the profile note.")}<div class="timeline">${timelineRows(p.timeline)}</div>`);
+  if (s.timeline !== false && p.timeline?.length) parts.push(`${gh ? head("Timeline", ["github"], "Milestones from public GitHub: joining, then the repos that stand out.") : em ? head("Timeline", ["self"], "Milestones.") : head("Timeline", ["profile"], "Milestones, from the profile note.")}<div class="timeline">${timelineRows(p.timeline)}</div>`);
   if (gardenEnabled() && s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
   if (s.notes && p.publicNotes.length) parts.push(`${head("Notes", ["obsidian"], "Notes published from the vault.")}${p.publicNotes.map((n) => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc3(n.title)}</div><div class="pn-ex">${esc3(n.excerpt)}</div><div class="pn-date">${esc3(n.updated.slice(0, 10))}</div></div>`).join("")}`);
-  if (s.links && p.links.length) parts.push(`${head("Elsewhere", [gh ? "github" : "profile"], "Other places on the web.")}<ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc3(u)}" rel="noopener">${esc3(l)}</a></li>`).join("")}</ul>`);
-  parts.push(`<div class="foot">${gh ? "Built from GitHub" : "Grown from an Obsidian vault"} with Caldera. Updated ${esc3(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc3((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
+  if (s.links && p.links.length) parts.push(`${head("Elsewhere", [gh ? "github" : em ? "self" : "profile"], "Other places on the web.")}<ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc3(u)}" rel="noopener">${esc3(l)}</a></li>`).join("")}</ul>`);
+  parts.push(`<div class="foot">${gh ? "Built from GitHub" : em ? "Made" : "Grown from an Obsidian vault"} with Caldera. Updated ${esc3(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc3((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
   if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc3(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc3(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc3(t)}</span><div class="ctx">${esc3(c)}</div></div>`).join("")}</div>` : ""}${sideMods.map((m) => `<div class="module side" data-module="${esc3(m.slug)}"><div class="label">${esc3(m.title)}</div><div class="mod-body">${m.html}</div></div>`).join("")}</aside>`);
   parts.push(`</div>`);
   parts.push(`<script>${CLIENT_JS}<\/script></body></html>`);
@@ -5670,8 +5675,8 @@ async function collectProfile(app, s, social) {
   const files = {};
   const img = async (vaultPath, name) => {
     const f = vaultPath && app.vault.getAbstractFileByPath(vaultPath);
-    if (f instanceof import_obsidian4.TFile) {
-      const out = `img/${name}.${f.extension}`;
+    if (f instanceof import_obsidian4.TFile && /^(png|jpe?g|gif|webp|avif|svg)$/i.test(f.extension) && f.stat.size <= 8 * 1024 * 1024) {
+      const out = `img/${name}.${f.extension.toLowerCase()}`;
       files[out] = await app.vault.readBinary(f);
       return out;
     }
@@ -6186,6 +6191,18 @@ function renderOwner(o) {
     if (!a) body = `<p class="ow-muted">Publish your profile to start seeing visits, gravity and links here.</p>`;
     else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc4(a.error)}). Your vault sections below still work offline.</p>`;
     else {
+      const num2 = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+      };
+      a.views = num2(a.views);
+      a.visitors = num2(a.visitors);
+      a.totalViews = num2(a.totalViews);
+      if (a.viewsAll !== void 0) a.viewsAll = num2(a.viewsAll);
+      if (a.viewsWeek !== void 0) a.viewsWeek = num2(a.viewsWeek);
+      a.days = (Array.isArray(a.days) ? a.days : []).map((d) => [String(d?.[0] ?? "").slice(0, 10), num2(d?.[1]), num2(d?.[2])]);
+      a.pages = (Array.isArray(a.pages) ? a.pages : []).map((x) => [String(x?.[0] ?? ""), num2(x?.[1])]);
+      for (const k of ["gravity", "friends", "links"]) if (!Array.isArray(a[k])) a[k] = [];
       const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"], ...a.kudos?.length ? [[a.kudos.length, "kudos"]] : []].concat(o.pending ? [[o.pending, o.pending === 1 ? "new follower" : "new followers"]] : []);
       body += `<div class="ow-tiles">${tiles.map(([n, l]) => `<div class="ow-tile${Number(n) ? " is-up" : ""}"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`;
       const byDay = new Map(a.days.map((d) => [d[0], d])), t0 = Date.parse(o.now);
@@ -6461,7 +6478,7 @@ var ProfileView = class extends import_obsidian6.ItemView {
     }
     const L = this.lastLive, liveOn = !!L && (Object.values(L.today || {}).some((x) => x?.v > 0) || Object.values(L.districts || {}).some((x) => x?.views > 0));
     const agentsOn = !!L && Array.isArray(L.agents) && L.agents.length > 0, sites = (s.traffic || []).map((t) => ({ key: t.key, project: t.project }));
-    const owner = s.citySetupDismissed ? null : { liveOff: !liveOn, agentsOff: !agentsOn, hub, sites: liveOn ? [] : sites, agentPrompt: !agentsOn && s.agentKey ? agentSetupPrompt(hub, s.agentKey) : "" };
+    const owner = s.citySetupDismissed ? null : { liveOff: !liveOn, agentsOff: !agentsOn, hub, sri: TRACK_SRI, sites: liveOn ? [] : sites, agentPrompt: !agentsOn && s.agentKey ? agentSetupPrompt(hub, s.agentKey) : "" };
     this.frame.contentWindow?.postMessage({ caldera: "extras", data: { weather: this.wx?.data || null, owner } }, "*");
   }
   /** "Since you last looked" moves forward when you come back after 30+ minutes away, not on every refresh. */
@@ -7292,7 +7309,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     if (!this.settings.handle || !this.settings.identity) return void new WelcomeModal(this.app, this).open();
     try {
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/link`, {}, true);
-      if (r?.url) return void window.open(sub ? `${r.url}&to=${encodeURIComponent(sub)}` : r.url);
+      if (typeof r?.url === "string" && r.url.startsWith(this.settings.hubUrl.replace(/\/$/, "") + "/")) return void window.open(sub ? `${r.url}&to=${encodeURIComponent(sub)}` : r.url);
     } catch (e) {
       console.warn("Caldera owner link failed:", e.message);
     }
@@ -7353,7 +7370,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       activityFile: s.activityFile,
       agentSetup: s.agentKey ? agentSetupPrompt(hub, s.agentKey) : void 0
     };
-    const snippets = (s.traffic || []).map((t) => `- ${t.project}: <script async src="${hub}/t.js" data-site="${t.key}"><\/script>`).join("\n");
+    const snippets = (s.traffic || []).map((t) => `- ${t.project}: ${trackTag(hub, t.key)}`).join("\n");
     const withSnippets = (t) => snippets ? `${t}
 
 My snippets, one per district (these are public site keys, fine in page HTML):
@@ -7527,13 +7544,14 @@ ${o.agentSetup}`;
     if (!sealed || !sender?.box_key) return false;
     const text = open(sealed, sender.box_key, me);
     if (text === null) return false;
-    const who = sender.handle || e.from.slice(4, 12);
-    const safe = String(e.body.title || "Shared note").replace(/[\\/:*?"<>|#^[\]]/g, " ").trim().slice(0, 80);
+    const plain = (v, n) => String(v ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n);
+    const who = plain(sender.handle, 40) || plain(e.from.slice(4, 12), 8) || "friend";
+    const safe = String(e.body.title || "Shared note").replace(/[\\/:*?"<>|#^[\]\x00-\x1f]/g, " ").replace(/^[.\s]+/, "").trim().slice(0, 80) || "Shared note";
     const fm = `---
 caldera_from: "${who}"
-caldera_card: "${e.body.id}"
-caldera_version: ${Number(e.body.version) || 1}
-caldera_received: ${e.ts}
+caldera_card: "${plain(e.body.id, 64)}"
+caldera_version: ${Math.max(1, Math.floor(Number(e.body.version)) || 1)}
+caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
 ---
 `;
     await this.write(`${this.settings.inboxFolder}/${who}/${safe}.md`, fm + text.replace(/^---[\s\S]*?---\s*/, ""));
@@ -7786,9 +7804,10 @@ caldera_received: ${e.ts}
       const repos = {};
       for (const d of city.districts) for (const rp of d.repos || []) if (rp.name) repos[await sha16(rp.name.toLowerCase())] = d.name;
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/sites`, { sites, repos }, true);
+      const tok = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{8,80}$/.test(v);
       if (Array.isArray(r.sites)) {
-        this.settings.traffic = r.sites;
-        if (r.agent?.key) this.settings.agentKey = r.agent;
+        this.settings.traffic = r.sites.filter((t) => tok(t?.key) && (t.secret === void 0 || tok(t.secret)) && sites.some((x) => x.project === t.project)).map((t) => ({ key: t.key, project: String(t.project), public: !!t.public, ...t.secret ? { secret: t.secret } : {} }));
+        if (tok(r.agent?.key) && tok(r.agent?.secret)) this.settings.agentKey = { key: r.agent.key, secret: r.agent.secret };
         await this.saveSettings();
       }
     } catch (e) {
@@ -8059,7 +8078,9 @@ var CalderaView = class extends import_obsidian8.ItemView {
         const who = row.createSpan();
         who.createEl("b", { text: "@" + x.login });
         who.createDiv({ cls: "setting-item-description", text: x.relation });
-        row.createEl("button", { text: "GitHub" }).onclick = () => window.open(x.url);
+        row.createEl("button", { text: "GitHub" }).onclick = () => {
+          if (/^https:\/\/github\.com\//.test(String(x.url))) window.open(x.url);
+        };
         if (x.invited) row.createSpan({ cls: "setting-item-description", text: "invited" });
         else if (x.canEmail) row.createEl("button", { text: "Email invite" }).onclick = async () => {
           try {

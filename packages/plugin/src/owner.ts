@@ -54,6 +54,13 @@ export function renderOwner(o: OwnerData): string {
     if (!a) body = `<p class="ow-muted">Publish your profile to start seeing visits, gravity and links here.</p>`;
     else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc(a.error)}). Your vault sections below still work offline.</p>`;
     else {
+      // the counts come from the hub: force them to numbers so nothing it sends can become markup in this page
+      const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0; };
+      a.views = num(a.views); a.visitors = num(a.visitors); a.totalViews = num(a.totalViews);
+      if (a.viewsAll !== undefined) a.viewsAll = num(a.viewsAll); if (a.viewsWeek !== undefined) a.viewsWeek = num(a.viewsWeek);
+      a.days = (Array.isArray(a.days) ? a.days : []).map(d => [String(d?.[0] ?? "").slice(0, 10), num(d?.[1]), num(d?.[2])] as [string, number, number]);
+      a.pages = (Array.isArray(a.pages) ? a.pages : []).map(x => [String(x?.[0] ?? ""), num(x?.[1])] as [string, number]);
+      for (const k of ["gravity", "friends", "links"] as const) if (!Array.isArray(a[k])) (a as any)[k] = [];
       const tiles = [[a.views, a.views === 1 ? "page view" : "page views"], [a.visitors, a.visitors === 1 ? "visitor" : "visitors"], [a.gravity.length, "gravity"], [a.friends.length, a.friends.length === 1 ? "new friend" : "new friends"], ...(a.kudos?.length ? [[a.kudos.length, "kudos"]] : [])]
         .concat(o.pending ? [[o.pending, o.pending === 1 ? "new follower" : "new followers"]] : []);
       body += `<div class="ow-tiles">${tiles.map(([n, l]) => `<div class="ow-tile${Number(n) ? " is-up" : ""}"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`;

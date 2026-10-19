@@ -5,7 +5,7 @@
  */
 import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
-import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom } from "./settings";
+import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
 import { collectProfile } from "./collect";
 import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
@@ -325,7 +325,7 @@ export default class CalderaPlugin extends Plugin {
    *  page shows a "Private view" button instead of the sign-up pitch, and the owner's own visits aren't counted. */
   async openProfile(sub = "") {
     if (!this.settings.handle || !this.settings.identity) return void new WelcomeModal(this.app, this).open();
-    try { const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/link`, {}, true); if (r?.url) return void window.open(sub ? `${r.url}&to=${encodeURIComponent(sub)}` : r.url); }
+    try { const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/link`, {}, true); if (typeof r?.url === "string" && r.url.startsWith(this.settings.hubUrl.replace(/\/$/, "") + "/")) return void window.open(sub ? `${r.url}&to=${encodeURIComponent(sub)}` : r.url); }
     catch (e: any) { console.warn("Caldera owner link failed:", e.message); }
     window.open(this.profileUrl() + sub);
   }
@@ -365,7 +365,7 @@ export default class CalderaPlugin extends Plugin {
     const a = this.app.vault.adapter, s = this.settings, hub = s.hubUrl.replace(/\/$/, "");
     const o = { vaultPath: a instanceof FileSystemAdapter ? a.getBasePath() : undefined, hubUrl: s.hubUrl, handle: s.handle || undefined, activityFile: s.activityFile,
       agentSetup: s.agentKey ? agentSetupPrompt(hub, s.agentKey) : undefined };
-    const snippets = (s.traffic || []).map(t => `- ${t.project}: <script async src="${hub}/t.js" data-site="${t.key}"></script>`).join("\n");
+    const snippets = (s.traffic || []).map(t => `- ${t.project}: ${trackTag(hub, t.key)}`).join("\n");
     const withSnippets = (t: string) => snippets ? `${t}\n\nMy snippets, one per district (these are public site keys, fine in page HTML):\n${snippets}` : t;
     const ids = ["live", "agents", "ai", "private", "story", "code"] as const;
     let text: string;
@@ -488,9 +488,12 @@ export default class CalderaPlugin extends Plugin {
     const sender = this.friends.find(f => f.id === e.from);
     if (!sealed || !sender?.box_key) return false;
     const text = C.open(sealed, sender.box_key, me); if (text === null) return false;
-    const who = sender.handle || e.from.slice(4, 12);
-    const safe = String(e.body.title || "Shared note").replace(/[\\/:*?"<>|#^[\]]/g, " ").trim().slice(0, 80);
-    const fm = `---\ncaldera_from: "${who}"\ncaldera_card: "${e.body.id}"\ncaldera_version: ${Number(e.body.version) || 1}\ncaldera_received: ${e.ts}\n---\n`;
+    // everything that names the file or goes in its frontmatter came over the network: keep it to plain characters so a
+    // bad handle or title can never write outside the inbox folder or break the frontmatter
+    const plain = (v: unknown, n: number) => String(v ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n);
+    const who = plain(sender.handle, 40) || plain(e.from.slice(4, 12), 8) || "friend";
+    const safe = String(e.body.title || "Shared note").replace(/[\\/:*?"<>|#^[\]\x00-\x1f]/g, " ").replace(/^[.\s]+/, "").trim().slice(0, 80) || "Shared note";
+    const fm = `---\ncaldera_from: "${who}"\ncaldera_card: "${plain(e.body.id, 64)}"\ncaldera_version: ${Math.max(1, Math.floor(Number(e.body.version)) || 1)}\ncaldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}\n---\n`;
     await this.write(`${this.settings.inboxFolder}/${who}/${safe}.md`, fm + text.replace(/^---[\s\S]*?---\s*/, ""));
     return true;
   }
@@ -672,7 +675,15 @@ export default class CalderaPlugin extends Plugin {
       const repos: Record<string, string> = {};
       for (const d of city.districts) for (const rp of d.repos || []) if (rp.name) repos[await sha16(rp.name.toLowerCase())] = d.name;
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/sites`, { sites, repos }, true);
-      if (Array.isArray(r.sites)) { this.settings.traffic = r.sites; if (r.agent?.key) this.settings.agentKey = r.agent; await this.saveSettings(); }
+      // the hub's answer ends up inside prompts people paste into their AI and in script tags on their sites: take only
+      // well-formed keys, so a bad answer can never smuggle instructions or markup in
+      const tok = (v: unknown) => typeof v === "string" && /^[A-Za-z0-9_-]{8,80}$/.test(v);
+      if (Array.isArray(r.sites)) {
+        this.settings.traffic = r.sites.filter((t: any) => tok(t?.key) && (t.secret === undefined || tok(t.secret)) && sites.some(x => x.project === t.project))
+          .map((t: any) => ({ key: t.key, project: String(t.project), public: !!t.public, ...(t.secret ? { secret: t.secret } : {}) }));
+        if (tok(r.agent?.key) && tok(r.agent?.secret)) this.settings.agentKey = { key: r.agent.key, secret: r.agent.secret };
+        await this.saveSettings();
+      }
     } catch (e: any) { console.warn("Caldera live-traffic sites:", e.message); }
   }
   /** The weather where this computer is (the hub looks it up from this request and keeps nothing), for the city's sky. */
@@ -878,7 +889,7 @@ class CalderaView extends ItemView {
       for (const x of p.ghPeople.people.slice(0, 20)) {
         const row = el.createDiv("caldera-row");
         const who = row.createSpan(); who.createEl("b", { text: "@" + x.login }); who.createDiv({ cls: "setting-item-description", text: x.relation });
-        row.createEl("button", { text: "GitHub" }).onclick = () => window.open(x.url);
+        row.createEl("button", { text: "GitHub" }).onclick = () => { if (/^https:\/\/github\.com\//.test(String(x.url))) window.open(x.url); };
         if (x.invited) row.createSpan({ cls: "setting-item-description", text: "invited" });
         else if (x.canEmail) row.createEl("button", { text: "Email invite" }).onclick = async () => {
           try { new Notice(await p.githubInvite(x.login)); x.invited = true; this.render(); } catch (e: any) { new Notice(e.message); } };
