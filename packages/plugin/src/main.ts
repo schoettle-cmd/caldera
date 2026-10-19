@@ -8,6 +8,7 @@ import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
 import { collectProfile } from "./collect";
 import { forgeOf, githubRepoSig } from "./auto";
+import { later, every, cancel, type BgTimer } from "./bgtimers";
 import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
 import type { GardenReport } from "./collect";
@@ -33,7 +34,7 @@ export default class CalderaPlugin extends Plugin {
   /** members who asked to meet you (double opt-in introductions waiting for your answer) */
   intros: { id: string; handle: string; name: string; headline: string; tag: string; ts: string }[] = [];
   private token: { value: string; until: number } | null = null;
-  private timers: number[] = [];
+  private timers: BgTimer[] = [];
 
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -99,27 +100,27 @@ export default class CalderaPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => {
       if (this.settings.openProfileOnStartup) void this.openProfileTab();
-      this.schedulePrivatePush(); if (this.settings.privateWeb) window.setTimeout(() => { void this.pushPrivate(false); }, 30_000);
+      this.schedulePrivatePush(); if (this.settings.privateWeb) this.timers.push(later(() => { void this.pushPrivate(false); }, 30_000));
       if (this.settings.identity && this.settings.handle) void this.syncInbox(false);
       else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
       window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
       window.setTimeout(() => { void this.offerFinish(); }, 12_000);   // once: a bare page gets an offer to fill it in
       // catch up after Obsidian was closed: the daily journal (and the garden it grows) may have changed meanwhile
-      window.setTimeout(() => { if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 3600_000) void this.publish(true); }, 20_000);
+      this.timers.push(later(() => { if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 3600_000) void this.publish(true); }, 20_000));
     });
-    this.timers.push(window.setInterval(() => { if (this.settings.identity) void this.syncInbox(false); }, 10 * 60_000));
+    this.timers.push(every(() => { if (this.settings.identity) void this.syncInbox(false); }, 10 * 60_000));
     // new repos show up within minutes: check GitHub every 10 minutes, and republish when a tool of your own rewrites
     // Caldera/city.json (the plugin's own writes happen inside a publish and are ignored)
-    this.timers.push(window.setInterval(() => { void this.checkRepos(); }, 10 * 60_000));
+    this.timers.push(every(() => { void this.checkRepos(); }, 10 * 60_000));
     this.app.workspace.onLayoutReady(() => {
       this.registerEvent(this.app.vault.on("modify", f => { if (f.path === "Caldera/city.json" && !this.publishing) this.queuePublish("profile"); }));
-      window.setTimeout(() => { void this.checkRepos(); }, 60_000);
+      this.timers.push(later(() => { void this.checkRepos(); }, 60_000));
     });
     this.scheduleAutoPublish();
   }
 
   // every repeating timer is cleared on unload: an update or reload must not leave the old code publishing in the background
-  onunload() { this.timers.forEach(t => window.clearInterval(t)); for (const k of ["_auto", "_priv"]) if ((this as any)[k]) window.clearInterval((this as any)[k]); this.unloaded = true; }
+  onunload() { this.timers.forEach(t => cancel(t)); for (const k of ["_auto", "_priv"]) cancel((this as any)[k]); cancel(this.publishTimer); this.unloaded = true; }
   private unloaded = false;
   async saveSettings() { await this.saveData(this.settings); }
 
@@ -156,9 +157,9 @@ export default class CalderaPlugin extends Plugin {
   }
 
   scheduleAutoPublish() {
-    if ((this as any)._auto) window.clearInterval((this as any)._auto);
+    cancel((this as any)._auto);
     const h = this.settings.autoPublishHours;
-    if (h > 0) (this as any)._auto = window.setInterval(() => { void this.publish(true); }, h * 3600_000);
+    (this as any)._auto = h > 0 ? every(() => { void this.publish(true); }, h * 3600_000) : null;
   }
 
   // ---------------------------------------------------------------- hub client
@@ -237,11 +238,11 @@ export default class CalderaPlugin extends Plugin {
   }
 
   // republish shortly after the owner (or their agent) edits Caldera/profile.md or the activity file
-  private publishTimer: number | null = null;
+  private publishTimer: BgTimer | null = null;
   queuePublish(reason: "profile" | "activity") {
     if (!this.settings.identity || !this.settings.handle) return;
-    if (this.publishTimer) window.clearTimeout(this.publishTimer);
-    this.publishTimer = window.setTimeout(() => {
+    cancel(this.publishTimer);
+    this.publishTimer = later(() => {
       this.publishTimer = null;
       void this.publish(true).then(url => { if (url && reason === "profile") new Notice("Caldera: your public page was updated."); });
     }, 45_000);
@@ -753,8 +754,8 @@ export default class CalderaPlugin extends Plugin {
   }
 
   schedulePrivatePush() {
-    if ((this as any)._priv) window.clearInterval((this as any)._priv);
-    if (this.settings.privateWeb) (this as any)._priv = window.setInterval(() => { void this.pushPrivate(false); }, 10 * 60_000);
+    cancel((this as any)._priv);
+    (this as any)._priv = this.settings.privateWeb ? every(() => { void this.pushPrivate(false); }, 10 * 60_000) : null;
   }
 
   /** The city in a small always-on-top window: needs the My profile tab (it builds the city), so open it first if needed. */
