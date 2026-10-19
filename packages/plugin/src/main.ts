@@ -290,10 +290,11 @@ export default class CalderaPlugin extends Plugin {
   }
 
   /** true while a publish runs (and for 15 s after): the city.json it writes must not queue another publish */
-  publishing = false; private publishEnded = 0;
+  private publishRuns = 0; private publishEnded = 0;
+  get publishing(): boolean { return this.publishRuns > 0 || Date.now() - this.publishEnded < 15_000; }
   async publish(quiet = false): Promise<string | null> {
-    this.publishing = true;
-    try { return await this.publishNow(quiet); } finally { this.publishEnded = Date.now(); window.setTimeout(() => { if (Date.now() - this.publishEnded >= 15_000) this.publishing = false; }, 15_000); }
+    this.publishRuns++;
+    try { return await this.publishNow(quiet); } finally { this.publishRuns--; this.publishEnded = Date.now(); }
   }
   private async publishNow(quiet = false): Promise<string | null> {
     if (this.unloaded) return null;

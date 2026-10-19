@@ -1,4 +1,4 @@
-/* Caldera 0.25.11 */
+/* Caldera 0.25.12 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -6926,7 +6926,7 @@ var CalderaPlugin = class extends import_obsidian8.Plugin {
     // republish shortly after the owner (or their agent) edits Caldera/profile.md or the activity file
     this.publishTimer = null;
     /** true while a publish runs (and for 15 s after): the city.json it writes must not queue another publish */
-    this.publishing = false;
+    this.publishRuns = 0;
     this.publishEnded = 0;
     this.lastPublishError = "";
     /** What the floating city shows; open=false only refreshes a window that's already open. */
@@ -7267,15 +7267,16 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       new PromptModal(this.app, text).open();
     }
   }
+  get publishing() {
+    return this.publishRuns > 0 || Date.now() - this.publishEnded < 15e3;
+  }
   async publish(quiet = false) {
-    this.publishing = true;
+    this.publishRuns++;
     try {
       return await this.publishNow(quiet);
     } finally {
+      this.publishRuns--;
       this.publishEnded = Date.now();
-      window.setTimeout(() => {
-        if (Date.now() - this.publishEnded >= 15e3) this.publishing = false;
-      }, 15e3);
     }
   }
   async publishNow(quiet = false) {

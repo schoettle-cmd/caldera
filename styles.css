@@ -1,4 +1,4 @@
-/* Caldera 0.25.11 */
+/* Caldera 0.25.12 */
 .caldera-panel h3 { margin-top: 0; }
 .caldera-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }
 .caldera-stat { background: var(--background-secondary); border-radius: 8px; padding: 8px; text-align: center; }
