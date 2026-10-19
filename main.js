@@ -2635,7 +2635,7 @@ function publicTextFilter(allowed = []) {
     }
     return null;
   };
-  const f = (line) => why(line) === null;
+  const f = ((line) => why(line) === null);
   f.why = why;
   return f;
 }
@@ -5767,9 +5767,11 @@ async function collectProfile(app, s, social) {
   } catch {
   }
   const data = {
+    // never "Untitled": the handle until they set a name
     name: s.name || s.handle || "Your name",
     handle: s.handle || void 0,
-    // never "Untitled": the handle until they set a name headline: s.headline, theme: s.theme,
+    headline: s.headline,
+    theme: s.theme,
     avatar: avatarPath,
     icon,
     banner: await img(s.bannerPath, "banner"),
