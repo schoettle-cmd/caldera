@@ -296,6 +296,10 @@ export default class CalderaPlugin extends Plugin {
       void this.syncSites(cityPrivate, data.city?.districts.map(d => d.name) || []);
       const url = this.profileUrl();
       if (!quiet) new Notice(`Published: ${url}`);
+      // no name yet: the page shows the handle; say once a day where to set a real one
+      if (!eff.name && Date.now() - ((this.settings as any).nameNudgedAt || 0) > 86_400_000) {
+        (this.settings as any).nameNudgedAt = Date.now(); await this.saveSettings();
+        new Notice(`Your page shows @${eff.handle || "your handle"} as your name. Add your name in Caldera/profile.md (the "name:" line) or Settings > Caldera.`, 12000); }
       // once, after the page is first live (or after updating to a Caldera with sharing): offer to share it
       if (!this.settings.sharePrompted && this.settings.welcomed) { this.settings.sharePrompted = true; await this.saveSettings(); window.setTimeout(() => this.openShare(), 1500); }
       return url;

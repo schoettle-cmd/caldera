@@ -4255,6 +4255,7 @@ var CITY_CSS = `
 .c-stage.c-full{position:fixed;inset:0;z-index:9999;height:100%;min-height:0;border-radius:0;border:0}
 .c-stage:fullscreen{height:100%;border-radius:0;border:0}
 /* arrivals: toasts for signups and sales */
+.c-gift{margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:5px}.c-gift-b{all:unset;cursor:pointer;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:linear-gradient(90deg,#FFD98A,#FFB65C);color:#2A1A00;font:700 12.5px var(--font-body,'IBM Plex Sans',Arial,sans-serif);text-decoration:none}.c-gift-b:hover{filter:brightness(1.06)}.c-gift-b:disabled{opacity:.6;cursor:default}.c-gift-b:focus-visible{outline:2px solid #FFD98A;outline-offset:2px}
 .c-toasts{position:absolute;left:10px;top:48px;z-index:3;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:calc(100% - 20px)}
 .c-toast{font:600 12px/1.3 var(--font-mono,'IBM Plex Mono',monospace);padding:6px 11px;border-radius:9px;background:rgba(2,6,12,.9);color:#fff;border:1px solid #FF4FD8;box-shadow:0 0 14px rgba(255,79,216,.45);animation:ctin .35s ease-out,ctout .6s ease-in 4.6s forwards;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c-toast.buy{border-color:#FFD23F;box-shadow:0 0 14px rgba(255,210,63,.5)}
@@ -4384,7 +4385,7 @@ function exits(b){if(b.ex)return b.ex;b.ex=[];for(var j=b.y-1;j<=b.y+b.k;j++)for
 function spawn(b,col,fast){var ex=exits(b);if(!ex.length||vis.length>160)return;var s=ex[Math.floor(Math.random()*ex.length)];
   var v={i:s[0],j:s[1],ti:s[0],tj:s[1],t:1,col:col,b:b,born:performance.now(),life:14000+Math.random()*9000,sp:fast?.06:.045};step(v);vis.push(v)}
 function pulse(b,col,big){var p=iso(b.x+b.k/2-.5,b.y+b.k/2-.5);pulses.push({x:p.x,y:p.y,col:col,born:performance.now(),big:big})}
-function onLive(data){if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
+function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT=data.lit;if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
   if(!LV.on&&Object.keys(LV.d).length){LV.on=true;cars.length=0}   // live data replaces the ambient traffic: from now on every car is a real visitor
   if(LV.on)reconcile();
   if(Array.isArray(data.agents))agentsIn(data.agents);
@@ -4877,8 +4878,36 @@ function worldCard(b){var key=b.d.nb||b.d.name,m=WORLD.m[key]||{},nn=NBM[key],nr
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(m.name||key)+'</h3><div class="k">'+e(key)+(m.isNew?' &middot; new this week':'')+(m.groups&&m.groups.length?' &middot; '+m.groups.map(function(g){return e(g)}).join(', '):'')+'</div>'
     +(m.headline?'<p style="margin:6px 0 0">'+e(m.headline)+'</p>':'')
     +'<div class="row"><span>Buildings</span><b>'+nrep+'</b></div>'+(nn&&nn.ds.length>1?'<div class="row"><span>Districts</span><b>'+nn.ds.length+'</b></div>':'')+(m.friends?'<div class="row"><span>Friends</span><b>'+m.friends+'</b></div>':'')
-    +'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>';
-  card.hidden=false;card.querySelector('.x').onclick=function(){WFOCUS=null;show(null)}}
+    +'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>'+giftHtml(key,'');
+  card.hidden=false;card.querySelector('.x').onclick=function(){WFOCUS=null;show(null)};giftWire(function(){worldCard(b)})}
+// ---- light-ups: one gift a day to celebrate someone's city (or one of its public repos). It shines on the world map for 24
+// hours as searchlights from the gifted building; every extra gift adds a beam, so friends rally to light each other up.
+var GC=window.CALDERA_GIFTS||null,GME=null,LIT={};
+if(D.world&&GC){fetch(GC.url+'/me',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){GME=j}).catch(function(){});
+  fetch(GC.url+'/lit',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.lit)LIT=j.lit}).catch(function(){})}
+function giftHtml(key,repo){if(!D.world||!GC)return'';var L=LIT[key],h=key.replace(/^@/,''),out='<div class="c-gift">';
+  if(L&&L.n)out+='<div class="k">&#10022; Lit up today by '+L.by.slice(0,4).map(function(x){return '@'+e(x)}).join(', ')+(L.n>4?' and '+(L.n-4)+' more':'')+'</div>';
+  if(!GME)out+='';else if(!GME.member)out+='<a class="c-gift-b" href="/auth/github?back=%2Fworld">&#10022; Sign in to light up '+(repo?'this repo':'their city')+'</a>';
+  else if(!GME.listed)out+='<div class="k">List your page in People to light up cities.</div>';
+  else if(GME.handle===h)out+=L&&L.n?'':'<div class="k">Friends can light up your city. It glows here for 24 hours.</div>';
+  else if((GME.today||[]).indexOf(h)>=0)out+='<div class="k">&#10022; You lit this city up today.</div>';
+  else if(GME.left<=0)out+='<div class="k">You\u2019ve given today\u2019s gift'+(GME.max>1?'s':'')+'. New '+(GME.max>1?'ones':'one')+' at midnight Pacific.</div>';
+  else out+='<button type="button" class="c-gift-b" data-gift="'+e(key)+'" data-repo="'+e(repo||'')+'">&#10022; Light up '+(repo?'this repo':'their city')+'</button><div class="k">'+GME.left+' gift'+(GME.left===1?'':'s')+' left today &middot; it glows for 24 hours</div>';
+  return out+'</div>'}
+function giftWire(again){var bt=card.querySelector('[data-gift]');if(!bt)return;bt.onclick=function(){bt.disabled=true;var key=bt.getAttribute('data-gift'),repo=bt.getAttribute('data-repo');
+  fetch(GC.url,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({to:key.replace(/^@/,''),repo:repo})}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})},function(){return{ok:false,j:{error:'Could not reach Caldera.'}}}).then(function(x){
+    if(!x.ok){bt.disabled=false;giftToast(x.j.error||'Could not light it up.');return}GME=x.j;LIT[key]=x.j.lit;giftToast('\u2726 You lit up '+key+'\u2019s city'+(repo?' for '+repo:'')+'. It glows for 24 hours.');again();dirty=true;draw()})}}
+function giftToast(m){if(!toasts)return;var t=document.createElement('div');t.className='c-toast';t.textContent=m;toasts.insertBefore(t,toasts.firstChild);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},5200)}
+/** searchlights: one per gift, up to 3, from the gifted buildings (else the tallest), sweeping and crossing */
+function drawLit(){if(!D.world)return;var ks=Object.keys(LIT);if(!ks.length)return;var c=cx,tn=performance.now(),amb={day:.55,dawn:.75,dusk:.85,evening:1,night:1.1,grid:1}[sky]||.9;
+  c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.globalCompositeOperation='lighter';
+  ks.forEach(function(key){var L=LIT[key],list=BDIST[key];if(!L||!L.n||!list||!list.length)return;var src=[];Object.keys(L.repos||{}).forEach(function(nm){var b=list.filter(function(o){return o.r.name===nm})[0];if(b)src.push(b)});
+    if(!src.length)src.push(list.slice().sort(function(a,b2){return bh(b2.r)-bh(a.r)})[0]);var nb=Math.min(3,L.n),sd=hash(key)%97;
+    for(var k=0;k<nb;k++){var b=src[k%src.length],p=iso(b.i,b.j),top=p.y-bh(b.r),ang=Math.sin(tn/2600+k*2.1+sd)*.3+(k-(nb-1)/2)*.22,len=340,tx=p.x+Math.sin(ang)*len,ty=top-Math.cos(ang)*len,w=34,nx=Math.cos(ang)*w,ny=Math.sin(ang)*w;
+      var g=c.createLinearGradient(p.x,top,tx,ty);g.addColorStop(0,'rgba(255,238,196,'+(.5*amb)+')');g.addColorStop(.6,'rgba(255,226,170,'+(.16*amb)+')');g.addColorStop(1,'rgba(255,226,170,0)');
+      c.fillStyle=g;c.beginPath();c.moveTo(p.x-2.5,top);c.lineTo(p.x+2.5,top);c.lineTo(tx+nx,ty+ny);c.lineTo(tx-nx,ty-ny);c.closePath();c.fill();
+      var hs=c.createRadialGradient(p.x,top,0,p.x,top,10);hs.addColorStop(0,'rgba(255,248,225,'+(.9*amb)+')');hs.addColorStop(1,'rgba(255,238,196,0)');c.fillStyle=hs;c.beginPath();c.arc(p.x,top,10,0,7);c.fill()}});
+  c.restore()}
 function worldFocus(b){b=(b.d.nb&&byName[b.d.nb])||b;var m=WORLD.m[b.d.nb||b.d.name]||{};if(WFOCUS===b&&m.city){location.href=m.city;return}WFOCUS=b;
   var c=blockMid(b),z0=cam.z,z1=Math.max(cam.z,Math.min(1.5,vw<600?.75:.9)),x0=cam.x,y0=cam.y,x1=vw/2-c.x*z1,y1=vh/2-c.y*z1+40*z1,t0=performance.now();
   (function anim(){var f=Math.min(1,(performance.now()-t0)/450),k=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;cam.z=z0+(z1-z0)*k;cam.x=x0+(x1-x0)*k;cam.y=y0+(y1-y0)*k;draw();if(f<1)requestAnimationFrame(anim)})();
@@ -4890,7 +4919,7 @@ function nbTop(n){if(n._ty==null){var ty=Infinity;n.ds.forEach(function(d){(BDIS
   var m=iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5);n._tx=m.x;n._ty=isFinite(ty)?ty-10:iso(n.ox-.5,n.oy-.5).y-10}return {x:n._tx,y:n._ty}}
 function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);if(!labels)return;c.setTransform(dpr,0,0,dpr,0,0);
   var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[];
-  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y);cand.push({pr:n.key===foc?0:1,x:sp[0],y:sp[1],text:(vw<600&&n.key.length>16?n.key.slice(0,15)+'…':n.key)+(wm.isNew?(vw<600?' ✦':' ✦ new'):''),bg:wm.isNew?'rgba(46,170,120,.95)':'rgba(139,108,246,.96)',fg:'#fff',font:vw<600?'700 11px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
+  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y);cand.push({pr:n.key===foc?0:1,x:sp[0],y:sp[1],text:(vw<600&&n.key.length>16?n.key.slice(0,15)+'…':n.key)+(wm.isNew?(vw<600?' ✦':' ✦ new'):'')+(LIT[n.key]&&LIT[n.key].n?'  \u2726 lit '+(LIT[n.key].n>1?'\u00d7'+LIT[n.key].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':'rgba(139,108,246,.96)',fg:'#fff',font:vw<600?'700 11px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
   if(z>=.55)blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
     Object.keys(per).forEach(function(k){if(!NBM[k])return;var hb=dockAt({d:k}),sp=S(hb.x,hb.y),q=per[k];
@@ -5058,7 +5087,7 @@ var lastPT=0;function frame(){T=performance.now();if(L1.width!==cv.width||L1.hei
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false}
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawRays();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawRays();drawLit();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh)}
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
 var last=0,FPS_MS=MINI?50:30;function tick(ts){if(!document.hidden&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
@@ -5083,8 +5112,9 @@ function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=n
    +'<div class="row"><span>Commits this year</span><b>'+r.commits.toLocaleString('en-US')+'</b></div><div class="row"><span>This week</span><b>'+r.week+'</b></div>'
    +(r.pushed?'<div class="row"><span>Last push</span><b>'+ago(r.pushed)+'</b></div>':'')
    +'<div class="row"><span>Notes about '+e(d.name)+'</span><b>'+d.notes+'</b></div>'+(notes?'<div class="k" style="margin-top:6px">'+notes+'</div>':'')
-   +(r.url?'<p style="margin:8px 0 0"><a href="'+e(r.url)+'" target="_blank" rel="noopener">Open on GitHub &#8599;</a></p>':'');
-  card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
+   +(r.url?'<p style="margin:8px 0 0"><a href="'+e(r.url)+'" target="_blank" rel="noopener">Open on GitHub &#8599;</a></p>':'')
+   +(D.world&&d.nb&&r.public&&!r.locked?giftHtml(d.nb,r.name):'');
+  card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};giftWire(function(){show(h)});draw()}
 function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=null,bd=1e9;UP.forEach(function(p,ix){var d=Math.hypot(p.x-wx0,p.y-wy0);if(d<Math.max(p.r+3,7/cam.z)&&d<bd){bd=d;best=ix}});return best==null?null:{note:best}}
   if(labels){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return th.block?{block:th.block}:{url:th.url}}}
   for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
@@ -5313,7 +5343,7 @@ ${(() => {
   if (s.properties && p.properties.length) parts.push(`${head("At a glance", [gh ? "github" : "profile"], gh ? "From the GitHub profile." : "Facts from the profile note in the vault.")}<dl class="props">${p.properties.map(([k, v]) => `<dt>${esc3(k)}</dt><dd>${esc3(v)}</dd>`).join("")}</dl>`);
   if (s.numbers) parts.push(`${head("The vault in numbers", ["obsidian"], "Counts only. What the notes say stays private.")}<div class="stat-strip">${[[fmt(p.stats.notes), "notes"], [(p.stats.words / 1e6).toFixed(2) + "M", "words"], [fmt(p.stats.links), "links between notes"], [String(p.stats.activeDays), "active days, 26 weeks"], ...p.extraNumbers || []].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.summary !== false && p.summary) parts.push(`<div class="callout"><div class="callout-title">Summary</div>${inline(p.summary)}</div>`);
-  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : p.nowAuto ? "obsidian" : "profile"], p.nowAuto ? "What's been happening this week, from the daily journal. Updates by itself." : "What's in progress right now.")}<ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
+  if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : p.nowAuto ? "obsidian" : "profile"], gh ? "Public repos pushed in the last two weeks. Updates by itself." : p.nowAuto ? "What's been happening this week, from the daily journal. Updates by itself." : "What's in progress right now.")}<ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
   for (const m of mainMods) parts.push(`<section class="module" data-module="${esc3(m.slug)}">${head(m.title, ["module"], "A section written for this page in Obsidian.")}<div class="mod-body">${m.html}</div></section>`);
   if (s.activity !== false && p.heat?.length) {
     const lvl = (n) => n === 0 ? 0 : n < 5 ? 1 : n < 30 ? 2 : n < 200 ? 3 : 4;
@@ -5339,7 +5369,7 @@ ${(() => {
     const se = ib.series, smax2 = Math.max(1, ...(se?.weeks || []).map((w) => w[1]));
     parts.push(`${head("Inbox to knowledge", ["obsidian"], esc3(ib.note || `Every email attachment is read, summarized and linked into the vault overnight. ${fmt(total)} documents so far, by kind. Contents stay private.`))}<div class="two-col"><div>${ib.kinds.map(([l, n]) => `<div class="hbar"><span>${esc3(l)}</span><span class="track"><span class="fill alt" style="width:${(n / kmax * 100).toFixed(1)}%"></span></span><span class="num">${fmt(n)}</span></div>`).join("")}</div>${se?.weeks?.length ? `<div><div class="label">${esc3(se.label)} / ${fmt(se.weeks.reduce((a, w) => a + w[1], 0))} in ${se.weeks.length} weeks</div><div class="cols">${se.weeks.map(([l, n]) => `<span title="${esc3(l)}: ${n}"><b style="height:${Math.max(3, n / smax2 * 100).toFixed(1)}%"></b><em>${n || ""}</em></span>`).join("")}</div><div class="bars-legend"><span>${esc3(se.weeks[0][0])}</span><span>this week</span></div></div>` : ""}</div>`);
   }
-  if (s.topics && p.topics.length) parts.push(`${head("Topics", ["obsidian"], "The tags used most in the vault.")}<div class="cloud">${p.topics.map(([t, n]) => `<span style="font-size:${(13 + n / tmax * 15).toFixed(1)}px">${esc3(t)}<sup>${n}</sup></span>`).join("")}</div>`);
+  if (s.topics && p.topics.length) parts.push(`${gh ? head("Topics", ["github"], "Repo topics and languages, from public repos.") : head("Topics", ["obsidian"], "The tags used most in the vault.")}<div class="cloud">${p.topics.map(([t, n]) => `<span style="font-size:${(13 + n / tmax * 15).toFixed(1)}px">${esc3(t)}<sup>${n}</sup></span>`).join("")}</div>`);
   if (s.projects !== false && p.projects?.length) {
     const hasC = p.projects.some((x) => x.commits);
     parts.push(`${gh ? head("Projects", ["github"], "Public repositories with the most commits.") : head("Projects", hasC ? ["obsidian", "github"] : ["obsidian"], `Notes in the vault's Projects folder${hasC ? ", with commit counts from GitHub" : ""}.`) + `<div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div>`}<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? '<th class="num">commits</th>' : ""}<th>link</th></tr></thead><tbody>${p.projects.map((x) => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.name)}</a>` : esc3(x.name)}</td><td>${esc3(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
@@ -5357,7 +5387,7 @@ ${(() => {
     };
     parts.push(`${head("AI usage", ["agents"], "Tokens used by AI models and coding agents.")}<p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc3(a.note)}</span>` : ""}</p>${td.some((x) => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map((x) => `<span class="${x.n >= tpeak * 0.5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc3(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc3(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>${a.sources && a.sources.length > 1 ? `<div style="margin-top:var(--space-4)"><div class="label">Where the tokens come from</div>${bars(a.sources, true)}</div>` : ""}`);
   }
-  if (s.timeline !== false && p.timeline?.length) parts.push(`${head("Timeline", ["profile"], "Milestones, from the profile note.")}<div class="timeline">${timelineRows(p.timeline)}</div>`);
+  if (s.timeline !== false && p.timeline?.length) parts.push(`${gh ? head("Timeline", ["github"], "Milestones from public GitHub: joining, then the repos that stand out.") : head("Timeline", ["profile"], "Milestones, from the profile note.")}<div class="timeline">${timelineRows(p.timeline)}</div>`);
   if (gardenEnabled() && s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
   if (s.notes && p.publicNotes.length) parts.push(`${head("Notes", ["obsidian"], "Notes published from the vault.")}${p.publicNotes.map((n) => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc3(n.title)}</div><div class="pn-ex">${esc3(n.excerpt)}</div><div class="pn-date">${esc3(n.updated.slice(0, 10))}</div></div>`).join("")}`);
   if (s.links && p.links.length) parts.push(`${head("Elsewhere", [gh ? "github" : "profile"], "Other places on the web.")}<ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc3(u)}" rel="noopener">${esc3(l)}</a></li>`).join("")}</ul>`);
@@ -5732,10 +5762,9 @@ async function collectProfile(app, s, social) {
   } catch {
   }
   const data = {
-    name: s.name || "Untitled",
+    name: s.name || s.handle || "Your name",
     handle: s.handle || void 0,
-    headline: s.headline,
-    theme: s.theme,
+    // never "Untitled": the handle until they set a name headline: s.headline, theme: s.theme,
     avatar: avatarPath,
     icon,
     banner: await img(s.bannerPath, "banner"),
@@ -7223,6 +7252,11 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       void this.syncSites(cityPrivate, data.city?.districts.map((d) => d.name) || []);
       const url = this.profileUrl();
       if (!quiet) new import_obsidian8.Notice(`Published: ${url}`);
+      if (!eff.name && Date.now() - (this.settings.nameNudgedAt || 0) > 864e5) {
+        this.settings.nameNudgedAt = Date.now();
+        await this.saveSettings();
+        new import_obsidian8.Notice(`Your page shows @${eff.handle || "your handle"} as your name. Add your name in Caldera/profile.md (the "name:" line) or Settings > Caldera.`, 12e3);
+      }
       if (!this.settings.sharePrompted && this.settings.welcomed) {
         this.settings.sharePrompted = true;
         await this.saveSettings();

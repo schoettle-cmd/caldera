@@ -197,7 +197,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   } catch { /* the renderer falls back to the Caldera logo */ }
 
   const data: ProfileData = {
-    name: s.name || "Untitled", handle: s.handle || undefined, headline: s.headline, theme: s.theme,
+    name: s.name || s.handle || "Your name", handle: s.handle || undefined,   // never "Untitled": the handle until they set a name headline: s.headline, theme: s.theme,
     avatar: avatarPath, icon, banner: await img(s.bannerPath, "banner"),
     links: s.links.filter(l => l[0] && l[1]), properties: s.properties.filter(p => p[0] && p[1]),
     sections: s.sections,
