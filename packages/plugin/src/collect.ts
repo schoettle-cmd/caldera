@@ -15,7 +15,7 @@ import { App, TFile, getAllTags } from "obsidian";
 import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter, gardenEnabled } from "@caldera/core";
-import { aiUsage, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, vaultKinds } from "./auto";
+import { aiUsage, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, githubRepoSig, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
 import { collectModules, type ModuleReport } from "./modules";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
@@ -231,9 +231,12 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
       const fg = forgeOf(s.links || []), src = fg && forgeSource(fg);
       let cur: any; try { if (await app.vault.adapter.exists(path)) cur = JSON.parse(await app.vault.adapter.read(path)); } catch { /* rebuilt below */ }
       const ours = !cur || /^caldera (github|forgejo) /.test(String(cur.source || ""));
-      if (fg && ours && (cur?.source !== src || Date.now() - Date.parse(cur?.generated || 0) > 6 * 3600_000)) {
+      // a new or removed repo rebuilds now; otherwise the numbers refresh every 6 hours
+      const sig = fg && ours && fg.kind === "github" ? await githubRepoSig(fg.user).catch(() => undefined) : undefined;
+      if (fg && ours && (cur?.source !== src || (sig && cur?.sig !== sig) || Date.now() - Date.parse(cur?.generated || 0) > 6 * 3600_000)) {
         const prev = cur?.source === src ? cur : undefined;
         const fresh = await (fg.kind === "github" ? githubCity(fg.user, prev) : forgejoCity(fg, prev)).catch(() => undefined);
+        if (fresh && sig) fresh.sig = sig;
         if (fresh) { if (!(await app.vault.adapter.exists("Caldera"))) await app.vault.createFolder("Caldera"); await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1)); }
       }
       const priv = new Set(md.filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.caldera === "private").map(f => f.path));

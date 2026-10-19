@@ -131,6 +131,16 @@ export function githubUser(links: [string, string][]): string | undefined {
   return links.map(l => l[1]).map(u => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean)?.[1];
 }
 
+/** A cheap fingerprint of a GitHub account's public repos (2 unauthenticated calls): the newest repo and how many there
+ * are. When it changes (a new repo, one deleted, renamed or made public) the city is rebuilt and the page republished,
+ * instead of waiting for the 6-hour refresh. undefined when GitHub can't be reached or the rate limit is spent. */
+export async function githubRepoSig(user: string): Promise<string | undefined> {
+  const u = await requestUrl({ url: `https://api.github.com/users/${user}`, throw: false });
+  const r = await requestUrl({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=created&direction=desc&per_page=1`, throw: false });
+  if (u.status !== 200 || r.status !== 200 || !Array.isArray(r.json)) return undefined;
+  return `${u.json?.public_repos ?? "?"}|${r.json[0]?.full_name || ""}`;
+}
+
 /** Caldera/city.json for owners without their own tools: public, non-fork repos grouped by language, with commit
  * activity for the 20 most recently pushed. No token (60 GitHub calls an hour), so the caller refreshes it rarely
  * and keeps the last good numbers when GitHub is still computing them. */

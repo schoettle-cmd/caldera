@@ -1,4 +1,4 @@
-/* Caldera 0.25.10 */
+/* Caldera 0.25.11 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2993,6 +2993,12 @@ async function githubCode(links) {
 function githubUser(links) {
   return links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean)?.[1];
 }
+async function githubRepoSig(user) {
+  const u = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}`, throw: false });
+  const r = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=created&direction=desc&per_page=1`, throw: false });
+  if (u.status !== 200 || r.status !== 200 || !Array.isArray(r.json)) return void 0;
+  return `${u.json?.public_repos ?? "?"}|${r.json[0]?.full_name || ""}`;
+}
 async function githubCity(user, prev) {
   const own = [];
   for (let pg = 1; pg <= 2; pg++) {
@@ -5827,9 +5833,11 @@ async function collectProfile(app, s, social) {
       } catch {
       }
       const ours = !cur || /^caldera (github|forgejo) /.test(String(cur.source || ""));
-      if (fg && ours && (cur?.source !== src || Date.now() - Date.parse(cur?.generated || 0) > 6 * 36e5)) {
+      const sig = fg && ours && fg.kind === "github" ? await githubRepoSig(fg.user).catch(() => void 0) : void 0;
+      if (fg && ours && (cur?.source !== src || sig && cur?.sig !== sig || Date.now() - Date.parse(cur?.generated || 0) > 6 * 36e5)) {
         const prev = cur?.source === src ? cur : void 0;
         const fresh = await (fg.kind === "github" ? githubCity(fg.user, prev) : forgejoCity(fg, prev)).catch(() => void 0);
+        if (fresh && sig) fresh.sig = sig;
         if (fresh) {
           if (!await app.vault.adapter.exists("Caldera")) await app.vault.createFolder("Caldera");
           await app.vault.adapter.write(path, JSON.stringify(fresh, null, 1));
@@ -6917,6 +6925,9 @@ var CalderaPlugin = class extends import_obsidian8.Plugin {
     this.ghPeopleLoading = false;
     // republish shortly after the owner (or their agent) edits Caldera/profile.md or the activity file
     this.publishTimer = null;
+    /** true while a publish runs (and for 15 s after): the city.json it writes must not queue another publish */
+    this.publishing = false;
+    this.publishEnded = 0;
     this.lastPublishError = "";
     /** What the floating city shows; open=false only refreshes a window that's already open. */
     this.floatSpec = null;
@@ -7021,6 +7032,17 @@ var CalderaPlugin = class extends import_obsidian8.Plugin {
     this.timers.push(window.setInterval(() => {
       if (this.settings.identity) void this.syncInbox(false);
     }, 10 * 6e4));
+    this.timers.push(window.setInterval(() => {
+      void this.checkRepos();
+    }, 10 * 6e4));
+    this.app.workspace.onLayoutReady(() => {
+      this.registerEvent(this.app.vault.on("modify", (f) => {
+        if (f.path === "Caldera/city.json" && !this.publishing) this.queuePublish("profile");
+      }));
+      window.setTimeout(() => {
+        void this.checkRepos();
+      }, 6e4);
+    });
     this.scheduleAutoPublish();
   }
   // every repeating timer is cleared on unload: an update or reload must not leave the old code publishing in the background
@@ -7149,6 +7171,26 @@ var CalderaPlugin = class extends import_obsidian8.Plugin {
     const f = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
     await this.app.workspace.getLeaf(true).openFile(f);
   }
+  /** Did the GitHub in your links gain or lose a repo since the city was built? Then republish (the publish rebuilds the
+   *  city). Only for cities the plugin builds itself; a city.json from your own tools republishes when it's rewritten. */
+  async checkRepos() {
+    if (!this.settings.identity || !this.settings.handle || this.publishing) return;
+    try {
+      const fg = forgeOf(effectiveSettings(this.app, this.settings).links || []);
+      if (!fg || fg.kind !== "github") return;
+      const path = "Caldera/city.json";
+      let cur;
+      try {
+        if (await this.app.vault.adapter.exists(path)) cur = JSON.parse(await this.app.vault.adapter.read(path));
+      } catch {
+      }
+      if (cur && !/^caldera github /.test(String(cur.source || ""))) return;
+      const sig = await githubRepoSig(fg.user);
+      if (!sig) return;
+      if (cur?.sig !== sig) this.queuePublish("profile");
+    } catch {
+    }
+  }
   queuePublish(reason) {
     if (!this.settings.identity || !this.settings.handle) return;
     if (this.publishTimer) window.clearTimeout(this.publishTimer);
@@ -7226,6 +7268,17 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     }
   }
   async publish(quiet = false) {
+    this.publishing = true;
+    try {
+      return await this.publishNow(quiet);
+    } finally {
+      this.publishEnded = Date.now();
+      window.setTimeout(() => {
+        if (Date.now() - this.publishEnded >= 15e3) this.publishing = false;
+      }, 15e3);
+    }
+  }
+  async publishNow(quiet = false) {
     if (this.unloaded) return null;
     this.lastPublishError = "";
     try {

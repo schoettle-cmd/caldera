@@ -7,6 +7,7 @@ import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Plugin, Setting,
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
 import { collectProfile } from "./collect";
+import { forgeOf, githubRepoSig } from "./auto";
 import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
 import type { GardenReport } from "./collect";
@@ -107,6 +108,13 @@ export default class CalderaPlugin extends Plugin {
       window.setTimeout(() => { if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 3600_000) void this.publish(true); }, 20_000);
     });
     this.timers.push(window.setInterval(() => { if (this.settings.identity) void this.syncInbox(false); }, 10 * 60_000));
+    // new repos show up within minutes: check GitHub every 10 minutes, and republish when a tool of your own rewrites
+    // Caldera/city.json (the plugin's own writes happen inside a publish and are ignored)
+    this.timers.push(window.setInterval(() => { void this.checkRepos(); }, 10 * 60_000));
+    this.app.workspace.onLayoutReady(() => {
+      this.registerEvent(this.app.vault.on("modify", f => { if (f.path === "Caldera/city.json" && !this.publishing) this.queuePublish("profile"); }));
+      window.setTimeout(() => { void this.checkRepos(); }, 60_000);
+    });
     this.scheduleAutoPublish();
   }
 
@@ -214,6 +222,20 @@ export default class CalderaPlugin extends Plugin {
     await this.app.workspace.getLeaf(true).openFile(f);
   }
 
+  /** Did the GitHub in your links gain or lose a repo since the city was built? Then republish (the publish rebuilds the
+   *  city). Only for cities the plugin builds itself; a city.json from your own tools republishes when it's rewritten. */
+  async checkRepos() {
+    if (!this.settings.identity || !this.settings.handle || this.publishing) return;
+    try {
+      const fg = forgeOf(effectiveSettings(this.app, this.settings).links || []); if (!fg || fg.kind !== "github") return;
+      const path = "Caldera/city.json"; let cur: any;
+      try { if (await this.app.vault.adapter.exists(path)) cur = JSON.parse(await this.app.vault.adapter.read(path)); } catch { /* rebuilt on publish */ }
+      if (cur && !/^caldera github /.test(String(cur.source || ""))) return;
+      const sig = await githubRepoSig(fg.user); if (!sig) return;
+      if (cur?.sig !== sig) this.queuePublish("profile");
+    } catch { /* offline: next tick */ }
+  }
+
   // republish shortly after the owner (or their agent) edits Caldera/profile.md or the activity file
   private publishTimer: number | null = null;
   queuePublish(reason: "profile" | "activity") {
@@ -267,7 +289,13 @@ export default class CalderaPlugin extends Plugin {
     catch { new PromptModal(this.app, text).open(); }
   }
 
+  /** true while a publish runs (and for 15 s after): the city.json it writes must not queue another publish */
+  publishing = false; private publishEnded = 0;
   async publish(quiet = false): Promise<string | null> {
+    this.publishing = true;
+    try { return await this.publishNow(quiet); } finally { this.publishEnded = Date.now(); window.setTimeout(() => { if (Date.now() - this.publishEnded >= 15_000) this.publishing = false; }, 15_000); }
+  }
+  private async publishNow(quiet = false): Promise<string | null> {
     if (this.unloaded) return null;
     this.lastPublishError = "";
     try {
