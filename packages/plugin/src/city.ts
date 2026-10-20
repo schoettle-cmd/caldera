@@ -444,11 +444,12 @@ function dormant(r){return r.pushed&&now-Date.parse(r.pushed)>60*DAY&&!r.week}
 // ---- view
 var dpr=1,vw=0,vh=0,cam={x:0,y:0,z:1};
 function iso(i,j){return {x:(i-j)*TW/2,y:(i+j)*TH/2}}
+var FITZ=0;   // the zoom that fits the whole map: world labels loosen their budget as you zoom past it
 function fit(){var r=st.getBoundingClientRect();dpr=window.devicePixelRatio||1;vw=r.width;vh=r.height;cv.width=vw*dpr;cv.height=vh*dpr;
   var spanX=(W+H)*TW/2+TW,spanY=(W+H)*TH/2+maxH+40;cam.z=Math.min(1.6,Math.max(D.world?.08:.3,Math.min(vw/spanX,vh/spanY)*.98));
   var c=iso(W/2,H/2);cam.x=vw/2-c.x*cam.z;cam.y=vh/2-c.y*cam.z+(maxH/2)*cam.z;
   if(under){var y0=iso(0,0).y-maxH*.6,y1=iso(W,H).y+DROP+DSPAN+20;cam.z=Math.min(1.4,Math.max(.25,Math.min(vw/spanX,vh/(y1-y0))*.96));cam.x=vw/2-c.x*cam.z;cam.y=vh/2-((y0+y1)/2)*cam.z}
-  dirty=true;UDIRTY=true}
+  FITZ=cam.z;dirty=true;UDIRTY=true}
 // ---- cars wander the roads
 var roads=[];for(var k in tiles)if(tiles[k].t==='r'){var p=k.split(',');roads.push([+p[0],+p[1]])}
 var traffic=D.districts.reduce(function(s,d){return s+d.repos.reduce(function(a,r){return a+r.week},0)},0);
@@ -988,28 +989,45 @@ function worldFocus(b){b=(b.d.nb&&byName[b.d.nb])||b;var m=WORLD.m[b.d.nb||b.d.n
   var c=blockMid(b),z0=cam.z,z1=Math.max(cam.z,Math.min(1.5,vw<600?.75:.9)),x0=cam.x,y0=cam.y,x1=vw/2-c.x*z1,y1=vh/2-c.y*z1+40*z1,t0=performance.now();
   (function anim(){var f=Math.min(1,(performance.now()-t0)/450),k=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;cam.z=z0+(z1-z0)*k;cam.x=x0+(x1-x0)*k;cam.y=y0+(y1-y0)*k;draw();if(f<1)requestAnimationFrame(anim)})();
   worldCard(b)}
-// world labels: drawn last, in screen space, so they stay readable at any zoom. Priority: the selected neighborhood,
-// then every neighborhood's @handle (always), then districts and agent pads (mid zoom), then repos (close zoom);
-// a label that would overlap one already placed is dropped
+// world labels: drawn last, in screen space, so they stay readable at any zoom. Level of detail, not "everything at once":
+// every candidate gets a rank (the focused or hovered neighborhood, then you, then your friends, then the liveliest:
+// lit today, agents working, commits this week, new), and labels are placed greedily by rank. One that would overlap a
+// placed label is dropped (only the focused/hovered/your own name may slide a little to find room), and "smart" mode
+// caps the count by stage area, so a phone shows a handful and zooming in reveals more as neighborhoods spread apart.
+// Districts, agent pads and repo names join from mid zoom and compete for the same budget.
+var LMODES=['smart','all','off'],LMODE='smart';try{var lm0=localStorage.getItem('caldera-world-labels');if(LMODES.indexOf(lm0)>=0)LMODE=lm0}catch(err){}
+if(WORLD&&!MINI)labels=LMODE!=='off';
+var WME=null,WFR=null,WSCORE=null,WSCORE_T=0;
+function worldMe(){if(WME!==null)return WME;WME='';try{var a=document.querySelector('#caldera-bar .ch-acct');var m=a&&/@([a-z0-9-]+)/i.exec(a.getAttribute('aria-label')||'');if(m)WME='@'+m[1].toLowerCase()}catch(err){}return WME}
+function worldFriends(){if(WFR)return WFR;WFR={};var me=worldMe();if(me)(WORLD.links||[]).forEach(function(l){if(l[2]===1||l[2]===4)return;if(l[0]===me)WFR[l[1]]=1;else if(l[1]===me)WFR[l[0]]=1});return WFR}
+// liveliness, recomputed at most every 5s (light-ups and agents change while the page is open)
+function worldScores(){var t=performance.now();if(WSCORE&&t-WSCORE_T<5000)return WSCORE;WSCORE_T=t;WSCORE={};var ag={};
+  Object.keys(AG).forEach(function(id){var a=AG[id].a;if(a&&a.d&&!AG[id].gone&&(a.state==='working'||a.state==='thinking'))ag[a.d]=(ag[a.d]||0)+1});
+  NBS.forEach(function(n){var wk=0,cm=0;n.ds.forEach(function(d){(d.repos||[]).forEach(function(r){wk+=+r.week||0;cm+=+r.commits||0})});var wm=WORLD.m[n.key]||{};
+    WSCORE[n.key]=(LIT[n.key]&&LIT[n.key].n?40+5*LIT[n.key].n:0)+(ag[n.key]?30+5*ag[n.key]:0)+Math.min(30,6*Math.log(1+wk))+Math.min(10,Math.log(1+cm))+(wm.isNew?8:0)+Math.min(6,+wm.friends||0)});return WSCORE}
 function nbTop(n){if(n._ty==null){var ty=Infinity;n.ds.forEach(function(d){(BDIST[d.name]||[]).forEach(function(o){ty=Math.min(ty,iso(o.i,o.j).y-bh(o.r))})});
   var m=iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5);n._tx=m.x;n._ty=isFinite(ty)?ty-10:iso(n.ox-.5,n.oy-.5).y-10}return {x:n._tx,y:n._ty}}
-function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);if(!labels)return;c.setTransform(dpr,0,0,dpr,0,0);
-  var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[];
-  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y);cand.push({pr:n.key===foc?0:1,x:sp[0],y:sp[1],text:(vw<600&&n.key.length>16?n.key.slice(0,15)+'…':n.key)+(wm.isNew?(vw<600?' ✦':' ✦ new'):'')+(LIT[n.key]&&LIT[n.key].n?'  \u2726 lit '+(LIT[n.key].n>1?'\u00d7'+LIT[n.key].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':'rgba(139,108,246,.96)',fg:'#fff',font:vw<600?'700 11px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
-  if(z>=.55)blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
+function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);if(!labels){WLAB=[];return}c.setTransform(dpr,0,0,dpr,0,0);
+  var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[],me=worldMe(),fr=worldFriends(),sc=worldScores(),phone=vw<600;
+  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y),k=n.key,pr=k===foc?0:k===WHOVER?.3:k===me?.6:fr[k]?.8:1;
+    cand.push({pr:pr,sc:sc[k]||0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+(wm.isNew?(phone?' ✦':' ✦ new'):'')+(LIT[k]&&LIT[k].n?'  ✦ lit'+(LIT[k].n>1?' ×'+LIT[k].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':k===me?'rgba(109,74,232,.98)':'rgba(139,108,246,.96)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
+  if(z>=.55)blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
     Object.keys(per).forEach(function(k){if(!NBM[k])return;var hb=dockAt({d:k}),sp=S(hb.x,hb.y),q=per[k];
-      cand.push({pr:1.9,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
-  tags.forEach(function(g){var sp=S(g.x,g.y);cand.push({pr:3,x:sp[0],y:sp[1],text:g.text,bg:'rgba(17,20,32,.88)',fg:'#F2F2F5',font:'600 10.5px IBM Plex Sans,Arial,sans-serif',url:g.url})});
-  cand.sort(function(a,b){return a.pr-b.pr});WLAB=placed;
-  cand.forEach(function(g){c.font=g.font;var w=c.measureText(g.text).width+12,bx={x0:g.x-w/2-3,x1:g.x+w/2+3,y0:g.y-20,y1:g.y+5};
+      cand.push({pr:1.9,sc:0,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
+  tags.forEach(function(g){var sp=S(g.x,g.y);cand.push({pr:3,sc:0,x:sp[0],y:sp[1],text:g.text,bg:'rgba(17,20,32,.88)',fg:'#F2F2F5',font:'600 10.5px IBM Plex Sans,Arial,sans-serif',url:g.url})});
+  cand.sort(function(a,b){return a.pr-b.pr||b.sc-a.sc});WLAB=placed;
+  // budget: one label per ~40,000px² of stage in smart mode (about 6 on a phone, 20 on a laptop); the must-shows never count
+  // zooming in spreads neighborhoods apart, so the budget grows with zoom (up to 4x) and collisions decide the rest
+  var cap=LMODE==='all'?Infinity:Math.round(Math.max(4,vw*vh/40000)*Math.max(1,Math.min(4,FITZ?z/FITZ:1))),used=0,M=5;
+  var hitAny=function(q){for(var i=0;i<placed.length;i++){var o=placed[i];if(q.x0<o.x1+M&&q.x1+M>o.x0&&q.y0<o.y1+M&&q.y1+M>o.y0)return true}return false};
+  cand.forEach(function(g){var must=g.pr<.7;if(!must&&used>=cap)return;c.font=g.font;var w=c.measureText(g.text).width+12,bx={x0:g.x-w/2-3,x1:g.x+w/2+3,y0:g.y-20,y1:g.y+5};
     if(bx.x1<0||bx.x0>vw||bx.y1<0||bx.y0>vh)return;
-    var hitAny=function(q){for(var i=0;i<placed.length;i++){var o=placed[i];if(q.x0<o.x1&&q.x1>o.x0&&q.y0<o.y1&&q.y1>o.y0)return true}return false};
     {var sh=Math.max(0,6-bx.x0)-Math.max(0,bx.x1-(vw-6));if(sh){bx.x0+=sh;bx.x1+=sh;g.x+=sh}}   // a name near the edge slides in instead of vanishing
-    if(hitAny(bx)){if(g.pr>1)return;var offs=[],ok=false;[24,48,72,96,120].forEach(function(dy){[0,-.6,.6].forEach(function(fx){offs.push([w*fx,-dy]);offs.push([w*fx,dy])})});
+    if(hitAny(bx)){if(!must)return;var offs=[],ok=false;[26,52].forEach(function(dy){[0,-.5,.5].forEach(function(fx){offs.push([w*fx,-dy]);offs.push([w*fx,dy])})});
       for(var oi=0;oi<offs.length&&!ok;oi++){var ox=offs[oi][0],q={x0:bx.x0+ox,x1:bx.x1+ox,y0:bx.y0+offs[oi][1],y1:bx.y1+offs[oi][1]};var s2=Math.max(0,6-q.x0)-Math.max(0,q.x1-(vw-6));q.x0+=s2;q.x1+=s2;ox+=s2;   // stay inside the stage
         if(q.y0<4||q.y1>vh-4)continue;if(!hitAny(q)){bx=q;g.x+=ox;g.y+=offs[oi][1];ok=true}}if(!ok)return}
-    bx.text=g.text;bx.pr=g.pr;placed.push(bx);
+    if(!must)used++;bx.text=g.text;bx.pr=g.pr;placed.push(bx);
     pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
     if(g.url||g.block)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block})})}
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
@@ -1210,6 +1228,7 @@ if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes i
   world:function(){return WLAB.map(function(l){return {text:l.text,pr:l.pr,x0:l.x0,x1:l.x1,y0:l.y0,y1:l.y1}})},
   zoomTo:function(k,z){var n=NBM[k];if(!n)return false;var c=iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5);cam.z=z;cam.x=vw/2-c.x*z;cam.y=vh/2-c.y*z;draw();return true},
   rays:function(on){RAYS=on;return RAYS},
+  wlabels:function(){var b=st.getBoundingClientRect();return (WLAB||[]).map(function(q){return {text:q.text,pr:q.pr,x0:b.left+q.x0,x1:b.left+q.x1,y0:b.top+q.y0,y1:b.top+q.y1}})},   // world labels as placed (screen rects)
   labels:function(){var b=st.getBoundingClientRect();return tagHits.map(function(t){return {url:t.url,b:t.block?t.block.d.name:'',x:b.left+cam.x+(t.x0+t.x1)/2*cam.z,y:b.top+cam.y+(t.y0+t.y1)/2*cam.z}})},
   walks:function(){var b=st.getBoundingClientRect(),tn=performance.now();return WALKS.filter(function(w){return tn>=w.born}).map(function(w){var p=walkAt(w);return {id:w.id,ghost:w.ghost,f:w.d/w.len,x:b.left+cam.x+p.x*cam.z,y:b.top+cam.y+p.y*cam.z}})},
   traces:function(){var r=st.getBoundingClientRect();return TRACES.map(function(t){var m=t.pts[Math.floor(t.pts.length/2)];return {a:t.a,x:r.left+cam.x+m.x*cam.z,y:r.top+cam.y+m.y*cam.z}})},
@@ -1233,7 +1252,9 @@ cv.addEventListener('wheel',function(ev){ev.preventDefault();var r=st.getBoundin
 var bl=document.getElementById('t-labels'),bs=document.getElementById('t-sky');
 var btp=document.getElementById('t-topics');if(btp){btp.setAttribute('aria-pressed',String(TOPICS));topicLegend();btp.onclick=function(){TOPICS=!TOPICS;btp.setAttribute('aria-pressed',String(TOPICS));try{localStorage.setItem('caldera-world-topics',TOPICS?'1':'0')}catch(err){}topicLegend();if(reduce)frame()}}
 var bfr=document.getElementById('t-fr');if(bfr){bfr.setAttribute('aria-pressed',String(RAYS));bfr.onclick=function(){RAYS=!RAYS;bfr.setAttribute('aria-pressed',String(RAYS));try{localStorage.setItem('caldera-world-rays',RAYS?'1':'0')}catch(err){}if(reduce)frame()}}
-bl.setAttribute('aria-pressed',String(labels));bl.onclick=function(){labels=!labels;bl.setAttribute('aria-pressed',String(labels));draw()};
+var LTXT={smart:'Labels',all:'All labels',off:'Labels off'},LTIP={smart:'Labels: the most relevant names that fit. Zoom in for more. Tap for all',all:'All labels that fit. Tap to hide labels',off:'Labels hidden. Tap for smart labels'};
+function lblBtn(){bl.setAttribute('aria-pressed',String(labels));if(WORLD&&!MINI){bl.textContent=LTXT[LMODE];bl.title=LTIP[LMODE]}}
+lblBtn();bl.onclick=function(){if(WORLD&&!MINI){LMODE=LMODES[(LMODES.indexOf(LMODE)+1)%LMODES.length];labels=LMODE!=='off';try{localStorage.setItem('caldera-world-labels',LMODE)}catch(err){}}else labels=!labels;lblBtn();draw()};
 var MN={auto:'Auto',grid:'Grid',dawn:'Dawn',day:'Day',dusk:'Dusk',evening:'Evening',night:'Night'};
 var SKYIC={auto:'',grid:'\u25A6',dawn:'\uD83C\uDF05',day:'\u2600\uFE0F',dusk:'\uD83C\uDF07',evening:'\uD83C\uDF06',night:'\uD83C\uDF19'};
 function skyLabel(){var m=SKYMODE==='auto'?phase:SKYMODE;bs.innerHTML=(SKYIC[m]||'')+'<span class="t-txt"> '+(SKYMODE==='auto'?'Auto \u00b7 '+MN[phase]:MN[SKYMODE])+'</span>';bs.title='Lighting: '+(SKYMODE==='auto'?'follows your clock (now '+MN[phase].toLowerCase()+')':MN[SKYMODE].toLowerCase())+'. Click for the next one.'}
