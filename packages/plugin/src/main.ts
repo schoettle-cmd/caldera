@@ -18,6 +18,7 @@ import { ProfileView, PROFILE_VIEW, collectOwner } from "./view";
 import { CityFloatView, CITY_FLOAT_VIEW, FLOAT_SIZE, type FloatSpec } from "./float";
 import { renderOwner } from "./owner";
 import { QUICK_LINKS, quickLinkIndex, quickLinkUrl } from "./links";
+import { vaultTags, topicsInUse, githubLogin, githubBio, labelOf } from "./suggest";
 
 const VIEW = "caldera-panel";
 interface Friend { id: string; handle?: string; name?: string; box_key?: string; kind?: string; why?: string; }
@@ -87,6 +88,7 @@ export default class CalderaPlugin extends Plugin {
         const f = this.app.workspace.getActiveFile(); if (!f || f.extension !== "md") return false; if (!check) void this.plantNote(f); return true; } });
     }
     this.addCommand({ id: "welcome", name: "Set up my profile (welcome)", callback: () => new WelcomeModal(this.app, this).open() });
+    this.addCommand({ id: "topics", name: "Pick my public topics from my tags", callback: () => this.openTopics() });
     this.addCommand({ id: "finish", name: C.gardenEnabled() ? "Finish my page (name, photo, masthead, links, first garden note)" : "Finish my page (name, photo, masthead, links)", callback: () => this.openFinish() });
     this.addCommand({ id: "export", name: "Export profile to a vault folder (self-host)", callback: () => this.exportToFolder() });
     this.addCommand({ id: "panel", name: "Open friends panel", callback: () => this.openPanel() });
@@ -105,6 +107,7 @@ export default class CalderaPlugin extends Plugin {
       else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
       window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
       window.setTimeout(() => { void this.offerFinish(); }, 12_000);   // once: a bare page gets an offer to fill it in
+      window.setTimeout(() => { void this.offerTopics(); }, 40_000);   // once: a page with no topics gets the vault's own tags to pick from
       // catch up after Obsidian was closed: the daily journal (and the garden it grows) may have changed meanwhile
       this.timers.push(later(() => { if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 3600_000) void this.publish(true); }, 20_000));
     });
@@ -558,6 +561,21 @@ export default class CalderaPlugin extends Plugin {
     if (e.avatarPath && e.headline?.trim() && (e.links || []).length) return;
     s.finishOffered = true; await this.saveSettings();
     new ConfirmModal(this.app, "Your page is live, but it's still bare. Add a photo, a masthead, a headline and a few links in about a minute - no AI needed.", () => this.openFinish(), "Finish my page", "Finish your page").open();
+  }
+  openTopics() { new TopicsModal(this.app, this).open(); }
+  /** Once: the page shows no topics (none of the allow-listed tags are used in this vault), so offer the vault's own tags. */
+  async offerTopics() {
+    const s = this.settings; if (!s.identity || !s.handle || !s.welcomed || s.topicsOffered || this.unloaded) return;
+    const e = effectiveSettings(this.app, s);
+    if (topicsInUse(this.app, e.publicTopics) > 0 || vaultTags(this.app, 5).length < 3) return;
+    s.topicsOffered = true; await this.saveSettings();
+    new ConfirmModal(this.app, "Your page doesn't show any topics yet. Pick a few of your own tags to show: only the tags you pick are counted, never note names.", () => this.openTopics(), "Pick topics", "Add topics to your page").open();
+  }
+  /** Save picked tags as the public topics (Caldera/profile.md wins over settings, so both are written), then republish. */
+  async saveTopics(picked: [string, string][]) {
+    this.settings.publicTopics = picked; await this.saveSettings();
+    const pf = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
+    await this.app.fileManager.processFrontMatter(pf, (fm: any) => { fm.topics = picked.map(([t, l]) => `${t} | ${l}`); });
   }
   openShare() { if (!this.settings.handle) return void new WelcomeModal(this.app, this).open(); new ShareModal(this.app, this).open(); }
 
@@ -1074,6 +1092,39 @@ class NotePickModal extends SuggestModal<TFile> {
 
 /** Set up (first run) or finish the page with a short form - no AI needed. Everything lands in Caldera/profile.md,
  *  then the page publishes and the share screen opens. "finish" mode is the same form for an existing profile, prefilled. */
+/** Pick public topics from the tags this vault actually uses. Only picked tags are ever counted on the page. */
+class TopicsModal extends Modal {
+  constructor(app: App, private plugin: CalderaPlugin) { super(app); }
+  onOpen() {
+    const s = this.plugin.settings, eff = effectiveSettings(this.app, s), c = this.contentEl;
+    this.modalEl.addClass("caldera-welcome"); this.titleEl.setText("Your public topics");
+    c.createEl("p", { text: "These are the tags you use most. Pick the ones you're happy to show: your page shows each as a topic with a note count. Note names and untagged notes never leave your vault." });
+    const tags = vaultTags(this.app, 30), current = new Map(eff.publicTopics.map(([t, l]) => [t.replace(/^#/, "").toLowerCase(), l]));
+    const on = new Set(tags.filter(t => current.has(t.tag)).map(t => t.tag));
+    if (!tags.length) { c.createEl("p", { text: "No tags used in two or more notes yet. Tag a few notes, then come back.", cls: "setting-item-description" }); return; }
+    const box = c.createDiv({ cls: "caldera-topic-chips" }), count = c.createEl("p", { cls: "setting-item-description" });
+    const upd = () => count.setText(on.size ? `${on.size} picked` : "Nothing picked: your page shows no topics.");
+    for (const t of tags) {
+      const b = box.createEl("button", { cls: "caldera-topic-chip" + (on.has(t.tag) ? " is-on" : "") });
+      b.createSpan({ text: "#" + t.tag }); b.createSpan({ text: String(t.count), cls: "caldera-topic-n" });
+      b.setAttr("aria-pressed", String(on.has(t.tag)));
+      b.onclick = () => { if (on.has(t.tag)) on.delete(t.tag); else on.add(t.tag); b.toggleClass("is-on", on.has(t.tag)); b.setAttr("aria-pressed", String(on.has(t.tag))); upd(); };
+    }
+    upd();
+    new Setting(c).addButton(b => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton(b => b.setButtonText("Save and publish").setCta().onClick(async () => {
+        b.setDisabled(true);
+        const keep = eff.publicTopics.filter(([t]) => !tags.some(x => x.tag === t.replace(/^#/, "").toLowerCase()));   // hand-added topics that aren't in the list stay
+        const picked = [...tags.filter(t => on.has(t.tag)).map(t => [t.tag, current.get(t.tag) || labelOf(t.tag)] as [string, string]), ...keep].slice(0, 24);
+        await this.plugin.saveTopics(picked);
+        this.close();
+        const url = await this.plugin.publish(true);
+        new Notice(url ? `Topics saved: ${picked.length}. Your page is updated.` : "Topics saved. They'll show on your next publish.");
+      }));
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
 class WelcomeModal extends Modal {
   constructor(app: App, private plugin: CalderaPlugin, private mode: "welcome" | "finish" = "welcome") { super(app); }
   onOpen() {
@@ -1096,7 +1147,17 @@ class WelcomeModal extends Modal {
       .addText(t => t.setPlaceholder("ada").setValue(handle).onChange(v => { handle = clean(v); if (v !== handle) t.setValue(handle); status.setText(""); }));
     const examples = ["Designer writing about tools for thought", "Founder building in public", "Researcher: notes on climate and cities"];
     new Setting(c).setName("Headline").setDesc("One line about what you do or think about")
-      .addText(t => { t.setPlaceholder(examples[Math.floor(Math.random() * examples.length)]!).setValue(headline).onChange(v => headline = v.trim()); t.inputEl.addClass("caldera-wide"); });
+      .addText(t => {
+        t.setPlaceholder(examples[Math.floor(Math.random() * examples.length)]!).setValue(headline).onChange(v => headline = v.trim()); t.inputEl.addClass("caldera-wide");
+        const gh = !headline && githubLogin(eff.links || []);   // no headline yet: suggest the public GitHub bio (shown, never saved until you publish)
+        if (gh) void githubBio(gh).then(bio => { if (bio && !headline && !t.getValue()) { headline = bio; t.setValue(bio); t.inputEl.title = "Suggested from your GitHub bio. Edit or clear it."; } });
+      });
+
+    if (finish) {
+      const n = topicsInUse(this.app, eff.publicTopics), tags = vaultTags(this.app, 5);
+      if (tags.length) new Setting(c).setName("Topics").setDesc(n ? `${n} of your tags show as topics.` : `None yet. Your most used tags: ${tags.slice(0, 3).map(t => "#" + t.tag).join(", ")}.`)
+        .addButton(b => b.setButtonText(n ? "Change" : "Pick topics").onClick(() => this.plugin.openTopics()));
+    }
 
     head("Pictures");
     const img: Record<"photo" | "banner", { buf: ArrayBuffer; ext: string } | null> = { photo: null, banner: null };

@@ -1,4 +1,4 @@
-/* Caldera 0.25.13 */
+/* Caldera 0.26.0 */
 .caldera-panel h3 { margin-top: 0; }
 .caldera-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }
 .caldera-stat { background: var(--background-secondary); border-radius: 8px; padding: 8px; text-align: center; }
@@ -50,3 +50,8 @@ body.caldera-float-window .workspace-leaf-content, body.caldera-float-window .vi
 
 /* the daily summary email field in the Welcome form */
 .caldera-email-wide { min-width: 260px; }
+
+.caldera-topic-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.caldera-topic-chip { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--background-modifier-border); background: var(--background-secondary); color: var(--text-normal); font-size: var(--font-ui-small); cursor: pointer; box-shadow: none; }
+.caldera-topic-chip.is-on { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
+.caldera-topic-n { opacity: .7; font-variant-numeric: tabular-nums; }

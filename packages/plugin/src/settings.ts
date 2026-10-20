@@ -51,6 +51,7 @@ export interface CalderaSettings {
   groups: string[];                   // groups this profile is in: each is a town at hub/g/<name>
   invitedBy?: string;                 // handle whose invite link brought this vault to Caldera (sent once, with the first publish)
   sharePrompted?: boolean;
+  topicsOffered?: boolean;            // the one-time "pick topics from your tags" offer has been shown
   finishOffered?: boolean;            // the one-time "finish your page" offer for a bare page has been shown            // the "your page is live, share it" screen has been shown
   showViews?: boolean;                // show the public view count on my page (default on)
   lastKudos?: string;                 // ISO time of the newest kudos already announced
