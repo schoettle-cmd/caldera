@@ -15,6 +15,8 @@ test("vault tags: most used first, workflow and private tags, dates and one-offs
   assert.deepEqual(vaultTags(a).map(t => [t.tag, t.count]), [["ai", 3], ["startups", 2]]);
   assert.equal(topicsInUse(a, [["ai", "AI"], ["design", "Design"]]), 1);
   assert.equal(topicsInUse(a, [["design", "Design"]]), 0, "the default list that matches nothing");
+  const w = app([["entity", "pdf", "email-attachment", "daily-digest", "contract", "crypto"], ["entity", "pdf", "email-attachment", "daily-digest", "contract", "crypto"]]);
+  assert.deepEqual(vaultTags(w).map(t => t.tag), ["crypto"], "structural tags and deal paperwork aren't topics");
 });
 
 test("GitHub login from links", () => {

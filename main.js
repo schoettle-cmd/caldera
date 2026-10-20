@@ -1,4 +1,4 @@
-/* Caldera 0.26.0 */
+/* Caldera 0.26.1 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -5610,7 +5610,7 @@ async function collectProfile(app, s, social) {
   const md = app.vault.getMarkdownFiles();
   let words = 0, links = 0;
   const created = /* @__PURE__ */ new Map(), changed = /* @__PURE__ */ new Map();
-  const tagCounts = /* @__PURE__ */ new Map();
+  const tagCounts2 = /* @__PURE__ */ new Map();
   const allow = new Map(s.publicTopics.map(([tag, label]) => [tag.toLowerCase().replace(/^#/, ""), label]));
   const publicNotes = [];
   const journal = /* @__PURE__ */ new Map();
@@ -5622,7 +5622,7 @@ async function collectProfile(app, s, social) {
     words += Math.round(f.stat.size / 6);
     for (const t of cache ? (0, import_obsidian4.getAllTags)(cache) || [] : []) {
       const k = t.replace(/^#/, "").toLowerCase();
-      if (allow.has(k)) tagCounts.set(allow.get(k), (tagCounts.get(allow.get(k)) || 0) + 1);
+      if (allow.has(k)) tagCounts2.set(allow.get(k), (tagCounts2.get(allow.get(k)) || 0) + 1);
     }
     const fm = cache?.frontmatter || {};
     if (String(fm.caldera || "").toLowerCase() === "public") {
@@ -5715,7 +5715,7 @@ async function collectProfile(app, s, social) {
   for (const targets of Object.values(app.metadataCache.resolvedLinks)) for (const t of Object.keys(targets)) bump(t.split("/").pop().replace(/\.md$/i, "").toLowerCase());
   for (const targets of Object.values(app.metadataCache.unresolvedLinks)) for (const t of Object.keys(targets)) bump(t.split("|")[0].split("/").pop().replace(/\.md$/i, "").toLowerCase());
   const linkCount = (name) => inbound.get(name.toLowerCase()) || 0;
-  const topTopics = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const topTopics = [...tagCounts2.entries()].sort((a, b) => b[1] - a[1]);
   const kinds = vaultKinds(app, md);
   const notesSorted = publicNotes.sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 12);
   const tree = [{ name: "People", child: false }, { name: s.name || "Me", child: true, current: true, href: "#top" }];
@@ -5807,7 +5807,7 @@ async function collectProfile(app, s, social) {
     properties: s.properties.filter((p) => p[0] && p[1]),
     sections: s.sections,
     stats: { notes: md.length, words, links, activeDays },
-    topics: [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18),
+    topics: [...tagCounts2.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18),
     daily,
     publicNotes: notesSorted,
     tabs: s.tabs?.length ? s.tabs : void 0,
@@ -6948,6 +6948,7 @@ function quickLinkIndex(label, url) {
 
 // src/suggest.ts
 var import_obsidian9 = require("obsidian");
+var STRUCTURAL = /^(entity|entities|company|companies|org|orgs|organization|concept|concepts|note|notes|index|moc|hub|stub|other|misc|reference|references|ref|file|files|image|images|img|pdf|doc|docs|document|documents|attachment|attachments|email|emails|mail|report|reports|contract|contracts|proposal|proposals|nda|invoice|invoices|receipt|receipts|data-room|dataroom|deck|decks|pitch-deck|startup-deck|transcript|transcripts|summary|summaries|digest|clip|web-clip|article|articles|bookmark|bookmarks|highlight|highlights|book-notes|imported|import|sync|auto|generated|ai-generated|wiki)$|(^|-)(pdf|email|attachment|digest|deck|transcript|import|imported)(-|$)/i;
 var SKIP2 = /^(private|personal|secret|todo|to-do|task|tasks|done|doing|wip|draft|inbox|archive|archived|daily|weekly|monthly|journal|diary|meeting|meetings|1on1|one-on-one|people|person|contact|contacts|family|health|medical|therapy|money|finance|finances|bank|tax|taxes|legal|client|clients|password|passwords|template|templates|excalidraw|status|type|source|sources|clippings|clipping|review|readwise|untagged|todo-later|idea-status)$|^(status|type|source|area|people|person|project-status|log)\//i;
 var ACRONYMS = { ai: "AI", ml: "ML", llm: "LLM", llms: "LLMs", ux: "UX", ui: "UI", vc: "VC", saas: "SaaS", api: "API", nlp: "NLP", seo: "SEO", cpg: "CPG", b2b: "B2B", b2c: "B2C", ios: "iOS", pkm: "PKM", gtd: "GTD", dao: "DAO", nft: "NFT", vr: "VR", ar: "AR", iot: "IoT", devops: "DevOps", js: "JS", ts: "TS" };
 function labelOf(tag) {
@@ -6955,7 +6956,7 @@ function labelOf(tag) {
   const words = last.replace(/[-_]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").trim().split(/\s+/);
   return words.map((w, i) => ACRONYMS[w.toLowerCase()] || (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase())).join(" ").slice(0, 40);
 }
-function vaultTags(app, limit = 30) {
+function tagCounts(app) {
   const counts = /* @__PURE__ */ new Map();
   for (const f of app.vault.getMarkdownFiles()) {
     if (f.path.startsWith("Caldera/")) continue;
@@ -6963,10 +6964,13 @@ function vaultTags(app, limit = 30) {
     if (!cache) continue;
     for (const t of new Set(((0, import_obsidian9.getAllTags)(cache) || []).map((x) => x.replace(/^#/, "").toLowerCase()))) counts.set(t, (counts.get(t) || 0) + 1);
   }
-  return [...counts.entries()].filter(([t, n]) => n >= 2 && t.length >= 2 && t.length <= 40 && !SKIP2.test(t) && !/^\d/.test(t) && !/\d{4}/.test(t)).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([tag, count]) => ({ tag, count, label: labelOf(tag) }));
+  return counts;
+}
+function vaultTags(app, limit = 30) {
+  return [...tagCounts(app).entries()].filter(([t, n]) => n >= 2 && t.length >= 2 && t.length <= 40 && !SKIP2.test(t) && !STRUCTURAL.test(t) && !/^\d/.test(t) && !/\d{4}/.test(t)).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([tag, count]) => ({ tag, count, label: labelOf(tag) }));
 }
 function topicsInUse(app, publicTopics) {
-  const used = new Set(vaultTags(app, 500).map((t) => t.tag));
+  const used = tagCounts(app);
   return publicTopics.filter(([t]) => used.has(t.replace(/^#/, "").toLowerCase())).length;
 }
 function githubLogin(links) {
@@ -8490,7 +8494,8 @@ var TopicsModal = class extends import_obsidian10.Modal {
       return;
     }
     const box = c.createDiv({ cls: "caldera-topic-chips" }), count = c.createEl("p", { cls: "setting-item-description" });
-    const upd = () => count.setText(on.size ? `${on.size} picked` : "Nothing picked: your page shows no topics.");
+    const others = eff.publicTopics.filter(([t]) => !tags.some((x) => x.tag === t.replace(/^#/, "").toLowerCase())).length;
+    const upd = () => count.setText((on.size ? `${on.size} picked` : "Nothing picked here") + (others ? `, plus ${others} other ${others === 1 ? "topic" : "topics"} already on your page (kept).` : on.size ? "" : ": your page shows no topics."));
     for (const t of tags) {
       const b = box.createEl("button", { cls: "caldera-topic-chip" + (on.has(t.tag) ? " is-on" : "") });
       b.createSpan({ text: "#" + t.tag });

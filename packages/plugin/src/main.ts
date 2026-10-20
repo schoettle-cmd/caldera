@@ -1103,7 +1103,8 @@ class TopicsModal extends Modal {
     const on = new Set(tags.filter(t => current.has(t.tag)).map(t => t.tag));
     if (!tags.length) { c.createEl("p", { text: "No tags used in two or more notes yet. Tag a few notes, then come back.", cls: "setting-item-description" }); return; }
     const box = c.createDiv({ cls: "caldera-topic-chips" }), count = c.createEl("p", { cls: "setting-item-description" });
-    const upd = () => count.setText(on.size ? `${on.size} picked` : "Nothing picked: your page shows no topics.");
+    const others = eff.publicTopics.filter(([t]) => !tags.some(x => x.tag === t.replace(/^#/, "").toLowerCase())).length;   // added by hand, not in this list: kept
+    const upd = () => count.setText((on.size ? `${on.size} picked` : "Nothing picked here") + (others ? `, plus ${others} other ${others === 1 ? "topic" : "topics"} already on your page (kept).` : on.size ? "" : ": your page shows no topics."));
     for (const t of tags) {
       const b = box.createEl("button", { cls: "caldera-topic-chip" + (on.has(t.tag) ? " is-on" : "") });
       b.createSpan({ text: "#" + t.tag }); b.createSpan({ text: String(t.count), cls: "caldera-topic-n" });

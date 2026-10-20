@@ -5,6 +5,8 @@
  */
 import { App, getAllTags, requestUrl } from "obsidian";
 
+/** structural tags (what a note IS, not what it's about) and deal paperwork: entity, pdf, email-attachment, daily-digest... */
+const STRUCTURAL = /^(entity|entities|company|companies|org|orgs|organization|concept|concepts|note|notes|index|moc|hub|stub|other|misc|reference|references|ref|file|files|image|images|img|pdf|doc|docs|document|documents|attachment|attachments|email|emails|mail|report|reports|contract|contracts|proposal|proposals|nda|invoice|invoices|receipt|receipts|data-room|dataroom|deck|decks|pitch-deck|startup-deck|transcript|transcripts|summary|summaries|digest|clip|web-clip|article|articles|bookmark|bookmarks|highlight|highlights|book-notes|imported|import|sync|auto|generated|ai-generated|wiki)$|(^|-)(pdf|email|attachment|digest|deck|transcript|import|imported)(-|$)/i;
 /** tags that are workflow or private by nature: never suggested (the owner can still add them by hand) */
 const SKIP = /^(private|personal|secret|todo|to-do|task|tasks|done|doing|wip|draft|inbox|archive|archived|daily|weekly|monthly|journal|diary|meeting|meetings|1on1|one-on-one|people|person|contact|contacts|family|health|medical|therapy|money|finance|finances|bank|tax|taxes|legal|client|clients|password|passwords|template|templates|excalidraw|status|type|source|sources|clippings|clipping|review|readwise|untagged|todo-later|idea-status)$|^(status|type|source|area|people|person|project-status|log)\//i;
 
@@ -20,22 +22,25 @@ export function labelOf(tag: string): string {
 }
 
 /** The vault's own tags, most used first: at least 2 notes each, workflow/private tags and dates left out. */
-export function vaultTags(app: App, limit = 30): TagSuggestion[] {
+function tagCounts(app: App): Map<string, number> {
   const counts = new Map<string, number>();
   for (const f of app.vault.getMarkdownFiles()) {
     if (f.path.startsWith("Caldera/")) continue;
     const cache = app.metadataCache.getFileCache(f); if (!cache) continue;
     for (const t of new Set((getAllTags(cache) || []).map(x => x.replace(/^#/, "").toLowerCase()))) counts.set(t, (counts.get(t) || 0) + 1);
   }
-  return [...counts.entries()]
-    .filter(([t, n]) => n >= 2 && t.length >= 2 && t.length <= 40 && !SKIP.test(t) && !/^\d/.test(t) && !/\d{4}/.test(t))
+  return counts;
+}
+export function vaultTags(app: App, limit = 30): TagSuggestion[] {
+  return [...tagCounts(app).entries()]
+    .filter(([t, n]) => n >= 2 && t.length >= 2 && t.length <= 40 && !SKIP.test(t) && !STRUCTURAL.test(t) && !/^\d/.test(t) && !/\d{4}/.test(t))
     .sort((a, b) => b[1] - a[1]).slice(0, limit)
     .map(([tag, count]) => ({ tag, count, label: labelOf(tag) }));
 }
 
 /** How many of the current public topics the vault actually uses (0 = the page shows no topics). */
 export function topicsInUse(app: App, publicTopics: [string, string][]): number {
-  const used = new Set(vaultTags(app, 500).map(t => t.tag));
+  const used = tagCounts(app);   // any tag in use counts, even one we'd never suggest
   return publicTopics.filter(([t]) => used.has(t.replace(/^#/, "").toLowerCase())).length;
 }
 
