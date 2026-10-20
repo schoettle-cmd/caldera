@@ -1004,7 +1004,7 @@ function buildStart(key,now){var ks=nbTiles(key),mn=1e9;ks.forEach(function(k){v
 function flyTo(x1,y1,z1,ms,done){var z0=cam.z,x0=cam.x,y0=cam.y,t0=performance.now();(function anim(){var f=Math.min(1,(performance.now()-t0)/ms),k=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
   cam.z=z0+(z1-z0)*k;cam.x=x0+(x1-x0)*k;cam.y=y0+(y1-y0)*k;draw();if(f<1)requestAnimationFrame(anim);else if(done)done()})()}
 var buildBar=null;function buildNote(html){if(!buildBar){buildBar=document.createElement('div');buildBar.setAttribute('role','status');
-  buildBar.style.cssText='position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;display:flex;gap:10px;align-items:center;max-width:calc(100% - 24px);padding:9px 10px 9px 14px;border-radius:12px;background:rgba(10,12,22,.9);border:1px solid #8B6CF6;box-shadow:0 0 22px rgba(139,108,246,.45);color:#fff;font:600 12.5px/1.35 IBM Plex Sans,Arial,sans-serif';
+  buildBar.style.cssText='position:absolute;left:50%;'+(vw<600?'top:52px;width:calc(100% - 24px);justify-content:space-between;':'bottom:18px;')+'transform:translateX(-50%);z-index:6;display:flex;gap:10px;align-items:center;max-width:calc(100% - 24px);padding:9px 10px 9px 14px;border-radius:12px;background:rgba(10,12,22,.9);border:1px solid #8B6CF6;box-shadow:0 0 22px rgba(139,108,246,.45);color:#fff;font:600 12.5px/1.35 IBM Plex Sans,Arial,sans-serif';
   st.appendChild(buildBar)}buildBar.innerHTML=html;var sk=buildBar.querySelector('button');if(sk)sk.onclick=buildSkip}
 function buildDone(){BTIMERS.forEach(clearTimeout);BTIMERS=[];for(var k in BUILD)BUILD[k].t0=-1e9;BUILDING=false;BUILD={};draw();if(buildBar){buildBar.remove();buildBar=null}}
 function buildSkip(){var h=BHOME;buildDone();if(h)flyTo(h.x,h.y,h.z,500)}
@@ -1014,7 +1014,7 @@ function buildLands(keys){keys=keys.filter(function(k){return byName[k]&&nbTiles
   BHOME={x:cam.x,y:cam.y,z:cam.z};var n=keys.length,i=0,e=function(v){return String(v).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
   function next(){if(i>=n){var h=BHOME;BTIMERS.push(setTimeout(function(){buildDone();if(h)flyTo(h.x,h.y,h.z,900)},600));return}
     var k=keys[i++],b=byName[k],m=WORLD.m[k]||{},c=blockMid(b),z=Math.min(1.4,vw<600?.85:1.05);
-    buildNote('<span style="color:#C4B5FF">✦</span><span>'+(n>1?'New land '+i+' of '+n+': ':'New land: ')+'<b>'+e(m.name||k)+'</b> joined. Building their city…</span><button type="button" style="all:unset;cursor:pointer;padding:4px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.25);font-weight:600">Skip</button>');
+    buildNote('<span style="color:#C4B5FF">✦</span><span>'+(n>1?(vw<600?'New land '+i+'/'+n+': ':'New land '+i+' of '+n+': '):'New land: ')+'<b>'+e(m.name||k)+'</b> joined. Building their city…</span><button type="button" style="all:unset;cursor:pointer;padding:4px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.25);font-weight:600">Skip</button>');
     flyTo(vw/2-c.x*z,vh/2-c.y*z+40*z,z,1100,function(){var dur=buildStart(k,performance.now());pulse(b,'#8B6CF6',true);
       BTIMERS.push(setTimeout(function(){pulse(b,SCOL,true);BTIMERS.push(setTimeout(next,900))},dur))})}
   next()}
