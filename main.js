@@ -1,4 +1,4 @@
-/* Caldera 0.28.3 */
+/* Caldera 0.28.4 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -4440,7 +4440,7 @@ function exits(b){if(b.ex)return b.ex;b.ex=[];for(var j=b.y-1;j<=b.y+b.k;j++)for
 function spawn(b,col,fast){var ex=exits(b);if(!ex.length||vis.length>160)return;var s=ex[Math.floor(Math.random()*ex.length)];
   var v={i:s[0],j:s[1],ti:s[0],tj:s[1],t:1,col:col,b:b,born:performance.now(),life:14000+Math.random()*9000,sp:fast?.06:.045};step(v);vis.push(v)}
 function pulse(b,col,big){var p=iso(b.x+b.k/2-.5,b.y+b.k/2-.5);pulses.push({x:p.x,y:p.y,col:col,born:performance.now(),big:big})}
-function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT=data.lit;if(data&&data.districts&&typeof data.districts==='object'){var gt={};for(var gk in data.districts){var gv=+(data.districts[gk]||{}).glow;if(gv>0)gt[gk]=Math.min(1,gv)}GT=gt}if(D.world&&data&&typeof data.members==='number'&&typeof worldGrew==='function')worldGrew(data.members);if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
+function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT=data.lit;if(data&&data.districts&&typeof data.districts==='object'){var gt={},gs={};for(var gk in data.districts){var gd=data.districts[gk]||{},gv=+gd.glow;if(gv>0)gt[gk]=Math.min(1,gv);if(gd.sites&&typeof gd.sites==='object'){var sm={},sn=0;for(var sk in gd.sites){var sv=+gd.sites[sk];if(sv>0&&sn<24){sm[String(sk).slice(0,40)]=Math.min(1,sv);sn++}}if(sn)gs[gk]=sm}}GT=gt;GS=gs}if(D.world&&data&&typeof data.members==='number'&&typeof worldGrew==='function')worldGrew(data.members);if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
   if(!LV.on&&Object.keys(LV.d).length){LV.on=true;cars.length=0}   // live data replaces the ambient traffic: from now on every car is a real visitor
   if(LV.on)reconcile();
   if(Array.isArray(data.agents))agentsIn(data.agents);
@@ -5163,9 +5163,9 @@ function drawObjects(){var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(1,0,0,1,0
       var col=r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
-      var gw=glowOf(t.d);if(gw>0)litp=Math.max(litp,Math.min(.97,gw*(.55+.45*(P.lit==null?1:P.lit))));   // people on the site right now light it up
+      var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));   // people on the site right now light up its building (the rest of the district a little)
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
-      for(var k=0;k<tiers.length;k++){var tw=tiers[k][0],th=tiers[k][1];var sh=prism(c,p.x,top,tw,th,col);if(!LOD&&bf>.8)facadeWindows(c,p.x,top,tw,th,glass,litp,seed+k*101,base,gw>0?Math.min(.55,gw*.75):0);top-=th}
+      for(var k=0;k<tiers.length;k++){var tw=tiers[k][0],th=tiers[k][1];var sh=prism(c,p.x,top,tw,th,col);if(!LOD&&bf>.8)facadeWindows(c,p.x,top,tw,th,glass,litp,seed+k*101,base,sg>0?Math.min(.55,sg*.75):0);top-=th}
       if(!LOD&&bf>=1)roofProps(c,p.x,top,tiers[tiers.length-1][0],r,seed);
       if(bf>0&&bf<1){scaffold(c,p.x,base,top,tiers[0][0],bf);cranes.push({x:p.x+4,y:top,seed:seed})}
       if(r===tallest)beacons.push({x:p.x,y:top-26});
@@ -5222,7 +5222,18 @@ function drawLive(){var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dp
   beacons.forEach(function(b){if(Math.floor(T/900)%2){c.fillStyle='#FF3B30';c.beginPath();c.arc(b.x,b.y,2,0,7);c.fill();if(sky!=='day'){c.globalCompositeOperation='lighter';var g=c.createRadialGradient(b.x,b.y,0,b.x,b.y,10);g.addColorStop(0,'rgba(255,60,48,.6)');g.addColorStop(1,'rgba(255,60,48,0)');c.fillStyle=g;c.beginPath();c.arc(b.x,b.y,10,0,7);c.fill();c.globalCompositeOperation='source-over'}}})}
 // ---- window glow from live visitors: the hub sends each district's glow (visitors in the last 30 minutes, each fading
 // over 30 minutes), and lit windows ease toward it: a busy site lights up, then dims to dark as people leave
-var GT={},GL={},glowAt=0,glowDraw=0;
+var GT={},GL={},GS={},glowAt=0,glowDraw=0;
+  // which building a visit belongs to: the hub sends each district's visited sites as one word each ("stash", "kitse"); a repo
+  // whose name matches gets the people and the full lights. A district whose sites match none of its repos (or that sends no
+  // site names) shows them in its biggest building only, never across every repo.
+  function sNorm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
+  function sMatch(rn,tk){return !!rn&&!!tk&&(rn===tk||(tk.length>=4&&rn.indexOf(tk)>=0)||(rn.length>=4&&tk.indexOf(rn)>=0))}
+  var SBK=null,SBT=null,SBAt=0;function siteBook(){if(SBK&&SBT===tiles&&(!BUILDING||T-SBAt<1000))return SBK;SBK={};SBT=tiles;SBAt=T;var k;   // rebuilt only when the layout changes
+    for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r)continue;var dn=t.d.name,b=SBK[dn]||(SBK[dn]={main:null,mh:-1,names:[]}),h=bh(t.r);b.names.push(sNorm(t.r.name));if(h>b.mh){b.mh=h;b.main=t.r}}return SBK}
+  function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;var d=t.d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null,b=siteBook()[d.name],rn=sNorm(t.r.name),best=0,mx=0,hit=false,k;
+    if(ds){for(k in ds)mx=Math.max(mx,ds[k]);for(k in ds){var tk=sNorm(k);if(sMatch(rn,tk))best=Math.max(best,ds[k]/(mx||1));if(!hit&&b)for(var q=0;q<b.names.length;q++)if(sMatch(b.names[q],tk)){hit=true;break}}
+      if(best>0)return gw*best;if(hit)return 0}
+    return b&&b.main===t.r?gw:0}
 function stepGlow(tn){var dt=Math.min(1000,tn-(glowAt||tn));glowAt=tn;var moving=false,ks={},k;for(k in GT)ks[k]=1;for(k in GL)ks[k]=1;
   for(k in ks){var g=GL[k]||0,t=GT[k]||0;if(Math.abs(t-g)<.003){if(t)GL[k]=t;else delete GL[k];continue}GL[k]=g+(t-g)*Math.min(1,dt/2200);moving=true}
   if(moving&&tn-glowDraw>220){glowDraw=tn;dirty=true}}
