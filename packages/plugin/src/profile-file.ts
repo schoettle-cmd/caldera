@@ -34,9 +34,9 @@ export function effectiveSettings(app: App, s: CalderaSettings): CalderaSettings
   if (typeof fm.autoConnectRepos === "boolean") e.autoConnectRepos = fm.autoConnectRepos;
   if (typeof fm.autoConnectGithub === "boolean") e.autoConnectRepos = fm.autoConnectGithub;   // same setting, newer name
   const list = (v: unknown) => Array.isArray(v) ? v.map(x => String(x ?? "").trim()).filter(Boolean) : typeof v === "string" ? v.split(",").map(x => x.trim()).filter(Boolean) : null;
-  { const t = list(fm.tags); if (t) (e as any).tags = t.slice(0, 12); const h = list(fm.hideTags); if (h) (e as any).hideTags = h.slice(0, 40); }
+  { const t = list(fm.tags); if (t) (e as any).tags = t.slice(0, 12); const h = list(fm.hideTags); if (h) (e as any).hideTags = h.slice(0, 40); const hr = list(fm.hideRepos); if (hr) (e as any).hideRepos = hr.slice(0, 200); }
   if (typeof fm.autoTags === "boolean") (e as any).autoTags = fm.autoTags;
-  if (["show", "anonymous", "hidden"].includes(String(fm.privateRepos))) e.privateRepos = fm.privateRepos as CalderaSettings["privateRepos"];
+  if (["show", "anonymous", "hidden", "named"].includes(String(fm.privateRepos))) e.privateRepos = fm.privateRepos as CalderaSettings["privateRepos"];
   if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x: unknown) => { const [g = "", items = "", folder = ""] = String(x ?? "").split("|").map(v => v.trim()); return [g, items, folder || undefined] as [string, string, string?]; }).filter(([g]) => g);
   if (Array.isArray(fm.graph)) e.graph = fm.graph.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 20);
   e.backlinks = pairs(fm.backlinks) ?? e.backlinks;
@@ -105,7 +105,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
 - **autoConnectGithub** (or autoConnectRepos) - \`false\` stops Caldera making you friends with members you follow, who follow you, or who work on the same public GitHub repos (on by default).
 - **tags** - what you're building, shown as chips on your page and searchable in People (e.g. \`[Social features, Next.js]\`). **hideTags** hides tags Caldera worked out from your public GitHub; **autoTags** \`false\` turns those off entirely.
-- **privateRepos** - how private repos show on your public city: \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything.
+- **privateRepos** - how private repos show on your public city: \`named\` (like your private view: names, language colours and activity in their real projects, but no links or code), \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything. **hideRepos** - with \`named\`, private repos to keep as nameless padlocks anyway (e.g. \`[client-project, secret-launch]\`).
 - **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
 - **now** - what you're doing now, one line each. Or \`now: auto\` (and when there's no list): your last week of journal wins, updated on every publish.
 - **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.

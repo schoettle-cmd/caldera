@@ -13,6 +13,7 @@ export interface CityRepo {
   commits: number; weeks: number[]; week: number; today: number;
   pushed?: string; created?: string; size?: number; url?: string; description?: string;
   locked?: boolean;                                   // a private repo on the public page: shape only, no details
+  priv?: boolean;                                     // a private repo shown by name ("named" mode): name, language and activity, never code, links or descriptions
 }
 export interface CityDistrict { name: string; notes: number; notePaths?: string[]; repos: CityRepo[]; apart?: boolean }   // apart: the anonymous private district, laid out on its own
 export interface CityData { generated?: string; kind?: "vault"; districts: CityDistrict[]; private: boolean; totals?: { commits: number; active: number }; under?: Underground; privateMode?: PrivateMode }
@@ -20,9 +21,10 @@ export interface CityData { generated?: string; kind?: "vault"; districts: CityD
 /** How a member's private repos show on their PUBLIC city (their own private view always shows everything):
  *  show = padlocked buildings in place (size and activity coarse, never names); anonymous = one separate "Private" district
  *  of identical padlocks, the count only as a small/medium/large cluster, no activity, no project, no commits;
- *  hidden = private repos leave no trace at all. */
-export type PrivateMode = "show" | "anonymous" | "hidden";
-export const PRIVATE_MODES: PrivateMode[] = ["show", "anonymous", "hidden"];
+ *  hidden = private repos leave no trace at all; named = private repos stand in their real districts with their names,
+ *  language colours and activity, exactly like the private view, but with no links, descriptions or code. */
+export type PrivateMode = "show" | "anonymous" | "hidden" | "named";
+export const PRIVATE_MODES: PrivateMode[] = ["show", "anonymous", "hidden", "named"];
 export const privateModeOf = (v: unknown): PrivateMode | undefined => PRIVATE_MODES.includes(v as PrivateMode) ? v as PrivateMode : undefined;
 /** anonymous: how many identical padlocks stand for N private repos (1-5, 6-20, more), never the real count */
 export const privateCluster = (n: number) => n <= 0 ? 0 : n <= 5 ? 3 : n <= 20 ? 8 : 15;
@@ -140,7 +142,7 @@ const locked = (r: CityRepo, project: string): CityRepo => ({ name: "", project,
 /** Apply a member's private-repos setting to an already PUBLIC city (works on any build: anything locked or not marked
  *  public counts as private). "show" returns it as it is. Totals are recomputed from public repos only. */
 export function applyPrivateMode(c: CityData, mode: PrivateMode | undefined): CityData {
-  if (!mode || mode === "show" || c.private) return c;
+  if (!mode || mode === "show" || mode === "named" || c.private) return c;
   const isPriv = (r: CityRepo) => !!r.locked || r.public !== true || !r.name;
   let n = 0;
   const districts: CityDistrict[] = [];
@@ -156,8 +158,19 @@ export function applyPrivateMode(c: CityData, mode: PrivateMode | undefined): Ci
   return { ...c, districts, privateMode: mode, totals: { commits: pub.reduce((s, r) => s + (Number(r.commits) || 0), 0), active: pub.filter(r => r.week > 0).length },
     under: c.under ? publicUnderground(c.under, districts.filter(d => !d.apart).map(d => d.name)) : undefined };
 }
-export function publicCity(c: CityData, publicProjects: string[], mode: PrivateMode = "show"): CityData {
+export function publicCity(c: CityData, publicProjects: string[], mode: PrivateMode = "show", hideRepos: string[] = []): CityData {
+  if (mode === "named") return publicCityNamed(c, hideRepos);
   return applyPrivateMode(publicCityShow(c, publicProjects), mode);
+}
+/** named: every district and repo as in the private view; private repos keep name, language and activity, lose links and text */
+function publicCityNamed(c: CityData, hideRepos: string[] = []): CityData {
+  const hide = new Set(hideRepos.map(h => h.trim().toLowerCase()).filter(Boolean));   // still a nameless padlock, in place
+  const named = (r: CityRepo): CityRepo => r.public ? r : hide.has(r.name.toLowerCase()) ? locked(r, r.project) : { name: r.name, project: r.project, public: false, priv: true, language: r.language || "Other",
+    commits: r.commits, weeks: (r.weeks || []).slice(-12), week: r.week, today: r.today, pushed: r.pushed, created: r.created, size: r.size };
+  const districts = c.districts.map(d => ({ name: d.name, notes: d.notes, repos: d.repos.map(named) }));
+  const all = c.districts.flatMap(d => d.repos);
+  return { generated: c.generated, kind: c.kind, districts, private: false, privateMode: "named", totals: { commits: all.reduce((s, r) => s + r.commits, 0), active: all.filter(r => r.week > 0).length },
+    under: c.under ? publicUnderground(c.under, districts.map(d => d.name)) : undefined };
 }
 function publicCityShow(c: CityData, publicProjects: string[]): CityData {
   const pub = new Set(publicProjects.map(p => p.toLowerCase()));
@@ -1275,7 +1288,7 @@ function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={workin
 function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
   if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">'+(d.apart?'This person keeps private work anonymous: these padlocks don\'t show how many repos there are, how big they are, which projects they belong to or when they were busy.':'The details of this building are private. Its size and lights show roughly how much work goes on inside.')+'</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':'')+'</div>'
+  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':r.priv?' &middot; &#128274; private repo, code not shared':'')+'</div>'
    +(r.description?'<p style="margin:6px 0 0">'+e(r.description)+'</p>':'')
    +'<div class="sp" title="Commits, last 12 weeks">'+(r.weeks||[]).map(function(w){return '<i style="height:'+Math.max(4,Math.round(w/mx*100))+'%"></i>'}).join('')+'</div><div class="k">Commits, last 12 weeks</div>'
    +'<div class="row"><span>Commits this year</span><b>'+r.commits.toLocaleString('en-US')+'</b></div><div class="row"><span>This week</span><b>'+r.week+'</b></div>'

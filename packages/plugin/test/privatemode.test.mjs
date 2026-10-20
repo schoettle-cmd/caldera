@@ -65,3 +65,22 @@ test("city preview: anonymous caption says private work, never a count of it", (
   assert.ok(svg.includes("1 building + private work"));
   assert.ok(!svg.includes("1,200") && !svg.includes("9 buildings"));
 });
+
+test("named: private repos keep their names, languages, activity and real districts, but never links, descriptions or note titles", () => {
+  const withLinks = cityData([...priv.districts.flatMap(d => d.repos).map(r => ({ ...r, url: "https://github.com/me/" + r.name, description: r.public ? "the app" : "secret plan" }))], () => ({ n: 2, paths: ["Notes/secret.md"] }), "2026-10-18T00:00:00Z");
+  const c = publicCity(withLinks, ["Shop"], "named");
+  assert.equal(c.privateMode, "named");
+  assert.deepEqual(c.districts.map(d => d.name).sort(), ["Secret Lab", "Shop"], "private-only projects keep their own district");
+  const all = c.districts.flatMap(d => d.repos);
+  assert.ok(all.some(r => r.name === "shop-secret" && r.priv && !r.locked && r.language === "Rust" && r.week === 7));
+  for (const r of all.filter(r => !r.public)) { assert.equal(r.url, undefined); assert.equal(r.description, undefined); }
+  assert.doesNotMatch(names(c), /Notes\/secret\.md|secret plan/, "no note paths or descriptions");
+  assert.equal(applyPrivateMode(c, "named"), c, "the hub leaves a named city as it is");
+});
+
+test("named + hideRepos: listed private repos stay nameless padlocks in place", () => {
+  const c = publicCity(priv, ["Shop"], "named", ["Shop-Secret"]);
+  const r = c.districts.find(d => d.name === "Shop").repos.find(x => !x.public);
+  assert.ok(r.locked); assert.equal(r.name, ""); assert.doesNotMatch(JSON.stringify(c), /shop-secret/);
+  assert.ok(c.districts.find(d => d.name === "Secret Lab").repos.every(x => x.priv && x.name), "the rest keep their names");
+});

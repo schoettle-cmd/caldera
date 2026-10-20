@@ -272,7 +272,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
           const vault = md.filter(inVault)
             .map(f => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
           cityPrivate.under = underground(vault, hubs, t => gslug.get(t.toLowerCase()));
-          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map(d => d.name) : fromVault ? [] : (s.projects || []).map(p => p[0]), s.privateRepos || "show");   // unset: the hub applies Caldera's default when it serves the page   // public repos only: every district is public
+          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map(d => d.name) : fromVault ? [] : (s.projects || []).map(p => p[0]), s.privateRepos || "show", (s as any).hideRepos || []);   // unset: the hub applies Caldera's default when it serves the page   // public repos only: every district is public
           if (pub.districts.length) data.city = pub;
         }
       }

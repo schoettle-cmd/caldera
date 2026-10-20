@@ -29,9 +29,9 @@ export interface CalderaSettings {
   welcomed: boolean;                  // first-run welcome finished
   listed: boolean;                    // shown in the public directory at hub/people
   autoConnectRepos?: boolean;         // become friends with members who work on the same public GitHub repos (default on)
-  tags?: string[]; hideTags?: string[];   // what I'm building: tags I add, and extracted ones to hide (Caldera/profile.md tags / hideTags)
+  tags?: string[]; hideTags?: string[]; hideRepos?: string[];   // what I'm building: tags I add, and extracted ones to hide (Caldera/profile.md tags / hideTags)
   autoTags?: boolean;                  // tag me automatically from my public GitHub repos (default on)
-  privateRepos?: "show" | "anonymous" | "hidden";   // how private repos show on my PUBLIC city (unset = Caldera's default); Caldera/profile.md privateRepos
+  privateRepos?: "show" | "anonymous" | "hidden" | "named";   // how private repos show on my PUBLIC city (unset = Caldera's default); Caldera/profile.md privateRepos
   seenIntros?: string[];
   seenRepoFriends?: string[];         // shared-repo friendships already announced
   lastSeenRelease: string;            // newest release the owner has been shown (What's new)
@@ -144,8 +144,8 @@ export class CalderaSettingTab extends PluginSettingTab {
       .setDesc("Shows what you're building (like AI agents or Next.js) on your page and in People, worked out from your public repos' topics, descriptions, READMEs and dependencies. Private repos only ever add a language. Add or hide tags with tags / hideTags in Caldera/profile.md, or on caldera.social/me/building.")
       .addToggle(t => t.setValue(s.autoTags !== false).onChange(async v => { s.autoTags = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     new Setting(containerEl).setName("Private repos on my city")
-      .setDesc("How your private repos appear on your public city, the World and your share card. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.")
-      .addDropdown(d => d.addOption("", "Caldera's default (padlocked)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "")
+      .setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.")
+      .addDropdown(d => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "")
         .onChange(async v => { s.privateRepos = (v || undefined) as CalderaSettings["privateRepos"]; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
     new Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.")
       .addToggle(t => t.setValue(s.showViews !== false).onChange(async v => { s.showViews = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));

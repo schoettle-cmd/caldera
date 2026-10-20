@@ -1,4 +1,4 @@
-/* Caldera 0.27.1 */
+/* Caldera 0.28.0 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -3296,7 +3296,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
-    new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
       s.privateRepos = v || void 0;
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
@@ -4063,7 +4063,7 @@ var LOCKED_STEPS = [1, 10, 25, 50, 100, 250, 500, 1e3, 2500, 5e3];
 var coarse = (n) => n <= 0 ? 0 : LOCKED_STEPS.reduce((b, s) => n >= s ? s : b, 1);
 var locked = (r, project) => ({ name: "", project, public: false, locked: true, language: "Private", commits: coarse(r.commits), weeks: [], week: r.week > 0 ? 1 : 0, today: 0 });
 function applyPrivateMode(c, mode) {
-  if (!mode || mode === "show" || c.private) return c;
+  if (!mode || mode === "show" || mode === "named" || c.private) return c;
   const isPriv = (r) => !!r.locked || r.public !== true || !r.name;
   let n = 0;
   const districts = [];
@@ -4088,8 +4088,37 @@ function applyPrivateMode(c, mode) {
     under: c.under ? publicUnderground(c.under, districts.filter((d) => !d.apart).map((d) => d.name)) : void 0
   };
 }
-function publicCity(c, publicProjects, mode = "show") {
+function publicCity(c, publicProjects, mode = "show", hideRepos = []) {
+  if (mode === "named") return publicCityNamed(c, hideRepos);
   return applyPrivateMode(publicCityShow(c, publicProjects), mode);
+}
+function publicCityNamed(c, hideRepos = []) {
+  const hide = new Set(hideRepos.map((h) => h.trim().toLowerCase()).filter(Boolean));
+  const named = (r) => r.public ? r : hide.has(r.name.toLowerCase()) ? locked(r, r.project) : {
+    name: r.name,
+    project: r.project,
+    public: false,
+    priv: true,
+    language: r.language || "Other",
+    commits: r.commits,
+    weeks: (r.weeks || []).slice(-12),
+    week: r.week,
+    today: r.today,
+    pushed: r.pushed,
+    created: r.created,
+    size: r.size
+  };
+  const districts = c.districts.map((d) => ({ name: d.name, notes: d.notes, repos: d.repos.map(named) }));
+  const all = c.districts.flatMap((d) => d.repos);
+  return {
+    generated: c.generated,
+    kind: c.kind,
+    districts,
+    private: false,
+    privateMode: "named",
+    totals: { commits: all.reduce((s, r) => s + r.commits, 0), active: all.filter((r) => r.week > 0).length },
+    under: c.under ? publicUnderground(c.under, districts.map((d) => d.name)) : void 0
+  };
 }
 function publicCityShow(c, publicProjects) {
   const pub = new Set(publicProjects.map((p) => p.toLowerCase()));
@@ -5211,7 +5240,7 @@ function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={workin
 function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
   if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">'+(d.apart?'This person keeps private work anonymous: these padlocks don\'t show how many repos there are, how big they are, which projects they belong to or when they were busy.':'The details of this building are private. Its size and lights show roughly how much work goes on inside.')+'</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':'')+'</div>'
+  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':r.priv?' &middot; &#128274; private repo, code not shared':'')+'</div>'
    +(r.description?'<p style="margin:6px 0 0">'+e(r.description)+'</p>':'')
    +'<div class="sp" title="Commits, last 12 weeks">'+(r.weeks||[]).map(function(w){return '<i style="height:'+Math.max(4,Math.round(w/mx*100))+'%"></i>'}).join('')+'</div><div class="k">Commits, last 12 weeks</div>'
    +'<div class="row"><span>Commits this year</span><b>'+r.commits.toLocaleString('en-US')+'</b></div><div class="row"><span>This week</span><b>'+r.week+'</b></div>'
@@ -5971,7 +6000,7 @@ async function collectProfile(app, s, social) {
           const gslug = new Map(garden.map((g) => [g.title.toLowerCase(), g.slug]));
           const vault = md.filter(inVault).map((f) => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
           cityPrivate.under = underground(vault, hubs, (t) => gslug.get(t.toLowerCase()));
-          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map((d) => d.name) : fromVault ? [] : (s.projects || []).map((p) => p[0]), s.privateRepos || "show");
+          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map((d) => d.name) : fromVault ? [] : (s.projects || []).map((p) => p[0]), s.privateRepos || "show", s.hideRepos || []);
           if (pub.districts.length) data.city = pub;
         }
       }
@@ -6200,9 +6229,11 @@ function effectiveSettings(app, s) {
     if (t) e.tags = t.slice(0, 12);
     const h = list(fm.hideTags);
     if (h) e.hideTags = h.slice(0, 40);
+    const hr = list(fm.hideRepos);
+    if (hr) e.hideRepos = hr.slice(0, 200);
   }
   if (typeof fm.autoTags === "boolean") e.autoTags = fm.autoTags;
-  if (["show", "anonymous", "hidden"].includes(String(fm.privateRepos))) e.privateRepos = fm.privateRepos;
+  if (["show", "anonymous", "hidden", "named"].includes(String(fm.privateRepos))) e.privateRepos = fm.privateRepos;
   if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x) => {
     const [g = "", items = "", folder = ""] = String(x ?? "").split("|").map((v) => v.trim());
     return [g, items, folder || void 0];
@@ -6274,7 +6305,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
 - **autoConnectGithub** (or autoConnectRepos) - \`false\` stops Caldera making you friends with members you follow, who follow you, or who work on the same public GitHub repos (on by default).
 - **tags** - what you're building, shown as chips on your page and searchable in People (e.g. \`[Social features, Next.js]\`). **hideTags** hides tags Caldera worked out from your public GitHub; **autoTags** \`false\` turns those off entirely.
-- **privateRepos** - how private repos show on your public city: \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything.
+- **privateRepos** - how private repos show on your public city: \`named\` (like your private view: names, language colours and activity in their real projects, but no links or code), \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything. **hideRepos** - with \`named\`, private repos to keep as nameless padlocks anyway (e.g. \`[client-project, secret-launch]\`).
 - **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
 - **now** - what you're doing now, one line each. Or \`now: auto\` (and when there's no list): your last week of journal wins, updated on every publish.
 - **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
