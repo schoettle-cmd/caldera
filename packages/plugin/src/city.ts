@@ -440,7 +440,8 @@ for(var j=0;j<=H;j++)for(var i=0;i<=W;i++){var key=i+','+j;if(!tiles[key])tiles[
 var TOOLS=Array.isArray(window.CALDERA_TOOLS)?window.CALDERA_TOOLS.filter(function(t){return t&&t.id&&t.name}).slice(0,24):[],SHOP=null;
 (function(){if(!TOOLS.length)return;var best=null,bd=1e9,g=function(i,j){var t=tiles[i+','+j];return t&&t.t==='g'&&!water(i,j)&&i>0&&j>0&&i<W&&j<H},
   rd=function(i,j){return isRoad(i-1,j)||isRoad(i+1,j)||isRoad(i,j-1)||isRoad(i,j+1)};
-  for(var j=1;j<H;j++)for(var i=1;i<W;i++){if(!g(i,j))continue;var ok=D.world?[0,1,2].every(function(a){return [0,1,2].every(function(b2){return g(i+a,j+b2)})})&&[0,1,2].some(function(a){return rd(i+a,j)||rd(i,j+a)||rd(i+2,j+a)||rd(i+a,j+2)}):rd(i,j);if(!ok)continue;
+  for(var j=1;j<H;j++)for(var i=1;i<W;i++){if(!g(i,j)||(!D.world&&Math.hypot(i-W,j-H)<4))continue;   // a city's front corner is the drones' sky base
+    var ok=D.world?[0,1,2].every(function(a){return [0,1,2].every(function(b2){return g(i+a,j+b2)})})&&[0,1,2].some(function(a){return rd(i+a,j)||rd(i,j+a)||rd(i+2,j+a)||rd(i+a,j+2)}):rd(i,j);if(!ok)continue;
     var bt=function(a,b){var t=tiles[a+','+b];return t&&(t.t==='b')},clear=D.world?!(bt(i+2,j)||bt(i,j+2)||bt(i+2,j+1)||bt(i+1,j+2)||bt(i+2,j+2)):!(bt(i+1,j)||bt(i,j+1)||bt(i+1,j+1)||bt(i+2,j+1)||bt(i+1,j+2));
     // World: the open middle, nothing tall in front. A city: the front edge, nearest the viewer, so no tower can hide it
     var d=D.world?Math.hypot(i-W/2,j-H/2)-(clear?1000:0):-(i+j)+.6*Math.abs(i-j)-(clear?1000:0);if(d<bd){bd=d;best=[i,j]}}
