@@ -1,4 +1,4 @@
-/* Caldera 0.28.0 */
+/* Caldera 0.28.1 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -3298,6 +3298,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     }));
     new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
       s.privateRepos = v || void 0;
+      s.privateReposTs = (/* @__PURE__ */ new Date()).toISOString();
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
@@ -7900,6 +7901,13 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
     if (!s.identity || !s.handle) return;
     try {
       const r = await this.api("GET", `/v1/owner/${encodeURIComponent(s.identity.id)}/alerts`, void 0, true);
+      const pm = r?.privateRepos;
+      if (pm && ["show", "anonymous", "hidden", "named"].includes(pm.mode) && String(pm.ts) > (s.privateReposTs || "") && pm.mode !== s.privateRepos) {
+        s.privateRepos = pm.mode;
+        s.privateReposTs = String(pm.ts);
+        await this.saveSettings();
+        this.queuePublish("profile");
+      }
       const fresh = (r?.alerts || []).filter((x) => !x.read && (!s.lastAlertTs || x.ts > s.lastAlertTs)).slice(0, 2);
       const newest = (r?.alerts || []).reduce((m, x) => x.ts > m ? x.ts : m, s.lastAlertTs || "");
       if (newest !== (s.lastAlertTs || "")) {
@@ -8643,7 +8651,7 @@ var WelcomeModal = class extends import_obsidian10.Modal {
     this.modalEl.addClass("caldera-welcome");
     this.titleEl.setText(finish ? "Finish your page" : "Welcome to Caldera");
     const c = this.contentEl;
-    c.createEl("p", { text: finish ? "A few details make your page worth visiting. Fill in what you like - everything is optional, and you can change it later in Caldera/profile.md." : "Set up your page in a minute. Caldera creates your identity on this device and publishes a page that keeps itself fresh from your vault. Nothing private leaves your vault." });
+    c.createEl("p", { text: finish ? "A few details make your page worth visiting. Fill in what you like - everything is optional, and you can change it later in Caldera/profile.md." : "Set up your page in a minute. Caldera creates your identity on this device and publishes a page that keeps itself fresh from your vault. Nothing private leaves your vault. Private GitHub repos show by name on your city (never their code); change that in Settings." });
     let name = eff.name || "", handle = s.handle || "", headline = eff.headline || "", listed = eff.listed !== false;
     const clean = (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
     const status = createDiv({ cls: "caldera-welcome-status" });
@@ -8747,6 +8755,10 @@ var WelcomeModal = class extends import_obsidian10.Modal {
           if (!s.autoPublishHours) s.autoPublishHours = 6;
         }
         Object.assign(s, { name, headline, listed });
+        if (!finish && !s.privateRepos) {
+          s.privateRepos = "named";
+          s.privateReposTs = (/* @__PURE__ */ new Date()).toISOString();
+        }
         await this.plugin.saveSettings();
         await this.plugin.applyProfileForm({ name, headline, listed, images: img, links: quick.map((v, i) => [QUICK_LINKS[i].label, quickLinkUrl(i, v)]), plant });
         const firstRun = !s.welcomed;

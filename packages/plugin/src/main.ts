@@ -594,6 +594,11 @@ export default class CalderaPlugin extends Plugin {
     const s = this.settings; if (!s.identity || !s.handle) return;
     try {
       const r = await this.api("GET", `/v1/owner/${encodeURIComponent(s.identity.id)}/alerts`, undefined, true);
+      // a newer private-repos choice made on caldera.social (e.g. the one-tap "show them by name") applies here too
+      const pm = r?.privateRepos;
+      if (pm && ["show", "anonymous", "hidden", "named"].includes(pm.mode) && String(pm.ts) > (s.privateReposTs || "") && pm.mode !== s.privateRepos) {
+        s.privateRepos = pm.mode; s.privateReposTs = String(pm.ts); await this.saveSettings(); this.queuePublish("profile");
+      }
       const fresh = (r?.alerts || []).filter((x: any) => !x.read && (!s.lastAlertTs || x.ts > s.lastAlertTs)).slice(0, 2);
       const newest = (r?.alerts || []).reduce((m: string, x: any) => x.ts > m ? x.ts : m, s.lastAlertTs || "");
       if (newest !== (s.lastAlertTs || "")) { s.lastAlertTs = newest; await this.saveSettings(); }
@@ -1135,7 +1140,7 @@ class WelcomeModal extends Modal {
     this.titleEl.setText(finish ? "Finish your page" : "Welcome to Caldera");
     const c = this.contentEl;
     c.createEl("p", { text: finish ? "A few details make your page worth visiting. Fill in what you like - everything is optional, and you can change it later in Caldera/profile.md."
-      : "Set up your page in a minute. Caldera creates your identity on this device and publishes a page that keeps itself fresh from your vault. Nothing private leaves your vault." });
+      : "Set up your page in a minute. Caldera creates your identity on this device and publishes a page that keeps itself fresh from your vault. Nothing private leaves your vault. Private GitHub repos show by name on your city (never their code); change that in Settings." });
     let name = eff.name || "", handle = s.handle || "", headline = eff.headline || "", listed = eff.listed !== false;
     const clean = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
     const status = createDiv({ cls: "caldera-welcome-status" });
@@ -1215,6 +1220,7 @@ class WelcomeModal extends Modal {
             s.handle = handle; if (!s.autoPublishHours) s.autoPublishHours = 6;
           }
           Object.assign(s, { name, headline, listed });
+          if (!finish && !s.privateRepos) { s.privateRepos = "named"; s.privateReposTs = new Date().toISOString(); }   // new members: private repos show by name (never code); Settings to change
           await this.plugin.saveSettings();
           await this.plugin.applyProfileForm({ name, headline, listed, images: img, links: quick.map((v, i) => [QUICK_LINKS[i]!.label, quickLinkUrl(i, v)] as [string, string]), plant });
           const firstRun = !s.welcomed;
