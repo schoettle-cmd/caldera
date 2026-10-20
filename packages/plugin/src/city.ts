@@ -14,6 +14,19 @@ export interface CityRepo {
   pushed?: string; created?: string; size?: number; url?: string; description?: string;
   locked?: boolean;                                   // a private repo on the public page: shape only, no details
   priv?: boolean;                                     // a private repo shown by name ("named" mode): name, language and activity, never code, links or descriptions
+  sites?: string[];                                   // the websites this repo runs (hostnames), so live visitors stand in its building
+}
+/** Hostnames from a homepage URL, a host, or a list of them: "https://www.kitse.co/x" -> "kitse.co". At most 6. */
+export function cleanSites(v: unknown): string[] | undefined {
+  const out: string[] = [];
+  for (const x of (Array.isArray(v) ? v : [v])) {
+    let h = String(x ?? "").trim().toLowerCase(); if (!h) continue;
+    try { h = new URL(/^[a-z][a-z0-9+.-]*:\/\//.test(h) ? h : "https://" + h).hostname; } catch { continue; }
+    h = h.replace(/^www\./, "");
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h) && h.length <= 253 && h !== "github.com" && h !== "github.io" && !out.includes(h)) out.push(h);   // a github.io page is a real site; the repo page is not
+    if (out.length >= 6) break;
+  }
+  return out.length ? out : undefined;
 }
 export interface CityDistrict { name: string; notes: number; notePaths?: string[]; repos: CityRepo[]; apart?: boolean }   // apart: the anonymous private district, laid out on its own
 export interface CityData { generated?: string; kind?: "vault"; districts: CityDistrict[]; private: boolean; totals?: { commits: number; active: number }; under?: Underground; privateMode?: PrivateMode }
@@ -100,6 +113,7 @@ export function parseCityRepos(raw: unknown): CityRepo[] {
     pushed: typeof r.pushed === "string" ? r.pushed.slice(0, 40) : undefined, created: typeof r.created === "string" ? r.created.slice(0, 40) : undefined,
     size: num(r.size), url: r.public === true && /^https:\/\//.test(String(r.url || "")) ? String(r.url) : undefined,
     description: r.public === true && r.description ? String(r.description).slice(0, 200) : undefined,
+    sites: cleanSites(r.sites ?? r.homepage),
   }));
 }
 
@@ -166,7 +180,7 @@ export function publicCity(c: CityData, publicProjects: string[], mode: PrivateM
 function publicCityNamed(c: CityData, hideRepos: string[] = []): CityData {
   const hide = new Set(hideRepos.map(h => h.trim().toLowerCase()).filter(Boolean));   // still a nameless padlock, in place
   const named = (r: CityRepo): CityRepo => r.public ? r : hide.has(r.name.toLowerCase()) ? locked(r, r.project) : { name: r.name, project: r.project, public: false, priv: true, language: r.language || "Other",
-    commits: r.commits, weeks: (r.weeks || []).slice(-12), week: r.week, today: r.today, pushed: r.pushed, created: r.created, size: r.size };
+    commits: r.commits, weeks: (r.weeks || []).slice(-12), week: r.week, today: r.today, pushed: r.pushed, created: r.created, size: r.size, ...(r.sites ? { sites: r.sites } : {}) };
   const districts = c.districts.map(d => ({ name: d.name, notes: d.notes, repos: d.repos.map(named) }));
   const all = c.districts.flatMap(d => d.repos);
   return { generated: c.generated, kind: c.kind, districts, private: false, privateMode: "named", totals: { commits: all.reduce((s, r) => s + r.commits, 0), active: all.filter(r => r.week > 0).length },
@@ -1270,17 +1284,24 @@ function drawLive(){var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dp
 // ---- window glow from live visitors: the hub sends each district's glow (visitors in the last 30 minutes, each fading
 // over 30 minutes), and lit windows ease toward it: a busy site lights up, then dims to dark as people leave
 var GT={},GL={},GS={},glowAt=0,glowDraw=0;
-  // which building a visit belongs to: the hub sends each district's visited sites as one word each ("stash", "kitse"); a repo
-  // whose name matches gets the people and the full lights. A district whose sites match none of its repos (or that sends no
-  // site names) shows them in its biggest building only, never across every repo.
+  // which building a visit belongs to. The hub sends each district's visited sites (hostnames). A repo that lists the site
+  // (its website on GitHub, or "sites" in city.json) owns it; otherwise the one repo named like the site ("relay" for
+  // relay.example.com). A site no repo owns puts nobody anywhere: people only ever stand where the visitors really are.
   function sNorm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
-  function sMatch(rn,tk){return !!rn&&!!tk&&(rn===tk||(tk.length>=4&&rn.indexOf(tk)>=0)||(rn.length>=4&&tk.indexOf(rn)>=0))}
-  var SBK=null,SBT=null,SBAt=0;function siteBook(){if(SBK&&SBT===tiles&&(!BUILDING||T-SBAt<1000))return SBK;SBK={};SBT=tiles;SBAt=T;var k;   // rebuilt only when the layout changes
-    for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r)continue;var dn=t.d.name,b=SBK[dn]||(SBK[dn]={main:null,mh:-1,names:[]}),h=bh(t.r);b.names.push(sNorm(t.r.name));if(h>b.mh){b.mh=h;b.main=t.r}}return SBK}
-  function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;var d=t.d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null,b=siteBook()[d.name],rn=sNorm(t.r.name),best=0,mx=0,hit=false,k;
-    if(ds){for(k in ds)mx=Math.max(mx,ds[k]);for(k in ds){var tk=sNorm(k);if(sMatch(rn,tk))best=Math.max(best,ds[k]/(mx||1));if(!hit&&b)for(var q=0;q<b.names.length;q++)if(sMatch(b.names[q],tk)){hit=true;break}}
-      if(best>0)return gw*best;if(hit)return 0}
-    return b&&b.main===t.r?gw:0}
+  function sHostOwns(sites,h){if(!sites||!h||h.indexOf('.')<0)return false;for(var i=0;i<sites.length;i++){var s=String(sites[i]);if(h===s||h.slice(-s.length-1)==='.'+s)return true}return false}
+  function sWord(h){var l=String(h).split('.');while(l.length>2&&/^(www|app|m|my|go|get|beta|staging)$/.test(l[0]))l.shift();return sNorm(l[0])}
+  var SBK=null,SBT=null,SBG=null,SBAt=0;
+  function siteBook(){if(SBK&&SBT===tiles&&SBG===GS&&(!BUILDING||T-SBAt<1000))return SBK;SBT=tiles;SBG=GS;SBAt=T;SBK=new Map();var by={},k,dn;   // rebuilt when the layout or the live data changes
+    for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t)}
+    for(dn in by){var ts=by[dn],d=ts[0].d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null;if(!ds)continue;var mx=0;for(k in ds)mx=Math.max(mx,ds[k]);
+      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(t.r.sites,k)});
+        if(!own.length){var w=k.indexOf('.')<0?sNorm(k):sWord(k),best=null,bs=0;
+          if(w.length>=3)ts.forEach(function(t){var rn=sNorm(t.r.name),sc=rn===w?1000:(w.length>=4&&rn.indexOf(w)>=0)||(rn.length>=4&&w.indexOf(rn)>=0)?100-Math.abs(rn.length-w.length):0;
+            if(sc>bs&&!(t.r.sites&&t.r.sites.length&&sc<1000)){bs=sc;best=t}});   // a repo that names its own sites isn't guessed into another
+          if(best)own=[best]}
+        own.forEach(function(t){SBK.set(t.r,Math.max(SBK.get(t.r)||0,share))})}}
+    return SBK}
+  function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;return gw*(siteBook().get(t.r)||0)}
 function stepGlow(tn){var dt=Math.min(1000,tn-(glowAt||tn));glowAt=tn;var moving=false,ks={},k;for(k in GT)ks[k]=1;for(k in GL)ks[k]=1;
   for(k in ks){var g=GL[k]||0,t=GT[k]||0;if(Math.abs(t-g)<.003){if(t)GL[k]=t;else delete GL[k];continue}GL[k]=g+(t-g)*Math.min(1,dt/2200);moving=true}
   if(moving&&tn-glowDraw>220){glowDraw=tn;dirty=true}}

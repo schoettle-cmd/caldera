@@ -6,6 +6,7 @@
  * Anything the owner's tools put in Caldera/activity.json wins over these.
  */
 import { App, Platform, TFile, requestUrl } from "obsidian";
+import { cleanSites } from "./city";
 
 type AI = { total: number; window_days: number; days: Record<string, number>; models: [string, number][]; providers: [string, number][]; note: string };
 
@@ -155,7 +156,7 @@ export async function githubCity(user: string, prev?: any): Promise<any | undefi
   const repos = own.filter(r => !r.fork && !r.private && !r.archived).slice(0, 120).map(r => {
     const o = old.get(r.name);
     return { name: r.name, project: r.language || "Other", public: true, language: r.language || "Other", size: r.size, pushed: r.pushed_at, created: r.created_at,
-      url: r.html_url, description: (r.description || "").slice(0, 200), commits: o?.commits || (r.size ? 1 : 0), weeks: o?.weeks || [], week: o?.week || 0, today: 0 };
+      url: r.html_url, description: (r.description || "").slice(0, 200), commits: o?.commits || (r.size ? 1 : 0), weeks: o?.weeks || [], week: o?.week || 0, today: 0, sites: cleanSites(r.homepage || r.website) };
   });
   for (const r of repos.slice(0, 20)) {
     try {
@@ -213,7 +214,7 @@ export async function forgejoCity(f: Forge, prev?: any): Promise<any | undefined
   const repos = live.slice(0, 120).map(r => {
     const o = old.get(r.name);
     return { name: r.name, owner: r.owner?.login || f.user, project: r.language || "Other", public: true, language: r.language || "Other", size: r.size, pushed: r.updated_at, created: r.created_at,
-      url: r.html_url, description: (r.description || "").slice(0, 200), commits: o?.commits || (r.size ? 1 : 0), weeks: o?.weeks || [], week: o?.week || 0, today: 0 };
+      url: r.html_url, description: (r.description || "").slice(0, 200), commits: o?.commits || (r.size ? 1 : 0), weeks: o?.weeks || [], week: o?.week || 0, today: 0, sites: cleanSites(r.homepage || r.website) };
   });
   // Commit lists come newest first and Forgejo ignores "since" here, so page back until a year ago (up to 500).
   const now = Date.now(), WEEK = 7 * 864e5, YEAR = 365 * 864e5, q = "&stat=false&verification=false&files=false";

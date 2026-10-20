@@ -1,4 +1,4 @@
-/* Caldera 0.28.4 */
+/* Caldera 0.28.5 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2825,1134 +2825,24 @@ function activityScore(c) {
 
 // src/auto.ts
 var import_obsidian = require("obsidian");
-var isoLocal = (t) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-function prettyModel(model) {
-  const m = model.trim().replace(/-\d{8}$/, "").split("/").pop().replace(/\./g, "-");
-  const c = m.match(/^claude-([a-z]+)-(\d+)(?:-(\d+))?/);
-  if (c) return `Claude ${c[1][0].toUpperCase()}${c[1].slice(1)} ${c[2]}${c[3] ? "." + c[3] : ""}`;
-  const g = m.match(/^gpt-(\d+)(?:-(\d+))?(.*)$/);
-  if (g) return `GPT-${g[1]}${g[2] ? "." + g[2] : ""}${g[3] ? " " + g[3].replace(/^-/, "").replace(/-/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()) : ""}`;
-  return m;
-}
-function providerOf(name) {
-  const m = name.toLowerCase();
-  if (m.includes("claude")) return "Anthropic";
-  if (/^(gpt|o\d|codex)/.test(m)) return "OpenAI";
-  if (m.includes("gemini")) return "Google";
-  if (m.includes("deepseek")) return "DeepSeek";
-  if (m.includes("grok")) return "xAI";
-  if (m.includes("llama")) return "Meta";
-  if (m.includes("mistral")) return "Mistral";
-  return "Other";
-}
-async function aiUsage(cachePath, windowDays = 45) {
-  if (!import_obsidian.Platform.isDesktopApp) return void 0;
-  let fs, path, os;
-  try {
-    fs = window.require("fs");
-    path = window.require("path");
-    os = window.require("os");
-  } catch {
-    return void 0;
-  }
-  const home = os.homedir(), since = Date.now() - (windowDays + 2) * 864e5;
-  let cache = {};
-  try {
-    cache = JSON.parse(await fs.promises.readFile(cachePath, "utf8"));
-  } catch {
-  }
-  const files = [];
-  const walk = async (dir, kind, depth) => {
-    let ents = [];
-    try {
-      ents = await fs.promises.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of ents) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory() && depth > 0) await walk(p, kind, depth - 1);
-      else if (e.isFile() && e.name.endsWith(".jsonl")) files.push([p, kind]);
-    }
-  };
-  await walk(path.join(home, ".claude", "projects"), "claude", 2);
-  await walk(path.join(home, ".codex", "sessions"), "codex", 4);
-  if (!files.length) return void 0;
-  const next = {};
-  for (const [p, kind] of files) {
-    let st;
-    try {
-      st = await fs.promises.stat(p);
-    } catch {
-      continue;
-    }
-    if (st.mtimeMs < since) continue;
-    const c = cache[p];
-    if (c && c.m === st.mtimeMs && c.s === st.size) {
-      next[p] = c;
-      continue;
-    }
-    const t = {}, seen = /* @__PURE__ */ new Set();
-    let text = "";
-    try {
-      text = await fs.promises.readFile(p, "utf8");
-    } catch {
-      continue;
-    }
-    let model = "gpt-5";
-    for (const line of text.split("\n")) {
-      if (kind === "claude") {
-        if (!line.includes('"usage"') || !line.includes('"assistant"')) continue;
-        try {
-          const o = JSON.parse(line), msg = o.message || {}, u = msg.usage;
-          if (!u || !msg.model || String(msg.model).startsWith("<") || !o.timestamp || seen.has(msg.id)) continue;
-          seen.add(msg.id);
-          const n = (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
-          const d = isoLocal(Date.parse(o.timestamp));
-          (t[d] || (t[d] = {}))[msg.model] = (t[d][msg.model] || 0) + n;
-        } catch {
-        }
-      } else {
-        if (!line.includes('"turn_context"') && !line.includes('"token_count"')) continue;
-        try {
-          const o = JSON.parse(line), pl = o.payload || {};
-          if (o.type === "turn_context" && pl.model) model = pl.model;
-          else if (pl.type === "token_count" && o.timestamp) {
-            const n = pl.info?.last_token_usage?.total_tokens || 0;
-            if (n) {
-              const d = isoLocal(Date.parse(o.timestamp));
-              (t[d] || (t[d] = {}))[model] = (t[d][model] || 0) + n;
-            }
-          }
-        } catch {
-        }
-      }
-    }
-    next[p] = { m: st.mtimeMs, s: st.size, t };
-    await new Promise((r) => window.setTimeout(r, 0));
-  }
-  try {
-    await fs.promises.writeFile(cachePath, JSON.stringify(next));
-  } catch {
-  }
-  const first = isoLocal(Date.now() - (windowDays - 1) * 864e5);
-  const days = {}, models = /* @__PURE__ */ new Map();
-  for (const f of Object.values(next)) for (const [d, ms] of Object.entries(f.t)) {
-    if (d < first) continue;
-    for (const [m, n] of Object.entries(ms)) {
-      days[d] = (days[d] || 0) + n;
-      const k = prettyModel(m);
-      models.set(k, (models.get(k) || 0) + n);
-    }
-  }
-  const total = Object.values(days).reduce((a, b) => a + b, 0);
-  if (!total) return void 0;
-  const prov = /* @__PURE__ */ new Map();
-  for (const [m, n] of models) prov.set(providerOf(m), (prov.get(providerOf(m)) || 0) + n);
-  return {
-    total,
-    window_days: windowDays,
-    days,
-    models: [...models].sort((a, b) => b[1] - a[1]).slice(0, 8),
-    providers: [...prov].sort((a, b) => b[1] - a[1]),
-    note: "Tokens processed by my AI coding agents (Claude Code, Codex) on this computer, including cached context. Counts only."
-  };
-}
-async function githubCode(links) {
-  const gh = links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean);
-  if (!gh) return void 0;
-  const user = gh[1];
-  try {
-    const r = await (0, import_obsidian.requestUrl)({ url: `https://github.com/users/${user}/contributions`, throw: false });
-    if (r.status !== 200) return void 0;
-    const html = r.text, byId = /* @__PURE__ */ new Map(), counts = /* @__PURE__ */ new Map();
-    for (const m of html.matchAll(/data-date="(\d{4}-\d{2}-\d{2})"[^>]*id="([^"]+)"|id="([^"]+)"[^>]*data-date="(\d{4}-\d{2}-\d{2})"/g)) byId.set(m[2] || m[3], m[1] || m[4]);
-    for (const m of html.matchAll(/<tool-tip[^>]*for="([^"]+)"[^>]*>\s*(No|\d[\d,]*) contributions?/g)) {
-      const d = byId.get(m[1]);
-      if (d) counts.set(d, m[2] === "No" ? 0 : Number(m[2].replace(/,/g, "")));
-    }
-    if (!counts.size) return void 0;
-    const dates = [...counts.keys()].sort(), weekly = [];
-    for (let i = 0; i < dates.length; i += 7) weekly.push(dates.slice(i, i + 7).reduce((a, d) => a + (counts.get(d) || 0), 0));
-    const commits = [...counts.values()].reduce((a, b) => a + b, 0);
-    let repos = 0;
-    try {
-      const u = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}`, throw: false });
-      repos = u.json?.public_repos || 0;
-    } catch {
-    }
-    const start = (/* @__PURE__ */ new Date(dates[0] + "T12:00:00")).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    return commits ? { commits, repos, weekly, url: `https://github.com/${user}`, start } : void 0;
-  } catch {
-    return void 0;
-  }
-}
-function githubUser(links) {
-  return links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean)?.[1];
-}
-async function githubRepoSig(user) {
-  const u = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}`, throw: false });
-  const r = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=created&direction=desc&per_page=1`, throw: false });
-  if (u.status !== 200 || r.status !== 200 || !Array.isArray(r.json)) return void 0;
-  return `${u.json?.public_repos ?? "?"}|${r.json[0]?.full_name || ""}`;
-}
-async function githubCity(user, prev) {
-  const own = [];
-  for (let pg = 1; pg <= 2; pg++) {
-    const r = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=pushed&per_page=100&page=${pg}`, throw: false });
-    if (r.status !== 200 || !Array.isArray(r.json)) return void 0;
-    own.push(...r.json);
-    if (r.json.length < 100) break;
-  }
-  const old = new Map((Array.isArray(prev?.repos) ? prev.repos : []).map((r) => [r.name, r]));
-  const repos = own.filter((r) => !r.fork && !r.private && !r.archived).slice(0, 120).map((r) => {
-    const o = old.get(r.name);
-    return {
-      name: r.name,
-      project: r.language || "Other",
-      public: true,
-      language: r.language || "Other",
-      size: r.size,
-      pushed: r.pushed_at,
-      created: r.created_at,
-      url: r.html_url,
-      description: (r.description || "").slice(0, 200),
-      commits: o?.commits || (r.size ? 1 : 0),
-      weeks: o?.weeks || [],
-      week: o?.week || 0,
-      today: 0
-    };
-  });
-  for (const r of repos.slice(0, 20)) {
-    try {
-      const w = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/repos/${user}/${r.name}/stats/commit_activity`, throw: false });
-      if (w.status === 200 && Array.isArray(w.json) && w.json.length) {
-        const t = w.json.slice(-52).map((x) => x.total || 0);
-        r.weeks = t.slice(-12);
-        r.commits = Math.max(1, t.reduce((a, b) => a + b, 0));
-        r.week = t[t.length - 1];
-      }
-    } catch {
-    }
-  }
-  return repos.length ? { generated: (/* @__PURE__ */ new Date()).toISOString(), source: `caldera github ${user}`, repos } : void 0;
-}
-function forgeOf(links) {
-  const gh = githubUser(links);
-  if (gh) return { kind: "github", host: "github.com", user: gh, url: `https://github.com/${gh}` };
-  for (const [label, url] of links) {
-    const m = url.match(/^(https?:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})\/?$/);
-    if (m && (/forgejo|gitea|codeberg/i.test(label) || /^https?:\/\/(www\.)?codeberg\.org$/i.test(m[1]))) return { kind: "forgejo", host: m[1].replace(/^http:/, "https:"), user: m[2], url: `${m[1]}/${m[2]}` };
-  }
-  return void 0;
-}
-var forgeSource = (f) => f.kind === "github" ? `caldera github ${f.user}` : `caldera forgejo ${f.url}`;
-var fj = async (f, path) => {
-  const r = await (0, import_obsidian.requestUrl)({ url: `${f.host}/api/v1${path}`, headers: { Accept: "application/json" }, throw: false });
-  return r.status === 200 ? r : void 0;
-};
-async function forgejoCode(f) {
-  try {
-    const h = await fj(f, `/users/${encodeURIComponent(f.user)}/heatmap`);
-    if (!h || !Array.isArray(h.json)) return void 0;
-    const now = Date.now(), WEEK = 7 * 864e5, weekly = Array(53).fill(0);
-    for (const x of h.json) {
-      const age = now - Number(x.timestamp) * 1e3;
-      if (age >= 0 && age < 53 * WEEK) weekly[52 - Math.floor(age / WEEK)] += Number(x.contributions) || 0;
-    }
-    const commits = weekly.reduce((a, b) => a + b, 0);
-    if (!commits) return void 0;
-    const u = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50`);
-    const repos = Array.isArray(u?.json) ? u.json.filter((r) => !r.fork && !r.private).length : 0;
-    const start = new Date(now - 52 * WEEK).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    return { commits, repos, weekly, url: f.url, start };
-  } catch {
-    return void 0;
-  }
-}
-async function forgejoCity(f, prev) {
-  const own = [];
-  for (let pg = 1; pg <= 4; pg++) {
-    const r = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50&page=${pg}`);
-    if (!r || !Array.isArray(r.json)) {
-      if (pg === 1) return void 0;
-      break;
-    }
-    own.push(...r.json);
-    if (r.json.length < 50) break;
-  }
-  const old = new Map((Array.isArray(prev?.repos) ? prev.repos : []).map((r) => [r.name, r]));
-  const live = own.filter((r) => !r.fork && !r.private && !r.archived && !r.mirror).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
-  const repos = live.slice(0, 120).map((r) => {
-    const o = old.get(r.name);
-    return {
-      name: r.name,
-      owner: r.owner?.login || f.user,
-      project: r.language || "Other",
-      public: true,
-      language: r.language || "Other",
-      size: r.size,
-      pushed: r.updated_at,
-      created: r.created_at,
-      url: r.html_url,
-      description: (r.description || "").slice(0, 200),
-      commits: o?.commits || (r.size ? 1 : 0),
-      weeks: o?.weeks || [],
-      week: o?.week || 0,
-      today: 0
-    };
-  });
-  const now = Date.now(), WEEK = 7 * 864e5, YEAR = 365 * 864e5, q2 = "&stat=false&verification=false&files=false";
-  for (const r of repos.slice(0, 20)) {
-    try {
-      const base = `/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}/commits?limit=50${q2}`;
-      const weeks = Array(12).fill(0);
-      let year = 0, ok = false;
-      for (let pg = 1; pg <= 10; pg++) {
-        const w = await fj(f, `${base}&page=${pg}`);
-        if (!w || !Array.isArray(w.json)) break;
-        ok = true;
-        let older = false;
-        for (const c of w.json) {
-          const age = now - Date.parse(c.commit?.author?.date || c.created);
-          if (!(age >= 0)) continue;
-          if (age >= YEAR) {
-            older = true;
-            continue;
-          }
-          year++;
-          if (age < 12 * WEEK) weeks[11 - Math.floor(age / WEEK)]++;
-        }
-        if (older || w.json.length < 50) break;
-      }
-      if (!ok) continue;
-      r.weeks = weeks;
-      r.week = weeks[11];
-      r.commits = Math.max(1, year);
-    } catch {
-    }
-  }
-  for (const r of repos) delete r.owner;
-  return repos.length ? { generated: (/* @__PURE__ */ new Date()).toISOString(), source: forgeSource(f), repos } : void 0;
-}
-var KINDS = [
-  [/^(person|people|contact|contacts)$/, "People"],
-  [/^(company|companies|organization|organisation|org|orgs|organizations)$/, "Companies"],
-  [/^(project|projects)$/, "Projects"],
-  [/^(source|sources|article|articles|clipping|clippings|paper|papers|reference|references)$/, "Sources"],
-  [/^(concept|concepts|idea|ideas|zettel|zettelkasten|permanent)$/, "Ideas & concepts"],
-  [/^(book|books|reading)$/, "Books"],
-  [/^(meeting|meetings)$/, "Meetings"],
-  [/^(daily|dailies|journal|journals|daily-notes|daily notes|daily-digest|diary)$/, "Daily notes"],
-  [/^(recipe|recipes)$/, "Recipes"],
-  [/^(research)$/, "Research"],
-  [/^(course|courses|class|classes|lecture|lectures)$/, "Learning"],
-  [/^(podcast|podcasts|video|videos)$/, "Media notes"],
-  [/^(tool|tools|software)$/, "Tools"],
-  [/^(place|places|travel)$/, "Places"]
-];
-var kindOf = (v) => {
-  const k = String(v ?? "").trim().toLowerCase();
-  return (KINDS.find(([rx]) => rx.test(k)) || [])[1];
-};
-function vaultKinds(app, md) {
-  const n = /* @__PURE__ */ new Map();
-  for (const f of md) {
-    if (f.path.startsWith("Caldera/")) continue;
-    const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
-    const label = kindOf(fm.type) || kindOf(fm.category) || (/^\d{4}-\d{2}-\d{2}$/.test(f.basename) ? "Daily notes" : void 0) || f.path.split("/").slice(0, -1).map(kindOf).find(Boolean);
-    if (label) n.set(label, (n.get(label) || 0) + 1);
-  }
-  return [...n].filter(([, c]) => c >= 3).sort((a, b) => b[1] - a[1]).slice(0, 7);
-}
-
-// src/settings.ts
-var import_obsidian2 = require("obsidian");
-var DEFAULT_SETTINGS = {
-  hubUrl: "https://caldera.social",
-  identity: null,
-  handle: "",
-  name: "",
-  headline: "",
-  theme: "dark",
-  avatarPath: "",
-  bannerPath: "",
-  links: [],
-  properties: [],
-  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, links: true, sidebar: true, rail: true, modules: true },
-  publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
-  activityFile: "Caldera/activity.json",
-  historyDays: 45,
-  inboxFolder: "Caldera/Inbox",
-  lastInboxSync: "1970-01-01T00:00:00.000Z",
-  asks: [],
-  offers: [],
-  autoPublishHours: 6,
-  welcomed: false,
-  listed: true,
-  lastSeenRelease: "",
-  lastPublished: 0,
-  tree: [],
-  graph: [],
-  backlinks: [],
-  summary: "",
-  now: [],
-  timeline: [],
-  projects: [],
-  knows: [],
-  tabs: [],
-  gardenFolder: "Garden",
-  gardenUrl: "",
-  gardenJournal: true,
-  groups: []
-};
-var WELCOME_NOTE = "Welcome to Caldera - I built it. Glad you're here. If anything breaks or feels confusing, tell me and I'll fix it.";
-var groupsFrom = (v) => [...new Set(String(v || "").toLowerCase().split(/[\s,]+/).map((g) => g.replace(/^#/, "")).filter((g) => /^[a-z0-9][a-z0-9-]{1,29}$/.test(g)))].slice(0, 8);
-var SECTION_LABELS = {
-  journal: "Daily journal (flip through days)",
-  scoreboard: "Scoreboard (streak, rank, 30-day bars)",
-  properties: "Properties",
-  numbers: "Vault numbers (notes, words, links, active days)",
-  topics: "Topics (allow-listed tags only)",
-  notes: "Notes marked caldera: public",
-  links: "Links elsewhere",
-  garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
-  city: "City (your GitHub as a little city: add GitHub | https://github.com/you to Links, or write Caldera/city.json yourself)"
-};
-var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
-  constructor(app, plugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-  display() {
-    const { containerEl } = this;
-    const s = this.plugin.settings;
-    containerEl.empty();
-    containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
-    new import_obsidian2.Setting(containerEl).setName("Connections").setHeading();
-    const lights = containerEl.createDiv({ cls: "caldera-conn" });
-    lights.createEl("p", { text: s.identity && s.handle ? "Checking..." : "Publish your page to see your connections.", cls: "setting-item-description" });
-    if (s.identity && s.handle) void this.plugin.ownerActivity(new Date(Date.now() - 864e5).toISOString()).then((a) => {
-      const c = a?.connections;
-      lights.empty();
-      if (!c) {
-        lights.createEl("p", { text: "Update the hub to see connections.", cls: "setting-item-description" });
-        return;
-      }
-      const rows = [
-        ["GitHub", !!c.github?.on, c.github?.on ? `Connected as @${c.github.login}` : c.github?.listed ? `Listed (github.com/${c.github.listed}), sign in with GitHub once to link it` : "Not connected"],
-        ["Obsidian", true, "Connected (this vault)"],
-        ["Live visitors on your city", !!c.live, c.live ? "Visits in the last 7 days" : "No visits in the last 7 days"],
-        ["AI agents on the map", !!c.agents, c.agents ? "Agents in the last 7 days" : "No agents in the last 7 days"],
-        ["Private view", !!c.private, c.private ? "Up to date" : "Not turned on"],
-        ["Daily summary email", !!c.email, c.email ? "On" : "Off"]
-      ];
-      for (const [name, on, status] of rows) {
-        const r = lights.createDiv({ cls: "caldera-conn-row" });
-        r.createSpan({ cls: "caldera-conn-dot" + (on ? " is-on" : ""), attr: { "aria-label": on ? "Connected" : "Not connected" } });
-        r.createSpan({ text: name, cls: "caldera-conn-name" });
-        r.createSpan({ text: status, cls: "caldera-conn-status" });
-      }
-    }).catch(() => {
-      lights.empty();
-      lights.createEl("p", { text: "Couldn't reach the hub.", cls: "setting-item-description" });
-    });
-    new import_obsidian2.Setting(containerEl).setName("Set them up on caldera.social").setDesc("Opens your settings page, already signed in, with a step-by-step for anything that's grey.").addButton((b) => b.setButtonText("Open settings").setDisabled(!s.identity || !s.handle).onClick(() => void this.plugin.openProfile("settings")));
-    new import_obsidian2.Setting(containerEl).setName("Identity").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet").addButton((b) => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
-      if (!s.identity) {
-        await this.plugin.ensureIdentity();
-        this.display();
-      } else {
-        await navigator.clipboard.writeText(s.identity.id);
-        new import_obsidian2.Notice("ID copied");
-      }
-    })).addButton((b) => b.setButtonText("Export recovery key").setDisabled(!s.identity).onClick(async () => {
-      await navigator.clipboard.writeText(btoa(JSON.stringify(s.identity)));
-      new import_obsidian2.Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
-    }));
-    this.text("Handle", "Your address on the hub: hub/@handle", "handle", (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
-    let claim = "";
-    new import_obsidian2.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
-      claim = v.trim();
-    })).addButton((b) => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then((ok) => {
-      if (ok) this.display();
-    })));
-    this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
-    new import_obsidian2.Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.").addToggle((t) => t.setValue(s.listed !== false).onChange(async (v) => {
-      s.listed = v;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Connect me with my GitHub people").setDesc("Become friends automatically with Caldera members you follow or who follow you on GitHub, or who work on the same public repos, including people who join later. Remove one like any friend and it never comes back.").addToggle((t) => t.setValue(s.autoConnectRepos !== false).onChange(async (v) => {
-      s.autoConnectRepos = v;
-      await this.plugin.saveSettings();
-      this.plugin.queuePublish("profile");
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Tag me from my public GitHub").setDesc("Shows what you're building (like AI agents or Next.js) on your page and in People, worked out from your public repos' topics, descriptions, READMEs and dependencies. Private repos only ever add a language. Add or hide tags with tags / hideTags in Caldera/profile.md, or on caldera.social/me/building.").addToggle((t) => t.setValue(s.autoTags !== false).onChange(async (v) => {
-      s.autoTags = v;
-      await this.plugin.saveSettings();
-      this.plugin.queuePublish("profile");
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
-      s.privateRepos = v || void 0;
-      s.privateReposTs = (/* @__PURE__ */ new Date()).toISOString();
-      await this.plugin.saveSettings();
-      this.plugin.queuePublish("profile");
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.").addToggle((t) => t.setValue(s.showViews !== false).onChange(async (v) => {
-      s.showViews = v;
-      await this.plugin.saveSettings();
-      this.plugin.queuePublish("profile");
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Friends and sharing").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
-    new import_obsidian2.Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`).addText((t) => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async (v) => {
-      s.groups = groupsFrom(v);
-      await this.plugin.saveSettings();
-      this.plugin.queuePublish("profile");
-    }));
-    let email = s.summaryEmail || "";
-    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and new followers, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
-    new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: follow each person who joins Caldera from now on, with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
-      s.welcomeNew = v;
-      if (v && !s.welcomeSince) s.welcomeSince = (/* @__PURE__ */ new Date()).toISOString();
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Welcome note").addTextArea((t) => {
-      t.setValue(s.welcomeNote || WELCOME_NOTE);
-      t.inputEl.rows = 2;
-      t.onChange(async (v) => {
-        s.welcomeNote = v.trim().slice(0, 200);
-        await this.plugin.saveSettings();
-      });
-    });
-    new import_obsidian2.Setting(containerEl).setName("Profile").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.").addButton((b) => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
-    this.text("Name", "", "name");
-    this.text("Headline", "One line under your name", "headline");
-    this.text("Avatar image", "Path in your vault, e.g. Attachments/me.jpg", "avatarPath");
-    this.text("Banner image", "Path in your vault", "bannerPath");
-    new import_obsidian2.Setting(containerEl).setName("Theme").addDropdown((d) => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async (v) => {
-      s.theme = v;
-      await this.plugin.saveSettings();
-    }));
-    this.pairs("Links", "One per line: Label | https://url", "links");
-    new import_obsidian2.Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.").addText((t) => t.setPlaceholder("octocat").setValue(githubUser(s.links || []) || "").onChange(async (v) => {
-      const u = v.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\/.*$/, "");
-      s.links = (s.links || []).filter((l) => !/^https?:\/\/(?:www\.)?github\.com\/[A-Za-z0-9-]{1,39}\/?$/.test(l[1]));
-      if (/^[A-Za-z0-9-]{1,39}$/.test(u)) s.links.push(["GitHub", `https://github.com/${u}`]);
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Forgejo or Codeberg profile").setDesc("Code on Codeberg or your own Forgejo / Gitea server instead? Paste your profile address. Your public repos become your city, and your contributions your code chart. Used when no GitHub username is set.").addText((t) => t.setPlaceholder("https://codeberg.org/you").setValue((s.links || []).find((l) => l[0] === "Forgejo")?.[1] || "").onChange(async (v) => {
-      const m = v.trim().replace(/^http:/, "https:").replace(/\/+$/, "").match(/^(https:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})$/);
-      s.links = (s.links || []).filter((l) => l[0] !== "Forgejo");
-      if (m) s.links.push(["Forgejo", `${m[1]}/${m[2]}`]);
-      await this.plugin.saveSettings();
-    }));
-    this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
-    new import_obsidian2.Setting(containerEl).setName("What is public").setHeading();
-    for (const [k, label] of Object.entries(SECTION_LABELS)) {
-      if (k === "garden" && !gardenEnabled()) continue;
-      new import_obsidian2.Setting(containerEl).setName(label).addToggle((t) => t.setValue(s.sections[k] !== void 0 ? !!s.sections[k] : k === "garden" || k === "city").onChange(async (v) => {
-        s.sections[k] = v;
-        await this.plugin.saveSettings();
-      }));
-    }
-    if (gardenEnabled()) {
-      this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", (v) => v.replace(/^\/+|\/+$/g, ""));
-      new import_obsidian2.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
-        s.gardenJournal = v;
-        await this.plugin.saveSettings();
-      }));
-      this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", (v) => /^https:\/\//.test(v) ? v : "");
-    }
-    this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
-    this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
-    new import_obsidian2.Setting(containerEl).setName("My profile tab").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.").addToggle((t) => t.setValue(!!s.openProfileOnStartup).onChange(async (v) => {
-      s.openProfileOnStartup = v;
-      await this.plugin.saveSettings();
-    })).addButton((b) => b.setButtonText("Open now").onClick(() => this.plugin.openProfileTab()));
-    new import_obsidian2.Setting(containerEl).setName("Private web address (Tailscale)").setDesc(createFragment((f) => {
-      f.appendText("See your private sections in a browser, on any of your Tailscale devices. Every 10 minutes Obsidian pushes them to your hub, which stores them encrypted and shows them only to your own Tailscale account, never on your public page. Needs a hub with a private address set up for you (self-hosted, or the operator's own profile).");
-      if (s.privateUrl) {
-        f.createEl("br");
-        f.appendText("Your private address: ");
-        f.createEl("a", { text: s.privateUrl, href: s.privateUrl });
-      }
-    })).addToggle((t) => t.setValue(!!s.privateWeb).onChange(async (v) => {
-      s.privateWeb = v;
-      await this.plugin.saveSettings();
-      this.plugin.schedulePrivatePush();
-      if (v && !await this.plugin.pushPrivate(true)) {
-        s.privateWeb = false;
-        await this.plugin.saveSettings();
-        this.plugin.schedulePrivatePush();
-      }
-      this.display();
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Live traffic on your city").setHeading();
-    const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
-    new import_obsidian2.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
-    for (const site of sites) {
-      const snippet = trackTag(hub, site.key);
-      new import_obsidian2.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
-        await navigator.clipboard.writeText(snippet);
-        new import_obsidian2.Notice(`Snippet for ${site.project} copied`);
-      })).addExtraButton((b) => b.setIcon("key-round").setTooltip("Copy server key (for sending events from your own server: POST " + hub + "/v1/t/" + site.key + "/events)").onClick(async () => {
-        if (!site.secret) return void new import_obsidian2.Notice("Publish once to get the server key");
-        await navigator.clipboard.writeText(site.secret);
-        new import_obsidian2.Notice("Server key copied. Keep it secret: it lets a server send events for this site.");
-      }));
-    }
-    new import_obsidian2.Setting(containerEl).setName("AI agents on your city").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (your private view and private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
-      await navigator.clipboard.writeText(agentSetupPrompt(hub, s.agentKey));
-      new import_obsidian2.Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Publishing").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually").addText((t) => t.setValue(String(s.autoPublishHours)).onChange(async (v) => {
-      s.autoPublishHours = Math.max(0, Number(v) || 0);
-      await this.plugin.saveSettings();
-      this.plugin.scheduleAutoPublish();
-    }));
-  }
-  text(name, desc, key, clean = (v) => v) {
-    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addText((t) => t.setValue(String(this.plugin.settings[key] ?? "")).onChange(async (v) => {
-      this.plugin.settings[key] = clean(v.trim());
-      await this.plugin.saveSettings();
-    }));
-  }
-  pairs(name, desc, key) {
-    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addTextArea((t) => {
-      t.setValue(this.plugin.settings[key].map((p) => p.join(" | ")).join("\n"));
-      t.inputEl.rows = 4;
-      t.onChange(async (v) => {
-        this.plugin.settings[key] = v.split("\n").map((l) => l.split("|").map((x) => x.trim())).filter((p) => p[0] && p[1]).map((p) => [p[0], p.slice(1).join("|")]);
-        await this.plugin.saveSettings();
-      });
-    });
-  }
-};
-var TRACK_SRI = "sha384-UCnwKWu6Be2g87+ZI1+h367D6yOXEuXFQL2U2Z7PuSoH3oSCsu/cmZMbj4s70JlC";
-var trackTag = (hub, key) => `<script async src="${hub.replace(/\/$/, "")}/t/1.js" integrity="${TRACK_SRI}" crossorigin="anonymous" data-site="${key}"><\/script>`;
-var AGENT_HOOK_SHA256 = "bfe8dbde26fdc5e8b2e33805cdd4cadb98020ecaf34fe3f7c2e491ed636aedae";
-function agentSetupPrompt(hub, k) {
-  return `Set up the Caldera agent hook on this computer, so my Caldera city shows what my AI agents are working on.
-
-1. Download ${hub}/agent-hook.mjs to ~/.caldera/agent-hook.mjs (create the folder). Read it first: it reads the hook event from stdin, works out the repo (git remote name) and a short task title, and posts only that to my Caldera hub, with a 1.5 second timeout. It never blocks or changes anything.
-   Before using it, check its SHA-256 is ${AGENT_HOOK_SHA256} (shasum -a 256 ~/.caldera/agent-hook.mjs). If it doesn't match, delete it, stop and tell me.
-2. Write ~/.caldera/agent.json (chmod 600): {"hub": "${hub}", "key": "${k.key}", "secret": "${k.secret}", "machine": "<a short name for this computer>"}
-3. In ~/.claude/settings.json, add hooks (keep any existing ones) that run \`node ~/.caldera/agent-hook.mjs\` for UserPromptSubmit, PostToolUse, Stop, Notification and SessionEnd.
-4. Test it: echo '{"hook_event_name":"UserPromptSubmit","session_id":"caldera-test-1","cwd":"'$PWD'","prompt":"Testing the Caldera agent hook"}' | node ~/.caldera/agent-hook.mjs and confirm it exits quietly, then send SessionEnd for the same session to clear the test drone.
-
-Keep the key and secret out of any repo. If I'd rather not send task titles at all, add "tasks": false to agent.json (drones still fly, without words).`;
-}
-
-// src/collect.ts
-var import_obsidian4 = require("obsidian");
-
-// src/assets/theme.css
-var theme_default = `/* ============================================================================
-   LIVING PROFILE - DESIGN TOKENS
-   This is the ONLY file you need to edit to restyle the whole page.
-   Every color, font, size, radius and spacing used anywhere comes from here.
-   profile.css uses these variables only; it never hard-codes a color.
-
-   Quick recipes:
-   - Switch to the light theme:  <html data-theme="light"> in index template,
-     or set "theme": "light" in config/profile.json.
-   - New accent color:           change --accent (and --accent-soft).
-   - Different fonts:            change --font-body / --font-display / --font-mono
-                                 (and the Google Fonts link in the template).
-   - Tighter / looser layout:    change --space-unit.
-   ========================================================================== */
-
-:root {
-  /* --- Typography ------------------------------------------------------- */
-  --font-body: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
-  --font-display: 'Source Serif 4', Georgia, serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
-
-  --text-xs: 11.5px;
-  --text-sm: 13.5px;
-  --text-md: 15px;
-  --text-lg: 18px;
-  --text-h2: 26px;
-  --text-h1: clamp(34px, 5vw, 46px);
-  --leading: 1.65;
-
-  /* --- Spacing & shape -------------------------------------------------- */
-  --space-unit: 8px;                       /* everything scales off this */
-  --space-1: calc(var(--space-unit) * 0.5);
-  --space-2: var(--space-unit);
-  --space-3: calc(var(--space-unit) * 1.5);
-  --space-4: calc(var(--space-unit) * 2);
-  --space-6: calc(var(--space-unit) * 3);
-  --space-8: calc(var(--space-unit) * 4);
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 14px;
-  --radius-round: 999px;
-
-  /* --- Layout ----------------------------------------------------------- */
-  --sidebar-width: 250px;
-  --rail-width: 300px;
-  --content-width: 760px;
-  --banner-height: 260px;
-  --avatar-size: 112px;
-  --banner-focus: 62% 14%;   /* which part of the banner photo stays in view (x y) */
-
-  /* --- Color: dark theme (default) -------------------------------------- */
-  --bg: #1C1C1F;           /* page */
-  --bg-sunken: #17171A;    /* sidebars */
-  --bg-raised: #232327;    /* cards, buttons */
-  --bg-tab: #141416;       /* top tab bar */
-  --line: #2A2A2E;         /* hairlines */
-  --line-strong: #3A3A40;
-  --text: #DADADF;
-  --text-strong: #F2F2F5;
-  --text-muted: #8A8A93;
-  --accent: #8B6CF6;       /* links, highlights, graph center */
-  --accent-text: #B39DFA;  /* link text on dark */
-  --accent-soft: rgba(139, 108, 246, .10);
-  --accent-2: #4FB89A;     /* secondary accent (help exchange, gravity) */
-  --on-accent: #FFFFFF;
-  --chart-bar: var(--accent);
-  --chart-bar-quiet: rgba(139, 108, 246, .55);
-  --graph-node: #6E6E78;
-  --graph-node-hot: var(--accent-text);
-  --graph-edge: var(--line-strong);
-  /* activity heatmap, empty -> busiest */
-  --heat-0: #232327;
-  --heat-1: #3A2F66;
-  --heat-2: #5B47B0;
-  --heat-3: #8B6CF6;
-  --heat-4: #C7B8FF;
-  --chart-alt: var(--accent-2);  /* second chart color */
-  --chart-github: var(--text-strong);  /* scoreboard: GitHub commits */
-  --chart-ai: #E0A458;               /* scoreboard + tags: AI sessions */
-  --chart-work: #5B8DEF;             /* scoreboard: meetings and email */
-}
-
-/* --- Color: light theme ------------------------------------------------- */
-:root[data-theme="light"] {
-  --bg: #FFFFFF;
-  --bg-sunken: #F6F6F7;
-  --bg-raised: #F0F0F2;
-  --bg-tab: #EDEDF0;
-  --line: #E4E4E7;
-  --line-strong: #D0D0D6;
-  --text: #2B2B30;
-  --text-strong: #0D0D10;
-  --text-muted: #6E6E78;
-  --accent: #6D4AE8;
-  --accent-text: #5A38D6;
-  --accent-soft: rgba(109, 74, 232, .08);
-  --accent-2: #138A6A;
-  --graph-node: #A8A8B3;
-  --heat-0: #EDEDF0;
-  --heat-1: #D9D0FB;
-  --heat-2: #B3A1F6;
-  --heat-3: #8B6CF6;
-  --heat-4: #5A38D6;
-}
-`;
-
-// src/profile.css.ts
-var PROFILE_CSS = '/* ============================================================================\n   LIVING PROFILE - COMPONENTS\n   Layout and components only. No raw colors, fonts or sizes here:\n   everything comes from theme.css. To restyle, edit theme.css.\n   ========================================================================== */\n\n* { box-sizing: border-box; }\nhtml, body { margin: 0; }\nbody {\n  background: var(--bg);\n  color: var(--text);\n  font-family: var(--font-body);\n  font-size: var(--text-md);\n  line-height: var(--leading);\n  -webkit-font-smoothing: antialiased;\n}\na { color: var(--accent-text); text-decoration: none; }\na:hover { text-decoration: underline; }\n.mono { font-family: var(--font-mono); }\n.muted { color: var(--text-muted); }\n\n/* --- Top tab bar ------------------------------------------------------- */\n.tabs {\n  display: flex; align-items: center; gap: var(--space-1);\n  background: var(--bg-tab); border-bottom: 1px solid var(--line);\n  padding: 0 var(--space-3); overflow-x: auto;\n}\n.tab { padding: 10px 14px; font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }\n.tab.is-active {\n  color: var(--text); background: var(--bg);\n  border: 1px solid var(--line); border-bottom: 0;\n  border-radius: var(--radius-md) var(--radius-md) 0 0;\n}\n.tabs .spacer { flex: 1; }\n.sync { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; padding-right: var(--space-2); }\n.sync .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); margin-right: 6px; animation: pulse 2.4s ease-in-out infinite; }\n\n/* --- Three-column shell ------------------------------------------------ */\n.shell { display: flex; flex-wrap: wrap; align-items: stretch; }\n.sidebar {\n  flex: 0 1 var(--sidebar-width); min-width: 200px;\n  background: var(--bg-sunken); border-right: 1px solid var(--line);\n  padding: var(--space-3) var(--space-2); font-size: var(--text-sm);\n}\n.note { flex: 999 1 560px; min-width: 0; padding-bottom: var(--space-8); }\n.rail {\n  flex: 0 1 var(--rail-width); min-width: 240px;\n  background: var(--bg-sunken); border-left: 1px solid var(--line);\n  padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-4);\n}\n@media (max-width: 900px) {\n  .sidebar { display: none; }\n  .rail { border-left: 0; border-top: 1px solid var(--line); flex-basis: 100%; }\n}\n\n/* --- File tree --------------------------------------------------------- */\n.label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase; }\n.tree .label { padding: 0 var(--space-2) var(--space-2); display: block; }\n.side-inner { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; padding-bottom: var(--space-4); scrollbar-width: none; } .side-inner::-webkit-scrollbar { display: none; }\n.tree .label + .toc, .tree .label + .tree-group, .tree .label + .tree-row { margin-top: 0; }\n.toc { margin-bottom: var(--space-4); border-left: 1px solid var(--line); margin-left: var(--space-2); }\n.tree-row { display: flex; align-items: center; gap: 6px; padding: 4px var(--space-2); border-radius: var(--radius-sm); color: var(--text); line-height: 1.35; }\na.tree-row { text-decoration: none; }\na.tree-row:hover, summary.tree-row:hover { background: var(--bg-raised); color: var(--text-strong); text-decoration: none; }\n.tree-row.child { padding-left: calc(var(--space-2) + 18px); color: var(--text-muted); }\n.tree-row.child.is-link { color: var(--text); }\n.tree-row.is-current { background: var(--bg-raised); color: var(--text-strong); box-shadow: inset 2px 0 0 var(--accent); }\n.tree-row > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.tree-row .ext { flex: 0 0 auto; font-size: 11px; color: var(--text-muted); opacity: 0; transition: opacity .15s; }\n.tree-row:hover .ext, .tree-row:focus-visible .ext { opacity: 1; }\n.tree-row .count { flex: 0 0 auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }\n.tree-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }\n.toc-row { margin-left: -1px; border-left: 2px solid transparent; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text-muted); padding-left: var(--space-3); }\n.toc-row.is-active { color: var(--text-strong); border-left-color: var(--accent); background: var(--accent-soft); }\n.tree-group > summary { list-style: none; cursor: pointer; user-select: none; }\n.tree-group > summary::-webkit-details-marker { display: none; }\n.tree-row.group .g-name { flex: 1; font-weight: 500; }\n.tree-row.group .caret { flex: 0 0 12px; width: 12px; height: 12px; display: inline-block; }\n.tree-group > summary .caret::before { content: ""; display: block; width: 0; height: 0; margin: 2px 0 0 2px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--text-muted); transform: rotate(-90deg); transition: transform .15s; }\n.tree-group[open] > summary .caret::before { transform: none; }\n.tree-row.group.leaf .caret::before { content: ""; display: block; width: 5px; height: 5px; margin: 3px 0 0 3px; border-radius: 50%; background: var(--line-strong); }\nhtml { scroll-behavior: smooth; } h2[id], section[id], .pnote[id] { scroll-margin-top: var(--space-4); }\n@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }\n@media (max-width: 900px) {\n  .sidebar.tree { display: block; flex-basis: 100%; min-width: 0; position: sticky; top: 0; z-index: 5; padding: 0; border-right: 0; border-bottom: 1px solid var(--line); }\n  .side-inner { position: static; max-height: none; overflow: visible; padding: 0; }\n  .side-inner > .label, .side-inner > .tree-group, .side-inner > .tree-row { display: none; }\n  .toc { display: flex; overflow-x: auto; gap: 2px; margin: 0; border: 0; padding: 6px var(--space-3); scrollbar-width: none; }\n  .toc-row { white-space: nowrap; border: 0; border-radius: var(--radius-round); padding: 4px 12px; margin: 0; }\n  .side-inner:not(:has(.toc)) { display: none; }\n}\n\n/* --- Banner & title ---------------------------------------------------- */\n.banner { position: relative; height: var(--banner-height); }   /* no overflow:hidden, so the avatar can hang below */\n.banner::after { z-index: 1; }\n.banner img.cover { width: 100%; height: 100%; object-fit: cover; object-position: var(--banner-focus); opacity: .92; display: block; }\n.banner::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, var(--bg) 100%); }\n.banner img.avatar {\n  position: absolute; left: 48px; bottom: calc(var(--avatar-size) * -0.32); z-index: 2;\n  width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%;\n  object-fit: cover; object-position: center 25%; border: 4px solid var(--bg);\n}\n/* No cover photo: the avatar sits above the name instead of hanging off an empty banner */\n.page img.avatar.solo { display: block; width: calc(var(--avatar-size) * .8); height: calc(var(--avatar-size) * .8); border-radius: 50%; object-fit: cover; object-position: center 25%; margin-bottom: var(--space-4);}\n.page { max-width: var(--content-width); margin: 0 auto; padding: calc(var(--space-8) + var(--space-4)) var(--space-8) 0; }\n.crumb { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }\nh1.title { margin: 6px 0 var(--space-4); font-family: var(--font-display); font-weight: 600; font-size: var(--text-h1); color: var(--text-strong); line-height: 1.1; }\nh1.title .caret { color: var(--accent); animation: blink 1s step-end infinite; }\nh2 { font-family: var(--font-display); font-weight: 600; font-size: var(--text-h2); color: var(--text-strong); margin: var(--space-8) 0 var(--space-2); }\n\n/* --- Properties -------------------------------------------------------- */\n.props {\n  display: grid; grid-template-columns: 150px 1fr; gap: 6px 14px;\n  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);\n  padding: 10px 0; margin-bottom: var(--space-6); font-size: var(--text-sm);\n}\n.props dt { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); margin: 0; }\n.props dd { margin: 0; }\n@media (max-width: 560px) { .props { grid-template-columns: 1fr; } .props dd { margin-bottom: 6px; } }\n\n/* --- Callout ----------------------------------------------------------- */\n.callout { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-md) var(--radius-md) 0; padding: 12px 16px; margin-bottom: var(--space-6); }\n.callout-title { font-weight: 600; color: var(--accent-text); font-size: var(--text-sm); }\n\n/* --- Lists, tables ----------------------------------------------------- */\nul.bullets { margin: 0; padding-left: 20px; }\nul.bullets li { margin: 4px 0; }\n.query { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 6px; }\n.table-wrap { overflow-x: auto; }\ntable.data { width: 100%; border-collapse: collapse; font-size: 14px; }\ntable.data th { text-align: left; padding: 8px; border-bottom: 1px solid var(--line-strong); color: var(--text-muted); font-weight: 500; }\ntable.data td { padding: 8px; border-bottom: 1px solid var(--line); }\ntable.data .num { text-align: right; font-family: var(--font-mono); }\n\n/* --- Commit chart ------------------------------------------------------ */\n.bars { height: 110px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.bars span { flex: 1; max-width: 28px; background: var(--chart-bar); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1.1s cubic-bezier(.2,.8,.2,1) both; }\n.bars span.quiet { background: var(--chart-bar-quiet); }\n.bars-legend { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 4px; }\n\n/* --- Timeline ---------------------------------------------------------- */\n.timeline { position: relative; }\n.timeline .row { display: grid; grid-template-columns: 64px 14px 1fr; gap: 0 12px; padding: 7px 0; position: relative; }\n.timeline .row::before { content: ""; position: absolute; left: calc(64px + 12px + 6px); top: 0; bottom: 0; width: 2px; background: var(--line); }\n.timeline .year { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); padding-top: 2px; font-variant-numeric: tabular-nums; }\n.timeline .dot { position: relative; z-index: 1; width: 10px; height: 10px; margin: 7px 0 0 2px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }\n.timeline .row.same .dot { width: 6px; height: 6px; margin: 9px 0 0 4px; border: 0; background: var(--line-strong); }\n.timeline .what { min-width: 0; }\n.timeline .detail { color: var(--text-muted); font-size: var(--text-sm); margin-top: 2px; }\n.timeline .era { display: flex; align-items: baseline; gap: 10px; margin: var(--space-4) 0 2px; padding-left: calc(64px + 12px + 14px + 12px); }\n.timeline .era:first-child { margin-top: 0; }\n.timeline .era-name { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); }\n.timeline .era-range { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n@media (max-width: 560px) { .timeline .row { grid-template-columns: 44px 14px 1fr; gap: 0 8px; } .timeline .row::before { left: calc(44px + 8px + 6px); } .timeline .era { padding-left: calc(44px + 8px + 14px + 8px); } }\n\n/* --- Right rail -------------------------------------------------------- */\n.graph svg { width: 100%; height: 240px; display: block; }\n.graph .edge { stroke: var(--graph-edge); stroke-width: 1; }\n.graph .node { fill: var(--graph-node); }\n.graph .node.hot { fill: var(--graph-node-hot); }\n.graph .center { fill: var(--accent); }\n.graph text { fill: var(--text-muted); font-family: var(--font-body); font-size: 8.5px; }\n.graph .float { animation: float 4s ease-in-out infinite; }\n.backlink { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.backlink .ctx { color: var(--text-muted); font-size: 12px; }\n.pulse-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }\n.pulse-cell { background: var(--bg-raised); border-radius: var(--radius-sm); padding: var(--space-2); }\n.pulse-cell .v { font-size: 20px; color: var(--text-strong); }\n.pulse-cell .l { font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Help exchange (off by default in config) -------------------------- */\n.hx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); }\n.hx-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-4); }\n.hx-row { display: flex; justify-content: space-between; gap: var(--space-2); padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.hx-row .bounty { color: var(--accent-2); font-family: var(--font-mono); }\n\n\n/* --- Stat strip -------------------------------------------------------- */\n.stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin-bottom: var(--space-6); }\n.stat { background: var(--bg); padding: var(--space-3) var(--space-2); }\n.stat .v { font-size: 22px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.small { font-size: var(--text-sm); margin: 0 0 var(--space-2); }\n\n/* --- Activity heatmap -------------------------------------------------- */\n.heat-box { position: relative; }\n.heat-frame { display: flex; gap: 6px; }\n.heat-days { display: grid; grid-template-rows: repeat(7, 12px); gap: 3px; padding-top: 18px; font-family: var(--font-mono); font-size: 10px; line-height: 12px; color: var(--text-muted); }\n.heat-wrap { overflow-x: auto; min-width: 0; }\n.heat-months { position: relative; height: 18px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n.heat-months span { position: absolute; top: 0; white-space: nowrap; }\n.heat { outline: none; border-radius: 3px; width: max-content; }\n.heat:focus-visible { box-shadow: 0 0 0 2px var(--accent); }\n.heat i[data-d] { cursor: pointer; transition: transform .12s ease; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.25); box-shadow: 0 0 0 1.5px var(--text-strong); position: relative; z-index: 1; }\n.heat i.is-today { box-shadow: inset 0 0 0 1.5px var(--accent-2); }\n.heat i.is-pin { box-shadow: 0 0 0 1.5px var(--accent); }\n.heat-tip { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 8px)); pointer-events: none; white-space: nowrap; background: var(--text-strong); color: var(--bg); font-size: var(--text-xs); font-family: var(--font-mono); padding: 4px 8px; border-radius: var(--radius-sm); box-shadow: 0 4px 14px rgba(0,0,0,.25); }\n.heat-tip::after { content: ""; position: absolute; left: calc(50% + var(--ax, 0px)); bottom: -4px; margin-left: -4px; border: 4px solid transparent; border-bottom: 0; border-top-color: var(--text-strong); }\n.heat-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; align-items: center; margin-top: 8px; }\n.heat-read { font-size: var(--text-sm); color: var(--text-muted); min-height: 1.4em; font-variant-numeric: tabular-nums; }\n.heat-read b { color: var(--text-strong); font-weight: 500; }\n.heat-foot .heat-legend { margin-top: 0; }\n@media (prefers-reduced-motion: reduce) { .heat i[data-d] { transition: none; } }\n.heat { display: grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; }\n.heat i, .heat-legend i { width: 12px; height: 12px; border-radius: 2px; display: block; background: var(--heat-0); }\n.heat i.l1, .heat-legend i.l1 { background: var(--heat-1); }\n.heat i.l2, .heat-legend i.l2 { background: var(--heat-2); }\n.heat i.l3, .heat-legend i.l3 { background: var(--heat-3); }\n.heat i.l4, .heat-legend i.l4 { background: var(--heat-4); }\n.heat-legend { display: flex; gap: 4px; align-items: center; justify-content: flex-end; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 6px; }\n\n/* --- Two columns, growth line, horizontal bars ------------------------- */\n.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-6); }\n.growth { width: 100%; height: auto; display: block; }\n.growth .axis { stroke: var(--line-strong); }\n.growth .area { fill: var(--accent-soft); }\n.growth .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-dasharray: 2000; animation: draw 2.6s ease-out both; }\n.growth .now { fill: var(--accent); animation: pulse 2s ease-in-out infinite; }\n.growth text { fill: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }\n.hbar { display: grid; grid-template-columns: 130px 1fr 52px; gap: 10px; align-items: center; font-size: var(--text-sm); padding: 4px 0; }\n.hbar .track { height: 8px; background: var(--bg-raised); border-radius: 4px; overflow: hidden; }\n.hbar .fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; transform-origin: left; animation: grow 1.2s cubic-bezier(.2,.8,.2,1) both; }\n.hbar .fill.alt { background: var(--chart-alt); }\n.hbar .num { text-align: right; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n.cols { height: 120px; display: flex; gap: 4px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); margin-top: var(--space-2); }\n.cols span { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; align-items: center; }\n.cols b { display: block; width: 100%; background: var(--chart-alt); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.cols em { font-style: normal; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n\n/* --- Topic cloud ------------------------------------------------------- */\n.cloud { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }\n.cloud span { color: var(--text-strong); line-height: 1.3; }\n.cloud sup { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: 2px; }\n\n@keyframes draw { from { stroke-dashoffset: 2000; } to { stroke-dashoffset: 0; } }\n@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }\n\n\n/* --- Daily journal ----------------------------------------------------- */\n.journal { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-6); overflow: hidden; }\n.j-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }\n.j-title { flex: 1; text-align: center; }\n.j-date { font-family: var(--font-display); font-size: 22px; color: var(--text-strong); }\n.j-nav { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font-size: 22px; cursor: pointer; }\n.j-nav:disabled { opacity: .3; cursor: default; }\n.j-top { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }\n.ring-wrap { position: relative; width: 96px; height: 96px; flex: 0 0 96px; }\n.ring { width: 96px; height: 96px; transform: rotate(-90deg); display: block; }\n.ring .trk { fill: none; stroke: var(--line); stroke-width: 9; }\n.ring .val { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1); }\n.j-score { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }\n.j-score .v { font-size: 26px; color: var(--text-strong); line-height: 1; }\n.j-score .l { font-size: 10px; color: var(--text-muted); }\n.j-delta { font-family: var(--font-mono); font-size: var(--text-xs); margin-bottom: 4px; }\n.j-headline { flex: 1 1 260px; font-family: var(--font-display); font-size: 21px; color: var(--text-strong); line-height: 1.3; }\n.j-themes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-family: var(--font-body); }\n.j-themes span { font-size: var(--text-xs); color: var(--accent-text); background: var(--accent-soft); border-radius: var(--radius-round); padding: 2px 10px; }\n.j-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin: var(--space-4) 0; }\n.chip { background: var(--bg); padding: var(--space-2); }\n.chip .v { font-size: 20px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.chip .l { font-size: var(--text-xs); color: var(--text-muted); }\n.chip .dd { font-family: var(--font-mono); font-size: var(--text-xs); min-height: 1em; }\n.up { color: var(--accent-2); } .down { color: var(--text-muted); } .flat { color: var(--text-muted); }\n.j-lists ul { margin-top: 4px; }\n.flip-l { animation: flipL .45s ease both; } .flip-r { animation: flipR .45s ease both; }\n@keyframes flipL { from { opacity: 0; transform: translateX(-24px) rotateY(8deg); } to { opacity: 1; transform: none; } }\n@keyframes flipR { from { opacity: 0; transform: translateX(24px) rotateY(-8deg); } to { opacity: 1; transform: none; } }\n\n/* --- Scoreboard -------------------------------------------------------- */\n.scoreboard { margin-bottom: var(--space-6); }\n.sb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }\n.sb-stat .v { font-size: 30px; color: var(--text-strong); line-height: 1.1; }\n.sb-stat .v small { font-size: 14px; color: var(--text-muted); }\n.sb-stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.sb-bars { height: 90px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.sb-bars span { flex: 1; background: var(--chart-bar-quiet); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.sb-bars span.yday { background: var(--accent); }\n.sb-bars span.today { background: repeating-linear-gradient(45deg, var(--chart-bar-quiet), var(--chart-bar-quiet) 3px, transparent 3px, transparent 6px); }\n.sb-lower { margin-top: var(--space-4); }\n.lb-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.lb-row .rank { font-family: var(--font-mono); color: var(--text-muted); }\n.lb-row .num { font-family: var(--font-mono); }\n.lb-row.me .who { color: var(--text-strong); font-weight: 600; }\n.lb-row.empty .who { color: var(--text-muted); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 2px 8px; justify-self: start; }\n.sb-how { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-muted); }\n.sb-how summary { cursor: pointer; color: var(--accent-text); }\n\n/* --- Footer ------------------------------------------------------------ */\n.foot { margin-top: var(--space-8); padding-top: var(--space-3); border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Motion (respects reduced-motion) ---------------------------------- */\n@keyframes pulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }\n@keyframes blink { 50% { opacity: 0; } }\n@keyframes rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }\n@keyframes float { 0%,100% { transform: translate(0,0); } 50% { transform: translate(3px,-4px); } }\n@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }\n\n.note { max-width: 100%; }\n.lede { font-size: var(--text-lg); color: var(--text-muted); margin: -8px 0 var(--space-6); }\n.pnote { padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }\n.pn-title { font-family: var(--font-display); font-size: 19px; color: var(--text-strong); }\n.pn-ex { color: var(--text); font-size: var(--text-sm); }\n.pn-date { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n.lb-wrap { position: relative; }\n.lb-row.empty .invite-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: transparent; color: var(--accent-text); border: 1px dashed var(--accent); border-radius: var(--radius-sm); padding: 2px 10px; justify-self: start; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }\n.lb-row.empty .invite-btn::before { content: "+"; font-family: var(--font-mono); }\n.lb-row.empty .invite-btn:hover, .lb-row.empty .invite-btn[aria-expanded="true"] { background: var(--accent-soft); border-style: solid; text-decoration: none; }\n.lb-row.empty .invite-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n.invite-pop { position: absolute; z-index: 20; width: min(340px, 100%); background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }\n.invite-pop .inv-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }\n.invite-pop .inv-title { font-weight: 600; color: var(--text-strong); font-size: var(--text-sm); }\n.invite-pop .inv-sub { color: var(--text-muted); font-size: var(--text-xs); margin: 2px 0 10px; line-height: 1.45; }\n.invite-pop .inv-close { background: none; border: 0; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }\n.invite-pop .inv-link { display: flex; gap: 6px; }\n.invite-pop .inv-url { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 8px; }\n.invite-pop button.inv-copy { background: var(--accent); color: var(--bg); border: 0; border-radius: var(--radius-sm); padding: 6px 12px; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }\n.invite-pop .inv-ways { display: flex; gap: 6px; margin-top: 8px; }\n.invite-pop .inv-ways a, .invite-pop .inv-ways button { flex: 1; text-align: center; font: inherit; font-size: var(--text-sm); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 0; cursor: pointer; text-decoration: none; }\n.invite-pop .inv-ways a:hover, .invite-pop .inv-ways button:hover { border-color: var(--accent); color: var(--text-strong); text-decoration: none; }\n.invite-pop .inv-status { min-height: 1.2em; margin-top: 6px; font-size: var(--text-xs); color: var(--accent-2); }\n.invite-pop button:focus-visible, .invite-pop a:focus-visible, .invite-pop input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }\n\n/* Heatmap sizing (2026-10-12): cells grow with the column (11-18px), room for the hover zoom, no stray scrollbar */\n.heat-box { container-type: inline-size; }\n.heat-frame { --gap: 3px; --cell: clamp(8px, calc((100cqw - 46px - 25 * var(--gap)) / 26), 18px); }\n@container (max-width: 460px) { .heat-frame { --gap: 2px; } }\n.heat, .heat-days { gap: var(--gap, 3px); }\n.heat-days { grid-template-rows: repeat(7, var(--cell, 12px)); line-height: var(--cell, 12px); }\n.heat-wrap { overflow-x: auto; overflow-y: hidden; padding: 4px; margin: -4px; scrollbar-width: none; }\n.heat-wrap::-webkit-scrollbar { display: none; }\n.heat { grid-template-rows: repeat(7, var(--cell, 12px)); grid-auto-columns: var(--cell, 12px); }\n.heat i { width: var(--cell, 12px); height: var(--cell, 12px); border-radius: 3px; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.18); }\n\n/* --- Standard nav: pages block + add-friend --------------------------- */\n.toc.pages .friend-row { color: var(--accent); }\n.toc.pages .friend-row:hover { color: var(--accent); background: var(--accent-soft); }\n.tree-row.group .g-link { color: inherit; text-decoration: none; }\n.tree-row.group .g-link:hover { color: var(--accent); text-decoration: underline; }\n\n/* custom modules (Caldera/modules/*.md) */\n.module .mod-body > :first-child { margin-top: 0; }\n.module .mod-body h3, .module .mod-body h4 { font-family: var(--font-display); color: var(--text-strong); margin: var(--space-4) 0 var(--space-2); }\n.module .mod-body p { margin: 0 0 var(--space-3); }\n.module .mod-body img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-md); border: 1px solid var(--line); margin: var(--space-2) 0; }\n.module .mod-body blockquote { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text); }\n.module .mod-body blockquote p:last-child { margin-bottom: 0; }\n.module .mod-body code { font-family: var(--font-mono); font-size: .92em; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 4px; }\n.module .mod-body pre { overflow-x: auto; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); }\n.module .mod-body pre code { border: 0; padding: 0; background: none; }\n.module .mod-body hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-4) 0; }\n.module .mod-body ol { padding-left: 1.4em; }\n.module .mod-body input[type=checkbox] { margin-right: 6px; }\n.module .mod-body li:has(> input[type=checkbox]) { list-style: none; margin-left: -1.2em; }\n.module.side .mod-body { font-size: var(--text-sm); }\n.module.side .mod-body ul.bullets, .module.side .mod-body ol { margin: 0; }\n.module.side .mod-body p { margin: 0 0 var(--space-2); }\n\n/* --- Section headers: where each part comes from ---------------------- */\n.sec-src { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-muted); line-height: 1.45; }\n.sec-what { flex: 1 1 240px; min-width: 0; }\n.src { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 999px; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .02em; color: var(--text); white-space: nowrap; }\n.src::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }\n.s-obsidian::before { background: var(--accent); }\n.s-github::before { background: var(--text-strong); }\n.s-caldera::before { background: var(--accent-2); }\n.s-agents::before { background: var(--accent-text); border-radius: 2px; }\n.s-profile::before, .s-module::before { background: transparent; border: 1.5px solid var(--accent); width: 5px; height: 5px; }\nh2.t { margin-top: 0; }\n.journal .sec-src { margin: calc(-1 * var(--space-2)) 0 var(--space-3); }\n\n/* --- Scoreboard bars split by source ---------------------------------- */\n.sb-bars span { display: flex; flex-direction: column-reverse; overflow: hidden; }\n.sb-bars span i { display: block; min-height: 1px; }\n.sb-bars span:not(.yday) i { opacity: .62; }\n.sb-bars span.today i { opacity: .3; }\n.sb-bars span:has(i) { background: none; }\n.g-obsidian { background: var(--accent); }\n.g-github { background: var(--chart-github); }\n.g-ai { background: var(--chart-ai); }\n.g-work { background: var(--chart-work); }\n.sb-split { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-muted); }\n.sb-split .label { flex-basis: 100%; }\n.sb-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }\n.sb-key i { width: 10px; height: 10px; border-radius: 2px; }\n.sb-key b { color: var(--text-strong); font-weight: 600; font-variant-numeric: tabular-nums; }\n.s-agents::before { background: var(--chart-ai); }\n.s-calendar::before { background: var(--chart-work); }\n';
-
-// src/garden.ts
-var STAGES = ["seedling", "budding", "evergreen"];
-var LICENSES = {
-  "all-rights": { label: "All rights reserved. Not licensed for AI training.", short: "All rights reserved", ai: false },
-  "cc-by": { label: "Creative Commons Attribution 4.0. Reuse with credit.", short: "CC BY 4.0", ai: true, url: "https://creativecommons.org/licenses/by/4.0/" },
-  "cc-by-nc": { label: "Creative Commons Attribution-NonCommercial 4.0. Reuse with credit, not commercially.", short: "CC BY-NC 4.0", ai: false, url: "https://creativecommons.org/licenses/by-nc/4.0/" },
-  "cc0": { label: "Public domain (CC0). No rights reserved.", short: "CC0", ai: true, url: "https://creativecommons.org/publicdomain/zero/1.0/" },
-  "ai-licensable": { label: "Available to license for AI training, with the author's permission and payment. Not free to use.", short: "AI-licensable", ai: false }
-};
-var STAGE_ICON = { seedling: "&#127793;", budding: "&#127807;", evergreen: "&#127795;" };
-var STAGE_TIP = { seedling: "Seedling: a rough, early idea", budding: "Budding: taking shape", evergreen: "Evergreen: worked through and stable" };
-var normStage = (v) => {
-  const s = String(v ?? "").toLowerCase().trim();
-  return STAGES.includes(s) ? s : "seedling";
-};
-var normLicense = (v) => {
-  const s = String(v ?? "").toLowerCase().trim();
-  return LICENSES[s] ? s : "all-rights";
-};
-function redact(md) {
-  let removed = 0;
-  const text = md.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, () => {
-    removed++;
-    return "[email removed]";
-  }).replace(/(?<![\w/.=-])(\+?\d[\d .()-]{8,}\d)(?![\w/])/g, (m) => {
-    if ((m.match(/\d/g) || []).length < 10) return m;
-    removed++;
-    return "[phone removed]";
-  });
-  return { text, removed };
-}
-var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-function parseXLink(target) {
-  const m = target.match(/^@([a-z0-9][a-z0-9-]{1,30})\/(.+)$/i);
-  return m ? { handle: m[1].toLowerCase(), title: m[2].trim(), slug: slug(m[2]) } : null;
-}
-function mdToHtml(md, link, image = () => null) {
-  const lines = md.replace(/\r\n?/g, "\n").split("\n");
-  const out = [];
-  let para = [];
-  let list = null;
-  let quote = [];
-  const flushPara = () => {
-    if (para.length) {
-      out.push(`<p>${inl(para.join(" "))}</p>`);
-      para = [];
-    }
-  };
-  const flushList = () => {
-    if (list) {
-      out.push(`<${list.tag}>${list.items.map((i) => `<li>${i}</li>`).join("")}</${list.tag}>`);
-      list = null;
-    }
-  };
-  const flushQuote = () => {
-    if (quote.length) {
-      out.push(`<blockquote>${mdToHtml(quote.join("\n"), link, image)}</blockquote>`);
-      quote = [];
-    }
-  };
-  const flush = () => {
-    flushPara();
-    flushList();
-    flushQuote();
-  };
-  function inl(t) {
-    const tokens = [];
-    const keep = (html) => {
-      tokens.push(html);
-      return `\uE000${tokens.length - 1}\uE000`;
-    };
-    t = t.replace(/`([^`]+)`/g, (_m, c) => keep(`<code>${esc(c)}</code>`));
-    t = t.replace(/!\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, (_m, tgt) => {
-      const src = image(tgt.trim());
-      return src ? keep(`<img src="${esc(src)}" alt="${esc(tgt.trim())}" loading="lazy">`) : "";
-    });
-    t = t.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(\|([^\]]+))?\]\]/g, (_m, tgt, _h, _p, label) => {
-      const text = (label || tgt).trim(), x = parseXLink(tgt.trim());
-      const href = link(tgt.trim());
-      if (href) return keep(`<a class="${x ? "xlink" : "internal"}" href="${esc(href)}">${esc(text.replace(/^@[^/]+\//, ""))}${x ? `<span class="xl-who">@${esc(x.handle)}</span>` : ""}</a>`);
-      return keep(`<span class="unlinked">${esc(text)}</span>`);
-    });
-    t = t.replace(/!\[([^\]]*)\]\((https:\/\/[^)\s]+)\)/g, (_m, alt, u) => keep(`<a href="${esc(u)}" rel="noopener nofollow" target="_blank">${esc(alt || "image")}</a>`));
-    t = t.replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^)\s]+)\)/g, (_m, label, u) => keep(`<a href="${esc(u)}" rel="noopener nofollow" target="_blank">${esc(label)}</a>`));
-    t = t.replace(/(^|[\s(])(https?:\/\/[^\s)<]+)/g, (_m, pre, u) => pre + keep(`<a href="${esc(u)}" rel="noopener nofollow" target="_blank">${esc(u)}</a>`));
-    let h = esc(t);
-    h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>").replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>").replace(/(^|[^_\w])_([^_\s][^_]*)_/g, "$1<em>$2</em>").replace(/~~([^~]+)~~/g, "<del>$1</del>").replace(/==([^=]+)==/g, "<mark>$1</mark>");
-    return h.replace(/\uE000(\d+)\uE000/g, (_m, i) => tokens[Number(i)]);
-  }
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const fence = line.match(/^\s*(```|~~~)(.*)$/);
-    if (fence) {
-      flush();
-      const body = [];
-      for (i++; i < lines.length && !lines[i].trim().startsWith(fence[1]); i++) body.push(lines[i]);
-      out.push(`<pre><code>${esc(body.join("\n"))}</code></pre>`);
-      continue;
-    }
-    if (/^\s*%%/.test(line)) {
-      flush();
-      if (!/%%.*%%/.test(line)) for (i++; i < lines.length && !lines[i].includes("%%"); i++) ;
-      continue;
-    }
-    const q2 = line.match(/^\s*>\s?(.*)$/);
-    if (q2) {
-      flushPara();
-      flushList();
-      quote.push(q2[1].replace(/^\[!(\w+)\][+-]?\s*/, (_m, k) => `**${k.charAt(0).toUpperCase() + k.slice(1)}:** `));
-      continue;
-    } else flushQuote();
-    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[i + 1])) {
-      flush();
-      const cells = (l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").replace(/\[\[[^\]]*\]\]/g, (w) => w.replace(/\|/g, "\uE001")).split(/(?<!\\)\|/).map((c) => inl(c.trim().replace(/\\\|/g, "|").replace(/\uE001/g, "|")));
-      const head2 = cells(line);
-      const rows = [];
-      for (i += 2; i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i]); i++) rows.push(cells(lines[i]));
-      i--;
-      out.push(`<table><thead><tr>${head2.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${head2.map((_c, k) => `<td>${r[k] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
-      continue;
-    }
-    const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) {
-      flush();
-      const lvl = Math.min(6, h[1].length + 1);
-      out.push(`<h${lvl}>${inl(h[2])}</h${lvl}>`);
-      continue;
-    }
-    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
-      flush();
-      out.push("<hr>");
-      continue;
-    }
-    const li = line.match(/^\s*([-*+]|\d+[.)])\s+(\[( |x|X)\]\s+)?(.*)$/);
-    if (li) {
-      flushPara();
-      const tag = /\d/.test(li[1]) ? "ol" : "ul";
-      if (!list || list.tag !== tag) {
-        flushList();
-        list = { tag, items: [] };
-      }
-      const box = li[2] ? `<input type="checkbox" disabled${/x/i.test(li[3]) ? " checked" : ""}> ` : "";
-      list.items.push(box + inl(li[4]));
-      continue;
-    }
-    if (!line.trim()) {
-      flush();
-      continue;
-    }
-    flushList();
-    para.push(line.trim());
-  }
-  flush();
-  return out.join("\n");
-}
-function excerptOf(md, n = 200) {
-  const para = md.replace(/```[\s\S]*?```/g, "").split(/\n\s*\n/).map((x) => x.replace(/^#+\s.*$/gm, "").replace(/^\s*>\s?/gm, "").trim()).find((x) => x.length > 20) || "";
-  return clip(para.replace(/!\[\[[^\]]*\]\]/g, "").replace(/\[\[(?:@[^/\]]+\/)?([^\]|]+)(\|([^\]]+))?\]\]/g, (_m, t, _p, l) => l || t).replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/[*_`=~]/g, "").replace(/\s+/g, " ").trim(), n);
-}
-function page(site, title, body, depth, extraHead = "") {
-  const up = depth ? "../".repeat(depth) : "";
-  const icon = site.icon ? `<link rel="icon" href="${up}${esc(site.icon)}" type="image/png">` : `<link rel="icon" href="${up}assets/favicon.svg" type="image/svg+xml">`;
-  return `<!doctype html><html lang="en"${site.theme === "light" ? ' data-theme="light"' : ""}><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title>
-<meta name="robots" content="noindex, nofollow"><meta name="generator" content="Caldera for Obsidian">${extraHead}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
-${icon}<link rel="stylesheet" href="${up}assets/theme.css"><link rel="stylesheet" href="${up}assets/profile.css"><link rel="stylesheet" href="${up}assets/garden.css"></head><body>
-${body}</body></html>`;
-}
-var clip = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, "").replace(/[,;:.\s]+$/, "") + "\u2026";
-var fmtDate = (iso2) => new Date(iso2).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-var stageBadge = (s) => `<span class="g-stage g-${s}" title="${STAGE_TIP[s]}">${STAGE_ICON[s]} ${s}</span>`;
-var licenseLine = (key) => {
-  const L = LICENSES[key] || LICENSES["all-rights"];
-  return L.url ? `<a href="${L.url}" rel="license noopener" target="_blank">${esc(L.short)}</a>` : esc(L.short);
-};
-function renderGarden(site, notes, images = {}) {
-  if (!notes.length) return {};
-  const hub = (site.hub || "https://caldera.social").replace(/\/$/, "");
-  const bySlug = new Map(notes.map((n) => [n.slug, n]));
-  const byTitle = new Map(notes.map((n) => [n.title.toLowerCase(), n]));
-  const back = /* @__PURE__ */ new Map();
-  for (const n of notes) for (const o of n.out) if (o !== n.slug && bySlug.has(o)) back.set(o, [...back.get(o) || [], n]);
-  const who = site.handle ? `@${site.handle}` : site.name;
-  const files = {};
-  const tabs = (active) => `<div class="tabs"><a class="tab" href="${active === "index" ? "" : "../"}index.html">${esc(site.name)}.md</a><a class="tab${active === "garden" ? " is-active" : ""}" href="${active === "note" ? "../" : ""}garden.html">Garden</a>${active === "note" ? `<span class="tab is-active">%%TITLE%%</span>` : ""}<span class="spacer"></span></div>`;
-  for (const n of notes) {
-    const link = (target) => {
-      const x = parseXLink(target);
-      if (x) return `${hub}/@${x.handle}/n/${x.slug}.html`;
-      const hit = byTitle.get(target.split("/").pop().replace(/\.md$/i, "").toLowerCase());
-      return hit ? `${hit.slug}.html` : null;
-    };
-    const img = (target) => images[target] ? `../${images[target]}` : null;
-    const body = mdToHtml(n.markdown, link, img);
-    const bl = back.get(n.slug) || [];
-    const L = LICENSES[n.license] || LICENSES["all-rights"];
-    const html = `${tabs("note").replace("%%TITLE%%", esc(n.title))}
-<div class="shell">${site.nav ? site.nav(1, `n/${n.slug}.html`) : ""}<main class="note"><div class="g-main"><article class="g-note">
-<div class="g-crumbs"><a href="../index.html">${esc(who)}</a> / <a href="../garden.html">Garden</a></div>
-<h1 class="g-title">${esc(n.title)}</h1>
-<div class="g-meta">${stageBadge(n.stage)}<span>Planted ${fmtDate(n.created)}</span><span>Tended ${fmtDate(n.updated)}</span><span>${n.words.toLocaleString("en-US")} words</span></div>
-<div class="g-body">${body}</div>
-${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map((b) => `<a class="g-card" href="${b.slug}.html"><span class="g-card-t">${esc(b.title)}</span><span class="g-card-x">${esc(clip(b.excerpt, 120))}</span></a>`).join("")}</section>` : ""}
-<!--caldera:xlinks-->
-<footer class="g-foot"><div><b>License:</b> ${licenseLine(n.license)}. ${esc(L.label)}</div>
-<div class="g-prov"><b>Provenance:</b> sha256 <code title="${n.sha256}">${n.sha256.slice(0, 16)}</code> of <a href="${n.slug}.md">the published text</a>, listed in <a href="../caldera.json">${esc(who)}'s signed manifest</a>${site.id ? ` (key <code>${esc(site.id.slice(0, 14))}&hellip;</code>)` : ""}. Anyone can check the author and date.</div></footer>
-</article></div></main></div>`;
-    files[`n/${n.slug}.html`] = page(
-      site,
-      `${n.title} - ${site.name}`,
-      html,
-      1,
-      `
-<meta name="description" content="${esc(n.excerpt)}">${L.ai ? "" : `
-<meta name="robots" content="noai, noimageai">`}${L.url ? `
-<link rel="license" href="${L.url}">` : ""}`
-    );
-    files[`n/${n.slug}.md`] = n.markdown;
-  }
-  const counts = STAGES.map((s) => [s, notes.filter((n) => n.stage === s).length]);
-  const sorted = [...notes].sort((a, b) => b.updated.localeCompare(a.updated));
-  const idx = `${tabs("garden")}
-<div class="shell">${site.nav ? site.nav(0, "garden.html") : ""}<main class="note"><div class="g-main"><div class="g-index">
-<div class="g-crumbs"><a href="index.html">${esc(who)}</a> / Garden</div>
-<h1 class="g-title">${esc(site.name)}'s garden</h1>
-<p class="g-lede">Notes grown in public from an Obsidian vault. Some are seedlings, some are evergreen; all of them keep changing.${site.external ? ` More at <a href="${esc(site.external)}" rel="noopener" target="_blank">${esc(site.external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>.` : ""}</p>
-<!--caldera:gardenhome--><div class="g-filter" role="toolbar" aria-label="Filter by stage"><button class="is-on" data-stage="all">All <span>${notes.length}</span></button>${counts.filter(([, c]) => c).map(([s, c]) => `<button data-stage="${s}">${STAGE_ICON[s]} ${s} <span>${c}</span></button>`).join("")}</div>
-<div class="g-list">${sorted.map((n) => `<a class="g-card" data-stage="${n.stage}" href="n/${n.slug}.html"><span class="g-card-t">${esc(n.title)}</span><span class="g-card-x">${esc(n.excerpt)}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span>${n.xlinks.length ? `<span>${n.xlinks.length} link${n.xlinks.length === 1 ? "" : "s"} to other gardens</span>` : ""}</span></a>`).join("")}</div>
-</div></div></main></div>
-<script>(function(){var b=[].slice.call(document.querySelectorAll('.g-filter button')),c=[].slice.call(document.querySelectorAll('.g-list .g-card'));b.forEach(function(x){x.onclick=function(){b.forEach(function(y){y.classList.toggle('is-on',y===x)});var s=x.getAttribute('data-stage');c.forEach(function(k){k.hidden=s!=='all'&&k.getAttribute('data-stage')!==s})}})})();<\/script>`;
-  files["garden.html"] = page(site, `${site.name}'s garden`, idx, 0);
-  files["garden.json"] = JSON.stringify({
-    name: site.name,
-    handle: site.handle,
-    external: site.external,
-    notes: sorted.map((n) => ({ slug: n.slug, title: n.title, stage: n.stage, license: n.license, created: n.created, updated: n.updated, sha256: n.sha256, words: n.words, xlinks: n.xlinks }))
-  }, null, 1);
-  files["assets/garden.css"] = GARDEN_CSS;
-  return files;
-}
-function gardenManifest(notes) {
-  return notes.map((n) => ({
-    slug: n.slug,
-    title: n.title,
-    stage: n.stage,
-    license: n.license,
-    created: n.created,
-    updated: n.updated,
-    sha256: n.sha256,
-    words: n.words,
-    excerpt: n.excerpt.slice(0, 200),
-    xlinks: n.xlinks.map((x) => `${x.handle}/${x.slug}`)
-  }));
-}
-function gardenSection(notes, external) {
-  if (!notes.length && !external) return "";
-  const sorted = [...notes].sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 6);
-  const counts = STAGES.map((s) => [s, notes.filter((n) => n.stage === s).length]).filter(([, c]) => c);
-  return `<h2>Garden</h2><p class="small">${notes.length ? `${notes.length} note${notes.length === 1 ? "" : "s"} grown in public: ${counts.map(([s, c]) => `${STAGE_ICON[s]} ${c} ${s}`).join(" &middot; ")}. ` : ""}${notes.length ? `<a href="garden.html">Garden home: notes, gravity, help credits, asks and offers &rarr;</a>` : ""}${external ? ` ${notes.length ? "Also at" : "My garden:"} <a href="${esc(external)}" rel="noopener" target="_blank">${esc(external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</p>${sorted.length ? `<div class="g-list g-list-profile">${sorted.map((n) => `<a class="g-card" href="n/${n.slug}.html"><span class="g-card-t">${esc(n.title)}</span><span class="g-card-x">${esc(clip(n.excerpt, 140))}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span></span></a>`).join("")}</div>` : ""}`;
-}
-var GARDEN_CSS = `/* Caldera garden: note pages + index. Tokens come from theme.css. */
-.tabs a.tab { color: var(--text-muted); text-decoration: none; }
-.tabs a.tab:hover { color: var(--text); }
-.tree-row.group .g-link { color: inherit; text-decoration: none; }
-.tree-row.group .g-link:hover { color: var(--accent); text-decoration: underline; }
-.shell > .note > .g-main { width: 100%; }
-.g-main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
-.g-crumbs { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: 10px; }
-.g-crumbs a { color: var(--text-muted); }
-.g-title { font-family: var(--font-display); font-size: 2.1rem; line-height: 1.15; font-weight: 600; margin: 0 0 12px; color: var(--text-strong); }
-.g-lede { color: var(--text-muted); margin: 0 0 18px; }
-.g-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: var(--text-sm); color: var(--text-muted); padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
-.g-stage { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: var(--text-xs); text-transform: capitalize; color: var(--text); background: var(--bg-raised); white-space: nowrap; }
-.g-evergreen { border-color: var(--accent); }
-.g-body { font-family: var(--font-display); font-size: 1.12rem; line-height: 1.7; color: var(--text); overflow-wrap: anywhere; }
-.g-body h2, .g-body h3, .g-body h4 { font-family: var(--font-display); color: var(--text-strong); margin: 1.6em 0 .5em; line-height: 1.25; }
-.g-body p, .g-body ul, .g-body ol, .g-body blockquote, .g-body pre { margin: 0 0 1em; }
-.g-body ul, .g-body ol { padding-left: 1.3em; }
-.g-body blockquote { border-left: 3px solid var(--accent); padding: 2px 0 2px 16px; color: var(--text-muted); }
-.g-body code { font-family: var(--font-mono); font-size: .85em; background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px; }
-.g-body pre { background: var(--bg-sunken); padding: 14px; border-radius: var(--radius-md); overflow-x: auto; }
-.g-body pre code { background: none; padding: 0; }
-.g-body img { max-width: 100%; height: auto; border-radius: var(--radius-md); }
-.g-body a.internal { border-bottom: 1px dashed var(--accent-text); text-decoration: none; }
-.g-body a.xlink { border-bottom: 1px dashed var(--accent-text); text-decoration: none; }
-.g-body .xl-who { font-family: var(--font-body); font-size: .7em; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); vertical-align: 2px; }
-.g-body .unlinked { color: var(--text); }
-.g-body mark { background: var(--accent-soft); color: inherit; }
-.g-body hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
-.g-links, .g-xlinks { margin-top: 36px; }
-.g-links h2, .g-xlinks h2 { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; margin: 0 0 10px; }
-.g-list { display: grid; gap: 10px; }
-.g-list-profile { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); margin-bottom: 8px; }
-.g-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--text); text-decoration: none; }
-.g-card:hover { border-color: var(--accent); text-decoration: none; }
-.g-card-t { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: var(--text-strong); }
-.g-card-x { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.5; }
-.g-card-m { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: var(--text-xs); color: var(--text-muted); }
-.g-card .g-who { color: var(--accent-text); }
-.g-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
-.g-filter button { font: inherit; font-size: var(--text-sm); color: var(--text-muted); background: var(--bg-raised); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; text-transform: capitalize; }
-.g-filter button span { opacity: .7; margin-left: 2px; }
-.g-filter button.is-on { color: var(--text); border-color: var(--accent); }
-.g-foot { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--text-xs); color: var(--text-muted); display: grid; gap: 6px; line-height: 1.5; }
-.g-foot code { font-family: var(--font-mono); }
-@media (max-width: 600px) { .g-main { padding: 22px 16px 48px; } .g-title { font-size: 1.7rem; } .g-body { font-size: 1.04rem; } }
-`;
-function journalGarden(days, projects, o = {}) {
-  const minP = o.minProjectDays ?? 2, minT = o.minThemeDays ?? 5;
-  const sorted = [...days].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.date)).sort((a, b) => b.date.localeCompare(a.date));
-  const names = projects.map((p) => p.trim()).filter((p) => p.length >= 3);
-  const rx = (n) => new RegExp(`(^|[^\\w])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w])`, "i");
-  const linkify = (line, self2) => {
-    let out2 = line;
-    for (const n of names) {
-      if (n.toLowerCase() === self2.toLowerCase()) continue;
-      const m = out2.match(rx(n));
-      if (!m || out2.includes("[[")) continue;
-      const i = (m.index || 0) + m[1].length;
-      out2 = out2.slice(0, i) + `[[${n}]]` + out2.slice(i + n.length);
-    }
-    return out2;
-  };
-  const label = (d) => (/* @__PURE__ */ new Date(d + "T12:00:00")).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-  const page2 = (title, hits) => {
-    const body = hits.map((h) => `## ${label(h.date)}
-${h.lines.map(([k, t]) => `- ${k ? `**${k}:** ` : ""}${linkify(t, title)}`).join("\n")}`).join("\n\n");
-    const n = hits.length, stage = n >= 20 ? "evergreen" : n >= 5 ? "budding" : "seedling";
-    return {
-      title,
-      days: n,
-      stage,
-      created: hits[n - 1].date + "T12:00:00.000Z",
-      updated: hits[0].date + "T12:00:00.000Z",
-      markdown: `*Grown automatically from my daily journal: each day ${title} comes up, it gets a new entry. Newest first.*
-
-${body}
-`
-    };
-  };
-  const out = [];
-  for (const p of names) {
-    const r = rx(p), hits = [];
-    for (const d of sorted) {
-      const lines = [];
-      if (d.headline && r.test(d.headline)) lines.push(["", d.headline]);
-      for (const f of d.focus || []) if (r.test(f)) lines.push(["Focus", f]);
-      for (const w of d.wins || []) if (r.test(w)) lines.push(["Win", w]);
-      if (lines.length) hits.push({ date: d.date, lines });
-    }
-    if (hits.length >= minP) out.push(page2(p, hits));
-  }
-  const themes = /* @__PURE__ */ new Map();
-  for (const d of sorted) for (const t of d.themes || []) {
-    const k = String(t).trim();
-    if (k) themes.set(k, [...themes.get(k) || [], d]);
-  }
-  const total = sorted.filter((d) => d.headline || d.focus?.length || d.wins?.length).length;
-  const picked = [];
-  for (const [t, ds] of [...themes].sort((a, b) => b[1].length - a[1].length)) {
-    if (names.some((n) => n.toLowerCase() === t.toLowerCase())) continue;
-    if (total >= 10 && ds.length > total * 0.7) continue;
-    const set = new Set(ds.map((d) => d.date));
-    if (picked.some((p) => {
-      let both = 0;
-      for (const x of set) if (p.has(x)) both++;
-      return both / (set.size + p.size - both) >= 0.8;
-    })) continue;
-    const hits = ds.map((d) => ({ date: d.date, lines: [["", d.headline || ""], ...(d.wins || []).slice(0, 2).map((w) => ["Win", w])].filter(([, x]) => x) })).filter((h) => h.lines.length);
-    if (hits.length >= minT) {
-      out.push(page2(t, hits));
-      picked.push(set);
-    }
-  }
-  return out;
-}
-function moduleHtml(md, hub, image = () => null) {
-  const base = hub.replace(/\/$/, "");
-  const link = (t) => {
-    const x = parseXLink(t);
-    return x ? `${base}/@${x.handle}/` : null;
-  };
-  return mdToHtml(md, link, image).replace(/<(\/?)h([2-6])>/g, (_m, c, n) => `<${c}h${Math.min(6, Number(n) + 1)}>`).replace(/<table>/g, '<div class="table-wrap"><table class="data">').replace(/<\/table>/g, "</table></div>").replace(/<ul>/g, '<ul class="bullets">');
-}
 
 // src/city.ts
+function cleanSites(v) {
+  const out = [];
+  for (const x of Array.isArray(v) ? v : [v]) {
+    let h = String(x ?? "").trim().toLowerCase();
+    if (!h) continue;
+    try {
+      h = new URL(/^[a-z][a-z0-9+.-]*:\/\//.test(h) ? h : "https://" + h).hostname;
+    } catch {
+      continue;
+    }
+    h = h.replace(/^www\./, "");
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h) && h.length <= 253 && h !== "github.com" && h !== "github.io" && !out.includes(h)) out.push(h);
+    if (out.length >= 6) break;
+  }
+  return out.length ? out : void 0;
+}
 var privateCluster = (n) => n <= 0 ? 0 : n <= 5 ? 3 : n <= 20 ? 8 : 15;
 function noteKind(path, garden) {
   if (garden) return "garden";
@@ -4014,7 +2904,7 @@ function publicUnderground(u, publicDistricts) {
   const pub = new Set(publicDistricts);
   return { ...u, nodes: u.nodes.map((n) => ({ k: n.g ? "garden" : n.k, n: n.n, o: n.o, a: n.a, m: n.m, d: n.d ? pub.has(n.d) ? n.d : pub.has("Private") ? "Private" : void 0 : void 0, ...n.g ? { t: n.t, g: n.g } : {} })) };
 }
-var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var num = (v) => Math.max(0, Math.floor(Number(v) || 0));
 function parseCityRepos(raw) {
   const rows = Array.isArray(raw?.repos) ? raw.repos : [];
@@ -4031,7 +2921,8 @@ function parseCityRepos(raw) {
     created: typeof r.created === "string" ? r.created.slice(0, 40) : void 0,
     size: num(r.size),
     url: r.public === true && /^https:\/\//.test(String(r.url || "")) ? String(r.url) : void 0,
-    description: r.public === true && r.description ? String(r.description).slice(0, 200) : void 0
+    description: r.public === true && r.description ? String(r.description).slice(0, 200) : void 0,
+    sites: cleanSites(r.sites ?? r.homepage)
   }));
 }
 function vaultRepos(notes, now = Date.now()) {
@@ -4107,7 +2998,8 @@ function publicCityNamed(c, hideRepos = []) {
     today: r.today,
     pushed: r.pushed,
     created: r.created,
-    size: r.size
+    size: r.size,
+    ...r.sites ? { sites: r.sites } : {}
   };
   const districts = c.districts.map((d) => ({ name: d.name, notes: d.notes, repos: d.repos.map(named) }));
   const all = c.districts.flatMap((d) => d.repos);
@@ -4151,7 +3043,7 @@ function cityPadlockNote(city) {
   return city.kind === "vault" || city.private || !lockedAny ? "" : city.privateMode === "anonymous" ? PADLOCK_ANON : PADLOCK_SHOW;
 }
 function cityRows(city) {
-  return city.districts.map((d) => d.apart ? `<tr><td>${esc2(d.name)} &#128274;</td><td colspan="4">Private work, kept anonymous</td></tr>` : `<tr><td>${esc2(d.name)}</td><td>${d.repos.length}</td><td>${d.repos.reduce((s, r) => s + r.commits, 0).toLocaleString("en-US")}</td><td>${d.repos.reduce((s, r) => s + r.week, 0)}</td><td>${d.notes}</td></tr>`).join("");
+  return city.districts.map((d) => d.apart ? `<tr><td>${esc(d.name)} &#128274;</td><td colspan="4">Private work, kept anonymous</td></tr>` : `<tr><td>${esc(d.name)}</td><td>${d.repos.length}</td><td>${d.repos.reduce((s, r) => s + r.commits, 0).toLocaleString("en-US")}</td><td>${d.repos.reduce((s, r) => s + r.week, 0)}</td><td>${d.notes}</td></tr>`).join("");
 }
 function cityStats(city) {
   const repos = city.districts.flatMap((d) => d.repos), notes = city.districts.reduce((s, d) => s + d.notes, 0);
@@ -4163,27 +3055,27 @@ function renderCity(site, city) {
   const repos = city.districts.flatMap((d) => d.repos);
   const total = city.totals?.commits ?? repos.reduce((s, r) => s + r.commits, 0), active = city.totals?.active ?? repos.filter((r) => r.week > 0).length, notes = city.districts.reduce((s, d) => s + d.notes, 0);
   const json = JSON.stringify({ ...city, openBase: site.openBase || "" }).replace(/</g, "\\u003c");
-  const icon = site.icon ? `<link rel="icon" href="${esc2(site.icon)}" type="image/png">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`;
+  const icon = site.icon ? `<link rel="icon" href="${esc(site.icon)}" type="image/png">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`;
   const rows = cityRows(city);
   return `<!doctype html><html lang="en"${site.theme === "light" ? ' data-theme="light"' : ""}><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc2(site.name)}'s city</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(site.name)}'s city</title>
 <meta name="robots" content="noindex, nofollow"><meta name="generator" content="Caldera for Obsidian">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
 ${icon}<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css"><style>${CITY_CSS}</style></head><body>
-<div class="tabs"><a class="tab" href="index.html">${esc2(site.name)}.md</a><span class="tab is-active">City</span><span class="spacer"></span></div>
+<div class="tabs"><a class="tab" href="index.html">${esc(site.name)}.md</a><span class="tab is-active">City</span><span class="spacer"></span></div>
 <div class="shell">${site.nav ? site.nav(0, "city.html") : ""}<main class="note"><div class="c-main">
-<div class="g-crumbs c-crumbs"><a href="index.html">${esc2(site.handle ? "@" + site.handle : site.name)}</a> / City${site.github && /^https:\/\/github\.com\/[\w.-]+\/?$/.test(site.github) ? ` &middot; <a class="c-gh" href="${esc2(site.github)}" target="_blank" rel="noopener">GitHub &#8599;</a>` : ""}</div>
-<h1 class="c-title">${esc2(site.name)}'s city</h1>
-<p class="c-lede">${city.kind === "vault" ? `Built from ${esc2(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : cityPadlockNote(city)}`}</p>
+<div class="g-crumbs c-crumbs"><a href="index.html">${esc(site.handle ? "@" + site.handle : site.name)}</a> / City${site.github && /^https:\/\/github\.com\/[\w.-]+\/?$/.test(site.github) ? ` &middot; <a class="c-gh" href="${esc(site.github)}" target="_blank" rel="noopener">GitHub &#8599;</a>` : ""}</div>
+<h1 class="c-title">${esc(site.name)}'s city</h1>
+<p class="c-lede">${city.kind === "vault" ? `Built from ${esc(site.name)}'s Obsidian vault: every folder is a building, taller means more notes written this year, lit windows mean notes written this week. Folder names stay private.${city.under ? " Go underground to see the notes and the links between them." : ""}` : `Every project is a district and every repo a building: taller means more commits this year, lit windows mean commits this week, a crane means it's being built right now. The houses around each district are the Obsidian notes about that project.${city.private ? " <b>Private view:</b> every repo, including private ones." : cityPadlockNote(city)}`}</p>
 ${cityStats(city)}
 <div class="c-stage" id="stage"><canvas id="city" aria-label="Isometric city of ${repos.length} projects"></canvas>
 <div class="c-tools"><button id="t-labels" aria-pressed="true" title="Labels">&#x1F3F7;&#xFE0F;<span class="t-txt"> Labels</span></button><button id="t-sky">Auto</button><button id="t-wx" title="Weather">Weather</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-snd" aria-pressed="false" title="Sound for arrivals, signups and sales (off)">&#x1F507;</button><button id="t-reset" title="Reset the view">&#x21BA;<span class="t-txt"> Reset</span></button><button id="t-pop" aria-label="Pop out a small window" title="Pop out a small window">&#x29C9;<span class="t-txt"> Pop out</span></button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
-<div class="c-toasts" aria-live="polite"></div><div class="c-mininame" aria-hidden="true"><i></i>${esc2(site.name)}</div>
+<div class="c-toasts" aria-live="polite"></div><div class="c-mininame" aria-hidden="true"><i></i>${esc(site.name)}</div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
 <div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some((r) => r.locked) ? PADLOCK_LEGEND : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
-${city.generated ? `<p class="c-foot">GitHub counts from ${esc2(new Date(city.generated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}.</p>` : ""}
+${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.generated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}.</p>` : ""}
 </div></main></div>
 <script type="application/json" id="city-data">${json}<\/script>
 <script>${CITY_JS}<\/script></body></html>`;
@@ -5223,17 +4115,24 @@ function drawLive(){var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dp
 // ---- window glow from live visitors: the hub sends each district's glow (visitors in the last 30 minutes, each fading
 // over 30 minutes), and lit windows ease toward it: a busy site lights up, then dims to dark as people leave
 var GT={},GL={},GS={},glowAt=0,glowDraw=0;
-  // which building a visit belongs to: the hub sends each district's visited sites as one word each ("stash", "kitse"); a repo
-  // whose name matches gets the people and the full lights. A district whose sites match none of its repos (or that sends no
-  // site names) shows them in its biggest building only, never across every repo.
+  // which building a visit belongs to. The hub sends each district's visited sites (hostnames). A repo that lists the site
+  // (its website on GitHub, or "sites" in city.json) owns it; otherwise the one repo named like the site ("relay" for
+  // relay.example.com). A site no repo owns puts nobody anywhere: people only ever stand where the visitors really are.
   function sNorm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
-  function sMatch(rn,tk){return !!rn&&!!tk&&(rn===tk||(tk.length>=4&&rn.indexOf(tk)>=0)||(rn.length>=4&&tk.indexOf(rn)>=0))}
-  var SBK=null,SBT=null,SBAt=0;function siteBook(){if(SBK&&SBT===tiles&&(!BUILDING||T-SBAt<1000))return SBK;SBK={};SBT=tiles;SBAt=T;var k;   // rebuilt only when the layout changes
-    for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r)continue;var dn=t.d.name,b=SBK[dn]||(SBK[dn]={main:null,mh:-1,names:[]}),h=bh(t.r);b.names.push(sNorm(t.r.name));if(h>b.mh){b.mh=h;b.main=t.r}}return SBK}
-  function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;var d=t.d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null,b=siteBook()[d.name],rn=sNorm(t.r.name),best=0,mx=0,hit=false,k;
-    if(ds){for(k in ds)mx=Math.max(mx,ds[k]);for(k in ds){var tk=sNorm(k);if(sMatch(rn,tk))best=Math.max(best,ds[k]/(mx||1));if(!hit&&b)for(var q=0;q<b.names.length;q++)if(sMatch(b.names[q],tk)){hit=true;break}}
-      if(best>0)return gw*best;if(hit)return 0}
-    return b&&b.main===t.r?gw:0}
+  function sHostOwns(sites,h){if(!sites||!h||h.indexOf('.')<0)return false;for(var i=0;i<sites.length;i++){var s=String(sites[i]);if(h===s||h.slice(-s.length-1)==='.'+s)return true}return false}
+  function sWord(h){var l=String(h).split('.');while(l.length>2&&/^(www|app|m|my|go|get|beta|staging)$/.test(l[0]))l.shift();return sNorm(l[0])}
+  var SBK=null,SBT=null,SBG=null,SBAt=0;
+  function siteBook(){if(SBK&&SBT===tiles&&SBG===GS&&(!BUILDING||T-SBAt<1000))return SBK;SBT=tiles;SBG=GS;SBAt=T;SBK=new Map();var by={},k,dn;   // rebuilt when the layout or the live data changes
+    for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t)}
+    for(dn in by){var ts=by[dn],d=ts[0].d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null;if(!ds)continue;var mx=0;for(k in ds)mx=Math.max(mx,ds[k]);
+      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(t.r.sites,k)});
+        if(!own.length){var w=k.indexOf('.')<0?sNorm(k):sWord(k),best=null,bs=0;
+          if(w.length>=3)ts.forEach(function(t){var rn=sNorm(t.r.name),sc=rn===w?1000:(w.length>=4&&rn.indexOf(w)>=0)||(rn.length>=4&&w.indexOf(rn)>=0)?100-Math.abs(rn.length-w.length):0;
+            if(sc>bs&&!(t.r.sites&&t.r.sites.length&&sc<1000)){bs=sc;best=t}});   // a repo that names its own sites isn't guessed into another
+          if(best)own=[best]}
+        own.forEach(function(t){SBK.set(t.r,Math.max(SBK.get(t.r)||0,share))})}}
+    return SBK}
+  function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;return gw*(siteBook().get(t.r)||0)}
 function stepGlow(tn){var dt=Math.min(1000,tn-(glowAt||tn));glowAt=tn;var moving=false,ks={},k;for(k in GT)ks[k]=1;for(k in GL)ks[k]=1;
   for(k in ks){var g=GL[k]||0,t=GT[k]||0;if(Math.abs(t-g)<.003){if(t)GL[k]=t;else delete GL[k];continue}GL[k]=g+(t-g)*Math.min(1,dt/2200);moving=true}
   if(moving&&tn-glowDraw>220){glowDraw=tn;dirty=true}}
@@ -5353,6 +4252,1136 @@ window.addEventListener('resize',function(){fit();draw()});
 fit();
 if(reduce)frame();else requestAnimationFrame(tick);
 })();`;
+
+// src/auto.ts
+var isoLocal = (t) => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+function prettyModel(model) {
+  const m = model.trim().replace(/-\d{8}$/, "").split("/").pop().replace(/\./g, "-");
+  const c = m.match(/^claude-([a-z]+)-(\d+)(?:-(\d+))?/);
+  if (c) return `Claude ${c[1][0].toUpperCase()}${c[1].slice(1)} ${c[2]}${c[3] ? "." + c[3] : ""}`;
+  const g = m.match(/^gpt-(\d+)(?:-(\d+))?(.*)$/);
+  if (g) return `GPT-${g[1]}${g[2] ? "." + g[2] : ""}${g[3] ? " " + g[3].replace(/^-/, "").replace(/-/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()) : ""}`;
+  return m;
+}
+function providerOf(name) {
+  const m = name.toLowerCase();
+  if (m.includes("claude")) return "Anthropic";
+  if (/^(gpt|o\d|codex)/.test(m)) return "OpenAI";
+  if (m.includes("gemini")) return "Google";
+  if (m.includes("deepseek")) return "DeepSeek";
+  if (m.includes("grok")) return "xAI";
+  if (m.includes("llama")) return "Meta";
+  if (m.includes("mistral")) return "Mistral";
+  return "Other";
+}
+async function aiUsage(cachePath, windowDays = 45) {
+  if (!import_obsidian.Platform.isDesktopApp) return void 0;
+  let fs, path, os;
+  try {
+    fs = window.require("fs");
+    path = window.require("path");
+    os = window.require("os");
+  } catch {
+    return void 0;
+  }
+  const home = os.homedir(), since = Date.now() - (windowDays + 2) * 864e5;
+  let cache = {};
+  try {
+    cache = JSON.parse(await fs.promises.readFile(cachePath, "utf8"));
+  } catch {
+  }
+  const files = [];
+  const walk = async (dir, kind, depth) => {
+    let ents = [];
+    try {
+      ents = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of ents) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory() && depth > 0) await walk(p, kind, depth - 1);
+      else if (e.isFile() && e.name.endsWith(".jsonl")) files.push([p, kind]);
+    }
+  };
+  await walk(path.join(home, ".claude", "projects"), "claude", 2);
+  await walk(path.join(home, ".codex", "sessions"), "codex", 4);
+  if (!files.length) return void 0;
+  const next = {};
+  for (const [p, kind] of files) {
+    let st;
+    try {
+      st = await fs.promises.stat(p);
+    } catch {
+      continue;
+    }
+    if (st.mtimeMs < since) continue;
+    const c = cache[p];
+    if (c && c.m === st.mtimeMs && c.s === st.size) {
+      next[p] = c;
+      continue;
+    }
+    const t = {}, seen = /* @__PURE__ */ new Set();
+    let text = "";
+    try {
+      text = await fs.promises.readFile(p, "utf8");
+    } catch {
+      continue;
+    }
+    let model = "gpt-5";
+    for (const line of text.split("\n")) {
+      if (kind === "claude") {
+        if (!line.includes('"usage"') || !line.includes('"assistant"')) continue;
+        try {
+          const o = JSON.parse(line), msg = o.message || {}, u = msg.usage;
+          if (!u || !msg.model || String(msg.model).startsWith("<") || !o.timestamp || seen.has(msg.id)) continue;
+          seen.add(msg.id);
+          const n = (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+          const d = isoLocal(Date.parse(o.timestamp));
+          (t[d] || (t[d] = {}))[msg.model] = (t[d][msg.model] || 0) + n;
+        } catch {
+        }
+      } else {
+        if (!line.includes('"turn_context"') && !line.includes('"token_count"')) continue;
+        try {
+          const o = JSON.parse(line), pl = o.payload || {};
+          if (o.type === "turn_context" && pl.model) model = pl.model;
+          else if (pl.type === "token_count" && o.timestamp) {
+            const n = pl.info?.last_token_usage?.total_tokens || 0;
+            if (n) {
+              const d = isoLocal(Date.parse(o.timestamp));
+              (t[d] || (t[d] = {}))[model] = (t[d][model] || 0) + n;
+            }
+          }
+        } catch {
+        }
+      }
+    }
+    next[p] = { m: st.mtimeMs, s: st.size, t };
+    await new Promise((r) => window.setTimeout(r, 0));
+  }
+  try {
+    await fs.promises.writeFile(cachePath, JSON.stringify(next));
+  } catch {
+  }
+  const first = isoLocal(Date.now() - (windowDays - 1) * 864e5);
+  const days = {}, models = /* @__PURE__ */ new Map();
+  for (const f of Object.values(next)) for (const [d, ms] of Object.entries(f.t)) {
+    if (d < first) continue;
+    for (const [m, n] of Object.entries(ms)) {
+      days[d] = (days[d] || 0) + n;
+      const k = prettyModel(m);
+      models.set(k, (models.get(k) || 0) + n);
+    }
+  }
+  const total = Object.values(days).reduce((a, b) => a + b, 0);
+  if (!total) return void 0;
+  const prov = /* @__PURE__ */ new Map();
+  for (const [m, n] of models) prov.set(providerOf(m), (prov.get(providerOf(m)) || 0) + n);
+  return {
+    total,
+    window_days: windowDays,
+    days,
+    models: [...models].sort((a, b) => b[1] - a[1]).slice(0, 8),
+    providers: [...prov].sort((a, b) => b[1] - a[1]),
+    note: "Tokens processed by my AI coding agents (Claude Code, Codex) on this computer, including cached context. Counts only."
+  };
+}
+async function githubCode(links) {
+  const gh = links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean);
+  if (!gh) return void 0;
+  const user = gh[1];
+  try {
+    const r = await (0, import_obsidian.requestUrl)({ url: `https://github.com/users/${user}/contributions`, throw: false });
+    if (r.status !== 200) return void 0;
+    const html = r.text, byId = /* @__PURE__ */ new Map(), counts = /* @__PURE__ */ new Map();
+    for (const m of html.matchAll(/data-date="(\d{4}-\d{2}-\d{2})"[^>]*id="([^"]+)"|id="([^"]+)"[^>]*data-date="(\d{4}-\d{2}-\d{2})"/g)) byId.set(m[2] || m[3], m[1] || m[4]);
+    for (const m of html.matchAll(/<tool-tip[^>]*for="([^"]+)"[^>]*>\s*(No|\d[\d,]*) contributions?/g)) {
+      const d = byId.get(m[1]);
+      if (d) counts.set(d, m[2] === "No" ? 0 : Number(m[2].replace(/,/g, "")));
+    }
+    if (!counts.size) return void 0;
+    const dates = [...counts.keys()].sort(), weekly = [];
+    for (let i = 0; i < dates.length; i += 7) weekly.push(dates.slice(i, i + 7).reduce((a, d) => a + (counts.get(d) || 0), 0));
+    const commits = [...counts.values()].reduce((a, b) => a + b, 0);
+    let repos = 0;
+    try {
+      const u = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}`, throw: false });
+      repos = u.json?.public_repos || 0;
+    } catch {
+    }
+    const start = (/* @__PURE__ */ new Date(dates[0] + "T12:00:00")).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return commits ? { commits, repos, weekly, url: `https://github.com/${user}`, start } : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function githubUser(links) {
+  return links.map((l) => l[1]).map((u) => u.match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/?$/)).find(Boolean)?.[1];
+}
+async function githubRepoSig(user) {
+  const u = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}`, throw: false });
+  const r = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=created&direction=desc&per_page=1`, throw: false });
+  if (u.status !== 200 || r.status !== 200 || !Array.isArray(r.json)) return void 0;
+  return `${u.json?.public_repos ?? "?"}|${r.json[0]?.full_name || ""}`;
+}
+async function githubCity(user, prev) {
+  const own = [];
+  for (let pg = 1; pg <= 2; pg++) {
+    const r = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/users/${user}/repos?type=owner&sort=pushed&per_page=100&page=${pg}`, throw: false });
+    if (r.status !== 200 || !Array.isArray(r.json)) return void 0;
+    own.push(...r.json);
+    if (r.json.length < 100) break;
+  }
+  const old = new Map((Array.isArray(prev?.repos) ? prev.repos : []).map((r) => [r.name, r]));
+  const repos = own.filter((r) => !r.fork && !r.private && !r.archived).slice(0, 120).map((r) => {
+    const o = old.get(r.name);
+    return {
+      name: r.name,
+      project: r.language || "Other",
+      public: true,
+      language: r.language || "Other",
+      size: r.size,
+      pushed: r.pushed_at,
+      created: r.created_at,
+      url: r.html_url,
+      description: (r.description || "").slice(0, 200),
+      commits: o?.commits || (r.size ? 1 : 0),
+      weeks: o?.weeks || [],
+      week: o?.week || 0,
+      today: 0,
+      sites: cleanSites(r.homepage || r.website)
+    };
+  });
+  for (const r of repos.slice(0, 20)) {
+    try {
+      const w = await (0, import_obsidian.requestUrl)({ url: `https://api.github.com/repos/${user}/${r.name}/stats/commit_activity`, throw: false });
+      if (w.status === 200 && Array.isArray(w.json) && w.json.length) {
+        const t = w.json.slice(-52).map((x) => x.total || 0);
+        r.weeks = t.slice(-12);
+        r.commits = Math.max(1, t.reduce((a, b) => a + b, 0));
+        r.week = t[t.length - 1];
+      }
+    } catch {
+    }
+  }
+  return repos.length ? { generated: (/* @__PURE__ */ new Date()).toISOString(), source: `caldera github ${user}`, repos } : void 0;
+}
+function forgeOf(links) {
+  const gh = githubUser(links);
+  if (gh) return { kind: "github", host: "github.com", user: gh, url: `https://github.com/${gh}` };
+  for (const [label, url] of links) {
+    const m = url.match(/^(https?:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})\/?$/);
+    if (m && (/forgejo|gitea|codeberg/i.test(label) || /^https?:\/\/(www\.)?codeberg\.org$/i.test(m[1]))) return { kind: "forgejo", host: m[1].replace(/^http:/, "https:"), user: m[2], url: `${m[1]}/${m[2]}` };
+  }
+  return void 0;
+}
+var forgeSource = (f) => f.kind === "github" ? `caldera github ${f.user}` : `caldera forgejo ${f.url}`;
+var fj = async (f, path) => {
+  const r = await (0, import_obsidian.requestUrl)({ url: `${f.host}/api/v1${path}`, headers: { Accept: "application/json" }, throw: false });
+  return r.status === 200 ? r : void 0;
+};
+async function forgejoCode(f) {
+  try {
+    const h = await fj(f, `/users/${encodeURIComponent(f.user)}/heatmap`);
+    if (!h || !Array.isArray(h.json)) return void 0;
+    const now = Date.now(), WEEK = 7 * 864e5, weekly = Array(53).fill(0);
+    for (const x of h.json) {
+      const age = now - Number(x.timestamp) * 1e3;
+      if (age >= 0 && age < 53 * WEEK) weekly[52 - Math.floor(age / WEEK)] += Number(x.contributions) || 0;
+    }
+    const commits = weekly.reduce((a, b) => a + b, 0);
+    if (!commits) return void 0;
+    const u = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50`);
+    const repos = Array.isArray(u?.json) ? u.json.filter((r) => !r.fork && !r.private).length : 0;
+    const start = new Date(now - 52 * WEEK).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return { commits, repos, weekly, url: f.url, start };
+  } catch {
+    return void 0;
+  }
+}
+async function forgejoCity(f, prev) {
+  const own = [];
+  for (let pg = 1; pg <= 4; pg++) {
+    const r = await fj(f, `/users/${encodeURIComponent(f.user)}/repos?limit=50&page=${pg}`);
+    if (!r || !Array.isArray(r.json)) {
+      if (pg === 1) return void 0;
+      break;
+    }
+    own.push(...r.json);
+    if (r.json.length < 50) break;
+  }
+  const old = new Map((Array.isArray(prev?.repos) ? prev.repos : []).map((r) => [r.name, r]));
+  const live = own.filter((r) => !r.fork && !r.private && !r.archived && !r.mirror).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const repos = live.slice(0, 120).map((r) => {
+    const o = old.get(r.name);
+    return {
+      name: r.name,
+      owner: r.owner?.login || f.user,
+      project: r.language || "Other",
+      public: true,
+      language: r.language || "Other",
+      size: r.size,
+      pushed: r.updated_at,
+      created: r.created_at,
+      url: r.html_url,
+      description: (r.description || "").slice(0, 200),
+      commits: o?.commits || (r.size ? 1 : 0),
+      weeks: o?.weeks || [],
+      week: o?.week || 0,
+      today: 0,
+      sites: cleanSites(r.homepage || r.website)
+    };
+  });
+  const now = Date.now(), WEEK = 7 * 864e5, YEAR = 365 * 864e5, q2 = "&stat=false&verification=false&files=false";
+  for (const r of repos.slice(0, 20)) {
+    try {
+      const base = `/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}/commits?limit=50${q2}`;
+      const weeks = Array(12).fill(0);
+      let year = 0, ok = false;
+      for (let pg = 1; pg <= 10; pg++) {
+        const w = await fj(f, `${base}&page=${pg}`);
+        if (!w || !Array.isArray(w.json)) break;
+        ok = true;
+        let older = false;
+        for (const c of w.json) {
+          const age = now - Date.parse(c.commit?.author?.date || c.created);
+          if (!(age >= 0)) continue;
+          if (age >= YEAR) {
+            older = true;
+            continue;
+          }
+          year++;
+          if (age < 12 * WEEK) weeks[11 - Math.floor(age / WEEK)]++;
+        }
+        if (older || w.json.length < 50) break;
+      }
+      if (!ok) continue;
+      r.weeks = weeks;
+      r.week = weeks[11];
+      r.commits = Math.max(1, year);
+    } catch {
+    }
+  }
+  for (const r of repos) delete r.owner;
+  return repos.length ? { generated: (/* @__PURE__ */ new Date()).toISOString(), source: forgeSource(f), repos } : void 0;
+}
+var KINDS = [
+  [/^(person|people|contact|contacts)$/, "People"],
+  [/^(company|companies|organization|organisation|org|orgs|organizations)$/, "Companies"],
+  [/^(project|projects)$/, "Projects"],
+  [/^(source|sources|article|articles|clipping|clippings|paper|papers|reference|references)$/, "Sources"],
+  [/^(concept|concepts|idea|ideas|zettel|zettelkasten|permanent)$/, "Ideas & concepts"],
+  [/^(book|books|reading)$/, "Books"],
+  [/^(meeting|meetings)$/, "Meetings"],
+  [/^(daily|dailies|journal|journals|daily-notes|daily notes|daily-digest|diary)$/, "Daily notes"],
+  [/^(recipe|recipes)$/, "Recipes"],
+  [/^(research)$/, "Research"],
+  [/^(course|courses|class|classes|lecture|lectures)$/, "Learning"],
+  [/^(podcast|podcasts|video|videos)$/, "Media notes"],
+  [/^(tool|tools|software)$/, "Tools"],
+  [/^(place|places|travel)$/, "Places"]
+];
+var kindOf = (v) => {
+  const k = String(v ?? "").trim().toLowerCase();
+  return (KINDS.find(([rx]) => rx.test(k)) || [])[1];
+};
+function vaultKinds(app, md) {
+  const n = /* @__PURE__ */ new Map();
+  for (const f of md) {
+    if (f.path.startsWith("Caldera/")) continue;
+    const fm = app.metadataCache.getFileCache(f)?.frontmatter || {};
+    const label = kindOf(fm.type) || kindOf(fm.category) || (/^\d{4}-\d{2}-\d{2}$/.test(f.basename) ? "Daily notes" : void 0) || f.path.split("/").slice(0, -1).map(kindOf).find(Boolean);
+    if (label) n.set(label, (n.get(label) || 0) + 1);
+  }
+  return [...n].filter(([, c]) => c >= 3).sort((a, b) => b[1] - a[1]).slice(0, 7);
+}
+
+// src/settings.ts
+var import_obsidian2 = require("obsidian");
+var DEFAULT_SETTINGS = {
+  hubUrl: "https://caldera.social",
+  identity: null,
+  handle: "",
+  name: "",
+  headline: "",
+  theme: "dark",
+  avatarPath: "",
+  bannerPath: "",
+  links: [],
+  properties: [],
+  sections: { journal: true, scoreboard: true, properties: true, numbers: true, topics: true, notes: true, links: true, sidebar: true, rail: true, modules: true },
+  publicTopics: [["ai", "AI"], ["design", "Design"], ["startups", "Startups"], ["investing", "Investing"], ["writing", "Writing"]],
+  activityFile: "Caldera/activity.json",
+  historyDays: 45,
+  inboxFolder: "Caldera/Inbox",
+  lastInboxSync: "1970-01-01T00:00:00.000Z",
+  asks: [],
+  offers: [],
+  autoPublishHours: 6,
+  welcomed: false,
+  listed: true,
+  lastSeenRelease: "",
+  lastPublished: 0,
+  tree: [],
+  graph: [],
+  backlinks: [],
+  summary: "",
+  now: [],
+  timeline: [],
+  projects: [],
+  knows: [],
+  tabs: [],
+  gardenFolder: "Garden",
+  gardenUrl: "",
+  gardenJournal: true,
+  groups: []
+};
+var WELCOME_NOTE = "Welcome to Caldera - I built it. Glad you're here. If anything breaks or feels confusing, tell me and I'll fix it.";
+var groupsFrom = (v) => [...new Set(String(v || "").toLowerCase().split(/[\s,]+/).map((g) => g.replace(/^#/, "")).filter((g) => /^[a-z0-9][a-z0-9-]{1,29}$/.test(g)))].slice(0, 8);
+var SECTION_LABELS = {
+  journal: "Daily journal (flip through days)",
+  scoreboard: "Scoreboard (streak, rank, 30-day bars)",
+  properties: "Properties",
+  numbers: "Vault numbers (notes, words, links, active days)",
+  topics: "Topics (allow-listed tags only)",
+  notes: "Notes marked caldera: public",
+  links: "Links elsewhere",
+  garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
+  city: "City (your GitHub as a little city: add GitHub | https://github.com/you to Links, or write Caldera/city.json yourself)"
+};
+var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    const s = this.plugin.settings;
+    containerEl.empty();
+    containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
+    new import_obsidian2.Setting(containerEl).setName("Connections").setHeading();
+    const lights = containerEl.createDiv({ cls: "caldera-conn" });
+    lights.createEl("p", { text: s.identity && s.handle ? "Checking..." : "Publish your page to see your connections.", cls: "setting-item-description" });
+    if (s.identity && s.handle) void this.plugin.ownerActivity(new Date(Date.now() - 864e5).toISOString()).then((a) => {
+      const c = a?.connections;
+      lights.empty();
+      if (!c) {
+        lights.createEl("p", { text: "Update the hub to see connections.", cls: "setting-item-description" });
+        return;
+      }
+      const rows = [
+        ["GitHub", !!c.github?.on, c.github?.on ? `Connected as @${c.github.login}` : c.github?.listed ? `Listed (github.com/${c.github.listed}), sign in with GitHub once to link it` : "Not connected"],
+        ["Obsidian", true, "Connected (this vault)"],
+        ["Live visitors on your city", !!c.live, c.live ? "Visits in the last 7 days" : "No visits in the last 7 days"],
+        ["AI agents on the map", !!c.agents, c.agents ? "Agents in the last 7 days" : "No agents in the last 7 days"],
+        ["Private view", !!c.private, c.private ? "Up to date" : "Not turned on"],
+        ["Daily summary email", !!c.email, c.email ? "On" : "Off"]
+      ];
+      for (const [name, on, status] of rows) {
+        const r = lights.createDiv({ cls: "caldera-conn-row" });
+        r.createSpan({ cls: "caldera-conn-dot" + (on ? " is-on" : ""), attr: { "aria-label": on ? "Connected" : "Not connected" } });
+        r.createSpan({ text: name, cls: "caldera-conn-name" });
+        r.createSpan({ text: status, cls: "caldera-conn-status" });
+      }
+    }).catch(() => {
+      lights.empty();
+      lights.createEl("p", { text: "Couldn't reach the hub.", cls: "setting-item-description" });
+    });
+    new import_obsidian2.Setting(containerEl).setName("Set them up on caldera.social").setDesc("Opens your settings page, already signed in, with a step-by-step for anything that's grey.").addButton((b) => b.setButtonText("Open settings").setDisabled(!s.identity || !s.handle).onClick(() => void this.plugin.openProfile("settings")));
+    new import_obsidian2.Setting(containerEl).setName("Identity").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet").addButton((b) => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
+      if (!s.identity) {
+        await this.plugin.ensureIdentity();
+        this.display();
+      } else {
+        await navigator.clipboard.writeText(s.identity.id);
+        new import_obsidian2.Notice("ID copied");
+      }
+    })).addButton((b) => b.setButtonText("Export recovery key").setDisabled(!s.identity).onClick(async () => {
+      await navigator.clipboard.writeText(btoa(JSON.stringify(s.identity)));
+      new import_obsidian2.Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
+    }));
+    this.text("Handle", "Your address on the hub: hub/@handle", "handle", (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+    let claim = "";
+    new import_obsidian2.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
+      claim = v.trim();
+    })).addButton((b) => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then((ok) => {
+      if (ok) this.display();
+    })));
+    this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
+    new import_obsidian2.Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.").addToggle((t) => t.setValue(s.listed !== false).onChange(async (v) => {
+      s.listed = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Connect me with my GitHub people").setDesc("Become friends automatically with Caldera members you follow or who follow you on GitHub, or who work on the same public repos, including people who join later. Remove one like any friend and it never comes back.").addToggle((t) => t.setValue(s.autoConnectRepos !== false).onChange(async (v) => {
+      s.autoConnectRepos = v;
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Tag me from my public GitHub").setDesc("Shows what you're building (like AI agents or Next.js) on your page and in People, worked out from your public repos' topics, descriptions, READMEs and dependencies. Private repos only ever add a language. Add or hide tags with tags / hideTags in Caldera/profile.md, or on caldera.social/me/building.").addToggle((t) => t.setValue(s.autoTags !== false).onChange(async (v) => {
+      s.autoTags = v;
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
+      s.privateRepos = v || void 0;
+      s.privateReposTs = (/* @__PURE__ */ new Date()).toISOString();
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.").addToggle((t) => t.setValue(s.showViews !== false).onChange(async (v) => {
+      s.showViews = v;
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Friends and sharing").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
+    new import_obsidian2.Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`).addText((t) => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async (v) => {
+      s.groups = groupsFrom(v);
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }));
+    let email = s.summaryEmail || "";
+    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and new followers, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
+    new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: follow each person who joins Caldera from now on, with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
+      s.welcomeNew = v;
+      if (v && !s.welcomeSince) s.welcomeSince = (/* @__PURE__ */ new Date()).toISOString();
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Welcome note").addTextArea((t) => {
+      t.setValue(s.welcomeNote || WELCOME_NOTE);
+      t.inputEl.rows = 2;
+      t.onChange(async (v) => {
+        s.welcomeNote = v.trim().slice(0, 200);
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian2.Setting(containerEl).setName("Profile").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.").addButton((b) => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
+    this.text("Name", "", "name");
+    this.text("Headline", "One line under your name", "headline");
+    this.text("Avatar image", "Path in your vault, e.g. Attachments/me.jpg", "avatarPath");
+    this.text("Banner image", "Path in your vault", "bannerPath");
+    new import_obsidian2.Setting(containerEl).setName("Theme").addDropdown((d) => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async (v) => {
+      s.theme = v;
+      await this.plugin.saveSettings();
+    }));
+    this.pairs("Links", "One per line: Label | https://url", "links");
+    new import_obsidian2.Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.").addText((t) => t.setPlaceholder("octocat").setValue(githubUser(s.links || []) || "").onChange(async (v) => {
+      const u = v.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\/.*$/, "");
+      s.links = (s.links || []).filter((l) => !/^https?:\/\/(?:www\.)?github\.com\/[A-Za-z0-9-]{1,39}\/?$/.test(l[1]));
+      if (/^[A-Za-z0-9-]{1,39}$/.test(u)) s.links.push(["GitHub", `https://github.com/${u}`]);
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Forgejo or Codeberg profile").setDesc("Code on Codeberg or your own Forgejo / Gitea server instead? Paste your profile address. Your public repos become your city, and your contributions your code chart. Used when no GitHub username is set.").addText((t) => t.setPlaceholder("https://codeberg.org/you").setValue((s.links || []).find((l) => l[0] === "Forgejo")?.[1] || "").onChange(async (v) => {
+      const m = v.trim().replace(/^http:/, "https:").replace(/\/+$/, "").match(/^(https:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})$/);
+      s.links = (s.links || []).filter((l) => l[0] !== "Forgejo");
+      if (m) s.links.push(["Forgejo", `${m[1]}/${m[2]}`]);
+      await this.plugin.saveSettings();
+    }));
+    this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
+    new import_obsidian2.Setting(containerEl).setName("What is public").setHeading();
+    for (const [k, label] of Object.entries(SECTION_LABELS)) {
+      if (k === "garden" && !gardenEnabled()) continue;
+      new import_obsidian2.Setting(containerEl).setName(label).addToggle((t) => t.setValue(s.sections[k] !== void 0 ? !!s.sections[k] : k === "garden" || k === "city").onChange(async (v) => {
+        s.sections[k] = v;
+        await this.plugin.saveSettings();
+      }));
+    }
+    if (gardenEnabled()) {
+      this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", (v) => v.replace(/^\/+|\/+$/g, ""));
+      new import_obsidian2.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
+        s.gardenJournal = v;
+        await this.plugin.saveSettings();
+      }));
+      this.text("Existing garden URL", "Optional: a garden you already publish elsewhere (Quartz, Obsidian Publish...). Linked from your page.", "gardenUrl", (v) => /^https:\/\//.test(v) ? v : "");
+    }
+    this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
+    this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
+    new import_obsidian2.Setting(containerEl).setName("My profile tab").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.").addToggle((t) => t.setValue(!!s.openProfileOnStartup).onChange(async (v) => {
+      s.openProfileOnStartup = v;
+      await this.plugin.saveSettings();
+    })).addButton((b) => b.setButtonText("Open now").onClick(() => this.plugin.openProfileTab()));
+    new import_obsidian2.Setting(containerEl).setName("Private web address (Tailscale)").setDesc(createFragment((f) => {
+      f.appendText("See your private sections in a browser, on any of your Tailscale devices. Every 10 minutes Obsidian pushes them to your hub, which stores them encrypted and shows them only to your own Tailscale account, never on your public page. Needs a hub with a private address set up for you (self-hosted, or the operator's own profile).");
+      if (s.privateUrl) {
+        f.createEl("br");
+        f.appendText("Your private address: ");
+        f.createEl("a", { text: s.privateUrl, href: s.privateUrl });
+      }
+    })).addToggle((t) => t.setValue(!!s.privateWeb).onChange(async (v) => {
+      s.privateWeb = v;
+      await this.plugin.saveSettings();
+      this.plugin.schedulePrivatePush();
+      if (v && !await this.plugin.pushPrivate(true)) {
+        s.privateWeb = false;
+        await this.plugin.saveSettings();
+        this.plugin.schedulePrivatePush();
+      }
+      this.display();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Live traffic on your city").setHeading();
+    const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
+    new import_obsidian2.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
+    for (const site of sites) {
+      const snippet = trackTag(hub, site.key);
+      new import_obsidian2.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
+        await navigator.clipboard.writeText(snippet);
+        new import_obsidian2.Notice(`Snippet for ${site.project} copied`);
+      })).addExtraButton((b) => b.setIcon("key-round").setTooltip("Copy server key (for sending events from your own server: POST " + hub + "/v1/t/" + site.key + "/events)").onClick(async () => {
+        if (!site.secret) return void new import_obsidian2.Notice("Publish once to get the server key");
+        await navigator.clipboard.writeText(site.secret);
+        new import_obsidian2.Notice("Server key copied. Keep it secret: it lets a server send events for this site.");
+      }));
+    }
+    new import_obsidian2.Setting(containerEl).setName("AI agents on your city").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (your private view and private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
+      await navigator.clipboard.writeText(agentSetupPrompt(hub, s.agentKey));
+      new import_obsidian2.Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Publishing").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually").addText((t) => t.setValue(String(s.autoPublishHours)).onChange(async (v) => {
+      s.autoPublishHours = Math.max(0, Number(v) || 0);
+      await this.plugin.saveSettings();
+      this.plugin.scheduleAutoPublish();
+    }));
+  }
+  text(name, desc, key, clean = (v) => v) {
+    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addText((t) => t.setValue(String(this.plugin.settings[key] ?? "")).onChange(async (v) => {
+      this.plugin.settings[key] = clean(v.trim());
+      await this.plugin.saveSettings();
+    }));
+  }
+  pairs(name, desc, key) {
+    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addTextArea((t) => {
+      t.setValue(this.plugin.settings[key].map((p) => p.join(" | ")).join("\n"));
+      t.inputEl.rows = 4;
+      t.onChange(async (v) => {
+        this.plugin.settings[key] = v.split("\n").map((l) => l.split("|").map((x) => x.trim())).filter((p) => p[0] && p[1]).map((p) => [p[0], p.slice(1).join("|")]);
+        await this.plugin.saveSettings();
+      });
+    });
+  }
+};
+var TRACK_SRI = "sha384-UCnwKWu6Be2g87+ZI1+h367D6yOXEuXFQL2U2Z7PuSoH3oSCsu/cmZMbj4s70JlC";
+var trackTag = (hub, key) => `<script async src="${hub.replace(/\/$/, "")}/t/1.js" integrity="${TRACK_SRI}" crossorigin="anonymous" data-site="${key}"><\/script>`;
+var AGENT_HOOK_SHA256 = "bfe8dbde26fdc5e8b2e33805cdd4cadb98020ecaf34fe3f7c2e491ed636aedae";
+function agentSetupPrompt(hub, k) {
+  return `Set up the Caldera agent hook on this computer, so my Caldera city shows what my AI agents are working on.
+
+1. Download ${hub}/agent-hook.mjs to ~/.caldera/agent-hook.mjs (create the folder). Read it first: it reads the hook event from stdin, works out the repo (git remote name) and a short task title, and posts only that to my Caldera hub, with a 1.5 second timeout. It never blocks or changes anything.
+   Before using it, check its SHA-256 is ${AGENT_HOOK_SHA256} (shasum -a 256 ~/.caldera/agent-hook.mjs). If it doesn't match, delete it, stop and tell me.
+2. Write ~/.caldera/agent.json (chmod 600): {"hub": "${hub}", "key": "${k.key}", "secret": "${k.secret}", "machine": "<a short name for this computer>"}
+3. In ~/.claude/settings.json, add hooks (keep any existing ones) that run \`node ~/.caldera/agent-hook.mjs\` for UserPromptSubmit, PostToolUse, Stop, Notification and SessionEnd.
+4. Test it: echo '{"hook_event_name":"UserPromptSubmit","session_id":"caldera-test-1","cwd":"'$PWD'","prompt":"Testing the Caldera agent hook"}' | node ~/.caldera/agent-hook.mjs and confirm it exits quietly, then send SessionEnd for the same session to clear the test drone.
+
+Keep the key and secret out of any repo. If I'd rather not send task titles at all, add "tasks": false to agent.json (drones still fly, without words).`;
+}
+
+// src/collect.ts
+var import_obsidian4 = require("obsidian");
+
+// src/assets/theme.css
+var theme_default = `/* ============================================================================
+   LIVING PROFILE - DESIGN TOKENS
+   This is the ONLY file you need to edit to restyle the whole page.
+   Every color, font, size, radius and spacing used anywhere comes from here.
+   profile.css uses these variables only; it never hard-codes a color.
+
+   Quick recipes:
+   - Switch to the light theme:  <html data-theme="light"> in index template,
+     or set "theme": "light" in config/profile.json.
+   - New accent color:           change --accent (and --accent-soft).
+   - Different fonts:            change --font-body / --font-display / --font-mono
+                                 (and the Google Fonts link in the template).
+   - Tighter / looser layout:    change --space-unit.
+   ========================================================================== */
+
+:root {
+  /* --- Typography ------------------------------------------------------- */
+  --font-body: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  --text-xs: 11.5px;
+  --text-sm: 13.5px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-h2: 26px;
+  --text-h1: clamp(34px, 5vw, 46px);
+  --leading: 1.65;
+
+  /* --- Spacing & shape -------------------------------------------------- */
+  --space-unit: 8px;                       /* everything scales off this */
+  --space-1: calc(var(--space-unit) * 0.5);
+  --space-2: var(--space-unit);
+  --space-3: calc(var(--space-unit) * 1.5);
+  --space-4: calc(var(--space-unit) * 2);
+  --space-6: calc(var(--space-unit) * 3);
+  --space-8: calc(var(--space-unit) * 4);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-round: 999px;
+
+  /* --- Layout ----------------------------------------------------------- */
+  --sidebar-width: 250px;
+  --rail-width: 300px;
+  --content-width: 760px;
+  --banner-height: 260px;
+  --avatar-size: 112px;
+  --banner-focus: 62% 14%;   /* which part of the banner photo stays in view (x y) */
+
+  /* --- Color: dark theme (default) -------------------------------------- */
+  --bg: #1C1C1F;           /* page */
+  --bg-sunken: #17171A;    /* sidebars */
+  --bg-raised: #232327;    /* cards, buttons */
+  --bg-tab: #141416;       /* top tab bar */
+  --line: #2A2A2E;         /* hairlines */
+  --line-strong: #3A3A40;
+  --text: #DADADF;
+  --text-strong: #F2F2F5;
+  --text-muted: #8A8A93;
+  --accent: #8B6CF6;       /* links, highlights, graph center */
+  --accent-text: #B39DFA;  /* link text on dark */
+  --accent-soft: rgba(139, 108, 246, .10);
+  --accent-2: #4FB89A;     /* secondary accent (help exchange, gravity) */
+  --on-accent: #FFFFFF;
+  --chart-bar: var(--accent);
+  --chart-bar-quiet: rgba(139, 108, 246, .55);
+  --graph-node: #6E6E78;
+  --graph-node-hot: var(--accent-text);
+  --graph-edge: var(--line-strong);
+  /* activity heatmap, empty -> busiest */
+  --heat-0: #232327;
+  --heat-1: #3A2F66;
+  --heat-2: #5B47B0;
+  --heat-3: #8B6CF6;
+  --heat-4: #C7B8FF;
+  --chart-alt: var(--accent-2);  /* second chart color */
+  --chart-github: var(--text-strong);  /* scoreboard: GitHub commits */
+  --chart-ai: #E0A458;               /* scoreboard + tags: AI sessions */
+  --chart-work: #5B8DEF;             /* scoreboard: meetings and email */
+}
+
+/* --- Color: light theme ------------------------------------------------- */
+:root[data-theme="light"] {
+  --bg: #FFFFFF;
+  --bg-sunken: #F6F6F7;
+  --bg-raised: #F0F0F2;
+  --bg-tab: #EDEDF0;
+  --line: #E4E4E7;
+  --line-strong: #D0D0D6;
+  --text: #2B2B30;
+  --text-strong: #0D0D10;
+  --text-muted: #6E6E78;
+  --accent: #6D4AE8;
+  --accent-text: #5A38D6;
+  --accent-soft: rgba(109, 74, 232, .08);
+  --accent-2: #138A6A;
+  --graph-node: #A8A8B3;
+  --heat-0: #EDEDF0;
+  --heat-1: #D9D0FB;
+  --heat-2: #B3A1F6;
+  --heat-3: #8B6CF6;
+  --heat-4: #5A38D6;
+}
+`;
+
+// src/profile.css.ts
+var PROFILE_CSS = '/* ============================================================================\n   LIVING PROFILE - COMPONENTS\n   Layout and components only. No raw colors, fonts or sizes here:\n   everything comes from theme.css. To restyle, edit theme.css.\n   ========================================================================== */\n\n* { box-sizing: border-box; }\nhtml, body { margin: 0; }\nbody {\n  background: var(--bg);\n  color: var(--text);\n  font-family: var(--font-body);\n  font-size: var(--text-md);\n  line-height: var(--leading);\n  -webkit-font-smoothing: antialiased;\n}\na { color: var(--accent-text); text-decoration: none; }\na:hover { text-decoration: underline; }\n.mono { font-family: var(--font-mono); }\n.muted { color: var(--text-muted); }\n\n/* --- Top tab bar ------------------------------------------------------- */\n.tabs {\n  display: flex; align-items: center; gap: var(--space-1);\n  background: var(--bg-tab); border-bottom: 1px solid var(--line);\n  padding: 0 var(--space-3); overflow-x: auto;\n}\n.tab { padding: 10px 14px; font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }\n.tab.is-active {\n  color: var(--text); background: var(--bg);\n  border: 1px solid var(--line); border-bottom: 0;\n  border-radius: var(--radius-md) var(--radius-md) 0 0;\n}\n.tabs .spacer { flex: 1; }\n.sync { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; padding-right: var(--space-2); }\n.sync .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); margin-right: 6px; animation: pulse 2.4s ease-in-out infinite; }\n\n/* --- Three-column shell ------------------------------------------------ */\n.shell { display: flex; flex-wrap: wrap; align-items: stretch; }\n.sidebar {\n  flex: 0 1 var(--sidebar-width); min-width: 200px;\n  background: var(--bg-sunken); border-right: 1px solid var(--line);\n  padding: var(--space-3) var(--space-2); font-size: var(--text-sm);\n}\n.note { flex: 999 1 560px; min-width: 0; padding-bottom: var(--space-8); }\n.rail {\n  flex: 0 1 var(--rail-width); min-width: 240px;\n  background: var(--bg-sunken); border-left: 1px solid var(--line);\n  padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-4);\n}\n@media (max-width: 900px) {\n  .sidebar { display: none; }\n  .rail { border-left: 0; border-top: 1px solid var(--line); flex-basis: 100%; }\n}\n\n/* --- File tree --------------------------------------------------------- */\n.label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase; }\n.tree .label { padding: 0 var(--space-2) var(--space-2); display: block; }\n.side-inner { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; padding-bottom: var(--space-4); scrollbar-width: none; } .side-inner::-webkit-scrollbar { display: none; }\n.tree .label + .toc, .tree .label + .tree-group, .tree .label + .tree-row { margin-top: 0; }\n.toc { margin-bottom: var(--space-4); border-left: 1px solid var(--line); margin-left: var(--space-2); }\n.tree-row { display: flex; align-items: center; gap: 6px; padding: 4px var(--space-2); border-radius: var(--radius-sm); color: var(--text); line-height: 1.35; }\na.tree-row { text-decoration: none; }\na.tree-row:hover, summary.tree-row:hover { background: var(--bg-raised); color: var(--text-strong); text-decoration: none; }\n.tree-row.child { padding-left: calc(var(--space-2) + 18px); color: var(--text-muted); }\n.tree-row.child.is-link { color: var(--text); }\n.tree-row.is-current { background: var(--bg-raised); color: var(--text-strong); box-shadow: inset 2px 0 0 var(--accent); }\n.tree-row > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.tree-row .ext { flex: 0 0 auto; font-size: 11px; color: var(--text-muted); opacity: 0; transition: opacity .15s; }\n.tree-row:hover .ext, .tree-row:focus-visible .ext { opacity: 1; }\n.tree-row .count { flex: 0 0 auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }\n.tree-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }\n.toc-row { margin-left: -1px; border-left: 2px solid transparent; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text-muted); padding-left: var(--space-3); }\n.toc-row.is-active { color: var(--text-strong); border-left-color: var(--accent); background: var(--accent-soft); }\n.tree-group > summary { list-style: none; cursor: pointer; user-select: none; }\n.tree-group > summary::-webkit-details-marker { display: none; }\n.tree-row.group .g-name { flex: 1; font-weight: 500; }\n.tree-row.group .caret { flex: 0 0 12px; width: 12px; height: 12px; display: inline-block; }\n.tree-group > summary .caret::before { content: ""; display: block; width: 0; height: 0; margin: 2px 0 0 2px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--text-muted); transform: rotate(-90deg); transition: transform .15s; }\n.tree-group[open] > summary .caret::before { transform: none; }\n.tree-row.group.leaf .caret::before { content: ""; display: block; width: 5px; height: 5px; margin: 3px 0 0 3px; border-radius: 50%; background: var(--line-strong); }\nhtml { scroll-behavior: smooth; } h2[id], section[id], .pnote[id] { scroll-margin-top: var(--space-4); }\n@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }\n@media (max-width: 900px) {\n  .sidebar.tree { display: block; flex-basis: 100%; min-width: 0; position: sticky; top: 0; z-index: 5; padding: 0; border-right: 0; border-bottom: 1px solid var(--line); }\n  .side-inner { position: static; max-height: none; overflow: visible; padding: 0; }\n  .side-inner > .label, .side-inner > .tree-group, .side-inner > .tree-row { display: none; }\n  .toc { display: flex; overflow-x: auto; gap: 2px; margin: 0; border: 0; padding: 6px var(--space-3); scrollbar-width: none; }\n  .toc-row { white-space: nowrap; border: 0; border-radius: var(--radius-round); padding: 4px 12px; margin: 0; }\n  .side-inner:not(:has(.toc)) { display: none; }\n}\n\n/* --- Banner & title ---------------------------------------------------- */\n.banner { position: relative; height: var(--banner-height); }   /* no overflow:hidden, so the avatar can hang below */\n.banner::after { z-index: 1; }\n.banner img.cover { width: 100%; height: 100%; object-fit: cover; object-position: var(--banner-focus); opacity: .92; display: block; }\n.banner::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, var(--bg) 100%); }\n.banner img.avatar {\n  position: absolute; left: 48px; bottom: calc(var(--avatar-size) * -0.32); z-index: 2;\n  width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%;\n  object-fit: cover; object-position: center 25%; border: 4px solid var(--bg);\n}\n/* No cover photo: the avatar sits above the name instead of hanging off an empty banner */\n.page img.avatar.solo { display: block; width: calc(var(--avatar-size) * .8); height: calc(var(--avatar-size) * .8); border-radius: 50%; object-fit: cover; object-position: center 25%; margin-bottom: var(--space-4);}\n.page { max-width: var(--content-width); margin: 0 auto; padding: calc(var(--space-8) + var(--space-4)) var(--space-8) 0; }\n.crumb { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }\nh1.title { margin: 6px 0 var(--space-4); font-family: var(--font-display); font-weight: 600; font-size: var(--text-h1); color: var(--text-strong); line-height: 1.1; }\nh1.title .caret { color: var(--accent); animation: blink 1s step-end infinite; }\nh2 { font-family: var(--font-display); font-weight: 600; font-size: var(--text-h2); color: var(--text-strong); margin: var(--space-8) 0 var(--space-2); }\n\n/* --- Properties -------------------------------------------------------- */\n.props {\n  display: grid; grid-template-columns: 150px 1fr; gap: 6px 14px;\n  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);\n  padding: 10px 0; margin-bottom: var(--space-6); font-size: var(--text-sm);\n}\n.props dt { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); margin: 0; }\n.props dd { margin: 0; }\n@media (max-width: 560px) { .props { grid-template-columns: 1fr; } .props dd { margin-bottom: 6px; } }\n\n/* --- Callout ----------------------------------------------------------- */\n.callout { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-md) var(--radius-md) 0; padding: 12px 16px; margin-bottom: var(--space-6); }\n.callout-title { font-weight: 600; color: var(--accent-text); font-size: var(--text-sm); }\n\n/* --- Lists, tables ----------------------------------------------------- */\nul.bullets { margin: 0; padding-left: 20px; }\nul.bullets li { margin: 4px 0; }\n.query { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 6px; }\n.table-wrap { overflow-x: auto; }\ntable.data { width: 100%; border-collapse: collapse; font-size: 14px; }\ntable.data th { text-align: left; padding: 8px; border-bottom: 1px solid var(--line-strong); color: var(--text-muted); font-weight: 500; }\ntable.data td { padding: 8px; border-bottom: 1px solid var(--line); }\ntable.data .num { text-align: right; font-family: var(--font-mono); }\n\n/* --- Commit chart ------------------------------------------------------ */\n.bars { height: 110px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.bars span { flex: 1; max-width: 28px; background: var(--chart-bar); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1.1s cubic-bezier(.2,.8,.2,1) both; }\n.bars span.quiet { background: var(--chart-bar-quiet); }\n.bars-legend { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 4px; }\n\n/* --- Timeline ---------------------------------------------------------- */\n.timeline { position: relative; }\n.timeline .row { display: grid; grid-template-columns: 64px 14px 1fr; gap: 0 12px; padding: 7px 0; position: relative; }\n.timeline .row::before { content: ""; position: absolute; left: calc(64px + 12px + 6px); top: 0; bottom: 0; width: 2px; background: var(--line); }\n.timeline .year { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); padding-top: 2px; font-variant-numeric: tabular-nums; }\n.timeline .dot { position: relative; z-index: 1; width: 10px; height: 10px; margin: 7px 0 0 2px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }\n.timeline .row.same .dot { width: 6px; height: 6px; margin: 9px 0 0 4px; border: 0; background: var(--line-strong); }\n.timeline .what { min-width: 0; }\n.timeline .detail { color: var(--text-muted); font-size: var(--text-sm); margin-top: 2px; }\n.timeline .era { display: flex; align-items: baseline; gap: 10px; margin: var(--space-4) 0 2px; padding-left: calc(64px + 12px + 14px + 12px); }\n.timeline .era:first-child { margin-top: 0; }\n.timeline .era-name { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); }\n.timeline .era-range { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n@media (max-width: 560px) { .timeline .row { grid-template-columns: 44px 14px 1fr; gap: 0 8px; } .timeline .row::before { left: calc(44px + 8px + 6px); } .timeline .era { padding-left: calc(44px + 8px + 14px + 8px); } }\n\n/* --- Right rail -------------------------------------------------------- */\n.graph svg { width: 100%; height: 240px; display: block; }\n.graph .edge { stroke: var(--graph-edge); stroke-width: 1; }\n.graph .node { fill: var(--graph-node); }\n.graph .node.hot { fill: var(--graph-node-hot); }\n.graph .center { fill: var(--accent); }\n.graph text { fill: var(--text-muted); font-family: var(--font-body); font-size: 8.5px; }\n.graph .float { animation: float 4s ease-in-out infinite; }\n.backlink { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.backlink .ctx { color: var(--text-muted); font-size: 12px; }\n.pulse-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }\n.pulse-cell { background: var(--bg-raised); border-radius: var(--radius-sm); padding: var(--space-2); }\n.pulse-cell .v { font-size: 20px; color: var(--text-strong); }\n.pulse-cell .l { font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Help exchange (off by default in config) -------------------------- */\n.hx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); }\n.hx-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-4); }\n.hx-row { display: flex; justify-content: space-between; gap: var(--space-2); padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.hx-row .bounty { color: var(--accent-2); font-family: var(--font-mono); }\n\n\n/* --- Stat strip -------------------------------------------------------- */\n.stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin-bottom: var(--space-6); }\n.stat { background: var(--bg); padding: var(--space-3) var(--space-2); }\n.stat .v { font-size: 22px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.small { font-size: var(--text-sm); margin: 0 0 var(--space-2); }\n\n/* --- Activity heatmap -------------------------------------------------- */\n.heat-box { position: relative; }\n.heat-frame { display: flex; gap: 6px; }\n.heat-days { display: grid; grid-template-rows: repeat(7, 12px); gap: 3px; padding-top: 18px; font-family: var(--font-mono); font-size: 10px; line-height: 12px; color: var(--text-muted); }\n.heat-wrap { overflow-x: auto; min-width: 0; }\n.heat-months { position: relative; height: 18px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n.heat-months span { position: absolute; top: 0; white-space: nowrap; }\n.heat { outline: none; border-radius: 3px; width: max-content; }\n.heat:focus-visible { box-shadow: 0 0 0 2px var(--accent); }\n.heat i[data-d] { cursor: pointer; transition: transform .12s ease; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.25); box-shadow: 0 0 0 1.5px var(--text-strong); position: relative; z-index: 1; }\n.heat i.is-today { box-shadow: inset 0 0 0 1.5px var(--accent-2); }\n.heat i.is-pin { box-shadow: 0 0 0 1.5px var(--accent); }\n.heat-tip { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 8px)); pointer-events: none; white-space: nowrap; background: var(--text-strong); color: var(--bg); font-size: var(--text-xs); font-family: var(--font-mono); padding: 4px 8px; border-radius: var(--radius-sm); box-shadow: 0 4px 14px rgba(0,0,0,.25); }\n.heat-tip::after { content: ""; position: absolute; left: calc(50% + var(--ax, 0px)); bottom: -4px; margin-left: -4px; border: 4px solid transparent; border-bottom: 0; border-top-color: var(--text-strong); }\n.heat-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; align-items: center; margin-top: 8px; }\n.heat-read { font-size: var(--text-sm); color: var(--text-muted); min-height: 1.4em; font-variant-numeric: tabular-nums; }\n.heat-read b { color: var(--text-strong); font-weight: 500; }\n.heat-foot .heat-legend { margin-top: 0; }\n@media (prefers-reduced-motion: reduce) { .heat i[data-d] { transition: none; } }\n.heat { display: grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; }\n.heat i, .heat-legend i { width: 12px; height: 12px; border-radius: 2px; display: block; background: var(--heat-0); }\n.heat i.l1, .heat-legend i.l1 { background: var(--heat-1); }\n.heat i.l2, .heat-legend i.l2 { background: var(--heat-2); }\n.heat i.l3, .heat-legend i.l3 { background: var(--heat-3); }\n.heat i.l4, .heat-legend i.l4 { background: var(--heat-4); }\n.heat-legend { display: flex; gap: 4px; align-items: center; justify-content: flex-end; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 6px; }\n\n/* --- Two columns, growth line, horizontal bars ------------------------- */\n.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-6); }\n.growth { width: 100%; height: auto; display: block; }\n.growth .axis { stroke: var(--line-strong); }\n.growth .area { fill: var(--accent-soft); }\n.growth .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-dasharray: 2000; animation: draw 2.6s ease-out both; }\n.growth .now { fill: var(--accent); animation: pulse 2s ease-in-out infinite; }\n.growth text { fill: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }\n.hbar { display: grid; grid-template-columns: 130px 1fr 52px; gap: 10px; align-items: center; font-size: var(--text-sm); padding: 4px 0; }\n.hbar .track { height: 8px; background: var(--bg-raised); border-radius: 4px; overflow: hidden; }\n.hbar .fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; transform-origin: left; animation: grow 1.2s cubic-bezier(.2,.8,.2,1) both; }\n.hbar .fill.alt { background: var(--chart-alt); }\n.hbar .num { text-align: right; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n.cols { height: 120px; display: flex; gap: 4px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); margin-top: var(--space-2); }\n.cols span { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; align-items: center; }\n.cols b { display: block; width: 100%; background: var(--chart-alt); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.cols em { font-style: normal; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }\n\n/* --- Topic cloud ------------------------------------------------------- */\n.cloud { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }\n.cloud span { color: var(--text-strong); line-height: 1.3; }\n.cloud sup { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: 2px; }\n\n@keyframes draw { from { stroke-dashoffset: 2000; } to { stroke-dashoffset: 0; } }\n@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }\n\n\n/* --- Daily journal ----------------------------------------------------- */\n.journal { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-6); overflow: hidden; }\n.j-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }\n.j-title { flex: 1; text-align: center; }\n.j-date { font-family: var(--font-display); font-size: 22px; color: var(--text-strong); }\n.j-nav { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font-size: 22px; cursor: pointer; }\n.j-nav:disabled { opacity: .3; cursor: default; }\n.j-top { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }\n.ring-wrap { position: relative; width: 96px; height: 96px; flex: 0 0 96px; }\n.ring { width: 96px; height: 96px; transform: rotate(-90deg); display: block; }\n.ring .trk { fill: none; stroke: var(--line); stroke-width: 9; }\n.ring .val { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1); }\n.j-score { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }\n.j-score .v { font-size: 26px; color: var(--text-strong); line-height: 1; }\n.j-score .l { font-size: 10px; color: var(--text-muted); }\n.j-delta { font-family: var(--font-mono); font-size: var(--text-xs); margin-bottom: 4px; }\n.j-headline { flex: 1 1 260px; font-family: var(--font-display); font-size: 21px; color: var(--text-strong); line-height: 1.3; }\n.j-themes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-family: var(--font-body); }\n.j-themes span { font-size: var(--text-xs); color: var(--accent-text); background: var(--accent-soft); border-radius: var(--radius-round); padding: 2px 10px; }\n.j-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; margin: var(--space-4) 0; }\n.chip { background: var(--bg); padding: var(--space-2); }\n.chip .v { font-size: 20px; color: var(--text-strong); font-variant-numeric: tabular-nums; }\n.chip .l { font-size: var(--text-xs); color: var(--text-muted); }\n.chip .dd { font-family: var(--font-mono); font-size: var(--text-xs); min-height: 1em; }\n.up { color: var(--accent-2); } .down { color: var(--text-muted); } .flat { color: var(--text-muted); }\n.j-lists ul { margin-top: 4px; }\n.flip-l { animation: flipL .45s ease both; } .flip-r { animation: flipR .45s ease both; }\n@keyframes flipL { from { opacity: 0; transform: translateX(-24px) rotateY(8deg); } to { opacity: 1; transform: none; } }\n@keyframes flipR { from { opacity: 0; transform: translateX(24px) rotateY(-8deg); } to { opacity: 1; transform: none; } }\n\n/* --- Scoreboard -------------------------------------------------------- */\n.scoreboard { margin-bottom: var(--space-6); }\n.sb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }\n.sb-stat .v { font-size: 30px; color: var(--text-strong); line-height: 1.1; }\n.sb-stat .v small { font-size: 14px; color: var(--text-muted); }\n.sb-stat .l { font-size: var(--text-xs); color: var(--text-muted); }\n.sb-bars { height: 90px; display: flex; gap: 3px; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }\n.sb-bars span { flex: 1; background: var(--chart-bar-quiet); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }\n.sb-bars span.yday { background: var(--accent); }\n.sb-bars span.today { background: repeating-linear-gradient(45deg, var(--chart-bar-quiet), var(--chart-bar-quiet) 3px, transparent 3px, transparent 6px); }\n.sb-lower { margin-top: var(--space-4); }\n.lb-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }\n.lb-row .rank { font-family: var(--font-mono); color: var(--text-muted); }\n.lb-row .num { font-family: var(--font-mono); }\n.lb-row.me .who { color: var(--text-strong); font-weight: 600; }\n.lb-row.empty .who { color: var(--text-muted); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 2px 8px; justify-self: start; }\n.sb-how { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-muted); }\n.sb-how summary { cursor: pointer; color: var(--accent-text); }\n\n/* --- Footer ------------------------------------------------------------ */\n.foot { margin-top: var(--space-8); padding-top: var(--space-3); border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n/* --- Motion (respects reduced-motion) ---------------------------------- */\n@keyframes pulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }\n@keyframes blink { 50% { opacity: 0; } }\n@keyframes rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }\n@keyframes float { 0%,100% { transform: translate(0,0); } 50% { transform: translate(3px,-4px); } }\n@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }\n\n.note { max-width: 100%; }\n.lede { font-size: var(--text-lg); color: var(--text-muted); margin: -8px 0 var(--space-6); }\n.pnote { padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }\n.pn-title { font-family: var(--font-display); font-size: 19px; color: var(--text-strong); }\n.pn-ex { color: var(--text); font-size: var(--text-sm); }\n.pn-date { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }\n\n.lb-wrap { position: relative; }\n.lb-row.empty .invite-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: transparent; color: var(--accent-text); border: 1px dashed var(--accent); border-radius: var(--radius-sm); padding: 2px 10px; justify-self: start; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }\n.lb-row.empty .invite-btn::before { content: "+"; font-family: var(--font-mono); }\n.lb-row.empty .invite-btn:hover, .lb-row.empty .invite-btn[aria-expanded="true"] { background: var(--accent-soft); border-style: solid; text-decoration: none; }\n.lb-row.empty .invite-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n.invite-pop { position: absolute; z-index: 20; width: min(340px, 100%); background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }\n.invite-pop .inv-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }\n.invite-pop .inv-title { font-weight: 600; color: var(--text-strong); font-size: var(--text-sm); }\n.invite-pop .inv-sub { color: var(--text-muted); font-size: var(--text-xs); margin: 2px 0 10px; line-height: 1.45; }\n.invite-pop .inv-close { background: none; border: 0; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }\n.invite-pop .inv-link { display: flex; gap: 6px; }\n.invite-pop .inv-url { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 8px; }\n.invite-pop button.inv-copy { background: var(--accent); color: var(--bg); border: 0; border-radius: var(--radius-sm); padding: 6px 12px; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }\n.invite-pop .inv-ways { display: flex; gap: 6px; margin-top: 8px; }\n.invite-pop .inv-ways a, .invite-pop .inv-ways button { flex: 1; text-align: center; font: inherit; font-size: var(--text-sm); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 0; cursor: pointer; text-decoration: none; }\n.invite-pop .inv-ways a:hover, .invite-pop .inv-ways button:hover { border-color: var(--accent); color: var(--text-strong); text-decoration: none; }\n.invite-pop .inv-status { min-height: 1.2em; margin-top: 6px; font-size: var(--text-xs); color: var(--accent-2); }\n.invite-pop button:focus-visible, .invite-pop a:focus-visible, .invite-pop input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }\n\n/* Heatmap sizing (2026-10-12): cells grow with the column (11-18px), room for the hover zoom, no stray scrollbar */\n.heat-box { container-type: inline-size; }\n.heat-frame { --gap: 3px; --cell: clamp(8px, calc((100cqw - 46px - 25 * var(--gap)) / 26), 18px); }\n@container (max-width: 460px) { .heat-frame { --gap: 2px; } }\n.heat, .heat-days { gap: var(--gap, 3px); }\n.heat-days { grid-template-rows: repeat(7, var(--cell, 12px)); line-height: var(--cell, 12px); }\n.heat-wrap { overflow-x: auto; overflow-y: hidden; padding: 4px; margin: -4px; scrollbar-width: none; }\n.heat-wrap::-webkit-scrollbar { display: none; }\n.heat { grid-template-rows: repeat(7, var(--cell, 12px)); grid-auto-columns: var(--cell, 12px); }\n.heat i { width: var(--cell, 12px); height: var(--cell, 12px); border-radius: 3px; }\n.heat i[data-d]:hover, .heat i.is-sel { transform: scale(1.18); }\n\n/* --- Standard nav: pages block + add-friend --------------------------- */\n.toc.pages .friend-row { color: var(--accent); }\n.toc.pages .friend-row:hover { color: var(--accent); background: var(--accent-soft); }\n.tree-row.group .g-link { color: inherit; text-decoration: none; }\n.tree-row.group .g-link:hover { color: var(--accent); text-decoration: underline; }\n\n/* custom modules (Caldera/modules/*.md) */\n.module .mod-body > :first-child { margin-top: 0; }\n.module .mod-body h3, .module .mod-body h4 { font-family: var(--font-display); color: var(--text-strong); margin: var(--space-4) 0 var(--space-2); }\n.module .mod-body p { margin: 0 0 var(--space-3); }\n.module .mod-body img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-md); border: 1px solid var(--line); margin: var(--space-2) 0; }\n.module .mod-body blockquote { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text); }\n.module .mod-body blockquote p:last-child { margin-bottom: 0; }\n.module .mod-body code { font-family: var(--font-mono); font-size: .92em; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 4px; }\n.module .mod-body pre { overflow-x: auto; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); }\n.module .mod-body pre code { border: 0; padding: 0; background: none; }\n.module .mod-body hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-4) 0; }\n.module .mod-body ol { padding-left: 1.4em; }\n.module .mod-body input[type=checkbox] { margin-right: 6px; }\n.module .mod-body li:has(> input[type=checkbox]) { list-style: none; margin-left: -1.2em; }\n.module.side .mod-body { font-size: var(--text-sm); }\n.module.side .mod-body ul.bullets, .module.side .mod-body ol { margin: 0; }\n.module.side .mod-body p { margin: 0 0 var(--space-2); }\n\n/* --- Section headers: where each part comes from ---------------------- */\n.sec-src { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-muted); line-height: 1.45; }\n.sec-what { flex: 1 1 240px; min-width: 0; }\n.src { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 999px; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .02em; color: var(--text); white-space: nowrap; }\n.src::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }\n.s-obsidian::before { background: var(--accent); }\n.s-github::before { background: var(--text-strong); }\n.s-caldera::before { background: var(--accent-2); }\n.s-agents::before { background: var(--accent-text); border-radius: 2px; }\n.s-profile::before, .s-module::before { background: transparent; border: 1.5px solid var(--accent); width: 5px; height: 5px; }\nh2.t { margin-top: 0; }\n.journal .sec-src { margin: calc(-1 * var(--space-2)) 0 var(--space-3); }\n\n/* --- Scoreboard bars split by source ---------------------------------- */\n.sb-bars span { display: flex; flex-direction: column-reverse; overflow: hidden; }\n.sb-bars span i { display: block; min-height: 1px; }\n.sb-bars span:not(.yday) i { opacity: .62; }\n.sb-bars span.today i { opacity: .3; }\n.sb-bars span:has(i) { background: none; }\n.g-obsidian { background: var(--accent); }\n.g-github { background: var(--chart-github); }\n.g-ai { background: var(--chart-ai); }\n.g-work { background: var(--chart-work); }\n.sb-split { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-muted); }\n.sb-split .label { flex-basis: 100%; }\n.sb-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }\n.sb-key i { width: 10px; height: 10px; border-radius: 2px; }\n.sb-key b { color: var(--text-strong); font-weight: 600; font-variant-numeric: tabular-nums; }\n.s-agents::before { background: var(--chart-ai); }\n.s-calendar::before { background: var(--chart-work); }\n';
+
+// src/garden.ts
+var STAGES = ["seedling", "budding", "evergreen"];
+var LICENSES = {
+  "all-rights": { label: "All rights reserved. Not licensed for AI training.", short: "All rights reserved", ai: false },
+  "cc-by": { label: "Creative Commons Attribution 4.0. Reuse with credit.", short: "CC BY 4.0", ai: true, url: "https://creativecommons.org/licenses/by/4.0/" },
+  "cc-by-nc": { label: "Creative Commons Attribution-NonCommercial 4.0. Reuse with credit, not commercially.", short: "CC BY-NC 4.0", ai: false, url: "https://creativecommons.org/licenses/by-nc/4.0/" },
+  "cc0": { label: "Public domain (CC0). No rights reserved.", short: "CC0", ai: true, url: "https://creativecommons.org/publicdomain/zero/1.0/" },
+  "ai-licensable": { label: "Available to license for AI training, with the author's permission and payment. Not free to use.", short: "AI-licensable", ai: false }
+};
+var STAGE_ICON = { seedling: "&#127793;", budding: "&#127807;", evergreen: "&#127795;" };
+var STAGE_TIP = { seedling: "Seedling: a rough, early idea", budding: "Budding: taking shape", evergreen: "Evergreen: worked through and stable" };
+var normStage = (v) => {
+  const s = String(v ?? "").toLowerCase().trim();
+  return STAGES.includes(s) ? s : "seedling";
+};
+var normLicense = (v) => {
+  const s = String(v ?? "").toLowerCase().trim();
+  return LICENSES[s] ? s : "all-rights";
+};
+function redact(md) {
+  let removed = 0;
+  const text = md.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, () => {
+    removed++;
+    return "[email removed]";
+  }).replace(/(?<![\w/.=-])(\+?\d[\d .()-]{8,}\d)(?![\w/])/g, (m) => {
+    if ((m.match(/\d/g) || []).length < 10) return m;
+    removed++;
+    return "[phone removed]";
+  });
+  return { text, removed };
+}
+var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+function parseXLink(target) {
+  const m = target.match(/^@([a-z0-9][a-z0-9-]{1,30})\/(.+)$/i);
+  return m ? { handle: m[1].toLowerCase(), title: m[2].trim(), slug: slug(m[2]) } : null;
+}
+function mdToHtml(md, link, image = () => null) {
+  const lines = md.replace(/\r\n?/g, "\n").split("\n");
+  const out = [];
+  let para = [];
+  let list = null;
+  let quote = [];
+  const flushPara = () => {
+    if (para.length) {
+      out.push(`<p>${inl(para.join(" "))}</p>`);
+      para = [];
+    }
+  };
+  const flushList = () => {
+    if (list) {
+      out.push(`<${list.tag}>${list.items.map((i) => `<li>${i}</li>`).join("")}</${list.tag}>`);
+      list = null;
+    }
+  };
+  const flushQuote = () => {
+    if (quote.length) {
+      out.push(`<blockquote>${mdToHtml(quote.join("\n"), link, image)}</blockquote>`);
+      quote = [];
+    }
+  };
+  const flush = () => {
+    flushPara();
+    flushList();
+    flushQuote();
+  };
+  function inl(t) {
+    const tokens = [];
+    const keep = (html) => {
+      tokens.push(html);
+      return `\uE000${tokens.length - 1}\uE000`;
+    };
+    t = t.replace(/`([^`]+)`/g, (_m, c) => keep(`<code>${esc2(c)}</code>`));
+    t = t.replace(/!\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, (_m, tgt) => {
+      const src = image(tgt.trim());
+      return src ? keep(`<img src="${esc2(src)}" alt="${esc2(tgt.trim())}" loading="lazy">`) : "";
+    });
+    t = t.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(\|([^\]]+))?\]\]/g, (_m, tgt, _h, _p, label) => {
+      const text = (label || tgt).trim(), x = parseXLink(tgt.trim());
+      const href = link(tgt.trim());
+      if (href) return keep(`<a class="${x ? "xlink" : "internal"}" href="${esc2(href)}">${esc2(text.replace(/^@[^/]+\//, ""))}${x ? `<span class="xl-who">@${esc2(x.handle)}</span>` : ""}</a>`);
+      return keep(`<span class="unlinked">${esc2(text)}</span>`);
+    });
+    t = t.replace(/!\[([^\]]*)\]\((https:\/\/[^)\s]+)\)/g, (_m, alt, u) => keep(`<a href="${esc2(u)}" rel="noopener nofollow" target="_blank">${esc2(alt || "image")}</a>`));
+    t = t.replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^)\s]+)\)/g, (_m, label, u) => keep(`<a href="${esc2(u)}" rel="noopener nofollow" target="_blank">${esc2(label)}</a>`));
+    t = t.replace(/(^|[\s(])(https?:\/\/[^\s)<]+)/g, (_m, pre, u) => pre + keep(`<a href="${esc2(u)}" rel="noopener nofollow" target="_blank">${esc2(u)}</a>`));
+    let h = esc2(t);
+    h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>").replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>").replace(/(^|[^_\w])_([^_\s][^_]*)_/g, "$1<em>$2</em>").replace(/~~([^~]+)~~/g, "<del>$1</del>").replace(/==([^=]+)==/g, "<mark>$1</mark>");
+    return h.replace(/\uE000(\d+)\uE000/g, (_m, i) => tokens[Number(i)]);
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fence = line.match(/^\s*(```|~~~)(.*)$/);
+    if (fence) {
+      flush();
+      const body = [];
+      for (i++; i < lines.length && !lines[i].trim().startsWith(fence[1]); i++) body.push(lines[i]);
+      out.push(`<pre><code>${esc2(body.join("\n"))}</code></pre>`);
+      continue;
+    }
+    if (/^\s*%%/.test(line)) {
+      flush();
+      if (!/%%.*%%/.test(line)) for (i++; i < lines.length && !lines[i].includes("%%"); i++) ;
+      continue;
+    }
+    const q2 = line.match(/^\s*>\s?(.*)$/);
+    if (q2) {
+      flushPara();
+      flushList();
+      quote.push(q2[1].replace(/^\[!(\w+)\][+-]?\s*/, (_m, k) => `**${k.charAt(0).toUpperCase() + k.slice(1)}:** `));
+      continue;
+    } else flushQuote();
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[i + 1])) {
+      flush();
+      const cells = (l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").replace(/\[\[[^\]]*\]\]/g, (w) => w.replace(/\|/g, "\uE001")).split(/(?<!\\)\|/).map((c) => inl(c.trim().replace(/\\\|/g, "|").replace(/\uE001/g, "|")));
+      const head2 = cells(line);
+      const rows = [];
+      for (i += 2; i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i]); i++) rows.push(cells(lines[i]));
+      i--;
+      out.push(`<table><thead><tr>${head2.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${head2.map((_c, k) => `<td>${r[k] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+      continue;
+    }
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      flush();
+      const lvl = Math.min(6, h[1].length + 1);
+      out.push(`<h${lvl}>${inl(h[2])}</h${lvl}>`);
+      continue;
+    }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      flush();
+      out.push("<hr>");
+      continue;
+    }
+    const li = line.match(/^\s*([-*+]|\d+[.)])\s+(\[( |x|X)\]\s+)?(.*)$/);
+    if (li) {
+      flushPara();
+      const tag = /\d/.test(li[1]) ? "ol" : "ul";
+      if (!list || list.tag !== tag) {
+        flushList();
+        list = { tag, items: [] };
+      }
+      const box = li[2] ? `<input type="checkbox" disabled${/x/i.test(li[3]) ? " checked" : ""}> ` : "";
+      list.items.push(box + inl(li[4]));
+      continue;
+    }
+    if (!line.trim()) {
+      flush();
+      continue;
+    }
+    flushList();
+    para.push(line.trim());
+  }
+  flush();
+  return out.join("\n");
+}
+function excerptOf(md, n = 200) {
+  const para = md.replace(/```[\s\S]*?```/g, "").split(/\n\s*\n/).map((x) => x.replace(/^#+\s.*$/gm, "").replace(/^\s*>\s?/gm, "").trim()).find((x) => x.length > 20) || "";
+  return clip(para.replace(/!\[\[[^\]]*\]\]/g, "").replace(/\[\[(?:@[^/\]]+\/)?([^\]|]+)(\|([^\]]+))?\]\]/g, (_m, t, _p, l) => l || t).replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/[*_`=~]/g, "").replace(/\s+/g, " ").trim(), n);
+}
+function page(site, title, body, depth, extraHead = "") {
+  const up = depth ? "../".repeat(depth) : "";
+  const icon = site.icon ? `<link rel="icon" href="${up}${esc2(site.icon)}" type="image/png">` : `<link rel="icon" href="${up}assets/favicon.svg" type="image/svg+xml">`;
+  return `<!doctype html><html lang="en"${site.theme === "light" ? ' data-theme="light"' : ""}><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc2(title)}</title>
+<meta name="robots" content="noindex, nofollow"><meta name="generator" content="Caldera for Obsidian">${extraHead}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+${icon}<link rel="stylesheet" href="${up}assets/theme.css"><link rel="stylesheet" href="${up}assets/profile.css"><link rel="stylesheet" href="${up}assets/garden.css"></head><body>
+${body}</body></html>`;
+}
+var clip = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, "").replace(/[,;:.\s]+$/, "") + "\u2026";
+var fmtDate = (iso2) => new Date(iso2).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+var stageBadge = (s) => `<span class="g-stage g-${s}" title="${STAGE_TIP[s]}">${STAGE_ICON[s]} ${s}</span>`;
+var licenseLine = (key) => {
+  const L = LICENSES[key] || LICENSES["all-rights"];
+  return L.url ? `<a href="${L.url}" rel="license noopener" target="_blank">${esc2(L.short)}</a>` : esc2(L.short);
+};
+function renderGarden(site, notes, images = {}) {
+  if (!notes.length) return {};
+  const hub = (site.hub || "https://caldera.social").replace(/\/$/, "");
+  const bySlug = new Map(notes.map((n) => [n.slug, n]));
+  const byTitle = new Map(notes.map((n) => [n.title.toLowerCase(), n]));
+  const back = /* @__PURE__ */ new Map();
+  for (const n of notes) for (const o of n.out) if (o !== n.slug && bySlug.has(o)) back.set(o, [...back.get(o) || [], n]);
+  const who = site.handle ? `@${site.handle}` : site.name;
+  const files = {};
+  const tabs = (active) => `<div class="tabs"><a class="tab" href="${active === "index" ? "" : "../"}index.html">${esc2(site.name)}.md</a><a class="tab${active === "garden" ? " is-active" : ""}" href="${active === "note" ? "../" : ""}garden.html">Garden</a>${active === "note" ? `<span class="tab is-active">%%TITLE%%</span>` : ""}<span class="spacer"></span></div>`;
+  for (const n of notes) {
+    const link = (target) => {
+      const x = parseXLink(target);
+      if (x) return `${hub}/@${x.handle}/n/${x.slug}.html`;
+      const hit = byTitle.get(target.split("/").pop().replace(/\.md$/i, "").toLowerCase());
+      return hit ? `${hit.slug}.html` : null;
+    };
+    const img = (target) => images[target] ? `../${images[target]}` : null;
+    const body = mdToHtml(n.markdown, link, img);
+    const bl = back.get(n.slug) || [];
+    const L = LICENSES[n.license] || LICENSES["all-rights"];
+    const html = `${tabs("note").replace("%%TITLE%%", esc2(n.title))}
+<div class="shell">${site.nav ? site.nav(1, `n/${n.slug}.html`) : ""}<main class="note"><div class="g-main"><article class="g-note">
+<div class="g-crumbs"><a href="../index.html">${esc2(who)}</a> / <a href="../garden.html">Garden</a></div>
+<h1 class="g-title">${esc2(n.title)}</h1>
+<div class="g-meta">${stageBadge(n.stage)}<span>Planted ${fmtDate(n.created)}</span><span>Tended ${fmtDate(n.updated)}</span><span>${n.words.toLocaleString("en-US")} words</span></div>
+<div class="g-body">${body}</div>
+${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map((b) => `<a class="g-card" href="${b.slug}.html"><span class="g-card-t">${esc2(b.title)}</span><span class="g-card-x">${esc2(clip(b.excerpt, 120))}</span></a>`).join("")}</section>` : ""}
+<!--caldera:xlinks-->
+<footer class="g-foot"><div><b>License:</b> ${licenseLine(n.license)}. ${esc2(L.label)}</div>
+<div class="g-prov"><b>Provenance:</b> sha256 <code title="${n.sha256}">${n.sha256.slice(0, 16)}</code> of <a href="${n.slug}.md">the published text</a>, listed in <a href="../caldera.json">${esc2(who)}'s signed manifest</a>${site.id ? ` (key <code>${esc2(site.id.slice(0, 14))}&hellip;</code>)` : ""}. Anyone can check the author and date.</div></footer>
+</article></div></main></div>`;
+    files[`n/${n.slug}.html`] = page(
+      site,
+      `${n.title} - ${site.name}`,
+      html,
+      1,
+      `
+<meta name="description" content="${esc2(n.excerpt)}">${L.ai ? "" : `
+<meta name="robots" content="noai, noimageai">`}${L.url ? `
+<link rel="license" href="${L.url}">` : ""}`
+    );
+    files[`n/${n.slug}.md`] = n.markdown;
+  }
+  const counts = STAGES.map((s) => [s, notes.filter((n) => n.stage === s).length]);
+  const sorted = [...notes].sort((a, b) => b.updated.localeCompare(a.updated));
+  const idx = `${tabs("garden")}
+<div class="shell">${site.nav ? site.nav(0, "garden.html") : ""}<main class="note"><div class="g-main"><div class="g-index">
+<div class="g-crumbs"><a href="index.html">${esc2(who)}</a> / Garden</div>
+<h1 class="g-title">${esc2(site.name)}'s garden</h1>
+<p class="g-lede">Notes grown in public from an Obsidian vault. Some are seedlings, some are evergreen; all of them keep changing.${site.external ? ` More at <a href="${esc2(site.external)}" rel="noopener" target="_blank">${esc2(site.external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>.` : ""}</p>
+<!--caldera:gardenhome--><div class="g-filter" role="toolbar" aria-label="Filter by stage"><button class="is-on" data-stage="all">All <span>${notes.length}</span></button>${counts.filter(([, c]) => c).map(([s, c]) => `<button data-stage="${s}">${STAGE_ICON[s]} ${s} <span>${c}</span></button>`).join("")}</div>
+<div class="g-list">${sorted.map((n) => `<a class="g-card" data-stage="${n.stage}" href="n/${n.slug}.html"><span class="g-card-t">${esc2(n.title)}</span><span class="g-card-x">${esc2(n.excerpt)}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span>${n.xlinks.length ? `<span>${n.xlinks.length} link${n.xlinks.length === 1 ? "" : "s"} to other gardens</span>` : ""}</span></a>`).join("")}</div>
+</div></div></main></div>
+<script>(function(){var b=[].slice.call(document.querySelectorAll('.g-filter button')),c=[].slice.call(document.querySelectorAll('.g-list .g-card'));b.forEach(function(x){x.onclick=function(){b.forEach(function(y){y.classList.toggle('is-on',y===x)});var s=x.getAttribute('data-stage');c.forEach(function(k){k.hidden=s!=='all'&&k.getAttribute('data-stage')!==s})}})})();<\/script>`;
+  files["garden.html"] = page(site, `${site.name}'s garden`, idx, 0);
+  files["garden.json"] = JSON.stringify({
+    name: site.name,
+    handle: site.handle,
+    external: site.external,
+    notes: sorted.map((n) => ({ slug: n.slug, title: n.title, stage: n.stage, license: n.license, created: n.created, updated: n.updated, sha256: n.sha256, words: n.words, xlinks: n.xlinks }))
+  }, null, 1);
+  files["assets/garden.css"] = GARDEN_CSS;
+  return files;
+}
+function gardenManifest(notes) {
+  return notes.map((n) => ({
+    slug: n.slug,
+    title: n.title,
+    stage: n.stage,
+    license: n.license,
+    created: n.created,
+    updated: n.updated,
+    sha256: n.sha256,
+    words: n.words,
+    excerpt: n.excerpt.slice(0, 200),
+    xlinks: n.xlinks.map((x) => `${x.handle}/${x.slug}`)
+  }));
+}
+function gardenSection(notes, external) {
+  if (!notes.length && !external) return "";
+  const sorted = [...notes].sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 6);
+  const counts = STAGES.map((s) => [s, notes.filter((n) => n.stage === s).length]).filter(([, c]) => c);
+  return `<h2>Garden</h2><p class="small">${notes.length ? `${notes.length} note${notes.length === 1 ? "" : "s"} grown in public: ${counts.map(([s, c]) => `${STAGE_ICON[s]} ${c} ${s}`).join(" &middot; ")}. ` : ""}${notes.length ? `<a href="garden.html">Garden home: notes, gravity, help credits, asks and offers &rarr;</a>` : ""}${external ? ` ${notes.length ? "Also at" : "My garden:"} <a href="${esc2(external)}" rel="noopener" target="_blank">${esc2(external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</p>${sorted.length ? `<div class="g-list g-list-profile">${sorted.map((n) => `<a class="g-card" href="n/${n.slug}.html"><span class="g-card-t">${esc2(n.title)}</span><span class="g-card-x">${esc2(clip(n.excerpt, 140))}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span></span></a>`).join("")}</div>` : ""}`;
+}
+var GARDEN_CSS = `/* Caldera garden: note pages + index. Tokens come from theme.css. */
+.tabs a.tab { color: var(--text-muted); text-decoration: none; }
+.tabs a.tab:hover { color: var(--text); }
+.tree-row.group .g-link { color: inherit; text-decoration: none; }
+.tree-row.group .g-link:hover { color: var(--accent); text-decoration: underline; }
+.shell > .note > .g-main { width: 100%; }
+.g-main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+.g-crumbs { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: 10px; }
+.g-crumbs a { color: var(--text-muted); }
+.g-title { font-family: var(--font-display); font-size: 2.1rem; line-height: 1.15; font-weight: 600; margin: 0 0 12px; color: var(--text-strong); }
+.g-lede { color: var(--text-muted); margin: 0 0 18px; }
+.g-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: var(--text-sm); color: var(--text-muted); padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.g-stage { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: var(--text-xs); text-transform: capitalize; color: var(--text); background: var(--bg-raised); white-space: nowrap; }
+.g-evergreen { border-color: var(--accent); }
+.g-body { font-family: var(--font-display); font-size: 1.12rem; line-height: 1.7; color: var(--text); overflow-wrap: anywhere; }
+.g-body h2, .g-body h3, .g-body h4 { font-family: var(--font-display); color: var(--text-strong); margin: 1.6em 0 .5em; line-height: 1.25; }
+.g-body p, .g-body ul, .g-body ol, .g-body blockquote, .g-body pre { margin: 0 0 1em; }
+.g-body ul, .g-body ol { padding-left: 1.3em; }
+.g-body blockquote { border-left: 3px solid var(--accent); padding: 2px 0 2px 16px; color: var(--text-muted); }
+.g-body code { font-family: var(--font-mono); font-size: .85em; background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px; }
+.g-body pre { background: var(--bg-sunken); padding: 14px; border-radius: var(--radius-md); overflow-x: auto; }
+.g-body pre code { background: none; padding: 0; }
+.g-body img { max-width: 100%; height: auto; border-radius: var(--radius-md); }
+.g-body a.internal { border-bottom: 1px dashed var(--accent-text); text-decoration: none; }
+.g-body a.xlink { border-bottom: 1px dashed var(--accent-text); text-decoration: none; }
+.g-body .xl-who { font-family: var(--font-body); font-size: .7em; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); vertical-align: 2px; }
+.g-body .unlinked { color: var(--text); }
+.g-body mark { background: var(--accent-soft); color: inherit; }
+.g-body hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
+.g-links, .g-xlinks { margin-top: 36px; }
+.g-links h2, .g-xlinks h2 { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; margin: 0 0 10px; }
+.g-list { display: grid; gap: 10px; }
+.g-list-profile { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); margin-bottom: 8px; }
+.g-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--text); text-decoration: none; }
+.g-card:hover { border-color: var(--accent); text-decoration: none; }
+.g-card-t { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: var(--text-strong); }
+.g-card-x { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.5; }
+.g-card-m { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: var(--text-xs); color: var(--text-muted); }
+.g-card .g-who { color: var(--accent-text); }
+.g-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.g-filter button { font: inherit; font-size: var(--text-sm); color: var(--text-muted); background: var(--bg-raised); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; text-transform: capitalize; }
+.g-filter button span { opacity: .7; margin-left: 2px; }
+.g-filter button.is-on { color: var(--text); border-color: var(--accent); }
+.g-foot { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--text-xs); color: var(--text-muted); display: grid; gap: 6px; line-height: 1.5; }
+.g-foot code { font-family: var(--font-mono); }
+@media (max-width: 600px) { .g-main { padding: 22px 16px 48px; } .g-title { font-size: 1.7rem; } .g-body { font-size: 1.04rem; } }
+`;
+function journalGarden(days, projects, o = {}) {
+  const minP = o.minProjectDays ?? 2, minT = o.minThemeDays ?? 5;
+  const sorted = [...days].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.date)).sort((a, b) => b.date.localeCompare(a.date));
+  const names = projects.map((p) => p.trim()).filter((p) => p.length >= 3);
+  const rx = (n) => new RegExp(`(^|[^\\w])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w])`, "i");
+  const linkify = (line, self2) => {
+    let out2 = line;
+    for (const n of names) {
+      if (n.toLowerCase() === self2.toLowerCase()) continue;
+      const m = out2.match(rx(n));
+      if (!m || out2.includes("[[")) continue;
+      const i = (m.index || 0) + m[1].length;
+      out2 = out2.slice(0, i) + `[[${n}]]` + out2.slice(i + n.length);
+    }
+    return out2;
+  };
+  const label = (d) => (/* @__PURE__ */ new Date(d + "T12:00:00")).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  const page2 = (title, hits) => {
+    const body = hits.map((h) => `## ${label(h.date)}
+${h.lines.map(([k, t]) => `- ${k ? `**${k}:** ` : ""}${linkify(t, title)}`).join("\n")}`).join("\n\n");
+    const n = hits.length, stage = n >= 20 ? "evergreen" : n >= 5 ? "budding" : "seedling";
+    return {
+      title,
+      days: n,
+      stage,
+      created: hits[n - 1].date + "T12:00:00.000Z",
+      updated: hits[0].date + "T12:00:00.000Z",
+      markdown: `*Grown automatically from my daily journal: each day ${title} comes up, it gets a new entry. Newest first.*
+
+${body}
+`
+    };
+  };
+  const out = [];
+  for (const p of names) {
+    const r = rx(p), hits = [];
+    for (const d of sorted) {
+      const lines = [];
+      if (d.headline && r.test(d.headline)) lines.push(["", d.headline]);
+      for (const f of d.focus || []) if (r.test(f)) lines.push(["Focus", f]);
+      for (const w of d.wins || []) if (r.test(w)) lines.push(["Win", w]);
+      if (lines.length) hits.push({ date: d.date, lines });
+    }
+    if (hits.length >= minP) out.push(page2(p, hits));
+  }
+  const themes = /* @__PURE__ */ new Map();
+  for (const d of sorted) for (const t of d.themes || []) {
+    const k = String(t).trim();
+    if (k) themes.set(k, [...themes.get(k) || [], d]);
+  }
+  const total = sorted.filter((d) => d.headline || d.focus?.length || d.wins?.length).length;
+  const picked = [];
+  for (const [t, ds] of [...themes].sort((a, b) => b[1].length - a[1].length)) {
+    if (names.some((n) => n.toLowerCase() === t.toLowerCase())) continue;
+    if (total >= 10 && ds.length > total * 0.7) continue;
+    const set = new Set(ds.map((d) => d.date));
+    if (picked.some((p) => {
+      let both = 0;
+      for (const x of set) if (p.has(x)) both++;
+      return both / (set.size + p.size - both) >= 0.8;
+    })) continue;
+    const hits = ds.map((d) => ({ date: d.date, lines: [["", d.headline || ""], ...(d.wins || []).slice(0, 2).map((w) => ["Win", w])].filter(([, x]) => x) })).filter((h) => h.lines.length);
+    if (hits.length >= minT) {
+      out.push(page2(t, hits));
+      picked.push(set);
+    }
+  }
+  return out;
+}
+function moduleHtml(md, hub, image = () => null) {
+  const base = hub.replace(/\/$/, "");
+  const link = (t) => {
+    const x = parseXLink(t);
+    return x ? `${base}/@${x.handle}/` : null;
+  };
+  return mdToHtml(md, link, image).replace(/<(\/?)h([2-6])>/g, (_m, c, n) => `<${c}h${Math.min(6, Number(n) + 1)}>`).replace(/<table>/g, '<div class="table-wrap"><table class="data">').replace(/<\/table>/g, "</table></div>").replace(/<ul>/g, '<ul class="bullets">');
+}
 
 // src/render.ts
 function inviteHref(p) {

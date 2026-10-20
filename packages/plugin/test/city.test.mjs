@@ -74,3 +74,17 @@ test("city: pop-out button and mini mode (the corner window)", () => {
   assert.match(html, /'\/watch\/@'\+m\[1\]/, "on the web it opens the hub's watch page");
   assert.match(html, /FPS_MS=MINI\?50:30/, "mini mode draws at about 20 fps");
 });
+
+test("sites: a repo's websites are kept as clean hostnames, also on the named public view, never on a padlock", () => {
+  const rs = parseCityRepos({ repos: [
+    { name: "kitse", project: "Kitse", public: true, language: "TS", commits: 5, weeks: [], week: 1, today: 0, homepage: "https://www.Kitse.co/chefs?x=1" },
+    { name: "relay", project: "Relay", public: false, language: "TS", commits: 5, weeks: [], week: 1, today: 0, sites: ["relay.roguesnacks.com", "relaysos.com", "javascript:alert(1)", "https://github.com/x/relay", "bad host"] },
+  ] });
+  assert.deepEqual(rs[0].sites, ["kitse.co"]);
+  assert.deepEqual(rs[1].sites, ["relay.roguesnacks.com", "relaysos.com"]);
+  const c = cityData(rs, () => ({ n: 0, paths: [] }));
+  const named = publicCity(c, ["Kitse", "Relay"], "named").districts.flatMap(d => d.repos);
+  assert.deepEqual(named.find(r => r.name === "relay").sites, ["relay.roguesnacks.com", "relaysos.com"]);
+  const shown = publicCity(c, ["Kitse", "Relay"], "show").districts.flatMap(d => d.repos);
+  assert.ok(shown.every(r => !r.locked || !r.sites), "a padlocked building carries no sites");
+});
