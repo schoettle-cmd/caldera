@@ -1,4 +1,4 @@
-/* Caldera 0.28.5 */
+/* Caldera 0.28.6 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -8709,6 +8709,26 @@ var WelcomeModal = class extends import_obsidian10.Modal {
     const clean = (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
     const status = createDiv({ cls: "caldera-welcome-status" });
     const head2 = (t) => c.createEl("h4", { text: t, cls: "caldera-welcome-h" });
+    if (!finish && !s.handle) {
+      const hubBase = (s.hubUrl || "https://caldera.social").replace(/\/$/, "");
+      head2("Already made your page with GitHub?");
+      const d = c.createEl("p", { cls: "setting-item-description" });
+      d.appendText("If you signed up on the website, import that page instead of picking a new handle below, so you keep one page. Get your code at ");
+      d.createEl("a", { text: `${hubBase.replace(/^https?:\/\//, "")}/settings`, href: `${hubBase}/settings#conn-obsidian` });
+      d.appendText(" (Connections > Obsidian > Get my code).");
+      let code = "";
+      new import_obsidian10.Setting(c).setName("Import my GitHub sign-up").setDesc("Paste the code (it starts with CAL-).").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => code = v.trim())).addButton((b) => b.setButtonText("Import").onClick(async () => {
+        b.setDisabled(true);
+        const ok = await this.plugin.importGithub(code);
+        b.setDisabled(false);
+        if (!ok) return;
+        s.welcomed = true;
+        await this.plugin.saveSettings();
+        this.plugin.scheduleAutoPublish();
+        this.close();
+      }));
+      head2("New to Caldera? Make your page");
+    }
     head2("You");
     new import_obsidian10.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
     if (finish) new import_obsidian10.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
@@ -8803,7 +8823,7 @@ var WelcomeModal = class extends import_obsidian10.Modal {
         const me = await this.plugin.ensureIdentity(true);
         if (!finish) {
           const r = await (0, import_obsidian10.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
-          if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. Try another.`);
+          if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. If it's yours from signing up with GitHub, import it above instead. Otherwise try another.`);
           s.handle = handle;
           if (!s.autoPublishHours) s.autoPublishHours = 6;
         }

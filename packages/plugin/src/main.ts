@@ -1146,6 +1146,27 @@ class WelcomeModal extends Modal {
     const status = createDiv({ cls: "caldera-welcome-status" });
     const head = (t: string) => c.createEl("h4", { text: t, cls: "caldera-welcome-h" });
 
+    if (!finish && !s.handle) {   // first run: someone who already signed up with GitHub on the website takes that page over instead of making a second one
+      const hubBase = (s.hubUrl || "https://caldera.social").replace(/\/$/, "");
+      head("Already made your page with GitHub?");
+      const d = c.createEl("p", { cls: "setting-item-description" });
+      d.appendText("If you signed up on the website, import that page instead of picking a new handle below, so you keep one page. Get your code at ");
+      d.createEl("a", { text: `${hubBase.replace(/^https?:\/\//, "")}/settings`, href: `${hubBase}/settings#conn-obsidian` });
+      d.appendText(" (Connections > Obsidian > Get my code).");
+      let code = "";
+      new Setting(c).setName("Import my GitHub sign-up").setDesc("Paste the code (it starts with CAL-).")
+        .addText(t => t.setPlaceholder("CAL-...").onChange(v => code = v.trim()))
+        .addButton(b => b.setButtonText("Import").onClick(async () => {
+          b.setDisabled(true);
+          const ok = await this.plugin.importGithub(code);
+          b.setDisabled(false);
+          if (!ok) return;
+          s.welcomed = true; await this.plugin.saveSettings(); this.plugin.scheduleAutoPublish();
+          this.close();
+        }));
+      head("New to Caldera? Make your page");
+    }
+
     head("You");
     new Setting(c).setName("Your name").addText(t => t.setPlaceholder("Ada Lovelace").setValue(name).onChange(v => name = v.trim()));
     if (finish) new Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
@@ -1216,7 +1237,7 @@ class WelcomeModal extends Modal {
           const me = await this.plugin.ensureIdentity(true);
           if (!finish) {
             const r = await requestUrl({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
-            if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. Try another.`);
+            if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. If it's yours from signing up with GitHub, import it above instead. Otherwise try another.`);
             s.handle = handle; if (!s.autoPublishHours) s.autoPublishHours = 6;
           }
           Object.assign(s, { name, headline, listed });
