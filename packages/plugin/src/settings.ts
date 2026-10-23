@@ -2,7 +2,7 @@ import { githubUser } from "./auto";
 import { App, PluginSettingTab, Setting, Notice, TFile } from "obsidian";
 import type CalderaPlugin from "./main";
 import { gardenEnabled, type Identity } from "@caldera/core";
-import { listingLine, MAX_LISTINGS, parseListingLine, type ListingKind, type ListingRef } from "./listings";
+import { cleanLabel, listingLine, MAX_LABEL, MAX_LISTINGS, parseListingLine, type ListingKind, type ListingRef } from "./listings";
 import { PROFILE_FILE } from "./profile-file";
 
 export interface CalderaSettings {
@@ -178,8 +178,8 @@ export class CalderaSettingTab extends PluginSettingTab {
     this.text("Banner image", "Path in your vault", "bannerPath");
     new Setting(containerEl).setName("Theme").addDropdown(d => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async v => { s.theme = v as any; await this.plugin.saveSettings(); }));
     this.pairs("Links", "One per line: Label | https://url", "links");
-    this.listing("Apps", "Your apps in the App Store or Google Play (up to 12). Each one gets a card on your page and, with Storefront on, a storefront building in your city. Repo: the repo it's built from, so it stands beside that repo (a private repo's name is never shown).", "apps", "app");
-    this.listing("Websites", "Sites you run (up to 12), a whole site or one page like example.com/tool. Each one gets a card on your page and, with Storefront on, a storefront building in your city that its live visitors walk into. Repo: the repo that builds it. Storefront off: the site lights up that repo's building instead.", "websites", "site");
+    this.listing("Apps", "Your apps in the App Store or Google Play (up to 12). Each one gets a card on your page and, with Storefront on, a storefront building in your city. Repo: the repo it's built from, so it stands beside that repo (a private repo's name is never shown). Short name: what your page and storefront call it, instead of the store's title.", "apps", "app");
+    this.listing("Websites", "Sites you run (up to 12), a whole site or one page like example.com/tool. Each one gets a card on your page and, with Storefront on, a storefront building in your city that its live visitors walk into. Repo: the repo that builds it. Storefront off: the site lights up that repo's building instead. Short name: what your page and storefront call it, instead of the site's title.", "websites", "site");
     new Setting(containerEl).setName("Repos without storefronts").setDesc("Comma separated repo names. Their apps and websites get no storefront, and their own websites (GitHub homepage) are left off your public city. Also hideStorefronts in Caldera/profile.md.")
       .addText(t => { void this.listValue("hideStorefronts").then(v => t.setValue(v.join(", "))); t.setPlaceholder("old-site, client-work").onChange(v => this.saveList("hideStorefronts", v.split(",").map(x => x.trim()).filter(x => /^[A-Za-z0-9._-]{1,100}$/.test(x)))); });
     new Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.")
@@ -279,6 +279,7 @@ export class CalderaSettingTab extends PluginSettingTab {
         const label = r.kind === "site" ? r.url.replace(/^https?:\/\//, "").replace(/\/$/, "") : r.store === "play" ? `Google Play: ${r.id}` : `App Store: id${r.id}`;
         new Setting(box).setName(label).setClass("caldera-listing-row")
           .addText(t => t.setPlaceholder("repo (optional)").setValue(r.repo || "").onChange(v => { const x = v.trim(); if (x && !/^[A-Za-z0-9._-]{1,100}$/.test(x)) return; r.repo = x || undefined; void save(); }))
+          .addText(t => { t.setPlaceholder("short name (optional)").setValue(r.label || "").onChange(v => { const x = cleanLabel(v); if (x) r.label = x; else delete r.label; void save(); }); t.inputEl.maxLength = MAX_LABEL; t.inputEl.setAttribute("aria-label", "Short name shown on your page and storefront"); })
           .addToggle(t => t.setTooltip("Storefront in my city").setValue(r.storefront !== false).onChange(v => { if (v) delete r.storefront; else r.storefront = false; void save(); }))
           .addExtraButton(b => b.setIcon("trash").setTooltip("Remove").onClick(() => { refs.splice(i, 1); void save(); draw(); }));
       });

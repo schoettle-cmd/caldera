@@ -14,7 +14,9 @@ export const LISTING_DISTRICT = "Apps & sites";
 export type Store = "apple" | "play";
 export type ListingKind = "app" | "site";
 
-export interface ListingRef { kind: ListingKind; key: string; url: string; store?: Store; id?: string; host?: string; repo?: string; storefront?: false }
+export interface ListingRef { kind: ListingKind; key: string; url: string; store?: Store; id?: string; host?: string; repo?: string; storefront?: false;
+  /** the owner's own short name (`name: X`), shown instead of the store's or site's title */
+  label?: string }
 /** What the hub found out about a listing (all text already cleaned there; cleaned again before rendering). */
 export interface ListingMeta { key: string; name?: string; img?: string; genre?: string; rating?: number; ratings?: number; seller?: string; desc?: string }
 /** A listing ready to show: the link plus its public details. `repo` is only ever used for placement, never shown. */
@@ -65,18 +67,29 @@ export function parseSiteUrl(raw: string): ListingRef | null {
 }
 
 export const NO_STOREFRONT = "no-storefront";
+export const MAX_LABEL = 40;
 const isFlag = (v: string) => /^no-?storefront$/i.test(v);
-/** One line: `link`, `link | repo-name`, `link | repo-name | no-storefront` or `link | | no-storefront`
- *  (`link | no-storefront` works too). A repo name that isn't a valid GitHub name is ignored. */
+const NAME_RX = /^name\s*:\s*/i;
+/** An owner's short name: plain text, at most 40 characters (no markup, no control characters). */
+export const cleanLabel = (v: unknown) => clean(v, MAX_LABEL);
+/** One line: `link`, `link | repo-name`, `link | repo-name | no-storefront`, `link | | no-storefront`
+ *  (`link | no-storefront` works too), plus an optional `name: Short name` part anywhere after the link
+ *  (`link | repo-name | name: Human Architecture`). A repo name that isn't a valid GitHub name is ignored. */
 export function parseListingLine(line: unknown, kind: ListingKind): ListingRef | null {
   const [a = "", ...rest] = String(line ?? "").split("|").map(x => x.trim());
   const ref = kind === "app" ? parseAppUrl(a) : parseSiteUrl(a); if (!ref) return null;
-  for (const v of rest) { if (!v) continue; if (isFlag(v)) ref.storefront = false; else if (!ref.repo && REPO_RX.test(v)) ref.repo = v; }
+  for (const v of rest) {
+    if (!v) continue;
+    if (NAME_RX.test(v)) { const n = cleanLabel(v.replace(NAME_RX, "")); if (n && !ref.label) ref.label = n; }
+    else if (isFlag(v)) ref.storefront = false; else if (!ref.repo && REPO_RX.test(v)) ref.repo = v;
+  }
   return ref;
 }
 /** Back to the one-line form (settings and profile.md write it this way). */
-export function listingLine(r: { url: string; repo?: string; storefront?: false }): string {
-  return r.storefront === false ? `${r.url} | ${r.repo || ""} | ${NO_STOREFRONT}` : r.repo ? `${r.url} | ${r.repo}` : r.url;
+export function listingLine(r: { url: string; repo?: string; storefront?: false; label?: string }): string {
+  const label = cleanLabel(r.label);
+  const base = r.storefront === false ? `${r.url} | ${r.repo || ""} | ${NO_STOREFRONT}` : r.repo ? `${r.url} | ${r.repo}` : r.url;
+  return label ? `${base}${r.storefront === false || r.repo ? "" : " |"} | name: ${label}` : base;
 }
 /** Does this listing stand as a building? Off per listing (no-storefront) or for every listing tied to a repo in hideStorefronts. */
 export function storefrontOn(l: { repo?: string; storefront?: false }, hideStorefronts: string[] = []): boolean {
@@ -111,7 +124,7 @@ export function toListing(r: ListingRef, m: ListingMeta | undefined, hub: string
   const rating = Number(m?.rating), ratings = Number(m?.ratings);
   const img = m?.img && /^[a-z0-9._-]{3,170}$/i.test(m.img) ? `${base}/v1/listings/img/${encodeURIComponent(m.img)}` : undefined;
   return { kind: r.kind, key: r.key, url: r.url, store: r.store, host: r.host, repo: r.repo, ...(r.storefront === false ? { storefront: false as const } : {}),
-    name: clean(m?.name, 80) || fallbackName(r), icon: img,
+    name: cleanLabel(r.label) || clean(m?.name, 80) || fallbackName(r), icon: img,
     genre: clean(m?.genre, 40) || undefined, seller: clean(m?.seller, 80) || undefined, desc: clean(m?.desc, 200) || undefined,
     rating: rating > 0 && rating <= 5 ? Math.round(rating * 10) / 10 : undefined, ratings: ratings > 0 ? Math.round(ratings) : undefined };
 }

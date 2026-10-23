@@ -1,4 +1,4 @@
-/* Caldera 0.28.7 */
+/* Caldera 0.28.8 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -3231,6 +3231,13 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 .c-card h3{margin:0 0 2px;font-size:15px;color:#fff}.c-card .k{color:#9A9AA6;font-size:12px}.c-card a{color:#B9A6FF}
 .c-card .row{display:flex;justify-content:space-between;gap:8px;margin-top:4px}.c-card .x{position:absolute;top:6px;right:8px;background:none;border:0;color:#9A9AA6;font-size:16px;cursor:pointer}
 .c-card .sp{display:flex;align-items:flex-end;gap:2px;height:28px;margin:8px 0 2px}.c-card .sp i{flex:1;background:#8B6CF6;border-radius:2px 2px 0 0;min-height:2px}
+.c-card.is-dir{top:58px;width:min(340px,calc(100% - 20px));max-height:calc(100% - 110px);padding:12px 12px 8px}.c-card.is-dir .d-head{padding-right:22px;margin-bottom:8px}.c-card.is-dir .d-head b{font-size:15px;color:#fff}
+.c-card .d-sel{padding:10px;margin:0 0 8px;border-radius:9px;background:rgba(139,108,246,.14);border:1px solid rgba(139,108,246,.45)}.c-card .d-visit{font-weight:600}
+.c-card .d-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.c-card .d-row{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:1px solid transparent;border-radius:8px;padding:6px;color:#E8E8EE;font:inherit;cursor:pointer;min-height:44px}
+.c-card .d-row:hover{background:rgba(255,255,255,.06)}.c-card .d-row:focus-visible{outline:2px solid #B9A6FF;outline-offset:1px}.c-card .d-row.is-on{background:rgba(139,108,246,.2);border-color:rgba(139,108,246,.55)}
+.c-card .d-txt{display:flex;flex-direction:column;min-width:0}.c-card .d-name{font-weight:600;color:#fff;overflow-wrap:anywhere}.c-card .d-meta{font-size:12px;color:#9A9AA6;overflow-wrap:anywhere}
+@media (max-width:600px){.c-card.is-dir{left:0;right:0;top:auto;bottom:0;width:auto;max-height:62%;border-radius:14px 14px 0 0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}}
 .c-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 18px;font-size:var(--text-sm);color:var(--text-muted)}
 .c-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .c-table-wrap{overflow-x:auto}.c-table{width:100%;border-collapse:collapse;font-size:var(--text-sm);font-variant-numeric:tabular-nums}
@@ -3666,7 +3673,7 @@ function noteCard(ix){var n=U.nodes[ix];usel=ix;UDIRTY=true;var open='';
   if(n.p)open=D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(n.p))+'" target="_blank" rel="noopener">Open in Obsidian &#8599;</a>':'<a href="#" data-open="'+e(n.p)+'">Open note</a>';
   else if(n.g)open='<a href="n/'+e(n.g)+'.html">Read it in the garden &#8599;</a>';
   var ago=function(d){return d<=0?'today':d===1?'yesterday':d<60?d+' days ago':Math.round(d/30)+' months ago'};
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+(n.t?e(n.t):'A note')+'</h3><div class="k" style="color:'+(UK[n.k]||UK.note)+'">'+e(UKN[n.k]||'Note')+(n.d?' &middot; under '+e(n.d):'')+'</div>'
+  card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+(n.t?e(n.t):'A note')+'</h3><div class="k" style="color:'+(UK[n.k]||UK.note)+'">'+e(UKN[n.k]||'Note')+(n.d?' &middot; under '+e(n.d):'')+'</div>'
     +'<div class="row"><span>Notes linking here</span><b>'+n.n+'</b></div><div class="row"><span>Links out</span><b>'+n.o+'</b></div>'
     +'<div class="row"><span>Created</span><b>'+ago(n.a)+'</b></div><div class="row"><span>Last edited</span><b>'+ago(n.m)+'</b></div>'
     +(n.t?'':'<p style="margin:6px 0 0">What this note says is private.</p>')+(open?'<p style="margin:8px 0 0">'+open+'</p>':'');
@@ -3835,7 +3842,7 @@ function drawGround(){var c=c1;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L1.wi
 var WORLD=D.world||null,WFOCUS=null,WHOVER=null;
 function blockMid(b){var n=b.nbo;return n?iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5):iso(b.x+b.k/2-.5,b.y+b.k/2-.5)}
 function worldCard(b){var key=b.d.nb||b.d.name,m=WORLD.m[key]||{},nn=NBM[key],nrep=nn?nn.ds.reduce(function(s,d){return s+d.repos.length},0):b.d.repos.length;sel=null;
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(m.name||key)+'</h3><div class="k">'+e(key)+(m.isNew?' &middot; new this week':'')+(m.groups&&m.groups.length?' &middot; '+m.groups.map(function(g){return e(g)}).join(', '):'')+'</div>'
+  card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(m.name||key)+'</h3><div class="k">'+e(key)+(m.isNew?' &middot; new this week':'')+(m.groups&&m.groups.length?' &middot; '+m.groups.map(function(g){return e(g)}).join(', '):'')+'</div>'
     +(m.headline?'<p style="margin:6px 0 0">'+e(m.headline)+'</p>':'')
     +'<div class="row"><span>Buildings</span><b>'+nrep+'</b></div>'+(nn&&nn.ds.length>1?'<div class="row"><span>Districts</span><b>'+nn.ds.length+'</b></div>':'')+(m.friends?'<div class="row"><span>Friends</span><b>'+m.friends+'</b></div>':'')
     +'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>'+giftHtml(key,'');
@@ -3992,25 +3999,46 @@ var LCOL={app:'#6C63FF',site:'#1FA39A'},LIMG={};
 function limg(u){if(!u||!/^https?:\/\/[^\s"<>]+\/v1\/listings\/img\/[A-Za-z0-9._%-]+$/.test(u))return null;var im=LIMG[u];if(im)return im.complete&&im.naturalWidth?im:null;
   im=new Image();im.onload=function(){draw()};im.src=u;LIMG[u]=im;return null}
 function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
-function storefront(c,p,t,tron,tags){var r=t.r,x=p.x,y=p.y+4,col=LCOL[r.kind]||'#8A8A93',h=20,dark=tron||sky==='night'||sky==='evening',m=r.meta||{};
-  if(tron)tronPrism(c,x,y,.74,h,col,.5,hash(r.name||'l'),false);
-  else{prism(c,x,y,.74,h,col);awning(c,x,y-h+7,.8,[mix(col,1.25),'#FFF4E8']);c.fillStyle=dark?'rgba(255,214,140,.95)':'rgba(40,50,70,.55)';c.fillRect(x-3,y-8,6,8)}
-  var s=16,sy=y-h-22,im=limg(m.icon);
-  c.fillStyle=tron?col:'#6B6F7A';c.fillRect(x-.6,sy+s+2,1.2,(y-h)-(sy+s+2)+2);
-  c.save();if(dark){c.shadowColor=col;c.shadowBlur=10}c.fillStyle=tron?'rgba(2,6,12,.92)':'#FFFFFF';rrect(c,x-s/2-2,sy-2,s+4,s+4,5);c.fill();if(tron){c.strokeStyle=col;c.lineWidth=1;c.stroke()}c.restore();
-  if(im){c.save();rrect(c,x-s/2,sy,s,s,r.kind==='app'?4:3);c.clip();c.drawImage(im,x-s/2,sy,s,s);c.restore()}
-  else{c.fillStyle=col;c.font='700 10px IBM Plex Sans,Arial,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(r.name||'?').charAt(0).toUpperCase(),x,sy+s/2+.5);c.textBaseline='alphabetic'}
-  if(sel===r){c.save();c.strokeStyle=tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;rrect(c,x-s/2-4,sy-4,s+8,s+8,6);c.stroke();c.restore()}
-  hits.push({r:r,d:t.d,x0:x-TW*.42,x1:x+TW*.42,y0:sy-6,y1:p.y+TH*.45});
-  if(labels&&!WORLD&&(cam.z>.55||sel===r))tags.push({x:x,y:sy-6,text:r.name.length>18?r.name.slice(0,17)+'…':r.name,col:col,url:repoUrl(r)})}
-function listingCard(h){var r=h.r,m=r.meta||{},app=r.kind==='app',u=repoUrl(r);sel=r;
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button>'+(limg(m.icon)?'<img src="'+e(m.icon)+'" alt="" style="width:44px;height:44px;border-radius:'+(app?10:8)+'px;float:right;margin:0 0 6px 8px">':'')
-   +'<h3>'+e(r.name)+'</h3><div class="k">'+(app?(m.store==='play'?'App on Google Play':'App on the App Store'):'Website'+(m.host?' &middot; '+e(m.host):''))+(h.d&&h.d.name&&!D.world?' &middot; '+e(h.d.name)+' district':'')+'</div>'
-   +(m.desc?'<p style="margin:6px 0 0">'+e(m.desc)+'</p>':'')
-   +(m.genre?'<div class="row"><span>Category</span><b>'+e(m.genre)+'</b></div>':'')
-   +(+m.rating>0?'<div class="row"><span>Rating</span><b>&#9733; '+(+m.rating).toFixed(1)+(+m.ratings>0?' ('+(+m.ratings).toLocaleString('en-US')+')':'')+'</b></div>':'')
-   +(u?'<p style="margin:8px 0 0"><a href="'+e(u)+'" target="_blank" rel="noopener">'+(app?(m.store==='play'?'Open on Google Play':'Open on the App Store'):'Visit '+e(m.host||'the site'))+' &#8599;</a></p>':'');
-  card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
+function storefront(c,p,t,tron,tags){var r=t.r,x=p.x,y=p.y+4,col=LCOL[r.kind]||'#8A8A93',h=30,dark=tron||sky==='night'||sky==='evening',m=r.meta||{};
+  if(tron)tronPrism(c,x,y,.9,h,col,.55,hash(r.name||'l'),false);
+  else{prism(c,x,y,.9,h,col);awning(c,x,y-h+10,.98,[mix(col,1.25),'#FFF4E8']);c.fillStyle=dark?'rgba(255,214,140,.95)':'rgba(40,50,70,.55)';c.fillRect(x-4,y-12,8,12);
+    c.fillStyle=dark?'rgba(255,226,170,.85)':'rgba(255,255,255,.55)';c.fillRect(x-TW*.3,y-h*.55,6,7);c.fillRect(x+TW*.3-6,y-h*.55,6,7)}
+  var s=24,sy=y-h-34,im=limg(m.icon);
+  c.fillStyle=tron?col:'#6B6F7A';c.fillRect(x-.8,sy+s+3,1.6,(y-h)-(sy+s+3)+3);
+  // the sign glows softly in the listing's colour by day and strongly at night (one blurred plate per storefront: cheap on phones)
+  c.save();c.shadowColor=col;c.shadowBlur=dark?26:10;c.fillStyle=col;c.globalAlpha=dark?.95:.7;rrect(c,x-s/2-5,sy-5,s+10,s+10,8);c.fill();c.restore();
+  c.save();c.fillStyle=tron?'rgba(2,6,12,.92)':'#FFFFFF';rrect(c,x-s/2-2,sy-2,s+4,s+4,6);c.fill();c.restore();
+  if(im){c.save();rrect(c,x-s/2,sy,s,s,r.kind==='app'?6:4);c.clip();c.drawImage(im,x-s/2,sy,s,s);c.restore()}
+  else{c.fillStyle=col;c.font='700 14px IBM Plex Sans,Arial,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(r.name||'?').charAt(0).toUpperCase(),x,sy+s/2+.5);c.textBaseline='alphabetic'}
+  if(sel===r){c.save();c.strokeStyle=tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.6/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=16;rrect(c,x-s/2-8,sy-8,s+16,s+16,9);c.stroke();c.restore()}
+  hits.push({r:r,d:t.d,x0:x-TW*.46,x1:x+TW*.46,y0:sy-10,y1:p.y+TH*.48});
+  if(labels&&!WORLD&&(cam.z>.45||sel===r))tags.push({x:x,y:sy-9,text:r.name.length>22?r.name.slice(0,21)+'…':r.name,col:col,url:repoUrl(r)})}
+// ---- the store directory: tapping any storefront (or "Stores" in the toolbar) lists every storefront in that city in one menu
+function storeList(key){var out=[];for(var k in tiles){var t=tiles[k];if(t.t==='b'&&t.r&&t.r.kind&&(!key||(t.d&&(t.d.nb||t.d.name))===key)){var a=k.split(',');out.push({r:t.r,d:t.d,i:+a[0],j:+a[1]})}}
+  out.sort(function(a,b){return String(a.r.name).localeCompare(String(b.r.name),undefined,{sensitivity:'base'})||placeOf(a).localeCompare(placeOf(b))});return out}
+function placeOf(s){if(!s.d)return '';if(D.world){var key=s.d.nb||s.d.name,m=WORLD&&WORLD.m&&WORLD.m[key]||{};return m.name||key}return s.d.name||''}
+function storeAddr(r){var m=r.meta||{},s=r.sites&&r.sites[0];return typeof s==='string'&&s.indexOf(m.host||'\u0000')===0?s:(m.host||'')}
+function storeKind(r){return r.kind==='app'?((r.meta||{}).store==='play'?'App · Google Play':'App · App Store'):'Website'+(storeAddr(r)?' · '+storeAddr(r):'')}
+function storeIcon(r,px){var m=r.meta||{},im=limg(m.icon),col=LCOL[r.kind]||'#8A8A93';return im?'<img src="'+e(m.icon)+'" alt="" width="'+px+'" height="'+px+'" style="width:'+px+'px;height:'+px+'px;border-radius:'+(r.kind==='app'?Math.round(px*.22):Math.round(px*.18))+'px;flex:none;object-fit:cover;background:#fff">'
+  :'<span aria-hidden="true" style="width:'+px+'px;height:'+px+'px;flex:none;border-radius:'+Math.round(px*.22)+'px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;background:#fff;color:'+col+';box-shadow:0 0 0 2px '+col+'">'+e(String(r.name||'?').charAt(0).toUpperCase())+'</span>'}
+function flyToStore(s){var q=iso(s.i,s.j),z=Math.max(cam.z,D.world?.9:1.05),sheet=vw<600,ty=sheet?vh*.24:vh/2,tx=sheet?vw/2:Math.min(vw-60,(vw+Math.min(card.offsetWidth+20,vw*.5))/2);flyTo(tx-q.x*z,ty-(q.y-40)*z,z,reduce?1:450)}
+var DIRKEY=null;
+function storeDir(r0,key,focus){var all=storeList(key),cur=null;all.forEach(function(s){if(s.r===r0)cur=s});if(!cur&&all.length&&r0)cur=null;
+  DIRKEY=key;sel=cur?cur.r:null;
+  function render(){var r=cur&&cur.r,m=r&&r.meta||{},u=r?repoUrl(r):'',app=r&&r.kind==='app';
+    var top=r?'<div class="d-sel">'+'<div style="display:flex;gap:10px;align-items:center">'+storeIcon(r,44)+'<div style="min-width:0"><h3 style="margin:0">'+e(r.name)+'</h3><div class="k">'+e(storeKind(r))+(placeOf(cur)?' &middot; '+e(placeOf(cur))+(D.world?'':' district'):'')+'</div></div></div>'
+      +(m.desc?'<p style="margin:8px 0 0">'+e(m.desc)+'</p>':'')
+      +(m.genre?'<div class="row"><span>Category</span><b>'+e(m.genre)+'</b></div>':'')
+      +(+m.rating>0?'<div class="row"><span>Rating</span><b>&#9733; '+(+m.rating).toFixed(1)+(+m.ratings>0?' ('+(+m.ratings).toLocaleString('en-US')+')':'')+'</b></div>':'')
+      +(u?'<p style="margin:8px 0 0"><a class="d-visit" href="'+e(u)+'" target="_blank" rel="noopener">'+(app?(m.store==='play'?'Open on Google Play':'Open on the App Store'):'Visit '+e(storeAddr(r)||'the site'))+' &#8599;</a></p>':'')+'</div>':'';
+    card.innerHTML='<button class="x" aria-label="Close">&times;</button><div class="d-head"><b>Stores</b> <span class="k">'+all.length+' in '+(key&&D.world?e(placeOf(all[0]||{d:null})||'this city'):D.world?'the world':'this city')+'</span></div>'+top
+      +'<ul class="d-list" role="list">'+all.map(function(s,ix){var on=s===cur;return '<li><button type="button" class="d-row'+(on?' is-on':'')+'" data-ix="'+ix+'" aria-current="'+(on?'true':'false')+'">'+storeIcon(s.r,28)+'<span class="d-txt"><span class="d-name">'+e(s.r.name)+'</span><span class="d-meta">'+e(storeKind(s.r))+(placeOf(s)?' &middot; '+e(placeOf(s)):'')+'</span></span></button></li>'}).join('')+'</ul>';
+    card.querySelector('.x').onclick=function(){show(null)};
+    card.querySelectorAll('.d-row').forEach(function(b){b.onclick=function(){var s=all[+b.getAttribute('data-ix')];cur=s;sel=s.r;render();flyToStore(s);var nb=card.querySelector('.d-row[data-ix="'+b.getAttribute('data-ix')+'"]');if(nb)nb.focus();card.scrollTop=0}});
+    draw()}
+  card.classList.add('is-dir');card.setAttribute('role','dialog');card.setAttribute('aria-label','Stores');render();card.hidden=false;
+  if(focus){var f=card.querySelector('.d-row.is-on')||card.querySelector('.d-row');if(f)f.focus()}}
+function listingCard(h){var key=D.world&&h.d?(h.d.nb||h.d.name):null;storeDir(h.r,key,false)}
 var SHOPLBL=null;
 function drawShop(c,p,LOD){if(!SHOP)return;var x=p.x,y=p.y+4,night=sky==='night'||sky==='evening';
   if(SHOP.big){var q=iso(SHOP.i+1,SHOP.j+1);x=q.x;y=q.y+4;var n=Math.min(8,Math.max(4,TOOLS.length)),pal=[['#E85D75','#FFF4E8'],['#4FB89A','#FFF4E8'],['#7AA7FF','#FFF4E8'],['#E8C547','#FFF4E8'],['#8B6CF6','#FFF4E8'],['#F28C38','#FFF4E8']];
@@ -4022,7 +4050,7 @@ function drawShop(c,p,LOD){if(!SHOP)return;var x=p.x,y=p.y+4,night=sky==='night'
   SHOPLBL={x:x,y:y-48,text:'\u2726 Workshop \u00b7 '+TOOLS.length+' free tool'+(TOOLS.length===1?'':'s'),bg:'rgba(201,139,78,.97)'};
   hits.push({shop:1,x0:x-TW*.5,x1:x+TW*.5,y0:y-58,y1:y+TH*.45})}
 function shopCard(){var base=(window.CALDERA_TOOLS_HUB||'').replace(/\/$/,'');sel=null;
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+(D.world?'Free tools market':'Workshop')+'</h3><div class="k">'+(D.world?'Free software made by Caldera members':'Free software this person made')+'</div>'
+  card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+(D.world?'Free tools market':'Workshop')+'</h3><div class="k">'+(D.world?'Free software made by Caldera members':'Free software this person made')+'</div>'
    +TOOLS.slice(0,8).map(function(t){return '<div style="margin-top:10px"><b>'+e(t.name)+'</b>'+(D.world&&t.handle?' <a href="#" data-maker="'+e(t.handle)+'" style="font-size:12px">@'+e(t.handle)+'</a>':'')+'<div style="font-size:12.5px;opacity:.85">'+e(t.pitch||'')+'</div>'
      +'<div style="font-size:12px;margin-top:3px"><a href="'+e(base+'/tools/go/'+t.id)+'" target="_blank" rel="noopener nofollow">Get it \u2197</a>'+(t.platform?' &middot; '+e(t.platform):'')+(t.repo?' &middot; open source':'')+'</div></div>'}).join('')
    +'<div class="row" style="margin-top:12px"><a href="'+e(base+'/tools')+'" target="_blank" rel="noopener">All free tools \u2192</a></div>';
@@ -4196,15 +4224,15 @@ function ago(iso){if(!iso)return '';var d=Math.round((now-Date.parse(iso))/DAY);
 function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={working:'working',thinking:'thinking',waiting:'waiting for you',idle:'idle',done:'done'}[a.state]||a.state;sel={agent:id};
   var where=a.d?e(a.d)+' district':'not in a district';
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button>'+(a.label||a.task!=null?'<h3>'+e(a.label||'Agent')+'</h3><div class="k">'+e(a.machine||'')+(a.machine?' &middot; ':'')+st+(a.ago!=null?' &middot; '+(a.ago<60?a.ago+'s':Math.round(a.ago/60)+' min')+' ago':'')+'</div>'
+  card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button>'+(a.label||a.task!=null?'<h3>'+e(a.label||'Agent')+'</h3><div class="k">'+e(a.machine||'')+(a.machine?' &middot; ':'')+st+(a.ago!=null?' &middot; '+(a.ago<60?a.ago+'s':Math.round(a.ago/60)+' min')+' ago':'')+'</div>'
      +(a.task?'<p style="margin:6px 0 0">'+e(a.task)+'</p>':'')+(a.did?'<div class="row"><span>Last step</span><b style="text-align:right">'+e(a.did)+'</b></div>':'')
      +'<div class="row"><span>Where</span><b>'+(a.repo?e(a.repo)+' &middot; ':'')+where+'</b></div>'+(a.tokens?'<div class="row"><span>Tokens today</span><b>'+(+a.tokens).toLocaleString('en-US')+'</b></div>':'')
     :'<h3>AI agent</h3><p style="margin:6px 0 0">An agent is '+st+(a.d?' in the '+where:'')+'. What it is working on is private.</p>');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
 function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}if(h.r&&h.r.kind)return listingCard(h);var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
-  if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">'+(d.apart?'This person keeps private work anonymous: these padlocks don\'t show how many repos there are, how big they are, which projects they belong to or when they were busy.':'The details of this building are private. Its size and lights show roughly how much work goes on inside.')+'</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
-  card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':r.priv?' &middot; &#128274; private repo, code not shared':'')+'</div>'
+  if(r.locked){card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">'+(d.apart?'This person keeps private work anonymous: these padlocks don\'t show how many repos there are, how big they are, which projects they belong to or when they were busy.':'The details of this building are private. Its size and lights show roughly how much work goes on inside.')+'</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
+  card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':r.priv?' &middot; &#128274; private repo, code not shared':'')+'</div>'
    +(r.description?'<p style="margin:6px 0 0">'+e(r.description)+'</p>':'')
    +'<div class="sp" title="Commits, last 12 weeks">'+(r.weeks||[]).map(function(w){return '<i style="height:'+Math.max(4,Math.round(w/mx*100))+'%"></i>'}).join('')+'</div><div class="k">Commits, last 12 weeks</div>'
    +'<div class="row"><span>Commits this year</span><b>'+r.commits.toLocaleString('en-US')+'</b></div><div class="row"><span>This week</span><b>'+r.week+'</b></div>'
@@ -4288,6 +4316,10 @@ var bp=document.getElementById('t-pop');if(bp){if(MINI)bp.hidden=true;bp.onclick
   var w=window.open(u,'caldera-city','popup,width=440,height=290');if(!w)location.href=u}}
 document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')){ev.preventDefault();show(null);var b=document.getElementById('t-stores');if(b)b.focus()}});
+(function(){var n=storeList(null).length,tb=st.querySelector('.c-tools');if(!n||!tb||MINI)return;var b=document.createElement('button');b.id='t-stores';b.type='button';b.title='Every storefront in this '+(D.world?'world':'city');
+  b.innerHTML='&#x1F3EA;<span class="t-txt"> Stores ('+n+')</span>';b.setAttribute('aria-label','Stores ('+n+')');b.onclick=function(){if(!card.hidden&&card.classList.contains('is-dir')){show(null);return}storeDir(null,null,true)};
+  var ref=tb.querySelector('#t-reset');tb.insertBefore(b,ref||null)})();
 window.addEventListener('resize',function(){fit();draw()});
 fit();
 if(reduce)frame();else requestAnimationFrame(tick);
@@ -4698,20 +4730,28 @@ function parseSiteUrl(raw) {
   return { kind: "site", key: `site-${shortHash(url)}`, url, host: cleanSites(h)?.[0] || h.replace(/^www\./, "") };
 }
 var NO_STOREFRONT = "no-storefront";
+var MAX_LABEL = 40;
 var isFlag = (v) => /^no-?storefront$/i.test(v);
+var NAME_RX = /^name\s*:\s*/i;
+var cleanLabel = (v) => clean(v, MAX_LABEL);
 function parseListingLine(line, kind) {
   const [a = "", ...rest] = String(line ?? "").split("|").map((x) => x.trim());
   const ref = kind === "app" ? parseAppUrl(a) : parseSiteUrl(a);
   if (!ref) return null;
   for (const v of rest) {
     if (!v) continue;
-    if (isFlag(v)) ref.storefront = false;
+    if (NAME_RX.test(v)) {
+      const n = cleanLabel(v.replace(NAME_RX, ""));
+      if (n && !ref.label) ref.label = n;
+    } else if (isFlag(v)) ref.storefront = false;
     else if (!ref.repo && REPO_RX.test(v)) ref.repo = v;
   }
   return ref;
 }
 function listingLine(r) {
-  return r.storefront === false ? `${r.url} | ${r.repo || ""} | ${NO_STOREFRONT}` : r.repo ? `${r.url} | ${r.repo}` : r.url;
+  const label = cleanLabel(r.label);
+  const base = r.storefront === false ? `${r.url} | ${r.repo || ""} | ${NO_STOREFRONT}` : r.repo ? `${r.url} | ${r.repo}` : r.url;
+  return label ? `${base}${r.storefront === false || r.repo ? "" : " |"} | name: ${label}` : base;
 }
 function storefrontOn(l, hideStorefronts = []) {
   if (l.storefront === false) return false;
@@ -4749,7 +4789,7 @@ function toListing(r, m, hub) {
     host: r.host,
     repo: r.repo,
     ...r.storefront === false ? { storefront: false } : {},
-    name: clean(m?.name, 80) || fallbackName(r),
+    name: cleanLabel(r.label) || clean(m?.name, 80) || fallbackName(r),
     icon: img,
     genre: clean(m?.genre, 40) || void 0,
     seller: clean(m?.seller, 80) || void 0,
@@ -5005,6 +5045,7 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **apps** - your apps in the App Store or Google Play, one store link each (e.g. \`https://apps.apple.com/us/app/name/id123456789\`). Add \` | repo-name\` to stand the app beside that repo in your city; a private repo's name is never shown. Name, icon, category and rating come from the store. Up to 12.
 - **websites** - sites you run, one link each (http or https). Add \` | repo-name\` to tie a site to the repo that builds it, so its live visitors walk into that building. Title, icon and description come from the site. Up to 12.
 - **Storefronts** - every app and website you list stands as a storefront building in your city (its profile card shows either way). Turn one off with a third field: \`link | repo-name | no-storefront\` (no repo: \`link | | no-storefront\`). A website with its storefront off, tied to a repo shown by name, lights up that repo's building instead.
+- **Short names** - add \`name: Short name\` to any app or website line to use your own name (up to 40 characters) on its card and storefront instead of the store's or site's title, e.g. \`https://example.com | repo-name | name: Example\`. It can go before or after \`no-storefront\`.
 - **hideStorefronts** - repos whose apps and websites get no storefront, e.g. \`[old-site, client-work]\`. Those repos' own websites (GitHub homepage or city.json) are also left off your public city.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
 - **tabs** - extra tab labels in the top bar, like \`Now.md\`.
@@ -5197,8 +5238,8 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
     this.pairs("Links", "One per line: Label | https://url", "links");
-    this.listing("Apps", "Your apps in the App Store or Google Play (up to 12). Each one gets a card on your page and, with Storefront on, a storefront building in your city. Repo: the repo it's built from, so it stands beside that repo (a private repo's name is never shown).", "apps", "app");
-    this.listing("Websites", "Sites you run (up to 12), a whole site or one page like example.com/tool. Each one gets a card on your page and, with Storefront on, a storefront building in your city that its live visitors walk into. Repo: the repo that builds it. Storefront off: the site lights up that repo's building instead.", "websites", "site");
+    this.listing("Apps", "Your apps in the App Store or Google Play (up to 12). Each one gets a card on your page and, with Storefront on, a storefront building in your city. Repo: the repo it's built from, so it stands beside that repo (a private repo's name is never shown). Short name: what your page and storefront call it, instead of the store's title.", "apps", "app");
+    this.listing("Websites", "Sites you run (up to 12), a whole site or one page like example.com/tool. Each one gets a card on your page and, with Storefront on, a storefront building in your city that its live visitors walk into. Repo: the repo that builds it. Storefront off: the site lights up that repo's building instead. Short name: what your page and storefront call it, instead of the site's title.", "websites", "site");
     new import_obsidian3.Setting(containerEl).setName("Repos without storefronts").setDesc("Comma separated repo names. Their apps and websites get no storefront, and their own websites (GitHub homepage) are left off your public city. Also hideStorefronts in Caldera/profile.md.").addText((t) => {
       void this.listValue("hideStorefronts").then((v) => t.setValue(v.join(", ")));
       t.setPlaceholder("old-site, client-work").onChange((v) => this.saveList("hideStorefronts", v.split(",").map((x) => x.trim()).filter((x) => /^[A-Za-z0-9._-]{1,100}$/.test(x))));
@@ -5322,7 +5363,16 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
           if (x && !/^[A-Za-z0-9._-]{1,100}$/.test(x)) return;
           r.repo = x || void 0;
           void save();
-        })).addToggle((t) => t.setTooltip("Storefront in my city").setValue(r.storefront !== false).onChange((v) => {
+        })).addText((t) => {
+          t.setPlaceholder("short name (optional)").setValue(r.label || "").onChange((v) => {
+            const x = cleanLabel(v);
+            if (x) r.label = x;
+            else delete r.label;
+            void save();
+          });
+          t.inputEl.maxLength = MAX_LABEL;
+          t.inputEl.setAttribute("aria-label", "Short name shown on your page and storefront");
+        }).addToggle((t) => t.setTooltip("Storefront in my city").setValue(r.storefront !== false).onChange((v) => {
           if (v) delete r.storefront;
           else r.storefront = false;
           void save();

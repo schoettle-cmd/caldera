@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseAppUrl, parseSiteUrl, parseListingLine, parseListings, invalidListingLines, listingLine, storefrontOn, toListing, siteKey,
+import { parseAppUrl, parseSiteUrl, parseListingLine, parseListings, invalidListingLines, listingLine, storefrontOn, toListing, siteKey, cleanLabel,
   withListingsPrivate, withListingsPublic, appsCards, siteCards, MAX_LISTINGS, LISTING_DISTRICT } from "./listings.build.mjs";
 import { cityData, publicCity, applyPrivateMode, renderCity } from "./city.build.mjs";
 import { renderProfile } from "./render.build.mjs";
@@ -153,4 +153,47 @@ test("a private repo with a storefront website (named mode): only the listed sit
   const fronts = all(pub).filter(r => r.kind);
   assert.deepEqual(fronts.map(r => [r.name, r.district, r.sites[0]]).sort(), [["Dictate", "Dictate", "mjonesone.com/dictate"], ["M Jones", "Site", "mjonesone.com"], ["Relay SOS", "Relay", "relaysos.com"]]);
   for (const f of fronts) { assert.equal(f.description, undefined); assert.equal(f.commits, 0); assert.deepEqual(f.weeks, []); assert.ok(!/github\.com/.test(f.url)); }
+});
+
+test("short names: `name:` in any order with repo and no-storefront, cleaned, at most 40, round-trips", () => {
+  const a = parseListingLine("https://humanarchitecture.ai | ha-dna | name: Human Architecture", "site");
+  assert.equal(a.repo, "ha-dna"); assert.equal(a.label, "Human Architecture"); assert.equal(a.storefront, undefined);
+  for (const l of ["https://x.io | x-repo | no-storefront | name: X Tool", "https://x.io | name: X Tool | no-storefront | x-repo", "https://x.io | no-storefront | name: X Tool | x-repo", "https://x.io|NAME:X Tool|x-repo|no-storefront"]) {
+    const r = parseListingLine(l, "site"); assert.equal(r.label, "X Tool", l); assert.equal(r.repo, "x-repo", l); assert.equal(r.storefront, false, l);
+  }
+  const n = parseListingLine("https://apps.apple.com/app/id1234567 | name: <b>Notes</b>\u0007 " + "y".repeat(80), "app");
+  assert.ok(!/[<>\u0007]/.test(n.label) && n.label.length <= 40, n.label);
+  assert.equal(parseListingLine("https://x.io | name:   ", "site").label, undefined, "an empty name is ignored");
+  assert.equal(parseListingLine("https://x.io | name: Two words", "site").repo, undefined, "a name is never taken for a repo");
+  for (const l of ["https://x.io | name: Short", "https://x.io | r | name: Short", "https://x.io | r | no-storefront | name: Short", "https://x.io | | no-storefront | name: Short", "https://x.io"]) {
+    const r = parseListingLine(l, "site"), back = parseListingLine(listingLine(r), "site");
+    assert.deepEqual([back.url, back.repo, back.storefront, back.label], [r.url, r.repo, r.storefront, r.label], l);
+  }
+  assert.equal(listingLine(parseListingLine("https://x.io | r", "site")), "https://x.io/ | r", "lines without a name are written as before");
+  const shown = toListing(parseListingLine("https://humanarchitecture.ai | ha-dna | name: Human Architecture", "site"), { key: "k", name: "Your Human Architecture DNA" }, HUB);
+  assert.equal(shown.name, "Human Architecture", "the owner's name wins over the fetched title");
+  assert.equal(toListing(parseListingLine("https://x.io", "site"), { key: "k", name: "Fetched" }, HUB).name, "Fetched");
+  const card = siteCards([shown]); assert.ok(card.includes("Human Architecture") && !card.includes("Your Human Architecture DNA"));
+  const city = withListingsPublic(undefined, undefined, [shown]);
+  assert.ok(JSON.stringify(city).includes('"name":"Human Architecture"'), "the storefront uses the short name");
+});
+
+test("store directory: one menu of every storefront, Stores button, valid script; private repo names never in the page", () => {
+  const rs = [{ name: "secret-engine", project: "Engine", public: false, language: "TypeScript", commits: 300, weeks: [2], week: 2, today: 0, url: "https://github.com/me/secret-engine", description: "internal" },
+    { name: "open-thing", project: "Open", public: true, language: "JavaScript", commits: 40, weeks: [], week: 0, today: 0, url: "https://github.com/me/open-thing" }];
+  const p = cityData(structuredClone(rs), () => ({ n: 0, paths: [] }));
+  const items = [L("https://apps.apple.com/app/id1234567 | secret-engine | name: Engine App", "app", { key: "apple-1234567", name: "Engine" }),
+    L("https://open.example.org | open-thing", "site", { key: "s1", name: "Open site" }), L("https://solo.io", "site", { key: "s2", name: "Solo" })];
+  for (const mode of ["show", "anonymous", "hidden"]) {
+    const pub = withListingsPublic(publicCity(p, [], mode), p, items, mode);
+    const page = renderCity({ name: "Ana" }, pub);
+    assert.ok(!page.includes("secret-engine"), `${mode}: the private repo's name never reaches the page`);
+    const data = JSON.parse(page.match(/<script type="application\/json" id="city-data">([\s\S]*?)<\/script>/)[1]);
+    assert.equal(all(data).filter(r => r.kind).length, 3, `${mode}: all three storefronts are in the city data the directory lists`);
+  }
+  const page = renderCity({ name: "Ana" }, withListingsPublic(publicCity(p, [], "show"), p, items, "show"));
+  for (const k of ["function storeDir(", "function storeList(", "t-stores", "Stores (", "is-dir", "aria-label','Stores'", "ev.key==='Escape'"]) assert.ok(page.includes(k), k);
+  assert.ok(page.includes(".c-card.is-dir{left:0;right:0;top:auto;bottom:0"), "a bottom sheet on phones");
+  const js = page.match(/<script>([\s\S]*?)<\/script><\/body>/)[1];
+  assert.doesNotThrow(() => new Function(js), "the city script parses");
 });
