@@ -1,4 +1,4 @@
-/* Caldera 0.28.6 */
+/* Caldera 0.28.7 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2267,7 +2267,7 @@ __export(main_exports, {
   default: () => CalderaPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // ../core/src/index.ts
 var import_tweetnacl = __toESM(require_nacl_fast(), 1);
@@ -2958,15 +2958,25 @@ function applyPrivateMode(c, mode) {
   if (!mode || mode === "show" || mode === "named" || c.private) return c;
   const isPriv = (r) => !!r.locked || r.public !== true || !r.name;
   let n = 0;
-  const districts = [];
+  const districts = [], moved = [];
   for (const d of c.districts) {
     if (d.apart) {
       n += d.repos.length;
       continue;
     }
-    const pub2 = d.repos.filter((r) => !isPriv(r));
-    n += d.repos.length - pub2.length;
+    const go = d.name === "Apps & sites" ? [] : d.repos.filter((r) => r.kind && r.pv);
+    moved.push(...go);
+    const pub2 = d.repos.filter((r) => !isPriv(r) && !go.includes(r));
+    n += d.repos.filter(isPriv).length;
     if (pub2.length || d.notes > 0 && !/^(private|vault)$/i.test(d.name)) districts.push({ ...d, repos: pub2 });
+  }
+  if (moved.length) {
+    let g = districts.find((x) => x.name === "Apps & sites");
+    if (!g) {
+      g = { name: "Apps & sites", notes: 0, repos: [] };
+      districts.push(g);
+    }
+    g.repos.push(...moved.map((r) => ({ ...r, project: "Apps & sites", pv: void 0 })));
   }
   const label = c.kind === "vault" ? "Vault" : "Private";
   if (mode === "anonymous" && n > 0)
@@ -3073,7 +3083,7 @@ ${cityStats(city)}
 <div class="c-tools"><button id="t-labels" aria-pressed="true" title="Labels">&#x1F3F7;&#xFE0F;<span class="t-txt"> Labels</span></button><button id="t-sky">Auto</button><button id="t-wx" title="Weather">Weather</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-snd" aria-pressed="false" title="Sound for arrivals, signups and sales (off)">&#x1F507;</button><button id="t-reset" title="Reset the view">&#x21BA;<span class="t-txt"> Reset</span></button><button id="t-pop" aria-label="Pop out a small window" title="Pop out a small window">&#x29C9;<span class="t-txt"> Pop out</span></button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
 <div class="c-toasts" aria-live="polite"></div><div class="c-mininame" aria-hidden="true"><i></i>${esc(site.name)}</div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
-<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some((r) => r.locked) ? PADLOCK_LEGEND : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
+<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some((r) => r.locked) ? PADLOCK_LEGEND : ""}${repos.some((r) => r.kind) ? '<span><i style="background:#6C63FF"></i>Apps</span><span><i style="background:#1FA39A"></i>Websites</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
 ${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.generated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}.</p>` : ""}
 </div></main></div>
@@ -3081,7 +3091,7 @@ ${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.gen
 <script>${CITY_JS}<\/script></body></html>`;
 }
 function citySnapshot(city, o) {
-  const LANG = { TypeScript: "#3178C6", JavaScript: "#E8C547", Python: "#4FB89A", HTML: "#E07A4F", Swift: "#F05138", CSS: "#6E5BD0", Shell: "#7FB24A", Go: "#2FB5D6", Rust: "#C9744A" };
+  const LANG = { TypeScript: "#3178C6", JavaScript: "#E8C547", Python: "#4FB89A", HTML: "#E07A4F", Swift: "#F05138", CSS: "#6E5BD0", Shell: "#7FB24A", Go: "#2FB5D6", Rust: "#C9744A", App: "#6C63FF", Web: "#1FA39A" };
   const shade = (hex, f2) => {
     const n = parseInt(hex.slice(1), 16);
     const c = [n >> 16, n >> 8 & 255, n & 255].map((v) => Math.round(Math.min(255, v * f2)));
@@ -3241,7 +3251,7 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 var CITY_JS = String.raw`(function(){
 var D=JSON.parse(document.getElementById('city-data').textContent);
 var cv=document.getElementById('city'),st=document.getElementById('stage'),cx=cv.getContext('2d'),card=document.getElementById('card');
-var TW=64,TH=32,LANG={TypeScript:'#3178C6',JavaScript:'#E8C547',Python:'#4FB89A',HTML:'#E07A4F',Swift:'#F05138',CSS:'#6E5BD0',Shell:'#7FB24A',Go:'#2FB5D6',Rust:'#C9744A'};
+var TW=64,TH=32,LANG={TypeScript:'#3178C6',JavaScript:'#E8C547',Python:'#4FB89A',HTML:'#E07A4F',Swift:'#F05138',CSS:'#6E5BD0',Shell:'#7FB24A',Go:'#2FB5D6',Rust:'#C9744A',App:'#6C63FF',Web:'#1FA39A'};
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var hr=new Date().getHours(),night=hr<6||hr>=19,labels=true;
 var MINI=/[#&]mini\b/.test(location.hash)||window.CALDERA_MINI===1;if(MINI){document.documentElement.classList.add('c-mini');labels=false}
@@ -3763,6 +3773,7 @@ function tronObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.w
     if(t.t==='h'&&(!BUILDING||buildF(t,i,j)>=1)){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],blk=null;blocks.forEach(function(b){if(b.d===t.d)blk=b});var hc=blk&&blk.neon||CYAN;
       for(var q2=0;q2<t.n;q2++){var hx=p.x+spots[q2][0],hy=p.y+spots[q2][1],hw=TW/2*.24,hh=TH/2*.24;c.fillStyle='#0A1220';poly(c,[[hx-hw,hy],[hx,hy+hh],[hx+hw,hy],[hx+hw,hy-6],[hx,hy-14],[hx-hw,hy-6]]);c.fill();
         glowLine(c,[[hx-hw,hy-6],[hx,hy-14],[hx+hw,hy-6]],hc,1,6);c.fillStyle=hc;c.globalAlpha=.8;c.fillRect(hx-1,hy-4,2,2);c.globalAlpha=1}}
+    if(t.t==='b'&&t.r.kind){storefront(c,p,t,true,tags);continue}
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),col=r.locked?'#CFEFFF':dm?'#5A6A80':neon(r);
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?.03:r.locked?(t.d&&t.d.apart?0:r.week?.45:.12):Math.min(.95,.25+(r.week/Math.max(wk,1))*.7);
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
@@ -3976,6 +3987,30 @@ var GLASS={TypeScript:1,Swift:1,Go:1,Rust:1,Private:1};
 function face(c,pts,col,f,y0,y1){var g=c.createLinearGradient(0,y0,0,y1);g.addColorStop(0,mix(col,f*P.light*1.04));g.addColorStop(1,mix(col,f*P.light*.78));poly(c,pts,g)}
 function awning(c,x,y,w,cols){var hw=TW/2*w,hh=TH/2*w,n=6;for(var k=0;k<n;k++){var a=k/n,b=(k+1)/n;c.fillStyle=cols[k%2];c.beginPath();
   c.moveTo(x-hw+hw*a,y+hh*a);c.lineTo(x-hw+hw*b,y+hh*b);c.lineTo(x-hw+hw*b-3,y+hh*b+5);c.lineTo(x-hw+hw*a-3,y+hh*a+5);c.closePath();c.fill()}}
+// ---- listings: apps and websites the owner listed stand as storefronts (a sign with the app's icon or the site's favicon)
+var LCOL={app:'#6C63FF',site:'#1FA39A'},LIMG={};
+function limg(u){if(!u||!/^https?:\/\/[^\s"<>]+\/v1\/listings\/img\/[A-Za-z0-9._%-]+$/.test(u))return null;var im=LIMG[u];if(im)return im.complete&&im.naturalWidth?im:null;
+  im=new Image();im.onload=function(){draw()};im.src=u;LIMG[u]=im;return null}
+function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function storefront(c,p,t,tron,tags){var r=t.r,x=p.x,y=p.y+4,col=LCOL[r.kind]||'#8A8A93',h=20,dark=tron||sky==='night'||sky==='evening',m=r.meta||{};
+  if(tron)tronPrism(c,x,y,.74,h,col,.5,hash(r.name||'l'),false);
+  else{prism(c,x,y,.74,h,col);awning(c,x,y-h+7,.8,[mix(col,1.25),'#FFF4E8']);c.fillStyle=dark?'rgba(255,214,140,.95)':'rgba(40,50,70,.55)';c.fillRect(x-3,y-8,6,8)}
+  var s=16,sy=y-h-22,im=limg(m.icon);
+  c.fillStyle=tron?col:'#6B6F7A';c.fillRect(x-.6,sy+s+2,1.2,(y-h)-(sy+s+2)+2);
+  c.save();if(dark){c.shadowColor=col;c.shadowBlur=10}c.fillStyle=tron?'rgba(2,6,12,.92)':'#FFFFFF';rrect(c,x-s/2-2,sy-2,s+4,s+4,5);c.fill();if(tron){c.strokeStyle=col;c.lineWidth=1;c.stroke()}c.restore();
+  if(im){c.save();rrect(c,x-s/2,sy,s,s,r.kind==='app'?4:3);c.clip();c.drawImage(im,x-s/2,sy,s,s);c.restore()}
+  else{c.fillStyle=col;c.font='700 10px IBM Plex Sans,Arial,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(r.name||'?').charAt(0).toUpperCase(),x,sy+s/2+.5);c.textBaseline='alphabetic'}
+  if(sel===r){c.save();c.strokeStyle=tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;rrect(c,x-s/2-4,sy-4,s+8,s+8,6);c.stroke();c.restore()}
+  hits.push({r:r,d:t.d,x0:x-TW*.42,x1:x+TW*.42,y0:sy-6,y1:p.y+TH*.45});
+  if(labels&&!WORLD&&(cam.z>.55||sel===r))tags.push({x:x,y:sy-6,text:r.name.length>18?r.name.slice(0,17)+'…':r.name,col:col,url:repoUrl(r)})}
+function listingCard(h){var r=h.r,m=r.meta||{},app=r.kind==='app',u=repoUrl(r);sel=r;
+  card.innerHTML='<button class="x" aria-label="Close">&times;</button>'+(limg(m.icon)?'<img src="'+e(m.icon)+'" alt="" style="width:44px;height:44px;border-radius:'+(app?10:8)+'px;float:right;margin:0 0 6px 8px">':'')
+   +'<h3>'+e(r.name)+'</h3><div class="k">'+(app?(m.store==='play'?'App on Google Play':'App on the App Store'):'Website'+(m.host?' &middot; '+e(m.host):''))+(h.d&&h.d.name&&!D.world?' &middot; '+e(h.d.name)+' district':'')+'</div>'
+   +(m.desc?'<p style="margin:6px 0 0">'+e(m.desc)+'</p>':'')
+   +(m.genre?'<div class="row"><span>Category</span><b>'+e(m.genre)+'</b></div>':'')
+   +(+m.rating>0?'<div class="row"><span>Rating</span><b>&#9733; '+(+m.rating).toFixed(1)+(+m.ratings>0?' ('+(+m.ratings).toLocaleString('en-US')+')':'')+'</b></div>':'')
+   +(u?'<p style="margin:8px 0 0"><a href="'+e(u)+'" target="_blank" rel="noopener">'+(app?(m.store==='play'?'Open on Google Play':'Open on the App Store'):'Visit '+e(m.host||'the site'))+' &#8599;</a></p>':'');
+  card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
 var SHOPLBL=null;
 function drawShop(c,p,LOD){if(!SHOP)return;var x=p.x,y=p.y+4,night=sky==='night'||sky==='evening';
   if(SHOP.big){var q=iso(SHOP.i+1,SHOP.j+1);x=q.x;y=q.y+4;var n=Math.min(8,Math.max(4,TOOLS.length)),pal=[['#E85D75','#FFF4E8'],['#4FB89A','#FFF4E8'],['#7AA7FF','#FFF4E8'],['#E8C547','#FFF4E8'],['#8B6CF6','#FFF4E8'],['#F28C38','#FFF4E8']];
@@ -4037,7 +4072,7 @@ function houseAt(c,px,py,col,seed){var w=.26,hw=TW/2*w,hh=TH/2*w,h=8;prism(c,px,
   c.fillStyle=sky==='night'?'rgba(255,208,120,.95)':'rgba(70,90,120,.7)';poly(c,[[px-hw*.6,py-3+hh*.4-3],[px-hw*.3,py-3+hh*.7-3],[px-hw*.3,py-3+hh*.7-6],[px-hw*.6,py-3+hh*.4-6]]);c.fill()}
 function lamp(c,px,py){c.strokeStyle=sky==='night'?'#555B66':'#4A4F58';c.lineWidth=1;c.beginPath();c.moveTo(px,py);c.lineTo(px,py-14);c.lineTo(px+3,py-15);c.stroke();c.fillStyle=sky==='night'?'#FFE3A0':'#C9CDD4';c.fillRect(px+2,py-16,3,2)}
 // a public repo's name label is a link to it (private and locked buildings never link)
-var tagHits=[];function repoUrl(r){return !r.locked&&r.public!==false&&/^https:\/\/[^\s"<>]+$/.test(r.url||'')?r.url:''}
+var tagHits=[];function repoUrl(r){return !r.locked&&r.public!==false&&(/^https:\/\/[^\s"<>]+$/.test(r.url||'')||(r.kind==='site'&&/^http:\/\/[^\s"<>]+$/.test(r.url||'')))?r.url:''}
 function tagHit(c,g,font){if(!g.url)return;c.font=font;var w=c.measureText(g.text).width+12;tagHits.push({x0:g.x-w/2,x1:g.x+w/2,y0:g.y-17,y1:g.y+2,url:g.url})}
 function openRepo(u){if(u)window.open(u,'_blank','noopener')}
 function pill(c,x,y,text,bg,fg,font){c.font=font;var tw=c.measureText(text).width,w=tw+12,h=17,r=8.5;c.save();c.shadowColor='rgba(0,0,0,.3)';c.shadowBlur=6;c.shadowOffsetY=2;c.fillStyle=bg;c.beginPath();
@@ -4051,6 +4086,7 @@ function drawObjects(){var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(1,0,0,1,0
     if(t.t==='w')drawShop(c,p,LOD);
     if(t.t==='p'){tree2(c,p.x-10,p.y+1,.9);pine(c,p.x+11,p.y-2,.8);tree2(c,p.x+2,p.y+7,.6)}
     if(t.t==='h'){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],sd=hash(t.d.name);for(var q=0;q<t.n;q++)houseAt(c,p.x+spots[q][0],p.y+spots[q][1],['#E8DCC8','#CFD8E6','#EAD2B8','#D2E0CC'][(sd+q)%4],sd+q)}
+    if(t.t==='b'&&t.r.kind){storefront(c,p,t,false,tags);continue}
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;if(bf<1)h=Math.max(2,h*bf);
       var col=r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
@@ -4119,17 +4155,21 @@ var GT={},GL={},GS={},glowAt=0,glowDraw=0;
   // (its website on GitHub, or "sites" in city.json) owns it; otherwise the one repo named like the site ("relay" for
   // relay.example.com). A site no repo owns puts nobody anywhere: people only ever stand where the visitors really are.
   function sNorm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
-  function sHostOwns(sites,h){if(!sites||!h||h.indexOf('.')<0)return false;for(var i=0;i<sites.length;i++){var s=String(sites[i]);if(h===s||h.slice(-s.length-1)==='.'+s)return true}return false}
+  // a site is a host ("kitse.co", also owning its subdomains) or a page ("mjonesone.com/dictate", owning only visits the hub
+  // reports for that path). A path site never takes a whole host's visitors: nobody stands where they weren't.
+  function sHostOwns(sites,h){if(!sites||!h||h.indexOf('.')<0)return false;var hh=h.split('/')[0];for(var i=0;i<sites.length;i++){var s=String(sites[i]);
+    if(s.indexOf('/')>=0){if(h===s||h.indexOf(s+'/')===0)return true;continue}if(hh===s||hh.slice(-s.length-1)==='.'+s)return true}return false}
   function sWord(h){var l=String(h).split('.');while(l.length>2&&/^(www|app|m|my|go|get|beta|staging)$/.test(l[0]))l.shift();return sNorm(l[0])}
   var SBK=null,SBT=null,SBG=null,SBAt=0;
   function siteBook(){if(SBK&&SBT===tiles&&SBG===GS&&(!BUILDING||T-SBAt<1000))return SBK;SBT=tiles;SBG=GS;SBAt=T;SBK=new Map();var by={},k,dn;   // rebuilt when the layout or the live data changes
-    for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t)}
+    var stores=[];for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t);if(t.r.kind==='site')stores.push(t)}
     for(dn in by){var ts=by[dn],d=ts[0].d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null;if(!ds)continue;var mx=0;for(k in ds)mx=Math.max(mx,ds[k]);
-      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(t.r.sites,k)});
+      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(t.r.sites,k)}),kk=k;
+        var pth=own.filter(function(t){return (t.r.sites||[]).some(function(x){x=String(x);return x.indexOf('/')>=0&&(kk===x||kk.indexOf(x+'/')===0)})});if(pth.length)own=pth;   // a page (host/path) beats its bare host
         if(!own.length){var w=k.indexOf('.')<0?sNorm(k):sWord(k),best=null,bs=0;
           if(w.length>=3)ts.forEach(function(t){var rn=sNorm(t.r.name),sc=rn===w?1000:(w.length>=4&&rn.indexOf(w)>=0)||(rn.length>=4&&w.indexOf(rn)>=0)?100-Math.abs(rn.length-w.length):0;
             if(sc>bs&&!(t.r.sites&&t.r.sites.length&&sc<1000)){bs=sc;best=t}});   // a repo that names its own sites isn't guessed into another
-          if(best)own=[best]}
+          if(best)own=[best];else own=stores.filter(function(t){return t.d!==d&&sHostOwns(t.r.sites,k)})}   // a listed website standing in another district
         own.forEach(function(t){SBK.set(t.r,Math.max(SBK.get(t.r)||0,share))})}}
     return SBK}
   function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;return gw*(siteBook().get(t.r)||0)}
@@ -4161,7 +4201,7 @@ function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={workin
      +'<div class="row"><span>Where</span><b>'+(a.repo?e(a.repo)+' &middot; ':'')+where+'</b></div>'+(a.tokens?'<div class="row"><span>Tokens today</span><b>'+(+a.tokens).toLocaleString('en-US')+'</b></div>':'')
     :'<h3>AI agent</h3><p style="margin:6px 0 0">An agent is '+st+(a.d?' in the '+where:'')+'. What it is working on is private.</p>');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
-function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
+function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}if(h.r&&h.r.kind)return listingCard(h);var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
   if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">'+(d.apart?'This person keeps private work anonymous: these padlocks don\'t show how many repos there are, how big they are, which projects they belong to or when they were busy.':'The details of this building are private. Its size and lights show roughly how much work goes on inside.')+'</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':r.priv?' &middot; &#128274; private repo, code not shared':'')+'</div>'
@@ -4601,7 +4641,393 @@ function vaultKinds(app, md) {
 }
 
 // src/settings.ts
+var import_obsidian3 = require("obsidian");
+
+// src/listings.ts
+var MAX_LISTINGS = 12;
+var LISTING_DISTRICT = "Apps & sites";
+var REPO_RX = /^[A-Za-z0-9._-]{1,100}$/;
+var PKG_RX = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
+var clean = (v, n) => String(v ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+function shortHash(s) {
+  let a = 2166136261, b = 16777619 ^ 1540483477;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    a = Math.imul(a ^ c, 16777619) >>> 0;
+    b = Math.imul(b ^ c, 1540483477) >>> 0;
+  }
+  return (a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0")).slice(0, 14);
+}
+function parseAppUrl(raw) {
+  let u;
+  try {
+    u = new URL(String(raw || "").trim());
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" || u.username || u.password || u.port && u.port !== "443") return null;
+  if (u.hostname === "apps.apple.com") {
+    const m = u.pathname.match(/\/id(\d{5,12})(?:\/|$)/);
+    if (!m) return null;
+    return { kind: "app", store: "apple", id: m[1], key: `apple-${m[1]}`, url: `https://apps.apple.com/app/id${m[1]}` };
+  }
+  if (u.hostname === "play.google.com" && /^\/store\/apps\/details\/?$/.test(u.pathname)) {
+    const id = u.searchParams.get("id") || "";
+    if (!PKG_RX.test(id) || id.length > 150) return null;
+    return { kind: "app", store: "play", id, key: `play-${id}`, url: `https://play.google.com/store/apps/details?id=${id}` };
+  }
+  return null;
+}
+function parseSiteUrl(raw) {
+  let s = String(raw || "").trim();
+  if (!s) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = "https://" + s;
+  let u;
+  try {
+    u = new URL(s);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:" || u.username || u.password) return null;
+  if (u.port && u.port !== "80" && u.port !== "443") return null;
+  const h = u.hostname.toLowerCase();
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h) || /^\d+(\.\d+){3}$/.test(h) || h.length > 253) return null;
+  if (/(^|\.)(localhost|local|internal|intranet|lan|home|corp|localdomain|test|invalid|example)$/.test(h)) return null;
+  if (h === "apps.apple.com" || h === "play.google.com") return null;
+  const url = `${u.protocol}//${h}${u.pathname === "/" ? "/" : u.pathname.replace(/\/+$/, "")}`.slice(0, 300);
+  return { kind: "site", key: `site-${shortHash(url)}`, url, host: cleanSites(h)?.[0] || h.replace(/^www\./, "") };
+}
+var NO_STOREFRONT = "no-storefront";
+var isFlag = (v) => /^no-?storefront$/i.test(v);
+function parseListingLine(line, kind) {
+  const [a = "", ...rest] = String(line ?? "").split("|").map((x) => x.trim());
+  const ref = kind === "app" ? parseAppUrl(a) : parseSiteUrl(a);
+  if (!ref) return null;
+  for (const v of rest) {
+    if (!v) continue;
+    if (isFlag(v)) ref.storefront = false;
+    else if (!ref.repo && REPO_RX.test(v)) ref.repo = v;
+  }
+  return ref;
+}
+function listingLine(r) {
+  return r.storefront === false ? `${r.url} | ${r.repo || ""} | ${NO_STOREFRONT}` : r.repo ? `${r.url} | ${r.repo}` : r.url;
+}
+function storefrontOn(l, hideStorefronts = []) {
+  if (l.storefront === false) return false;
+  return !(l.repo && hideStorefronts.some((h) => h.trim().toLowerCase() === l.repo.toLowerCase()));
+}
+function parseListings(raw, kind) {
+  const lines = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(/\r?\n/) : [];
+  const out = [], seen = /* @__PURE__ */ new Set();
+  for (const l of lines) {
+    const r = parseListingLine(l, kind);
+    if (!r || seen.has(r.key)) continue;
+    seen.add(r.key);
+    out.push(r);
+    if (out.length >= MAX_LISTINGS) break;
+  }
+  return out;
+}
+function fallbackName(r) {
+  if (r.kind === "site") return r.host || "Website";
+  if (r.store === "play" && r.id) {
+    const last = r.id.split(".").pop() || r.id;
+    return last.charAt(0).toUpperCase() + last.slice(1);
+  }
+  return "App";
+}
+function toListing(r, m, hub) {
+  const base = hub.replace(/\/$/, "");
+  const rating = Number(m?.rating), ratings = Number(m?.ratings);
+  const img = m?.img && /^[a-z0-9._-]{3,170}$/i.test(m.img) ? `${base}/v1/listings/img/${encodeURIComponent(m.img)}` : void 0;
+  return {
+    kind: r.kind,
+    key: r.key,
+    url: r.url,
+    store: r.store,
+    host: r.host,
+    repo: r.repo,
+    ...r.storefront === false ? { storefront: false } : {},
+    name: clean(m?.name, 80) || fallbackName(r),
+    icon: img,
+    genre: clean(m?.genre, 40) || void 0,
+    seller: clean(m?.seller, 80) || void 0,
+    desc: clean(m?.desc, 200) || void 0,
+    rating: rating > 0 && rating <= 5 ? Math.round(rating * 10) / 10 : void 0,
+    ratings: ratings > 0 ? Math.round(ratings) : void 0
+  };
+}
+function listingBuilding(l, project, besidePrivate = false) {
+  const site = l.kind === "site" ? siteKey(l) : "";
+  return {
+    ...besidePrivate ? { pv: true } : {},
+    name: clean(l.name, 60) || "App",
+    project,
+    public: true,
+    language: l.kind === "app" ? "App" : "Web",
+    commits: 0,
+    weeks: [],
+    week: 0,
+    today: 0,
+    url: l.url,
+    kind: l.kind,
+    ...site ? { sites: [site] } : {},
+    meta: { store: l.store, icon: l.icon, genre: l.genre, rating: l.rating, ratings: l.ratings, desc: l.desc, host: l.host }
+  };
+}
+function siteKey(l) {
+  let path = "";
+  try {
+    path = new URL(l.url).pathname.toLowerCase().replace(/\/+$/, "");
+  } catch {
+  }
+  return (l.host || "") + (/^\/[a-z0-9._~%\/-]{1,120}$/.test(path) ? path : "");
+}
+var lc = (v) => v.trim().toLowerCase();
+var findRepo = (c, name) => {
+  const n = lc(name);
+  for (const d of c?.districts || []) for (const r of d.repos) if (!r.kind && r.name && lc(r.name) === n) return { d, r };
+  return null;
+};
+var general = (ds) => {
+  let g = ds.find((d) => d.name === LISTING_DISTRICT);
+  if (!g) {
+    g = { name: LISTING_DISTRICT, notes: 0, repos: [] };
+    ds.push(g);
+  }
+  return g;
+};
+var copy = (c) => ({ ...c, districts: c.districts.map((d) => ({ ...d, repos: d.repos.map((r) => ({ ...r })) })) });
+var addSite = (r, host) => {
+  if (host) r.sites = cleanSites([...r.sites || [], host]);
+};
+var dropEmptyGeneral = (c) => {
+  if (!c.districts.find((d) => d.name === LISTING_DISTRICT)?.repos.length) c.districts = c.districts.filter((d) => d.name !== LISTING_DISTRICT);
+  return c;
+};
+function withListingsPrivate(city, items, hideStorefronts = []) {
+  if (!items.length) return city;
+  const c = city ? copy(city) : { districts: [], private: true };
+  for (const l of items) {
+    const hit = l.repo ? findRepo(c, l.repo) : null;
+    if (!storefrontOn(l, hideStorefronts)) {
+      if (hit && l.kind === "site" && l.storefront === false) addSite(hit.r, l.host);
+      continue;
+    }
+    (hit ? hit.d : general(c.districts)).repos.push(listingBuilding(l, hit ? hit.d.name : LISTING_DISTRICT));
+  }
+  return dropEmptyGeneral(c);
+}
+function withListingsPublic(pub, priv, items, mode = "show", hideRepos = [], hideStorefronts = []) {
+  const hs = new Set(hideStorefronts.map(lc).filter(Boolean));
+  if (!items.length && !hs.size) return pub;
+  const c = pub ? copy(pub) : { districts: [], private: false };
+  const owned = new Set(items.filter((l) => l.kind === "site" && l.repo && storefrontOn(l, hideStorefronts)).map((l) => lc(l.repo)));
+  for (const d of c.districts) for (const r of d.repos) if (!r.kind && r.name && (hs.has(lc(r.name)) || owned.has(lc(r.name)))) delete r.sites;
+  const hide = new Set(hideRepos.map(lc).filter(Boolean));
+  for (const l of items) {
+    const hit = l.repo ? findRepo(priv, l.repo) : null;
+    let district = null, named = null, pv = false;
+    if (hit) {
+      const pd = c.districts.find((d2) => d2.name === hit.d.name && !d2.apart) || null;
+      const shownByName = hit.r.public || mode === "named" && !hide.has(lc(hit.r.name));
+      const placeOk = hit.r.public || mode === "named" || mode === "show";
+      if (pd && placeOk) {
+        district = pd;
+        pv = !hit.r.public;
+        if (shownByName) named = pd.repos.find((r) => !r.kind && !r.locked && lc(r.name) === lc(hit.r.name)) || null;
+      }
+    }
+    if (!storefrontOn(l, [...hs])) {
+      if (l.kind === "site" && l.storefront === false && named && !hs.has(lc(named.name))) addSite(named, l.host);
+      continue;
+    }
+    const d = district || general(c.districts);
+    d.repos.push(listingBuilding(l, d.name, pv && !!district));
+  }
+  return dropEmptyGeneral(c);
+}
+var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var httpsOk = (u) => /^https?:\/\/[^\s"<>]+$/.test(u);
+var imgOk = (u) => !!u && /^https:\/\/[^\s"<>]+\/v1\/listings\/img\/[A-Za-z0-9._%-]+$/.test(u);
+var stars = (r) => r ? `<span class="ls-rate" title="${r} out of 5">&#9733; ${r.toFixed(1)}</span>` : "";
+function appsCards(apps) {
+  return `<div class="ls-grid">${apps.filter((a) => a.kind === "app" && httpsOk(a.url)).map((a) => `<a class="ls-card" href="${esc2(a.url)}" target="_blank" rel="noopener">${imgOk(a.icon) ? `<img class="ls-icon app" src="${esc2(a.icon)}" alt="" loading="lazy" width="56" height="56">` : `<span class="ls-icon app ls-ph" aria-hidden="true">${esc2((a.name || "A").charAt(0))}</span>`}<span class="ls-body"><span class="ls-name">${esc2(a.name)}</span><span class="ls-sub">${[a.genre ? esc2(a.genre) : "", stars(a.rating)].filter(Boolean).join(" &middot; ")}</span><span class="ls-store">${a.store === "play" ? "Google Play" : "App Store"} &#8599;</span></span></a>`).join("")}</div>`;
+}
+function siteCards(sites) {
+  return `<div class="ls-grid">${sites.filter((s) => s.kind === "site" && httpsOk(s.url)).map((s) => `<a class="ls-card" href="${esc2(s.url)}" target="_blank" rel="noopener">${imgOk(s.icon) ? `<img class="ls-icon site" src="${esc2(s.icon)}" alt="" loading="lazy" width="40" height="40">` : `<span class="ls-icon site ls-ph" aria-hidden="true">${esc2((s.host || "W").charAt(0).toUpperCase())}</span>`}<span class="ls-body"><span class="ls-name">${esc2(s.name)}</span><span class="ls-host">${esc2(s.host || "")} &#8599;</span>${s.desc ? `<span class="ls-desc">${esc2(s.desc)}</span>` : ""}</span></a>`).join("")}</div>`;
+}
+var LISTINGS_CSS = `
+.ls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-3); margin: var(--space-2) 0 var(--space-6); }
+.ls-card { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--text); text-decoration: none; min-width: 0; }
+.ls-card:hover { border-color: var(--line-strong); }
+.ls-icon { flex: none; object-fit: cover; background: var(--bg-sunken); }
+.ls-icon.app { width: 56px; height: 56px; border-radius: 13px; }
+.ls-icon.site { width: 40px; height: 40px; border-radius: 9px; }
+.ls-ph { display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: var(--accent-text); font-size: var(--text-lg); }
+.ls-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ls-name { font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
+.ls-sub, .ls-host, .ls-store { font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+.ls-store { color: var(--accent-text); }
+.ls-desc { font-size: var(--text-sm); color: var(--text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ls-rate { white-space: nowrap; }
+`;
+
+// src/profile-file.ts
 var import_obsidian2 = require("obsidian");
+var PROFILE_FILE = "Caldera/profile.md";
+var pair = (v) => {
+  const [a, ...b] = String(v ?? "").split("|");
+  const k = a.trim(), val = b.join("|").trim();
+  return k && val ? [k, val] : null;
+};
+var pairs = (v) => Array.isArray(v) ? v.map(pair).filter(Boolean) : null;
+function effectiveSettings(app, s) {
+  const f = app.vault.getAbstractFileByPath(PROFILE_FILE);
+  const fm = f instanceof import_obsidian2.TFile ? app.metadataCache.getFileCache(f)?.frontmatter : null;
+  if (!fm) return s;
+  const e = { ...s, sections: { ...s.sections } };
+  if (typeof fm.name === "string" && fm.name.trim()) e.name = fm.name.trim();
+  if (typeof fm.headline === "string") e.headline = fm.headline.trim();
+  if (typeof fm.photo === "string") e.avatarPath = fm.photo.trim();
+  if (typeof fm.banner === "string") e.bannerPath = fm.banner.trim();
+  e.links = pairs(fm.links) ?? e.links;
+  e.properties = pairs(fm.properties) ?? e.properties;
+  const topics = pairs(fm.topics);
+  if (topics) e.publicTopics = topics.map(([tag, label]) => [tag.replace(/^#/, ""), label]);
+  if (fm.sections && typeof fm.sections === "object") for (const [k, v] of Object.entries(fm.sections)) e.sections[k] = v !== false;
+  if (typeof fm.listed === "boolean") e.listed = fm.listed;
+  if (typeof fm.autoConnectRepos === "boolean") e.autoConnectRepos = fm.autoConnectRepos;
+  if (typeof fm.autoConnectGithub === "boolean") e.autoConnectRepos = fm.autoConnectGithub;
+  const list = (v) => Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : typeof v === "string" ? v.split(",").map((x) => x.trim()).filter(Boolean) : null;
+  {
+    const t = list(fm.tags);
+    if (t) e.tags = t.slice(0, 12);
+    const h = list(fm.hideTags);
+    if (h) e.hideTags = h.slice(0, 40);
+    const hr = list(fm.hideRepos);
+    if (hr) e.hideRepos = hr.slice(0, 200);
+  }
+  {
+    const hs = Array.isArray(fm.hideStorefronts) ? fm.hideStorefronts.map((x) => String(x ?? "").trim()).filter(Boolean) : typeof fm.hideStorefronts === "string" ? fm.hideStorefronts.split(",").map((x) => x.trim()).filter(Boolean) : null;
+    if (hs) e.hideStorefronts = hs.slice(0, 300);
+  }
+  if (typeof fm.autoTags === "boolean") e.autoTags = fm.autoTags;
+  if (["show", "anonymous", "hidden", "named"].includes(String(fm.privateRepos))) e.privateRepos = fm.privateRepos;
+  if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x) => {
+    const [g = "", items = "", folder = ""] = String(x ?? "").split("|").map((v) => v.trim());
+    return [g, items, folder || void 0];
+  }).filter(([g]) => g);
+  if (Array.isArray(fm.graph)) e.graph = fm.graph.map((x) => String(x).trim()).filter(Boolean).slice(0, 20);
+  e.backlinks = pairs(fm.backlinks) ?? e.backlinks;
+  if (typeof fm.summary === "string") e.summary = fm.summary.trim();
+  if (Array.isArray(fm.now)) e.now = fm.now.map((x) => String(x).trim()).filter(Boolean).slice(0, 8);
+  if (String(fm.now ?? "").trim().toLowerCase() === "auto") {
+    e.now = [];
+    e.nowAuto = true;
+  }
+  e.timeline = pairs(fm.timeline) ?? e.timeline;
+  e.projects = pairs(fm.projects) ?? e.projects;
+  e.knows = pairs(fm.knows) ?? e.knows;
+  if (typeof fm.garden === "string") e.gardenFolder = fm.garden.trim().replace(/^\/+|\/+$/g, "");
+  if (typeof fm.garden_journal === "boolean") e.gardenJournal = fm.garden_journal;
+  if (typeof fm.garden_url === "string") e.gardenUrl = /^https:\/\//.test(fm.garden_url.trim()) ? fm.garden_url.trim() : "";
+  for (const k of ["apps", "websites"]) {
+    const v = fm[k];
+    if (Array.isArray(v)) e[k] = v.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 24);
+    else if (typeof v === "string") e[k] = v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean).slice(0, 24);
+  }
+  if (Array.isArray(fm.tabs)) e.tabs = fm.tabs.map((x) => String(x).trim()).filter(Boolean).slice(0, 5);
+  return e;
+}
+var q = (v) => JSON.stringify(v);
+function profileFileText(s, hubUrl) {
+  const list = (rows) => rows.length ? rows.map((r) => `  - ${q(r)}`).join("\n") : "  []";
+  return `---
+name: ${q(s.name)}
+headline: ${q(s.headline)}
+photo: ${q(s.avatarPath)}
+banner: ${q(s.bannerPath)}
+links:
+${list(s.links.map(([a, b]) => `${a} | ${b}`))}
+properties:
+${list(s.properties.map(([a, b]) => `${a} | ${b}`))}
+topics:
+${list(s.publicTopics.map(([a, b]) => `${a} | ${b}`))}
+sections:
+${Object.entries(s.sections).map(([k, v]) => `  ${k}: ${v}`).join("\n")}
+listed: ${s.listed !== false}
+summary: ${q(s.summary || "")}
+now:${s.nowAuto ? " auto" : "\n" + list(s.now || [])}
+timeline:
+${list((s.timeline || []).map(([a, b]) => `${a} | ${b}`))}
+projects:
+${list((s.projects || []).map(([a, b]) => `${a} | ${b}`))}
+apps:
+${list(s.apps || [])}
+websites:
+${list(s.websites || [])}
+hideStorefronts:
+${list(s.hideStorefronts || [])}
+knows:
+${list((s.knows || []).map(([a, b]) => `${a} | ${b}`))}
+tabs:
+${list(s.tabs || [])}
+${gardenEnabled() ? `garden: ${q(s.gardenFolder ?? "Garden")}
+garden_url: ${q(s.gardenUrl || "")}
+garden_journal: ${s.gardenJournal !== false}
+` : ""}sidebar:
+${list((s.tree || []).map(([a, b, c]) => `${a} | ${b}${c ? ` | ${c}` : ""}`))}
+graph:
+${list(s.graph || [])}
+backlinks:
+${list((s.backlinks || []).map(([a, b]) => `${a} | ${b}`))}
+---
+# My Caldera profile
+
+This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}/ . Edit the properties above, or ask your AI agent to, and the page republishes itself about a minute after you save. **Everything above is public.**
+
+- **name, headline** - shown at the top of your page.
+- **photo, banner** - paths to images in this vault, e.g. \`Attachments/me.jpg\`.
+- **links** - \`Label | https://...\`, one per line.
+- **properties** - short facts, \`Label | value\` (e.g. \`Based in | Lisbon\`).
+- **topics** - which of your tags may be counted publicly, \`tag | Label\`. Tags not listed are never shown.
+- **sections** - switch parts of the page on or off: ${Object.keys(s.sections).join(", ")}.
+- **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
+- **autoConnectGithub** (or autoConnectRepos) - \`false\` stops Caldera making you friends with members you follow, who follow you, or who work on the same public GitHub repos (on by default).
+- **tags** - what you're building, shown as chips on your page and searchable in People (e.g. \`[Social features, Next.js]\`). **hideTags** hides tags Caldera worked out from your public GitHub; **autoTags** \`false\` turns those off entirely.
+- **privateRepos** - how private repos show on your public city: \`named\` (like your private view: names, language colours and activity in their real projects, but no links or code), \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything. **hideRepos** - with \`named\`, private repos to keep as nameless padlocks anyway (e.g. \`[client-project, secret-launch]\`).
+- **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
+- **now** - what you're doing now, one line each. Or \`now: auto\` (and when there's no list): your last week of journal wins, updated on every publish.
+- **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
+- **projects** - \`Name | status | https://link\`.
+- **apps** - your apps in the App Store or Google Play, one store link each (e.g. \`https://apps.apple.com/us/app/name/id123456789\`). Add \` | repo-name\` to stand the app beside that repo in your city; a private repo's name is never shown. Name, icon, category and rating come from the store. Up to 12.
+- **websites** - sites you run, one link each (http or https). Add \` | repo-name\` to tie a site to the repo that builds it, so its live visitors walk into that building. Title, icon and description come from the site. Up to 12.
+- **Storefronts** - every app and website you list stands as a storefront building in your city (its profile card shows either way). Turn one off with a third field: \`link | repo-name | no-storefront\` (no repo: \`link | | no-storefront\`). A website with its storefront off, tied to a repo shown by name, lights up that repo's building instead.
+- **hideStorefronts** - repos whose apps and websites get no storefront, e.g. \`[old-site, client-work]\`. Those repos' own websites (GitHub homepage or city.json) are also left off your public city.
+- **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
+- **tabs** - extra tab labels in the top bar, like \`Now.md\`.
+${gardenEnabled() ? `- **garden** - a folder whose notes are published as full pages (your digital garden). Default \`Garden\`. Any note can also opt in with \`caldera: garden\`; \`caldera: private\` keeps a note out. In a garden note, \`stage: seedling | budding | evergreen\` and \`license: all-rights | cc-by | cc-by-nc | cc0 | ai-licensable\`. Email addresses and phone numbers are removed automatically. Link a friend's note with \`[[@handle/Their note]]\`.
+- **garden_journal** - \`true\` (default) grows garden pages from your daily journal: one per public project it keeps mentioning and one per recurring theme. Only journal text that is already public is used. \`false\` turns it off.
+- **garden_url** - an existing garden elsewhere (Quartz, Obsidian Publish...), linked from your page.
+` : ""}- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Caldera, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
+- **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
+- **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.
+- **Your own sections (modules)** - add a note to \`Caldera/modules/\` (e.g. \`Caldera/modules/Reading list.md\`) and it becomes a section on your page, titled with the file name. Write ordinary Markdown: lists, tables, quotes, links, images from the vault. Optional frontmatter: \`place: side\` (right-hand column), \`order: 10\`, \`publish: false\` (draft). Or ask your AI agent: "add a Talks module with my last five talks".
+
+Your handle and identity key live in Settings -> Caldera, never here. Guide: ${hubUrl.replace(/\/$/, "")}/guide.html
+`;
+}
+async function ensureProfileFile(app, s, hubUrl) {
+  const existing = app.vault.getAbstractFileByPath(PROFILE_FILE);
+  if (existing instanceof import_obsidian2.TFile) return existing;
+  if (!app.vault.getAbstractFileByPath("Caldera")) await app.vault.createFolder("Caldera").catch(() => {
+  });
+  return app.vault.create(PROFILE_FILE, profileFileText(s, hubUrl));
+}
+
+// src/settings.ts
 var DEFAULT_SETTINGS = {
   hubUrl: "https://caldera.social",
   identity: null,
@@ -4653,7 +5079,7 @@ var SECTION_LABELS = {
   garden: "Garden (full pages for notes you plant: Garden folder or caldera: garden)",
   city: "City (your GitHub as a little city: add GitHub | https://github.com/you to Links, or write Caldera/city.json yourself)"
 };
-var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
+var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -4663,7 +5089,7 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     const s = this.plugin.settings;
     containerEl.empty();
     containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
-    new import_obsidian2.Setting(containerEl).setName("Connections").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Connections").setHeading();
     const lights = containerEl.createDiv({ cls: "caldera-conn" });
     lights.createEl("p", { text: s.identity && s.handle ? "Checking..." : "Publish your page to see your connections.", cls: "setting-item-description" });
     if (s.identity && s.handle) void this.plugin.ownerActivity(new Date(Date.now() - 864e5).toISOString()).then((a) => {
@@ -4691,68 +5117,68 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       lights.empty();
       lights.createEl("p", { text: "Couldn't reach the hub.", cls: "setting-item-description" });
     });
-    new import_obsidian2.Setting(containerEl).setName("Set them up on caldera.social").setDesc("Opens your settings page, already signed in, with a step-by-step for anything that's grey.").addButton((b) => b.setButtonText("Open settings").setDisabled(!s.identity || !s.handle).onClick(() => void this.plugin.openProfile("settings")));
-    new import_obsidian2.Setting(containerEl).setName("Identity").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet").addButton((b) => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
+    new import_obsidian3.Setting(containerEl).setName("Set them up on caldera.social").setDesc("Opens your settings page, already signed in, with a step-by-step for anything that's grey.").addButton((b) => b.setButtonText("Open settings").setDisabled(!s.identity || !s.handle).onClick(() => void this.plugin.openProfile("settings")));
+    new import_obsidian3.Setting(containerEl).setName("Identity").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Your Caldera ID").setDesc(s.identity ? s.identity.id : "Not created yet").addButton((b) => b.setButtonText(s.identity ? "Copy ID" : "Create identity").onClick(async () => {
       if (!s.identity) {
         await this.plugin.ensureIdentity();
         this.display();
       } else {
         await navigator.clipboard.writeText(s.identity.id);
-        new import_obsidian2.Notice("ID copied");
+        new import_obsidian3.Notice("ID copied");
       }
     })).addButton((b) => b.setButtonText("Export recovery key").setDisabled(!s.identity).onClick(async () => {
       await navigator.clipboard.writeText(btoa(JSON.stringify(s.identity)));
-      new import_obsidian2.Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
+      new import_obsidian3.Notice("Recovery key copied. Store it somewhere safe; anyone with it can act as you.");
     }));
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
     let claim = "";
-    new import_obsidian2.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
+    new import_obsidian3.Setting(containerEl).setName("Import a GitHub sign-up").setDesc("Started your Caldera profile with GitHub on the website? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => {
       claim = v.trim();
     })).addButton((b) => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then((ok) => {
       if (ok) this.display();
     })));
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
-    new import_obsidian2.Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.").addToggle((t) => t.setValue(s.listed !== false).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("List me in the directory").setDesc("Show your profile card on the public People page. Off: your page still works for anyone with the link, but isn't browsable.").addToggle((t) => t.setValue(s.listed !== false).onChange(async (v) => {
       s.listed = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("Connect me with my GitHub people").setDesc("Become friends automatically with Caldera members you follow or who follow you on GitHub, or who work on the same public repos, including people who join later. Remove one like any friend and it never comes back.").addToggle((t) => t.setValue(s.autoConnectRepos !== false).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Connect me with my GitHub people").setDesc("Become friends automatically with Caldera members you follow or who follow you on GitHub, or who work on the same public repos, including people who join later. Remove one like any friend and it never comes back.").addToggle((t) => t.setValue(s.autoConnectRepos !== false).onChange(async (v) => {
       s.autoConnectRepos = v;
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
-    new import_obsidian2.Setting(containerEl).setName("Tag me from my public GitHub").setDesc("Shows what you're building (like AI agents or Next.js) on your page and in People, worked out from your public repos' topics, descriptions, READMEs and dependencies. Private repos only ever add a language. Add or hide tags with tags / hideTags in Caldera/profile.md, or on caldera.social/me/building.").addToggle((t) => t.setValue(s.autoTags !== false).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Tag me from my public GitHub").setDesc("Shows what you're building (like AI agents or Next.js) on your page and in People, worked out from your public repos' topics, descriptions, READMEs and dependencies. Private repos only ever add a language. Add or hide tags with tags / hideTags in Caldera/profile.md, or on caldera.social/me/building.").addToggle((t) => t.setValue(s.autoTags !== false).onChange(async (v) => {
       s.autoTags = v;
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
-    new import_obsidian2.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
       s.privateRepos = v || void 0;
       s.privateReposTs = (/* @__PURE__ */ new Date()).toISOString();
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
-    new import_obsidian2.Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.").addToggle((t) => t.setValue(s.showViews !== false).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Show my view count").setDesc("Your page shows how many people have viewed it (one per visitor per day). Off: only you see the count, in the bar when you're signed in and in your private view.").addToggle((t) => t.setValue(s.showViews !== false).onChange(async (v) => {
       s.showViews = v;
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
-    new import_obsidian2.Setting(containerEl).setName("Friends and sharing").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
-    new import_obsidian2.Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`).addText((t) => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Friends and sharing").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
+    new import_obsidian3.Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`).addText((t) => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async (v) => {
       s.groups = groupsFrom(v);
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
     let email = s.summaryEmail || "";
-    new import_obsidian2.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and new followers, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
-    new import_obsidian2.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: follow each person who joins Caldera from now on, with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Email me a daily summary").setDesc("One short email on days something happens: who visited your page, kudos and new followers, people to meet. We send a confirmation link first; every email has a one-click unsubscribe. Leave empty and save to turn it off.").addText((t) => t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Save").onClick(() => this.plugin.setSummaryEmail(email)));
+    new import_obsidian3.Setting(containerEl).setName("Welcome new members").setDesc("For community hosts: follow each person who joins Caldera from now on, with the note below (up to 10 a day). Off by default.").addToggle((t) => t.setValue(!!s.welcomeNew).onChange(async (v) => {
       s.welcomeNew = v;
       if (v && !s.welcomeSince) s.welcomeSince = (/* @__PURE__ */ new Date()).toISOString();
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("Welcome note").addTextArea((t) => {
+    new import_obsidian3.Setting(containerEl).setName("Welcome note").addTextArea((t) => {
       t.setValue(s.welcomeNote || WELCOME_NOTE);
       t.inputEl.rows = 2;
       t.onChange(async (v) => {
@@ -4760,41 +5186,47 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian2.Setting(containerEl).setName("Profile").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.").addButton((b) => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
+    new import_obsidian3.Setting(containerEl).setName("Profile").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Edit your page as a note").setDesc("Name, headline, photo, links, topics and sections also live in Caldera/profile.md. Edit it (or ask your AI agent to) and the page republishes itself. Values there win over the fields below.").addButton((b) => b.setButtonText("Open profile file").onClick(() => this.plugin.openProfileFile()));
     this.text("Name", "", "name");
     this.text("Headline", "One line under your name", "headline");
     this.text("Avatar image", "Path in your vault, e.g. Attachments/me.jpg", "avatarPath");
     this.text("Banner image", "Path in your vault", "bannerPath");
-    new import_obsidian2.Setting(containerEl).setName("Theme").addDropdown((d) => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Theme").addDropdown((d) => d.addOptions({ dark: "Dark", light: "Light" }).setValue(s.theme).onChange(async (v) => {
       s.theme = v;
       await this.plugin.saveSettings();
     }));
     this.pairs("Links", "One per line: Label | https://url", "links");
-    new import_obsidian2.Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.").addText((t) => t.setPlaceholder("octocat").setValue(githubUser(s.links || []) || "").onChange(async (v) => {
+    this.listing("Apps", "Your apps in the App Store or Google Play (up to 12). Each one gets a card on your page and, with Storefront on, a storefront building in your city. Repo: the repo it's built from, so it stands beside that repo (a private repo's name is never shown).", "apps", "app");
+    this.listing("Websites", "Sites you run (up to 12), a whole site or one page like example.com/tool. Each one gets a card on your page and, with Storefront on, a storefront building in your city that its live visitors walk into. Repo: the repo that builds it. Storefront off: the site lights up that repo's building instead.", "websites", "site");
+    new import_obsidian3.Setting(containerEl).setName("Repos without storefronts").setDesc("Comma separated repo names. Their apps and websites get no storefront, and their own websites (GitHub homepage) are left off your public city. Also hideStorefronts in Caldera/profile.md.").addText((t) => {
+      void this.listValue("hideStorefronts").then((v) => t.setValue(v.join(", ")));
+      t.setPlaceholder("old-site, client-work").onChange((v) => this.saveList("hideStorefronts", v.split(",").map((x) => x.trim()).filter((x) => /^[A-Za-z0-9._-]{1,100}$/.test(x))));
+    });
+    new import_obsidian3.Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.").addText((t) => t.setPlaceholder("octocat").setValue(githubUser(s.links || []) || "").onChange(async (v) => {
       const u = v.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\/.*$/, "");
       s.links = (s.links || []).filter((l) => !/^https?:\/\/(?:www\.)?github\.com\/[A-Za-z0-9-]{1,39}\/?$/.test(l[1]));
       if (/^[A-Za-z0-9-]{1,39}$/.test(u)) s.links.push(["GitHub", `https://github.com/${u}`]);
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("Forgejo or Codeberg profile").setDesc("Code on Codeberg or your own Forgejo / Gitea server instead? Paste your profile address. Your public repos become your city, and your contributions your code chart. Used when no GitHub username is set.").addText((t) => t.setPlaceholder("https://codeberg.org/you").setValue((s.links || []).find((l) => l[0] === "Forgejo")?.[1] || "").onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Forgejo or Codeberg profile").setDesc("Code on Codeberg or your own Forgejo / Gitea server instead? Paste your profile address. Your public repos become your city, and your contributions your code chart. Used when no GitHub username is set.").addText((t) => t.setPlaceholder("https://codeberg.org/you").setValue((s.links || []).find((l) => l[0] === "Forgejo")?.[1] || "").onChange(async (v) => {
       const m = v.trim().replace(/^http:/, "https:").replace(/\/+$/, "").match(/^(https:\/\/[^/\s]+)\/([A-Za-z0-9._-]{1,40})$/);
       s.links = (s.links || []).filter((l) => l[0] !== "Forgejo");
       if (m) s.links.push(["Forgejo", `${m[1]}/${m[2]}`]);
       await this.plugin.saveSettings();
     }));
     this.pairs("Properties", "One per line: key | value (shown as a properties block)", "properties");
-    new import_obsidian2.Setting(containerEl).setName("What is public").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("What is public").setHeading();
     for (const [k, label] of Object.entries(SECTION_LABELS)) {
       if (k === "garden" && !gardenEnabled()) continue;
-      new import_obsidian2.Setting(containerEl).setName(label).addToggle((t) => t.setValue(s.sections[k] !== void 0 ? !!s.sections[k] : k === "garden" || k === "city").onChange(async (v) => {
+      new import_obsidian3.Setting(containerEl).setName(label).addToggle((t) => t.setValue(s.sections[k] !== void 0 ? !!s.sections[k] : k === "garden" || k === "city").onChange(async (v) => {
         s.sections[k] = v;
         await this.plugin.saveSettings();
       }));
     }
     if (gardenEnabled()) {
       this.text("Garden folder", "Notes in this folder are published as full pages, with stage and license from their properties. Empty = only notes marked caldera: garden.", "gardenFolder", (v) => v.replace(/^\/+|\/+$/g, ""));
-      new import_obsidian2.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
+      new import_obsidian3.Setting(containerEl).setName("Grow my garden from my journal").setDesc("Each public project and recurring theme in your daily journal gets a garden page that adds a dated entry whenever it comes up. Uses only journal text that is already public.").addToggle((t) => t.setValue(s.gardenJournal !== false).onChange(async (v) => {
         s.gardenJournal = v;
         await this.plugin.saveSettings();
       }));
@@ -4802,12 +5234,12 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
     }
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
-    new import_obsidian2.Setting(containerEl).setName("My profile tab").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.").addToggle((t) => t.setValue(!!s.openProfileOnStartup).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("My profile tab").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.").addToggle((t) => t.setValue(!!s.openProfileOnStartup).onChange(async (v) => {
       s.openProfileOnStartup = v;
       await this.plugin.saveSettings();
     })).addButton((b) => b.setButtonText("Open now").onClick(() => this.plugin.openProfileTab()));
-    new import_obsidian2.Setting(containerEl).setName("Private web address (Tailscale)").setDesc(createFragment((f) => {
+    new import_obsidian3.Setting(containerEl).setName("Private web address (Tailscale)").setDesc(createFragment((f) => {
       f.appendText("See your private sections in a browser, on any of your Tailscale devices. Every 10 minutes Obsidian pushes them to your hub, which stores them encrypted and shows them only to your own Tailscale account, never on your public page. Needs a hub with a private address set up for you (self-hosted, or the operator's own profile).");
       if (s.privateUrl) {
         f.createEl("br");
@@ -4825,40 +5257,110 @@ var CalderaSettingTab = class extends import_obsidian2.PluginSettingTab {
       }
       this.display();
     }));
-    new import_obsidian2.Setting(containerEl).setName("Live traffic on your city").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Live traffic on your city").setHeading();
     const sites = s.traffic || [], hub = s.hubUrl.replace(/\/$/, "");
-    new import_obsidian2.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
+    new import_obsidian3.Setting(containerEl).setName("Show visitors to your own sites in your city").setDesc(sites.length ? "Paste a project's snippet into that site's pages (before </body>). Each visit then rides out of its district as a light, live. Call caldera('signup') or caldera('buy') on the page to mark conversions. Your public city shows only how busy each district is; the numbers stay in your private view and private address." : "Each city district gets a tracking snippet after your next publish (you need a city: add GitHub | https://github.com/you to Links above).");
     for (const site of sites) {
       const snippet = trackTag(hub, site.key);
-      new import_obsidian2.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
+      new import_obsidian3.Setting(containerEl).setName(site.project).setDesc(snippet + (site.public ? "" : "  (unlisted project: shown as Private on your public city)")).addButton((b) => b.setButtonText("Copy snippet").onClick(async () => {
         await navigator.clipboard.writeText(snippet);
-        new import_obsidian2.Notice(`Snippet for ${site.project} copied`);
+        new import_obsidian3.Notice(`Snippet for ${site.project} copied`);
       })).addExtraButton((b) => b.setIcon("key-round").setTooltip("Copy server key (for sending events from your own server: POST " + hub + "/v1/t/" + site.key + "/events)").onClick(async () => {
-        if (!site.secret) return void new import_obsidian2.Notice("Publish once to get the server key");
+        if (!site.secret) return void new import_obsidian3.Notice("Publish once to get the server key");
         await navigator.clipboard.writeText(site.secret);
-        new import_obsidian2.Notice("Server key copied. Keep it secret: it lets a server send events for this site.");
+        new import_obsidian3.Notice("Server key copied. Keep it secret: it lets a server send events for this site.");
       }));
     }
-    new import_obsidian2.Setting(containerEl).setName("AI agents on your city").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (your private view and private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
+    new import_obsidian3.Setting(containerEl).setName("AI agents on your city").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Show your AI agents working in your city").setDesc(s.agentKey ? "Each Claude Code agent you run becomes a drone over the repo it's working in: a beam while it edits, circling while it thinks, parked at Agent HQ blinking amber when it's waiting on you. Copy the setup prompt and paste it into Claude Code on each computer you use. What an agent is working on stays private (your private view and private address); your public city only shows anonymous drones." : "Publish once (with a city) to get your agent key.").addButton((b) => b.setButtonText("Copy setup prompt").setDisabled(!s.agentKey).onClick(async () => {
       await navigator.clipboard.writeText(agentSetupPrompt(hub, s.agentKey));
-      new import_obsidian2.Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
+      new import_obsidian3.Notice("Setup prompt copied. Paste it into Claude Code on each computer you use.");
     }));
-    new import_obsidian2.Setting(containerEl).setName("Publishing").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually").addText((t) => t.setValue(String(s.autoPublishHours)).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Publishing").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Auto-publish interval (hours)").setDesc("0 = only when you publish manually").addText((t) => t.setValue(String(s.autoPublishHours)).onChange(async (v) => {
       s.autoPublishHours = Math.max(0, Number(v) || 0);
       await this.plugin.saveSettings();
       this.plugin.scheduleAutoPublish();
     }));
   }
-  text(name, desc, key, clean = (v) => v) {
-    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addText((t) => t.setValue(String(this.plugin.settings[key] ?? "")).onChange(async (v) => {
-      this.plugin.settings[key] = clean(v.trim());
+  text(name, desc, key, clean2 = (v) => v) {
+    new import_obsidian3.Setting(this.containerEl).setName(name).setDesc(desc).addText((t) => t.setValue(String(this.plugin.settings[key] ?? "")).onChange(async (v) => {
+      this.plugin.settings[key] = clean2(v.trim());
       await this.plugin.saveSettings();
     }));
   }
+  /** The current list: from Caldera/profile.md when the note sets it (it wins there), else from settings. */
+  async listValue(key) {
+    const f = this.app.vault.getAbstractFileByPath(PROFILE_FILE), fm = f instanceof import_obsidian3.TFile ? this.app.metadataCache.getFileCache(f)?.frontmatter : null;
+    const v = fm && key in fm ? fm[key] : this.plugin.settings[key];
+    return Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : typeof v === "string" ? v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean) : [];
+  }
+  /** Saved where it came from: into Caldera/profile.md when the note sets this list (so the note stays the source), else settings. */
+  async saveList(key, lines) {
+    const f = this.app.vault.getAbstractFileByPath(PROFILE_FILE), fm = f instanceof import_obsidian3.TFile ? this.app.metadataCache.getFileCache(f)?.frontmatter : null;
+    if (f instanceof import_obsidian3.TFile && fm && key in fm) await this.app.fileManager.processFrontMatter(f, (m) => {
+      m[key] = lines;
+    });
+    else {
+      this.plugin.settings[key] = lines;
+      await this.plugin.saveSettings();
+      this.plugin.queuePublish("profile");
+    }
+  }
+  /** One row per app or website: its link, the repo it's tied to (editable), a Storefront toggle and Remove; then Add. */
+  listing(name, desc, key, kind) {
+    new import_obsidian3.Setting(this.containerEl).setName(name).setDesc(desc);
+    const box = this.containerEl.createDiv({ cls: "caldera-listings" });
+    let refs = [];
+    const save = () => this.saveList(key, refs.map(listingLine));
+    const draw = () => {
+      box.empty();
+      refs.forEach((r, i) => {
+        const label = r.kind === "site" ? r.url.replace(/^https?:\/\//, "").replace(/\/$/, "") : r.store === "play" ? `Google Play: ${r.id}` : `App Store: id${r.id}`;
+        new import_obsidian3.Setting(box).setName(label).setClass("caldera-listing-row").addText((t) => t.setPlaceholder("repo (optional)").setValue(r.repo || "").onChange((v) => {
+          const x = v.trim();
+          if (x && !/^[A-Za-z0-9._-]{1,100}$/.test(x)) return;
+          r.repo = x || void 0;
+          void save();
+        })).addToggle((t) => t.setTooltip("Storefront in my city").setValue(r.storefront !== false).onChange((v) => {
+          if (v) delete r.storefront;
+          else r.storefront = false;
+          void save();
+        })).addExtraButton((b) => b.setIcon("trash").setTooltip("Remove").onClick(() => {
+          refs.splice(i, 1);
+          void save();
+          draw();
+        }));
+      });
+      let add = "";
+      const row = new import_obsidian3.Setting(box).setName(refs.length ? "" : `No ${kind === "app" ? "apps" : "websites"} yet`).addText((t) => t.setPlaceholder(kind === "app" ? "https://apps.apple.com/us/app/name/id123456789" : "https://example.com").onChange((v) => {
+        add = v.trim();
+      })).addButton((b) => b.setButtonText("Add").onClick(() => {
+        const r = parseListingLine(add, kind);
+        if (!r) {
+          row.setDesc(kind === "app" ? "That isn't an App Store (apps.apple.com) or Google Play link." : "That isn't a website link (http or https, no IP addresses).");
+          return;
+        }
+        if (refs.some((x) => x.key === r.key)) {
+          row.setDesc("Already listed.");
+          return;
+        }
+        if (refs.length >= MAX_LISTINGS) {
+          row.setDesc(`Up to ${MAX_LISTINGS}.`);
+          return;
+        }
+        refs.push(r);
+        void save();
+        draw();
+      }));
+    };
+    void this.listValue(key).then((lines) => {
+      refs = lines.map((l) => parseListingLine(l, kind)).filter((x) => !!x).slice(0, MAX_LISTINGS);
+      draw();
+    });
+  }
   pairs(name, desc, key) {
-    new import_obsidian2.Setting(this.containerEl).setName(name).setDesc(desc).addTextArea((t) => {
+    new import_obsidian3.Setting(this.containerEl).setName(name).setDesc(desc).addTextArea((t) => {
       t.setValue(this.plugin.settings[key].map((p) => p.join(" | ")).join("\n"));
       t.inputEl.rows = 4;
       t.onChange(async (v) => {
@@ -4884,7 +5386,7 @@ Keep the key and secret out of any repo. If I'd rather not send task titles at a
 }
 
 // src/collect.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/assets/theme.css
 var theme_default = `/* ============================================================================
@@ -5027,7 +5529,7 @@ function redact(md) {
   });
   return { text, removed };
 }
-var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function parseXLink(target) {
   const m = target.match(/^@([a-z0-9][a-z0-9-]{1,30})\/(.+)$/i);
   return m ? { handle: m[1].toLowerCase(), title: m[2].trim(), slug: slug(m[2]) } : null;
@@ -5067,21 +5569,21 @@ function mdToHtml(md, link, image = () => null) {
       tokens.push(html);
       return `\uE000${tokens.length - 1}\uE000`;
     };
-    t = t.replace(/`([^`]+)`/g, (_m, c) => keep(`<code>${esc2(c)}</code>`));
+    t = t.replace(/`([^`]+)`/g, (_m, c) => keep(`<code>${esc3(c)}</code>`));
     t = t.replace(/!\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, (_m, tgt) => {
       const src = image(tgt.trim());
-      return src ? keep(`<img src="${esc2(src)}" alt="${esc2(tgt.trim())}" loading="lazy">`) : "";
+      return src ? keep(`<img src="${esc3(src)}" alt="${esc3(tgt.trim())}" loading="lazy">`) : "";
     });
     t = t.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(\|([^\]]+))?\]\]/g, (_m, tgt, _h, _p, label) => {
       const text = (label || tgt).trim(), x = parseXLink(tgt.trim());
       const href = link(tgt.trim());
-      if (href) return keep(`<a class="${x ? "xlink" : "internal"}" href="${esc2(href)}">${esc2(text.replace(/^@[^/]+\//, ""))}${x ? `<span class="xl-who">@${esc2(x.handle)}</span>` : ""}</a>`);
-      return keep(`<span class="unlinked">${esc2(text)}</span>`);
+      if (href) return keep(`<a class="${x ? "xlink" : "internal"}" href="${esc3(href)}">${esc3(text.replace(/^@[^/]+\//, ""))}${x ? `<span class="xl-who">@${esc3(x.handle)}</span>` : ""}</a>`);
+      return keep(`<span class="unlinked">${esc3(text)}</span>`);
     });
-    t = t.replace(/!\[([^\]]*)\]\((https:\/\/[^)\s]+)\)/g, (_m, alt, u) => keep(`<a href="${esc2(u)}" rel="noopener nofollow" target="_blank">${esc2(alt || "image")}</a>`));
-    t = t.replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^)\s]+)\)/g, (_m, label, u) => keep(`<a href="${esc2(u)}" rel="noopener nofollow" target="_blank">${esc2(label)}</a>`));
-    t = t.replace(/(^|[\s(])(https?:\/\/[^\s)<]+)/g, (_m, pre, u) => pre + keep(`<a href="${esc2(u)}" rel="noopener nofollow" target="_blank">${esc2(u)}</a>`));
-    let h = esc2(t);
+    t = t.replace(/!\[([^\]]*)\]\((https:\/\/[^)\s]+)\)/g, (_m, alt, u) => keep(`<a href="${esc3(u)}" rel="noopener nofollow" target="_blank">${esc3(alt || "image")}</a>`));
+    t = t.replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^)\s]+)\)/g, (_m, label, u) => keep(`<a href="${esc3(u)}" rel="noopener nofollow" target="_blank">${esc3(label)}</a>`));
+    t = t.replace(/(^|[\s(])(https?:\/\/[^\s)<]+)/g, (_m, pre, u) => pre + keep(`<a href="${esc3(u)}" rel="noopener nofollow" target="_blank">${esc3(u)}</a>`));
+    let h = esc3(t);
     h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>").replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>").replace(/(^|[^_\w])_([^_\s][^_]*)_/g, "$1<em>$2</em>").replace(/~~([^~]+)~~/g, "<del>$1</del>").replace(/==([^=]+)==/g, "<mark>$1</mark>");
     return h.replace(/\uE000(\d+)\uE000/g, (_m, i) => tokens[Number(i)]);
   }
@@ -5092,7 +5594,7 @@ function mdToHtml(md, link, image = () => null) {
       flush();
       const body = [];
       for (i++; i < lines.length && !lines[i].trim().startsWith(fence[1]); i++) body.push(lines[i]);
-      out.push(`<pre><code>${esc2(body.join("\n"))}</code></pre>`);
+      out.push(`<pre><code>${esc3(body.join("\n"))}</code></pre>`);
       continue;
     }
     if (/^\s*%%/.test(line)) {
@@ -5157,9 +5659,9 @@ function excerptOf(md, n = 200) {
 }
 function page(site, title, body, depth, extraHead = "") {
   const up = depth ? "../".repeat(depth) : "";
-  const icon = site.icon ? `<link rel="icon" href="${up}${esc2(site.icon)}" type="image/png">` : `<link rel="icon" href="${up}assets/favicon.svg" type="image/svg+xml">`;
+  const icon = site.icon ? `<link rel="icon" href="${up}${esc3(site.icon)}" type="image/png">` : `<link rel="icon" href="${up}assets/favicon.svg" type="image/svg+xml">`;
   return `<!doctype html><html lang="en"${site.theme === "light" ? ' data-theme="light"' : ""}><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc2(title)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc3(title)}</title>
 <meta name="robots" content="noindex, nofollow"><meta name="generator" content="Caldera for Obsidian">${extraHead}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
@@ -5171,7 +5673,7 @@ var fmtDate = (iso2) => new Date(iso2).toLocaleDateString("en-US", { month: "sho
 var stageBadge = (s) => `<span class="g-stage g-${s}" title="${STAGE_TIP[s]}">${STAGE_ICON[s]} ${s}</span>`;
 var licenseLine = (key) => {
   const L = LICENSES[key] || LICENSES["all-rights"];
-  return L.url ? `<a href="${L.url}" rel="license noopener" target="_blank">${esc2(L.short)}</a>` : esc2(L.short);
+  return L.url ? `<a href="${L.url}" rel="license noopener" target="_blank">${esc3(L.short)}</a>` : esc3(L.short);
 };
 function renderGarden(site, notes, images = {}) {
   if (!notes.length) return {};
@@ -5182,7 +5684,7 @@ function renderGarden(site, notes, images = {}) {
   for (const n of notes) for (const o of n.out) if (o !== n.slug && bySlug.has(o)) back.set(o, [...back.get(o) || [], n]);
   const who = site.handle ? `@${site.handle}` : site.name;
   const files = {};
-  const tabs = (active) => `<div class="tabs"><a class="tab" href="${active === "index" ? "" : "../"}index.html">${esc2(site.name)}.md</a><a class="tab${active === "garden" ? " is-active" : ""}" href="${active === "note" ? "../" : ""}garden.html">Garden</a>${active === "note" ? `<span class="tab is-active">%%TITLE%%</span>` : ""}<span class="spacer"></span></div>`;
+  const tabs = (active) => `<div class="tabs"><a class="tab" href="${active === "index" ? "" : "../"}index.html">${esc3(site.name)}.md</a><a class="tab${active === "garden" ? " is-active" : ""}" href="${active === "note" ? "../" : ""}garden.html">Garden</a>${active === "note" ? `<span class="tab is-active">%%TITLE%%</span>` : ""}<span class="spacer"></span></div>`;
   for (const n of notes) {
     const link = (target) => {
       const x = parseXLink(target);
@@ -5194,16 +5696,16 @@ function renderGarden(site, notes, images = {}) {
     const body = mdToHtml(n.markdown, link, img);
     const bl = back.get(n.slug) || [];
     const L = LICENSES[n.license] || LICENSES["all-rights"];
-    const html = `${tabs("note").replace("%%TITLE%%", esc2(n.title))}
+    const html = `${tabs("note").replace("%%TITLE%%", esc3(n.title))}
 <div class="shell">${site.nav ? site.nav(1, `n/${n.slug}.html`) : ""}<main class="note"><div class="g-main"><article class="g-note">
-<div class="g-crumbs"><a href="../index.html">${esc2(who)}</a> / <a href="../garden.html">Garden</a></div>
-<h1 class="g-title">${esc2(n.title)}</h1>
+<div class="g-crumbs"><a href="../index.html">${esc3(who)}</a> / <a href="../garden.html">Garden</a></div>
+<h1 class="g-title">${esc3(n.title)}</h1>
 <div class="g-meta">${stageBadge(n.stage)}<span>Planted ${fmtDate(n.created)}</span><span>Tended ${fmtDate(n.updated)}</span><span>${n.words.toLocaleString("en-US")} words</span></div>
 <div class="g-body">${body}</div>
-${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map((b) => `<a class="g-card" href="${b.slug}.html"><span class="g-card-t">${esc2(b.title)}</span><span class="g-card-x">${esc2(clip(b.excerpt, 120))}</span></a>`).join("")}</section>` : ""}
+${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map((b) => `<a class="g-card" href="${b.slug}.html"><span class="g-card-t">${esc3(b.title)}</span><span class="g-card-x">${esc3(clip(b.excerpt, 120))}</span></a>`).join("")}</section>` : ""}
 <!--caldera:xlinks-->
-<footer class="g-foot"><div><b>License:</b> ${licenseLine(n.license)}. ${esc2(L.label)}</div>
-<div class="g-prov"><b>Provenance:</b> sha256 <code title="${n.sha256}">${n.sha256.slice(0, 16)}</code> of <a href="${n.slug}.md">the published text</a>, listed in <a href="../caldera.json">${esc2(who)}'s signed manifest</a>${site.id ? ` (key <code>${esc2(site.id.slice(0, 14))}&hellip;</code>)` : ""}. Anyone can check the author and date.</div></footer>
+<footer class="g-foot"><div><b>License:</b> ${licenseLine(n.license)}. ${esc3(L.label)}</div>
+<div class="g-prov"><b>Provenance:</b> sha256 <code title="${n.sha256}">${n.sha256.slice(0, 16)}</code> of <a href="${n.slug}.md">the published text</a>, listed in <a href="../caldera.json">${esc3(who)}'s signed manifest</a>${site.id ? ` (key <code>${esc3(site.id.slice(0, 14))}&hellip;</code>)` : ""}. Anyone can check the author and date.</div></footer>
 </article></div></main></div>`;
     files[`n/${n.slug}.html`] = page(
       site,
@@ -5211,7 +5713,7 @@ ${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map((b) 
       html,
       1,
       `
-<meta name="description" content="${esc2(n.excerpt)}">${L.ai ? "" : `
+<meta name="description" content="${esc3(n.excerpt)}">${L.ai ? "" : `
 <meta name="robots" content="noai, noimageai">`}${L.url ? `
 <link rel="license" href="${L.url}">` : ""}`
     );
@@ -5221,11 +5723,11 @@ ${bl.length ? `<section class="g-links"><h2>Links to this note</h2>${bl.map((b) 
   const sorted = [...notes].sort((a, b) => b.updated.localeCompare(a.updated));
   const idx = `${tabs("garden")}
 <div class="shell">${site.nav ? site.nav(0, "garden.html") : ""}<main class="note"><div class="g-main"><div class="g-index">
-<div class="g-crumbs"><a href="index.html">${esc2(who)}</a> / Garden</div>
-<h1 class="g-title">${esc2(site.name)}'s garden</h1>
-<p class="g-lede">Notes grown in public from an Obsidian vault. Some are seedlings, some are evergreen; all of them keep changing.${site.external ? ` More at <a href="${esc2(site.external)}" rel="noopener" target="_blank">${esc2(site.external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>.` : ""}</p>
+<div class="g-crumbs"><a href="index.html">${esc3(who)}</a> / Garden</div>
+<h1 class="g-title">${esc3(site.name)}'s garden</h1>
+<p class="g-lede">Notes grown in public from an Obsidian vault. Some are seedlings, some are evergreen; all of them keep changing.${site.external ? ` More at <a href="${esc3(site.external)}" rel="noopener" target="_blank">${esc3(site.external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>.` : ""}</p>
 <!--caldera:gardenhome--><div class="g-filter" role="toolbar" aria-label="Filter by stage"><button class="is-on" data-stage="all">All <span>${notes.length}</span></button>${counts.filter(([, c]) => c).map(([s, c]) => `<button data-stage="${s}">${STAGE_ICON[s]} ${s} <span>${c}</span></button>`).join("")}</div>
-<div class="g-list">${sorted.map((n) => `<a class="g-card" data-stage="${n.stage}" href="n/${n.slug}.html"><span class="g-card-t">${esc2(n.title)}</span><span class="g-card-x">${esc2(n.excerpt)}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span>${n.xlinks.length ? `<span>${n.xlinks.length} link${n.xlinks.length === 1 ? "" : "s"} to other gardens</span>` : ""}</span></a>`).join("")}</div>
+<div class="g-list">${sorted.map((n) => `<a class="g-card" data-stage="${n.stage}" href="n/${n.slug}.html"><span class="g-card-t">${esc3(n.title)}</span><span class="g-card-x">${esc3(n.excerpt)}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span>${n.xlinks.length ? `<span>${n.xlinks.length} link${n.xlinks.length === 1 ? "" : "s"} to other gardens</span>` : ""}</span></a>`).join("")}</div>
 </div></div></main></div>
 <script>(function(){var b=[].slice.call(document.querySelectorAll('.g-filter button')),c=[].slice.call(document.querySelectorAll('.g-list .g-card'));b.forEach(function(x){x.onclick=function(){b.forEach(function(y){y.classList.toggle('is-on',y===x)});var s=x.getAttribute('data-stage');c.forEach(function(k){k.hidden=s!=='all'&&k.getAttribute('data-stage')!==s})}})})();<\/script>`;
   files["garden.html"] = page(site, `${site.name}'s garden`, idx, 0);
@@ -5256,7 +5758,7 @@ function gardenSection(notes, external) {
   if (!notes.length && !external) return "";
   const sorted = [...notes].sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, 6);
   const counts = STAGES.map((s) => [s, notes.filter((n) => n.stage === s).length]).filter(([, c]) => c);
-  return `<h2>Garden</h2><p class="small">${notes.length ? `${notes.length} note${notes.length === 1 ? "" : "s"} grown in public: ${counts.map(([s, c]) => `${STAGE_ICON[s]} ${c} ${s}`).join(" &middot; ")}. ` : ""}${notes.length ? `<a href="garden.html">Garden home: notes, gravity, help credits, asks and offers &rarr;</a>` : ""}${external ? ` ${notes.length ? "Also at" : "My garden:"} <a href="${esc2(external)}" rel="noopener" target="_blank">${esc2(external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</p>${sorted.length ? `<div class="g-list g-list-profile">${sorted.map((n) => `<a class="g-card" href="n/${n.slug}.html"><span class="g-card-t">${esc2(n.title)}</span><span class="g-card-x">${esc2(clip(n.excerpt, 140))}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span></span></a>`).join("")}</div>` : ""}`;
+  return `<h2>Garden</h2><p class="small">${notes.length ? `${notes.length} note${notes.length === 1 ? "" : "s"} grown in public: ${counts.map(([s, c]) => `${STAGE_ICON[s]} ${c} ${s}`).join(" &middot; ")}. ` : ""}${notes.length ? `<a href="garden.html">Garden home: notes, gravity, help credits, asks and offers &rarr;</a>` : ""}${external ? ` ${notes.length ? "Also at" : "My garden:"} <a href="${esc3(external)}" rel="noopener" target="_blank">${esc3(external.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</p>${sorted.length ? `<div class="g-list g-list-profile">${sorted.map((n) => `<a class="g-card" href="n/${n.slug}.html"><span class="g-card-t">${esc3(n.title)}</span><span class="g-card-x">${esc3(clip(n.excerpt, 140))}</span><span class="g-card-m">${stageBadge(n.stage)}<span>Tended ${fmtDate(n.updated)}</span></span></a>`).join("")}</div>` : ""}`;
 }
 var GARDEN_CSS = `/* Caldera garden: note pages + index. Tokens come from theme.css. */
 .tabs a.tab { color: var(--text-muted); text-decoration: none; }
@@ -5409,7 +5911,7 @@ function inviteUrl(p) {
   return `${hub}/${p.handle ? `?invite=${encodeURIComponent(p.handle)}` : ""}#install`;
 }
 function invitePop(p) {
-  return `<div class="invite-pop" hidden role="dialog" aria-label="Invite a friend" data-url="${esc3(inviteUrl(p))}" data-msg="${esc3(INVITE_MSG)}" data-subject="Join me on Caldera"><div class="inv-head"><div><div class="inv-title">Invite a friend</div><div class="inv-sub">They get their own living page in about 5 minutes, and you compare daily scores here.</div></div><button class="inv-close" type="button" aria-label="Close">&times;</button></div><div class="inv-link"><input class="inv-url" readonly aria-label="Invite link" value="${esc3(inviteUrl(p))}"><button class="inv-copy" type="button">Copy link</button></div><div class="inv-ways"><a class="inv-email" href="#">Email</a><a class="inv-text" href="#">Text</a><button class="inv-share" type="button">Share</button></div><div class="inv-status" role="status" aria-live="polite"></div></div>`;
+  return `<div class="invite-pop" hidden role="dialog" aria-label="Invite a friend" data-url="${esc4(inviteUrl(p))}" data-msg="${esc4(INVITE_MSG)}" data-subject="Join me on Caldera"><div class="inv-head"><div><div class="inv-title">Invite a friend</div><div class="inv-sub">They get their own living page in about 5 minutes, and you compare daily scores here.</div></div><button class="inv-close" type="button" aria-label="Close">&times;</button></div><div class="inv-link"><input class="inv-url" readonly aria-label="Invite link" value="${esc4(inviteUrl(p))}"><button class="inv-copy" type="button">Copy link</button></div><div class="inv-ways"><a class="inv-email" href="#">Email</a><a class="inv-text" href="#">Text</a><button class="inv-share" type="button">Share</button></div><div class="inv-status" role="status" aria-live="polite"></div></div>`;
 }
 function slug(t) {
   return t.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "s";
@@ -5420,12 +5922,12 @@ function inline(t) {
   let last = 0;
   const rx = /\[\[([^|\]]+)\|(https?:\/\/[^\]\s]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\*\*([^*]+)\*\*/g;
   for (let m; m = rx.exec(t); ) {
-    parts.push(esc3(t.slice(last, m.index)));
-    if (m[5]) parts.push(`<b>${esc3(m[5])}</b>`);
-    else parts.push(`<a href="${esc3(m[2] || m[4])}" rel="noopener">${esc3(m[1] || m[3])}</a>`);
+    parts.push(esc4(t.slice(last, m.index)));
+    if (m[5]) parts.push(`<b>${esc4(m[5])}</b>`);
+    else parts.push(`<a href="${esc4(m[2] || m[4])}" rel="noopener">${esc4(m[1] || m[3])}</a>`);
     last = m.index + m[0].length;
   }
-  return parts.join("") + esc3(t.slice(last));
+  return parts.join("") + esc4(t.slice(last));
 }
 function graphSvg(nodes, name) {
   if (!nodes.length) return "";
@@ -5435,9 +5937,9 @@ function graphSvg(nodes, name) {
     const x = 130 + Math.cos(a) * r, y = 120 + Math.sin(a) * r * 0.85, size = 2.5 + 6.5 * Math.sqrt(nd.n / top);
     return { ...nd, x: x.toFixed(1), y: y.toFixed(1), ty: (y + size + 9).toFixed(1), r: size.toFixed(1), hot: nd.n >= top * 0.35, d: (-i * 0.3).toFixed(1) };
   });
-  return `<svg viewBox="0 0 260 240" role="img" aria-label="Notes connected to ${esc3(name)}">${out.map((n) => `<line class="edge" x1="130" y1="120" x2="${n.x}" y2="${n.y}"></line>`).join("")}${out.map((n) => `<g class="float" style="animation-delay:${n.d}s"><circle class="node${n.hot ? " hot" : ""}" cx="${n.x}" cy="${n.y}" r="${n.r}"><title>${esc3(n.t)}: ${n.n}</title></circle><text x="${n.x}" y="${n.ty}" text-anchor="middle">${esc3(n.t)}</text></g>`).join("")}<circle class="center" cx="130" cy="120" r="9"></circle></svg>`;
+  return `<svg viewBox="0 0 260 240" role="img" aria-label="Notes connected to ${esc4(name)}">${out.map((n) => `<line class="edge" x1="130" y1="120" x2="${n.x}" y2="${n.y}"></line>`).join("")}${out.map((n) => `<g class="float" style="animation-delay:${n.d}s"><circle class="node${n.hot ? " hot" : ""}" cx="${n.x}" cy="${n.y}" r="${n.r}"><title>${esc4(n.t)}: ${n.n}</title></circle><text x="${n.x}" y="${n.ty}" text-anchor="middle">${esc4(n.t)}</text></g>`).join("")}<circle class="center" cx="130" cy="120" r="9"></circle></svg>`;
 }
-var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc4 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var fmt = (n) => n.toLocaleString("en-US");
 function scored(daily) {
   return daily.map((d, i) => {
@@ -5446,9 +5948,9 @@ function scored(daily) {
     return { ...d, score, delta: prev ? Math.round((score - prev) / prev * 100) : null };
   });
 }
-var SRC_LABEL = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", self: "In their words", profile: "Profile note", module: "Custom module" };
+var SRC_LABEL = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", self: "In their words", profile: "Profile note", module: "Custom module", stores: "App Store and Google Play", web: "Their websites" };
 var srcLine = (src, what) => `<p class="sec-src">${src.map((x) => `<span class="src s-${x}">${SRC_LABEL[x]}</span>`).join("")}<span class="sec-what">${what}</span></p>`;
-var head = (title, src, what) => `<h2>${esc3(title)}</h2>${srcLine(src, what)}`;
+var head = (title, src, what) => `<h2>${esc4(title)}</h2>${srcLine(src, what)}`;
 function renderProfile(p) {
   const s = p.sections, gh = p.source === "GitHub", em = p.source === "Caldera";
   const days = scored(p.daily);
@@ -5482,13 +5984,13 @@ function renderProfile(p) {
   const tmax = Math.max(1, ...p.topics.map((t) => t[1]));
   const parts = [];
   parts.push(`<!doctype html><html lang="en"${p.theme === "light" ? ' data-theme="light"' : ""}><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc3(p.name)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc4(p.name)}</title>
 <meta name="robots" content="noindex, nofollow"><meta name="generator" content="Caldera for Obsidian">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
-${p.icon ? `<link rel="icon" href="${esc3(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc3(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
+${p.icon ? `<link rel="icon" href="${esc4(p.icon)}" type="image/png"><link rel="apple-touch-icon" href="${esc4(p.icon)}">` : `<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">`}
 <link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/profile.css">${gardenEnabled() && s.garden !== false && p.garden?.length ? '<link rel="stylesheet" href="assets/garden.css">' : ""}</head><body>
-<div class="tabs"><span class="tab is-active">${esc3(p.name)}.md</span>${(p.tabs || []).map((t) => `<span class="tab">${esc3(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc3(p.source || "vault")} <span id="ago" data-ts="${esc3(p.updated)}">just now</span></span></div>
+<div class="tabs"><span class="tab is-active">${esc4(p.name)}.md</span>${(p.tabs || []).map((t) => `<span class="tab">${esc4(t)}</span>`).join("")}<span class="spacer"></span><span class="sync"><span class="dot"></span>synced from ${esc4(p.source || "vault")} <span id="ago" data-ts="${esc4(p.updated)}">just now</span></span></div>
 <div class="shell">`);
   const sideOn = s.sidebar !== false && !!p.tree?.length, modOn = s.modules !== false, mainMods = modOn ? (p.modules || []).filter((m) => m.place === "main") : [], sideMods = modOn ? (p.modules || []).filter((m) => m.place === "side") : [];
   const railOn = s.rail !== false && (!!p.graph?.length || !!p.backlinks?.length || sideMods.length > 0);
@@ -5496,9 +5998,9 @@ ${p.icon ? `<link rel="icon" href="${esc3(p.icon)}" type="image/png"><link rel="
   const nav = (depth, current, toc2 = "") => s.sidebar === false ? "" : navSidebar(p, sideOn, gardenOn, depth, current, toc2);
   parts.push(nav(0, "index.html", "%%TOC%%"));
   parts.push(`<main class="note">`);
-  if (p.banner) parts.push(`<div class="banner"><img class="cover" src="${esc3(p.banner)}" alt="">${p.avatar ? `<img class="avatar" src="${esc3(p.avatar)}" alt="${esc3(p.name)}">` : ""}</div>`);
-  parts.push(`<div class="page">${!p.banner && p.avatar ? `<img class="avatar solo" src="${esc3(p.avatar)}" alt="${esc3(p.name)}">` : ""}<div class="crumb">People / ${esc3(p.name)}.md${p.handle ? " / @" + esc3(p.handle) : ""}</div>
-<h1 class="title">${esc3(p.name)}<span class="caret">|</span></h1>${p.headline ? `<p class="lede">${esc3(p.headline)}</p>` : ""}<!--caldera:owner-->`);
+  if (p.banner) parts.push(`<div class="banner"><img class="cover" src="${esc4(p.banner)}" alt="">${p.avatar ? `<img class="avatar" src="${esc4(p.avatar)}" alt="${esc4(p.name)}">` : ""}</div>`);
+  parts.push(`<div class="page">${!p.banner && p.avatar ? `<img class="avatar solo" src="${esc4(p.avatar)}" alt="${esc4(p.name)}">` : ""}<div class="crumb">People / ${esc4(p.name)}.md${p.handle ? " / @" + esc4(p.handle) : ""}</div>
+<h1 class="title">${esc4(p.name)}<span class="caret">|</span></h1>${p.headline ? `<p class="lede">${esc4(p.headline)}</p>` : ""}<!--caldera:owner-->`);
   if (s.city !== false && p.city?.districts.length) parts.push(citySnapshot(p.city, { name: p.name }));
   if (s.journal && journal.length) parts.push(`<section class="journal" id="journal" aria-label="Daily journal"><div class="j-head"><button class="j-nav" id="jprev" aria-label="Previous day">&#8249;</button>
 <div class="j-title"><div class="label">Daily journal</div><div class="j-date" id="jdate"></div></div><button class="j-nav" id="jnext" aria-label="Next day">&#8250;</button></div>${srcLine(["obsidian"], "Each day, summarized from the daily notes in the vault. Use the arrows to go back.")}
@@ -5517,7 +6019,7 @@ ${p.icon ? `<link rel="icon" href="${esc3(p.icon)}" type="image/png"><link rel="
   };
   const counted = present.map((k) => labels[k].toLowerCase().replace(/^ai /, "AI ")), countedTxt = counted.length > 1 ? counted.slice(0, -1).join(", ") + " and " + counted[counted.length - 1] : counted[0] || "activity";
   const sbSrc = [...groupsOn.map((g) => ({ github: "github", ai: "agents", work: "calendar", obsidian: "obsidian" })[g[0]]), "caldera"];
-  if (s.scoreboard && days.length > 2) parts.push(`<section class="scoreboard" id="scoreboard"><h2 class="t">Scoreboard</h2>${srcLine(sbSrc, `Points for each day's ${esc3(countedTxt)}. The leaderboard compares this week with friends on Caldera.`)}<div class="sb-stats">
+  if (s.scoreboard && days.length > 2) parts.push(`<section class="scoreboard" id="scoreboard"><h2 class="t">Scoreboard</h2>${srcLine(sbSrc, `Points for each day's ${esc4(countedTxt)}. The leaderboard compares this week with friends on Caldera.`)}<div class="sb-stats">
 <div class="sb-stat"><div class="v">${streak}<small> days</small></div><div class="l">active streak</div></div>
 <div class="sb-stat"><div class="v">#${yrank}</div><div class="l">yesterday's rank of ${days.length - 1} days</div></div>
 <div class="sb-stat"><div class="v">${avg(last7)}</div><div class="l">7-day average, ${trend >= 0 ? `<span class="up">&#9650; ${trend}%</span>` : `<span class="down">&#9660; ${-trend}%</span>`} vs prior week</div></div></div>
@@ -5525,22 +6027,22 @@ ${p.icon ? `<link rel="icon" href="${esc3(p.icon)}" type="image/png"><link rel="
     const v = Math.round(pts(d.counts, g[2]));
     return v ? `, ${g[1].toLowerCase()} ${v}` : "";
   }).join("")}">${barOf(d)}</span>`).join("")}</div><div class="bars-legend"><span>${Math.min(30, days.length)} days ago</span><span>yesterday highlighted / today in progress</span></div>
-${groupsOn.length > 1 ? `<div class="sb-split"><span class="label">Points this week, by source</span>${weekPts.map(([g, v]) => `<span class="sb-key"><i class="g-${g[0]}"></i>${esc3(g[1])} <b>${fmt(v)}</b></span>`).join("")}</div>` : ""}
+${groupsOn.length > 1 ? `<div class="sb-split"><span class="label">Points this week, by source</span>${weekPts.map(([g, v]) => `<span class="sb-key"><i class="g-${g[0]}"></i>${esc4(g[1])} <b>${fmt(v)}</b></span>`).join("")}</div>` : ""}
 ${(() => {
     const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) => b.d.score - a.d.score).slice(0, 5);
-    const lb = [`<div class="lb-row me"><span class="rank">1</span><span class="who">You</span><span class="num">${fmt(days.slice(-8, -1).reduce((x, d) => x + d.score, 0))}</span></div>`].concat([2, 3, 4].map((r) => `<div class="lb-row empty"><span class="rank">${r}</span><a class="who invite-btn" data-invite href="${esc3(inviteHref(p))}" target="_blank" rel="noopener">Invite a friend</a><span class="num">-</span></div>`));
-    return `<div class="two-col sb-lower"><div class="lb-wrap"><div class="label">Leaderboard / points this week</div>${lb.join("")}${invitePop(p)}</div><div><div class="label">Your best other days</div>${best.map((b, k) => `<div class="lb-row"><span class="rank">${k + 1}</span><span class="who">${esc3((/* @__PURE__ */ new Date(b.d.date + "T12:00:00Z")).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }))}</span><span class="num">${b.d.score}</span></div>`).join("")}</div></div>`;
+    const lb = [`<div class="lb-row me"><span class="rank">1</span><span class="who">You</span><span class="num">${fmt(days.slice(-8, -1).reduce((x, d) => x + d.score, 0))}</span></div>`].concat([2, 3, 4].map((r) => `<div class="lb-row empty"><span class="rank">${r}</span><a class="who invite-btn" data-invite href="${esc4(inviteHref(p))}" target="_blank" rel="noopener">Invite a friend</a><span class="num">-</span></div>`));
+    return `<div class="two-col sb-lower"><div class="lb-wrap"><div class="label">Leaderboard / points this week</div>${lb.join("")}${invitePop(p)}</div><div><div class="label">Your best other days</div>${best.map((b, k) => `<div class="lb-row"><span class="rank">${k + 1}</span><span class="who">${esc4((/* @__PURE__ */ new Date(b.d.date + "T12:00:00Z")).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }))}</span><span class="num">${b.d.score}</span></div>`).join("")}</div></div>`;
   })()}
 <details class="sb-how"><summary>How the score works</summary>Weighted daily counts: ${Object.entries(ACTIVITY_WEIGHTS).map(([k, w]) => `${labels[k] || k} x${w}`).join(", ")}. Bulk imports are capped. Counts only.</details></section>`);
-  if (s.properties && p.properties.length) parts.push(`${head("At a glance", [gh ? "github" : em ? "self" : "profile"], gh ? "From the GitHub profile." : em ? "A few facts." : "Facts from the profile note in the vault.")}<dl class="props">${p.properties.map(([k, v]) => `<dt>${esc3(k)}</dt><dd>${esc3(v)}</dd>`).join("")}</dl>`);
+  if (s.properties && p.properties.length) parts.push(`${head("At a glance", [gh ? "github" : em ? "self" : "profile"], gh ? "From the GitHub profile." : em ? "A few facts." : "Facts from the profile note in the vault.")}<dl class="props">${p.properties.map(([k, v]) => `<dt>${esc4(k)}</dt><dd>${esc4(v)}</dd>`).join("")}</dl>`);
   if (s.numbers) parts.push(`${head("The vault in numbers", ["obsidian"], "Counts only. What the notes say stays private.")}<div class="stat-strip">${[[fmt(p.stats.notes), "notes"], [(p.stats.words / 1e6).toFixed(2) + "M", "words"], [fmt(p.stats.links), "links between notes"], [String(p.stats.activeDays), "active days, 26 weeks"], ...p.extraNumbers || []].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("")}</div>`);
   if (s.summary !== false && p.summary) parts.push(`<div class="callout"><div class="callout-title">Summary</div>${inline(p.summary)}</div>`);
   if (s.now !== false && p.now?.length) parts.push(`${head("Now", [gh ? "github" : em ? "self" : p.nowAuto ? "obsidian" : "profile"], gh ? "Public repos pushed in the last two weeks. Updates by itself." : p.nowAuto ? "What's been happening this week, from the daily journal. Updates by itself." : "What's in progress right now.")}<ul class="bullets">${p.now.map((x) => `<li>${inline(x)}</li>`).join("")}</ul>`);
-  for (const m of mainMods) parts.push(`<section class="module" data-module="${esc3(m.slug)}">${head(m.title, ["module"], "A section written for this page in Obsidian.")}<div class="mod-body">${m.html}</div></section>`);
+  for (const m of mainMods) parts.push(`<section class="module" data-module="${esc4(m.slug)}">${head(m.title, ["module"], "A section written for this page in Obsidian.")}<div class="mod-body">${m.html}</div></section>`);
   if (s.activity !== false && p.heat?.length) {
     const lvl = (n) => n === 0 ? 0 : n < 5 ? 1 : n < 30 ? 2 : n < 200 ? 3 : 4;
     const pad = ((/* @__PURE__ */ new Date(p.heat[0].date + "T12:00:00Z")).getUTCDay() + 6) % 7;
-    parts.push(`${head("Activity", ["obsidian"], `Every day the vault learned something in the last 26 weeks: notes written and changed${p.extraNumbers?.length ? ", documents filed" : ""}.`)}<div class="heat-box" data-unit="updates"><div class="heat-frame"><div class="heat-days" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div><div class="heat-wrap"><div class="heat-months" aria-hidden="true"></div><div class="heat" tabindex="0" aria-label="Activity, last 26 weeks. Use arrow keys to move between days." aria-describedby="heat-read">${'<i style="visibility:hidden"></i>'.repeat(pad)}${p.heat.map((c) => `<i class="l${lvl(c.n)}" data-d="${esc3(c.date)}" data-n="${c.n}"></i>`).join("")}</div></div></div><div class="heat-tip" hidden></div><div class="heat-foot"><div class="heat-read" id="heat-read" aria-live="polite"></div><div class="heat-legend">less <i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> more</div></div></div>`);
+    parts.push(`${head("Activity", ["obsidian"], `Every day the vault learned something in the last 26 weeks: notes written and changed${p.extraNumbers?.length ? ", documents filed" : ""}.`)}<div class="heat-box" data-unit="updates"><div class="heat-frame"><div class="heat-days" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div><div class="heat-wrap"><div class="heat-months" aria-hidden="true"></div><div class="heat" tabindex="0" aria-label="Activity, last 26 weeks. Use arrow keys to move between days." aria-describedby="heat-read">${'<i style="visibility:hidden"></i>'.repeat(pad)}${p.heat.map((c) => `<i class="l${lvl(c.n)}" data-d="${esc4(c.date)}" data-n="${c.n}"></i>`).join("")}</div></div></div><div class="heat-tip" hidden></div><div class="heat-foot"><div class="heat-read" id="heat-read" aria-live="polite"></div><div class="heat-legend">less <i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> more</div></div></div>`);
   }
   const growthOn = s.growth !== false && (p.growth?.length || 0) > 1, knowsOn = s.knows !== false && !!p.knows?.length;
   if (growthOn || knowsOn) {
@@ -5550,41 +6052,44 @@ ${(() => {
       const gx = (i) => 30 + i * (W2 - 40) / Math.max(1, gp.length - 1), gy = (v) => 10 + (H2 - 30) * (1 - v / gmax);
       const line = gp.map((x, i) => `${gx(i).toFixed(1)},${gy(x.total).toFixed(1)}`).join(" ");
       const first = (/* @__PURE__ */ new Date(gp[0].week + "T12:00:00Z")).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
-      g = `<div>${head("Growth", ["obsidian"], "Notes in the vault over time.")}<svg class="growth" viewBox="0 0 ${W2} ${H2}" role="img" aria-label="Notes over time, ${fmt(gmax)} now"><line class="axis" x1="30" y1="${H2 - 20}" x2="${W2 - 10}" y2="${H2 - 20}"></line><path class="area" d="M${gx(0).toFixed(1)},${H2 - 20} L${line.replace(/ /g, " L")} L${gx(gp.length - 1).toFixed(1)},${H2 - 20} Z"></path><polyline class="line" points="${line}"></polyline><circle class="now" cx="${gx(gp.length - 1).toFixed(1)}" cy="${gy(gmax).toFixed(1)}" r="5"></circle><text x="30" y="${H2 - 4}">${esc3(first)}</text><text x="${W2 - 10}" y="${H2 - 4}" text-anchor="end">${fmt(gmax)} notes</text></svg></div>`;
+      g = `<div>${head("Growth", ["obsidian"], "Notes in the vault over time.")}<svg class="growth" viewBox="0 0 ${W2} ${H2}" role="img" aria-label="Notes over time, ${fmt(gmax)} now"><line class="axis" x1="30" y1="${H2 - 20}" x2="${W2 - 10}" y2="${H2 - 20}"></line><path class="area" d="M${gx(0).toFixed(1)},${H2 - 20} L${line.replace(/ /g, " L")} L${gx(gp.length - 1).toFixed(1)},${H2 - 20} Z"></path><polyline class="line" points="${line}"></polyline><circle class="now" cx="${gx(gp.length - 1).toFixed(1)}" cy="${gy(gmax).toFixed(1)}" r="5"></circle><text x="30" y="${H2 - 4}">${esc4(first)}</text><text x="${W2 - 10}" y="${H2 - 4}" text-anchor="end">${fmt(gmax)} notes</text></svg></div>`;
     }
     const kmax = Math.max(1, ...(p.knows || []).map((k2) => k2[1]));
-    const k = knowsOn ? `<div>${head("What it knows", ["obsidian"], "Notes in the vault, by subject.")}${p.knows.map(([l, n]) => `<div class="hbar"><span>${esc3(l)}</span><span class="track"><span class="fill" style="width:${(n / kmax * 100).toFixed(1)}%"></span></span><span class="num">${fmt(n)}</span></div>`).join("")}</div>` : "";
+    const k = knowsOn ? `<div>${head("What it knows", ["obsidian"], "Notes in the vault, by subject.")}${p.knows.map(([l, n]) => `<div class="hbar"><span>${esc4(l)}</span><span class="track"><span class="fill" style="width:${(n / kmax * 100).toFixed(1)}%"></span></span><span class="num">${fmt(n)}</span></div>`).join("")}</div>` : "";
     parts.push(`<div class="two-col">${g}${k}</div>`);
   }
   if (s.inbox !== false && p.inbox?.kinds?.length) {
     const ib = p.inbox, kmax = Math.max(1, ...ib.kinds.map((k) => k[1])), total = ib.total ?? ib.kinds.reduce((a, k) => a + k[1], 0);
     const se = ib.series, smax2 = Math.max(1, ...(se?.weeks || []).map((w) => w[1]));
-    parts.push(`${head("Inbox to knowledge", ["obsidian"], esc3(ib.note || `Every email attachment is read, summarized and linked into the vault overnight. ${fmt(total)} documents so far, by kind. Contents stay private.`))}<div class="two-col"><div>${ib.kinds.map(([l, n]) => `<div class="hbar"><span>${esc3(l)}</span><span class="track"><span class="fill alt" style="width:${(n / kmax * 100).toFixed(1)}%"></span></span><span class="num">${fmt(n)}</span></div>`).join("")}</div>${se?.weeks?.length ? `<div><div class="label">${esc3(se.label)} / ${fmt(se.weeks.reduce((a, w) => a + w[1], 0))} in ${se.weeks.length} weeks</div><div class="cols">${se.weeks.map(([l, n]) => `<span title="${esc3(l)}: ${n}"><b style="height:${Math.max(3, n / smax2 * 100).toFixed(1)}%"></b><em>${n || ""}</em></span>`).join("")}</div><div class="bars-legend"><span>${esc3(se.weeks[0][0])}</span><span>this week</span></div></div>` : ""}</div>`);
+    parts.push(`${head("Inbox to knowledge", ["obsidian"], esc4(ib.note || `Every email attachment is read, summarized and linked into the vault overnight. ${fmt(total)} documents so far, by kind. Contents stay private.`))}<div class="two-col"><div>${ib.kinds.map(([l, n]) => `<div class="hbar"><span>${esc4(l)}</span><span class="track"><span class="fill alt" style="width:${(n / kmax * 100).toFixed(1)}%"></span></span><span class="num">${fmt(n)}</span></div>`).join("")}</div>${se?.weeks?.length ? `<div><div class="label">${esc4(se.label)} / ${fmt(se.weeks.reduce((a, w) => a + w[1], 0))} in ${se.weeks.length} weeks</div><div class="cols">${se.weeks.map(([l, n]) => `<span title="${esc4(l)}: ${n}"><b style="height:${Math.max(3, n / smax2 * 100).toFixed(1)}%"></b><em>${n || ""}</em></span>`).join("")}</div><div class="bars-legend"><span>${esc4(se.weeks[0][0])}</span><span>this week</span></div></div>` : ""}</div>`);
   }
-  if (s.topics && p.topics.length) parts.push(`${gh ? head("Topics", ["github"], "Repo topics and languages, from public repos.") : em ? head("Topics", ["self"], "What they work on.") : head("Topics", ["obsidian"], "The tags used most in the vault.")}<div class="cloud">${p.topics.map(([t, n]) => `<span style="font-size:${(13 + n / tmax * 15).toFixed(1)}px">${esc3(t)}<sup>${n}</sup></span>`).join("")}</div>`);
+  if (s.topics && p.topics.length) parts.push(`${gh ? head("Topics", ["github"], "Repo topics and languages, from public repos.") : em ? head("Topics", ["self"], "What they work on.") : head("Topics", ["obsidian"], "The tags used most in the vault.")}<div class="cloud">${p.topics.map(([t, n]) => `<span style="font-size:${(13 + n / tmax * 15).toFixed(1)}px">${esc4(t)}<sup>${n}</sup></span>`).join("")}</div>`);
   if (s.projects !== false && p.projects?.length) {
     const hasC = p.projects.some((x) => x.commits);
-    parts.push(`${gh ? head("Projects", ["github"], "Public repositories with the most commits.") : em ? head("Projects", ["self"], "What they're building, with the number of updates on each.") : head("Projects", hasC ? ["obsidian", "github"] : ["obsidian"], `Notes in the vault's Projects folder${hasC ? ", with commit counts from GitHub" : ""}.`) + `<div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div>`}<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? `<th class="num">${em ? "updates" : "commits"}</th>` : ""}<th>link</th></tr></thead><tbody>${p.projects.map((x) => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.name)}</a>` : esc3(x.name)}</td><td>${esc3(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc3(x.url)}" rel="noopener">${esc3(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
+    parts.push(`${gh ? head("Projects", ["github"], "Public repositories with the most commits.") : em ? head("Projects", ["self"], "What they're building, with the number of updates on each.") : head("Projects", hasC ? ["obsidian", "github"] : ["obsidian"], `Notes in the vault's Projects folder${hasC ? ", with commit counts from GitHub" : ""}.`) + `<div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div>`}<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? `<th class="num">${em ? "updates" : "commits"}</th>` : ""}<th>link</th></tr></thead><tbody>${p.projects.map((x) => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc4(x.url)}" rel="noopener">${esc4(x.name)}</a>` : esc4(x.name)}</td><td>${esc4(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc4(x.url)}" rel="noopener">${esc4(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
   }
+  const listSrc = gh ? "caldera" : em ? "self" : "profile";
+  if (s.apps !== false && p.apps?.length) parts.push(`${head("Apps", [listSrc, "stores"], "Apps they made, with details from the store.")}${appsCards(p.apps)}`);
+  if (s.websites !== false && p.websites?.length) parts.push(`${head("Websites", [listSrc, "web"], "Sites they run.")}${siteCards(p.websites)}`);
   if (s.code !== false && p.code && p.code.commits > 0) {
     const c = p.code, wk = c.weekly || [], f = Math.max(0, Math.min(wk.findIndex((x) => x > 0), wk.length - 26)), w2 = [...Array(Math.max(0, 26 - wk.length)).fill(0), ...wk.slice(f)], peak = Math.max(1, ...w2);
-    parts.push(`${head("Code", ["github"], "Commits and languages, from GitHub.")}<p class="small"><b>${fmt(c.commits)}</b> commits across <b>${fmt(c.repos)}</b> repositories in the last year.${c.languages?.length ? ` Mostly ${esc3(c.languages.slice(0, -1).join(", "))}${c.languages.length > 1 ? " and " : ""}${esc3(c.languages[c.languages.length - 1])}.` : ""}${c.url && /^https?:\/\//.test(c.url) ? ` <a href="${esc3(c.url)}" rel="noopener">${esc3(c.url.replace(/^https?:\/\//, ""))}</a>` : ""}</p>${w2.length ? `<div class="bars" role="img" aria-label="Commits per week">${w2.map((x) => `<span class="${x >= peak * 0.5 ? "" : "quiet"}" style="height:${Math.max(2, x / peak * 100).toFixed(1)}%" title="${x}"></span>`).join("")}</div><div class="bars-legend"><span>${esc3(c.start || "")}</span><span>peak week: ${fmt(peak)}</span><span>this week</span></div>` : ""}`);
+    parts.push(`${head("Code", ["github"], "Commits and languages, from GitHub.")}<p class="small"><b>${fmt(c.commits)}</b> commits across <b>${fmt(c.repos)}</b> repositories in the last year.${c.languages?.length ? ` Mostly ${esc4(c.languages.slice(0, -1).join(", "))}${c.languages.length > 1 ? " and " : ""}${esc4(c.languages[c.languages.length - 1])}.` : ""}${c.url && /^https?:\/\//.test(c.url) ? ` <a href="${esc4(c.url)}" rel="noopener">${esc4(c.url.replace(/^https?:\/\//, ""))}</a>` : ""}</p>${w2.length ? `<div class="bars" role="img" aria-label="Commits per week">${w2.map((x) => `<span class="${x >= peak * 0.5 ? "" : "quiet"}" style="height:${Math.max(2, x / peak * 100).toFixed(1)}%" title="${x}"></span>`).join("")}</div><div class="bars-legend"><span>${esc4(c.start || "")}</span><span>peak week: ${fmt(peak)}</span><span>this week</span></div>` : ""}`);
   }
   if (s.ai !== false && p.ai && p.ai.total > 0) {
     const a = p.ai, td = days.map((d) => ({ date: d.date, n: d.tokens || 0 })), tpeak = Math.max(1, ...td.map((x) => x.n));
     const share = (n) => a.total ? Math.round(n / a.total * 1e3) / 10 : 0;
     const bars = (rows, alt = false) => {
       const m = Math.max(1, ...rows.map((r) => r[1]));
-      return rows.map(([l, n]) => `<div class="hbar"><span>${esc3(l)}</span><span class="track"><span class="fill${alt ? " alt" : ""}" style="width:${(n / m * 100).toFixed(1)}%"></span></span><span class="num" title="${fmt(n)} tokens">${share(n) >= 0.1 ? share(n) + "%" : "&lt;0.1%"}</span></div>`).join("");
+      return rows.map(([l, n]) => `<div class="hbar"><span>${esc4(l)}</span><span class="track"><span class="fill${alt ? " alt" : ""}" style="width:${(n / m * 100).toFixed(1)}%"></span></span><span class="num" title="${fmt(n)} tokens">${share(n) >= 0.1 ? share(n) + "%" : "&lt;0.1%"}</span></div>`).join("");
     };
-    parts.push(`${head("AI usage", ["agents"], "Tokens used by AI models and coding agents.")}<p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc3(a.note)}</span>` : ""}</p>${td.some((x) => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map((x) => `<span class="${x.n >= tpeak * 0.5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc3(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc3(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>${a.sources && a.sources.length > 1 ? `<div style="margin-top:var(--space-4)"><div class="label">Where the tokens come from</div>${bars(a.sources, true)}</div>` : ""}`);
+    parts.push(`${head("AI usage", ["agents"], "Tokens used by AI models and coding agents.")}<p class="small"><b>${big(a.total)}</b> tokens across <b>${a.models.length}</b> model${a.models.length === 1 ? "" : "s"} in the last ${a.window_days || td.length} days.${a.note ? ` <span class="muted">${esc4(a.note)}</span>` : ""}</p>${td.some((x) => x.n) ? `<div class="bars" role="img" aria-label="AI tokens per day">${td.map((x) => `<span class="${x.n >= tpeak * 0.5 ? "" : "quiet"}" style="height:${Math.max(2, x.n / tpeak * 100).toFixed(1)}%" title="${esc4(x.date)}: ${big(x.n)} tokens"></span>`).join("")}</div><div class="bars-legend"><span>${esc4(td[0]?.date || "")}</span><span>peak day: ${big(tpeak)}</span><span>today</span></div>` : ""}<div class="two-col" style="margin-top:var(--space-4)"><div><div class="label">Models / share of tokens</div>${bars(a.models)}</div>${a.providers?.length ? `<div><div class="label">Providers</div>${bars(a.providers, true)}</div>` : ""}</div>${a.sources && a.sources.length > 1 ? `<div style="margin-top:var(--space-4)"><div class="label">Where the tokens come from</div>${bars(a.sources, true)}</div>` : ""}`);
   }
   if (s.timeline !== false && p.timeline?.length) parts.push(`${gh ? head("Timeline", ["github"], "Milestones from public GitHub: joining, then the repos that stand out.") : em ? head("Timeline", ["self"], "Milestones.") : head("Timeline", ["profile"], "Milestones, from the profile note.")}<div class="timeline">${timelineRows(p.timeline)}</div>`);
   if (gardenEnabled() && s.garden !== false && (p.garden?.length || p.gardenExternal)) parts.push(gardenSection(p.garden || [], p.gardenExternal));
-  if (s.notes && p.publicNotes.length) parts.push(`${head("Notes", ["obsidian"], "Notes published from the vault.")}${p.publicNotes.map((n) => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc3(n.title)}</div><div class="pn-ex">${esc3(n.excerpt)}</div><div class="pn-date">${esc3(n.updated.slice(0, 10))}</div></div>`).join("")}`);
-  if (s.links && p.links.length) parts.push(`${head("Elsewhere", [gh ? "github" : em ? "self" : "profile"], "Other places on the web.")}<ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc3(u)}" rel="noopener">${esc3(l)}</a></li>`).join("")}</ul>`);
-  parts.push(`<div class="foot">${gh ? "Built from GitHub" : em ? "Made" : "Grown from an Obsidian vault"} with Caldera. Updated ${esc3(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc3((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
-  if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc3(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc3(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc3(t)}</span><div class="ctx">${esc3(c)}</div></div>`).join("")}</div>` : ""}${sideMods.map((m) => `<div class="module side" data-module="${esc3(m.slug)}"><div class="label">${esc3(m.title)}</div><div class="mod-body">${m.html}</div></div>`).join("")}</aside>`);
+  if (s.notes && p.publicNotes.length) parts.push(`${head("Notes", ["obsidian"], "Notes published from the vault.")}${p.publicNotes.map((n) => `<div class="pnote" id="${slug("note-" + n.title)}"><div class="pn-title">${esc4(n.title)}</div><div class="pn-ex">${esc4(n.excerpt)}</div><div class="pn-date">${esc4(n.updated.slice(0, 10))}</div></div>`).join("")}`);
+  if (s.links && p.links.length) parts.push(`${head("Elsewhere", [gh ? "github" : em ? "self" : "profile"], "Other places on the web.")}<ul class="bullets">${p.links.map(([l, u]) => `<li><a href="${esc4(u)}" rel="noopener">${esc4(l)}</a></li>`).join("")}</ul>`);
+  parts.push(`<div class="foot">${gh ? "Built from GitHub" : em ? "Made" : "Grown from an Obsidian vault"} with Caldera. Updated ${esc4(p.updated.slice(0, 16).replace("T", " "))} UTC. <a href="${esc4((p.hub || "https://caldera.social").replace(/\/$/, ""))}/guide.html" target="_blank" rel="noopener">Your page? How to edit it</a></div></div></main>`);
+  if (railOn) parts.push(`<aside class="rail">${p.graph?.length ? `<div class="graph"><div class="label">${esc4(p.graphLabel || "Graph")}</div>${graphSvg(p.graph, p.name)}</div>` : ""}${p.backlinks?.length ? `<div><div class="label">${esc4(p.backlinkLabel || "Backlinks")}</div>${p.backlinks.map(([t, c]) => `<div class="backlink"><span>${esc4(t)}</span><div class="ctx">${esc4(c)}</div></div>`).join("")}</div>` : ""}${sideMods.map((m) => `<div class="module side" data-module="${esc4(m.slug)}"><div class="label">${esc4(m.title)}</div><div class="mod-body">${m.html}</div></div>`).join("")}</aside>`);
   parts.push(`</div>`);
   parts.push(`<script>${CLIENT_JS}<\/script></body></html>`);
   const toc = [];
@@ -5601,7 +6106,7 @@ ${(() => {
   html = html.replace("%%TOC%%", toc.length > 2 ? `<span class="label">On this page</span><div class="toc">${toc.map(([id, t]) => `<a class="tree-row toc-row" href="#${id}">${t}</a>`).join("")}</div>` : "");
   const garden = gardenEnabled() && s.garden !== false && p.garden?.length ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   const city = s.city !== false && p.city?.districts.length ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
-  const out = { ...garden, ...city, "index.html": html, "assets/theme.css": theme_default, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  const out = { ...garden, ...city, "index.html": html, "assets/theme.css": theme_default, "assets/profile.css": PROFILE_CSS + LISTINGS_CSS, "assets/favicon.svg": LOGO_SVG };
   let own = "caldera.social";
   try {
     own = new URL(p.hub || "https://caldera.social").host;
@@ -5617,9 +6122,9 @@ function navSidebar(p, sideOn, gardenOn, depth, current, toc = "") {
   if (gardenOn) pages.push(["garden.html", "Garden home"]);
   if (p.handle) pages.push([`${(p.hub || "https://caldera.social").replace(/\/$/, "")}/world?focus=${encodeURIComponent(p.handle)}`, "World"]);
   if (p.sections?.city !== false && p.city?.districts.length) pages.push(["city.html", "City"]);
-  const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${/^https?:\/\//.test(h) ? h : onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc3(l)}</a>`).join("");
+  const pageRows = pages.map(([h, l]) => `<a class="tree-row toc-row page-row${h === current ? " is-active" : ""}" href="${/^https?:\/\//.test(h) ? h : onProfile && h === "index.html" ? "#top" : up + h}"${h === current ? ' aria-current="page"' : ""}>${esc4(l)}</a>`).join("");
   const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");
-  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc3(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc3(p.handle)}" target="_blank" rel="noopener" title="Send @${esc3(p.handle)} a friend request">+ Follow @${esc3(p.handle)}</a>` : "";
+  const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc4(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc4(p.handle)}" target="_blank" rel="noopener" title="Send @${esc4(p.handle)} a friend request">+ Follow @${esc4(p.handle)}</a>` : "";
   const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map((r) => ({ ...r, current: r.href === "#top" && onProfile || !!r.href && r.href === current })), fix)}` : "";
   return `<nav class="sidebar tree" aria-label="Navigation"><div class="side-inner"><span class="label">Pages</span><div class="toc pages">${pageRows}${friend}</div>${toc}${tree}</div></nav>`;
 }
@@ -5629,11 +6134,11 @@ function sidebarTree(rows, fix = (h) => h) {
   const ok = (h) => !!h && /^(https?:\/\/|#[\w-]+$|garden\.html$|n\/[a-z0-9-]+\.html$)/.test(h);
   const item = (r) => {
     const cls = `tree-row child${r.current ? " is-current" : ""}${r.href ? " is-link" : ""}`;
-    if (!ok(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc3(r.name)}</span></div>`;
+    if (!ok(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc4(r.name)}</span></div>`;
     const ext = /^https?:\/\//.test(r.href);
-    return `<a class="${cls}" href="${esc3(fix(r.href))}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc3(r.name)}</span>${ext ? '<span class="ext" aria-hidden="true">&#8599;</span>' : ""}</a>`;
+    return `<a class="${cls}" href="${esc4(fix(r.href))}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc4(r.name)}</span>${ext ? '<span class="ext" aria-hidden="true">&#8599;</span>' : ""}</a>`;
   };
-  const gname = (r) => ok(r.href) && !/^https?:/.test(r.href) ? `<a class="g-name g-link" href="${esc3(fix(r.href))}">${esc3(r.name)}</a>` : `<span class="g-name">${esc3(r.name)}</span>`;
+  const gname = (r) => ok(r.href) && !/^https?:/.test(r.href) ? `<a class="g-name g-link" href="${esc4(fix(r.href))}">${esc4(r.name)}</a>` : `<span class="g-name">${esc4(r.name)}</span>`;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     if (r.child) {
@@ -5667,11 +6172,11 @@ function timelineRows(rows) {
     const [main, detail] = splitDetail(t);
     if (y.trim().toLowerCase() === "era") {
       prev = "";
-      return `<div class="era"><span class="era-name">${inline(main)}</span>${detail ? `<span class="era-range">${esc3(detail)}</span>` : ""}</div>`;
+      return `<div class="era"><span class="era-name">${inline(main)}</span>${detail ? `<span class="era-range">${esc4(detail)}</span>` : ""}</div>`;
     }
     const same = y === prev;
     prev = y;
-    return `<div class="row${same ? " same" : ""}"><span class="year">${same ? "" : esc3(y)}</span><span class="dot" aria-hidden="true"></span><div class="what"><div>${inline(main)}</div>${detail ? `<div class="detail">${inline(detail)}</div>` : ""}</div></div>`;
+    return `<div class="row${same ? " same" : ""}"><span class="year">${same ? "" : esc4(y)}</span><span class="dot" aria-hidden="true"></span><div class="what"><div>${inline(main)}</div>${detail ? `<div class="detail">${inline(detail)}</div>` : ""}</div></div>`;
   }).join("");
 }
 var LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#1C1C1F"/><path d="M4 25 L12 10 L15 15 L18 8 L28 25 Z" fill="#8B6CF6"/><circle cx="16" cy="21" r="2.4" fill="#4FB89A"/></svg>';
@@ -5704,8 +6209,11 @@ function renderPrivateCity(p, city, openBase = "") {
   return renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, openBase, github: githubOf(p), nav: (d, cur) => p.sections.sidebar === false ? "" : navSidebar(q2, sideOn, gardenOn, d, cur) }, city);
 }
 
+// src/collect.ts
+var import_obsidian6 = require("obsidian");
+
 // src/modules.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 var MODULES_FOLDER = "Caldera/modules";
 var MODULE_LIMITS = { count: 12, chars: 2e4, imgMax: 2e6, imgTotal: 6e6 };
 var IMG_EXT = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "webp", "gif"]);
@@ -5744,7 +6252,7 @@ async function collectModules(app, hub) {
       const t = m[1].trim();
       if (images[t]) continue;
       const dest = app.metadataCache.getFirstLinkpathDest?.(t, f.path) ?? app.vault.getAbstractFileByPath(t);
-      if (!(dest instanceof import_obsidian3.TFile) || !IMG_EXT.has(dest.extension.toLowerCase()) || dest.stat.size > MODULE_LIMITS.imgMax || imgTotal + dest.stat.size > MODULE_LIMITS.imgTotal) continue;
+      if (!(dest instanceof import_obsidian4.TFile) || !IMG_EXT.has(dest.extension.toLowerCase()) || dest.stat.size > MODULE_LIMITS.imgMax || imgTotal + dest.stat.size > MODULE_LIMITS.imgTotal) continue;
       const out = `m/img/${slug(dest.basename)}-${dest.stat.size}.${dest.extension.toLowerCase()}`;
       files[out] = await app.vault.readBinary(dest);
       imgTotal += dest.stat.size;
@@ -5779,7 +6287,7 @@ async function collectProfile(app, s, social) {
     const cache = app.metadataCache.getFileCache(f);
     links += (cache?.links?.length || 0) + (cache?.embeds?.length || 0) + (cache?.frontmatterLinks?.length || 0);
     words += Math.round(f.stat.size / 6);
-    for (const t of cache ? (0, import_obsidian4.getAllTags)(cache) || [] : []) {
+    for (const t of cache ? (0, import_obsidian5.getAllTags)(cache) || [] : []) {
       const k = t.replace(/^#/, "").toLowerCase();
       if (allow.has(k)) tagCounts2.set(allow.get(k), (tagCounts2.get(allow.get(k)) || 0) + 1);
     }
@@ -5799,7 +6307,7 @@ async function collectProfile(app, s, social) {
   const external = /* @__PURE__ */ new Map();
   let extra = {};
   const actFile = app.vault.getAbstractFileByPath(s.activityFile);
-  if (actFile instanceof import_obsidian4.TFile) {
+  if (actFile instanceof import_obsidian5.TFile) {
     try {
       extra = JSON.parse(await app.vault.cachedRead(actFile)) || {};
       for (const d of extra.days || []) external.set(d.date, d);
@@ -5838,7 +6346,7 @@ async function collectProfile(app, s, social) {
     ...s.tabs || []
   ].filter(Boolean).map((x) => String(x).trim());
   const safe = publicTextFilter(ownerPublic);
-  const clean = (xs) => xs.filter((x) => safe(x));
+  const clean2 = (xs) => xs.filter((x) => safe(x));
   for (let i = s.historyDays - 1; i >= 0; i--) {
     const date = iso(today - i * DAY);
     const ext = external.get(date) || {};
@@ -5848,9 +6356,9 @@ async function collectProfile(app, s, social) {
       counts: { notes: Math.max(created.get(date) || 0, changed.get(date) || 0), meetings: ext.meetings, emails: ext.emails, prompts: ext.prompts, commits: ext.commits, docs: ext.docs },
       tokens: Number(ext.tokens) || void 0,
       headline: [j.headline || ext.headline].filter((h) => h && safe(String(h)))[0],
-      focus: clean(j.focus?.length ? j.focus : asList(ext.focus)),
-      wins: clean(j.wins?.length ? j.wins : asList(ext.wins)),
-      themes: clean(j.themes?.length ? j.themes : asList(ext.themes))
+      focus: clean2(j.focus?.length ? j.focus : asList(ext.focus)),
+      wins: clean2(j.wins?.length ? j.wins : asList(ext.wins)),
+      themes: clean2(j.themes?.length ? j.themes : asList(ext.themes))
     });
   }
   if (s.gardenJournal !== false && s.sections.garden !== false) await growGardenFromJournal(app, s, daily, gardenEnabled() ? garden : [], gardenEnabled() ? gardenReport : []);
@@ -5862,7 +6370,7 @@ async function collectProfile(app, s, social) {
   const files = {};
   const img = async (vaultPath, name) => {
     const f = vaultPath && app.vault.getAbstractFileByPath(vaultPath);
-    if (f instanceof import_obsidian4.TFile && /^(png|jpe?g|gif|webp|avif|svg)$/i.test(f.extension) && f.stat.size <= 8 * 1024 * 1024) {
+    if (f instanceof import_obsidian5.TFile && /^(png|jpe?g|gif|webp|avif|svg)$/i.test(f.extension) && f.stat.size <= 8 * 1024 * 1024) {
       const out = `img/${name}.${f.extension.toLowerCase()}`;
       files[out] = await app.vault.readBinary(f);
       return out;
@@ -6002,7 +6510,7 @@ async function collectProfile(app, s, social) {
     Object.assign(files, mo.files);
     modulesReport = mo.report;
   }
-  let cityPrivate;
+  let cityPrivate, cityPublicBase;
   if (s.sections.city !== false) {
     try {
       const path = "Caldera/city.json";
@@ -6055,6 +6563,7 @@ async function collectProfile(app, s, social) {
           const vault = md.filter(inVault).map((f) => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
           cityPrivate.under = underground(vault, hubs, (t) => gslug.get(t.toLowerCase()));
           const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map((d) => d.name) : fromVault ? [] : (s.projects || []).map((p) => p[0]), s.privateRepos || "show", s.hideRepos || []);
+          cityPublicBase = pub;
           if (pub.districts.length) data.city = pub;
         }
       }
@@ -6062,7 +6571,38 @@ async function collectProfile(app, s, social) {
       console.warn("Caldera city.json unreadable:", e);
     }
   }
+  const listed = await collectListings(s);
+  if (listed.length) {
+    data.apps = listed.filter((l) => l.kind === "app");
+    data.websites = listed.filter((l) => l.kind === "site");
+    if (!data.apps.length) delete data.apps;
+    if (!data.websites.length) delete data.websites;
+  }
+  if (s.sections.city !== false && (listed.length || s.hideStorefronts?.length)) {
+    const hs = s.hideStorefronts || [];
+    const pub = withListingsPublic(cityPublicBase || (cityPrivate ? void 0 : { districts: [], private: false }), cityPrivate, listed, s.privateRepos || "show", s.hideRepos || [], hs);
+    if (pub?.districts.length) data.city = pub;
+    cityPrivate = withListingsPrivate(cityPrivate, listed, hs);
+  }
   return { data, files, gardenReport, modulesReport, cityPrivate };
+}
+async function collectListings(s) {
+  const refs = [...parseListings(s.apps || [], "app"), ...parseListings(s.websites || [], "site")];
+  if (!refs.length) return [];
+  const hub = (s.hubUrl || "https://caldera.social").replace(/\/$/, "");
+  let meta = {};
+  try {
+    const r = await Promise.race([
+      (0, import_obsidian6.requestUrl)({ url: `${hub}/v1/listings/resolve`, method: "POST", contentType: "application/json", body: JSON.stringify({ items: refs.map((x) => ({ kind: x.kind, url: x.url })) }), throw: false }),
+      new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 2e4))
+    ]);
+    if (r?.status === 200 && Array.isArray(r.json?.items)) {
+      for (const m of r.json.items) if (m && typeof m.key === "string") meta[m.key] = m;
+    }
+  } catch {
+    meta = {};
+  }
+  return refs.map((x) => toListing(x, meta[x.key], hub));
 }
 function asList(v) {
   if (Array.isArray(v)) return v.map(String).filter(Boolean).slice(0, 3);
@@ -6119,7 +6659,7 @@ async function collectGarden(app, s, md) {
       const t = m[1].trim();
       if (gardenImages[t]) continue;
       const dest = app.metadataCache.getFirstLinkpathDest?.(t, f.path) ?? app.vault.getAbstractFileByPath(t);
-      if (!(dest instanceof import_obsidian4.TFile) || !IMG_EXT2.has(dest.extension.toLowerCase()) || dest.stat.size > IMG_MAX || imgTotal + dest.stat.size > IMG_TOTAL) continue;
+      if (!(dest instanceof import_obsidian5.TFile) || !IMG_EXT2.has(dest.extension.toLowerCase()) || dest.stat.size > IMG_MAX || imgTotal + dest.stat.size > IMG_TOTAL) continue;
       const outPath = `n/img/${slug(dest.basename)}-${slug(String(dest.stat.size))}.${dest.extension.toLowerCase()}`;
       gardenFiles[outPath] = await app.vault.readBinary(dest);
       imgTotal += dest.stat.size;
@@ -6230,10 +6770,10 @@ function nowOf(s, daily) {
 }
 
 // src/bgtimers.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var node = (() => {
   try {
-    return import_obsidian5.Platform.isDesktopApp ? window.require?.("timers") ?? null : null;
+    return import_obsidian7.Platform.isDesktopApp ? window.require?.("timers") ?? null : null;
   } catch {
     return null;
   }
@@ -6251,150 +6791,16 @@ var cancel = (t) => {
   }
 };
 
-// src/profile-file.ts
-var import_obsidian6 = require("obsidian");
-var PROFILE_FILE = "Caldera/profile.md";
-var pair = (v) => {
-  const [a, ...b] = String(v ?? "").split("|");
-  const k = a.trim(), val = b.join("|").trim();
-  return k && val ? [k, val] : null;
-};
-var pairs = (v) => Array.isArray(v) ? v.map(pair).filter(Boolean) : null;
-function effectiveSettings(app, s) {
-  const f = app.vault.getAbstractFileByPath(PROFILE_FILE);
-  const fm = f instanceof import_obsidian6.TFile ? app.metadataCache.getFileCache(f)?.frontmatter : null;
-  if (!fm) return s;
-  const e = { ...s, sections: { ...s.sections } };
-  if (typeof fm.name === "string" && fm.name.trim()) e.name = fm.name.trim();
-  if (typeof fm.headline === "string") e.headline = fm.headline.trim();
-  if (typeof fm.photo === "string") e.avatarPath = fm.photo.trim();
-  if (typeof fm.banner === "string") e.bannerPath = fm.banner.trim();
-  e.links = pairs(fm.links) ?? e.links;
-  e.properties = pairs(fm.properties) ?? e.properties;
-  const topics = pairs(fm.topics);
-  if (topics) e.publicTopics = topics.map(([tag, label]) => [tag.replace(/^#/, ""), label]);
-  if (fm.sections && typeof fm.sections === "object") for (const [k, v] of Object.entries(fm.sections)) e.sections[k] = v !== false;
-  if (typeof fm.listed === "boolean") e.listed = fm.listed;
-  if (typeof fm.autoConnectRepos === "boolean") e.autoConnectRepos = fm.autoConnectRepos;
-  if (typeof fm.autoConnectGithub === "boolean") e.autoConnectRepos = fm.autoConnectGithub;
-  const list = (v) => Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : typeof v === "string" ? v.split(",").map((x) => x.trim()).filter(Boolean) : null;
-  {
-    const t = list(fm.tags);
-    if (t) e.tags = t.slice(0, 12);
-    const h = list(fm.hideTags);
-    if (h) e.hideTags = h.slice(0, 40);
-    const hr = list(fm.hideRepos);
-    if (hr) e.hideRepos = hr.slice(0, 200);
-  }
-  if (typeof fm.autoTags === "boolean") e.autoTags = fm.autoTags;
-  if (["show", "anonymous", "hidden", "named"].includes(String(fm.privateRepos))) e.privateRepos = fm.privateRepos;
-  if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x) => {
-    const [g = "", items = "", folder = ""] = String(x ?? "").split("|").map((v) => v.trim());
-    return [g, items, folder || void 0];
-  }).filter(([g]) => g);
-  if (Array.isArray(fm.graph)) e.graph = fm.graph.map((x) => String(x).trim()).filter(Boolean).slice(0, 20);
-  e.backlinks = pairs(fm.backlinks) ?? e.backlinks;
-  if (typeof fm.summary === "string") e.summary = fm.summary.trim();
-  if (Array.isArray(fm.now)) e.now = fm.now.map((x) => String(x).trim()).filter(Boolean).slice(0, 8);
-  if (String(fm.now ?? "").trim().toLowerCase() === "auto") {
-    e.now = [];
-    e.nowAuto = true;
-  }
-  e.timeline = pairs(fm.timeline) ?? e.timeline;
-  e.projects = pairs(fm.projects) ?? e.projects;
-  e.knows = pairs(fm.knows) ?? e.knows;
-  if (typeof fm.garden === "string") e.gardenFolder = fm.garden.trim().replace(/^\/+|\/+$/g, "");
-  if (typeof fm.garden_journal === "boolean") e.gardenJournal = fm.garden_journal;
-  if (typeof fm.garden_url === "string") e.gardenUrl = /^https:\/\//.test(fm.garden_url.trim()) ? fm.garden_url.trim() : "";
-  if (Array.isArray(fm.tabs)) e.tabs = fm.tabs.map((x) => String(x).trim()).filter(Boolean).slice(0, 5);
-  return e;
-}
-var q = (v) => JSON.stringify(v);
-function profileFileText(s, hubUrl) {
-  const list = (rows) => rows.length ? rows.map((r) => `  - ${q(r)}`).join("\n") : "  []";
-  return `---
-name: ${q(s.name)}
-headline: ${q(s.headline)}
-photo: ${q(s.avatarPath)}
-banner: ${q(s.bannerPath)}
-links:
-${list(s.links.map(([a, b]) => `${a} | ${b}`))}
-properties:
-${list(s.properties.map(([a, b]) => `${a} | ${b}`))}
-topics:
-${list(s.publicTopics.map(([a, b]) => `${a} | ${b}`))}
-sections:
-${Object.entries(s.sections).map(([k, v]) => `  ${k}: ${v}`).join("\n")}
-listed: ${s.listed !== false}
-summary: ${q(s.summary || "")}
-now:${s.nowAuto ? " auto" : "\n" + list(s.now || [])}
-timeline:
-${list((s.timeline || []).map(([a, b]) => `${a} | ${b}`))}
-projects:
-${list((s.projects || []).map(([a, b]) => `${a} | ${b}`))}
-knows:
-${list((s.knows || []).map(([a, b]) => `${a} | ${b}`))}
-tabs:
-${list(s.tabs || [])}
-${gardenEnabled() ? `garden: ${q(s.gardenFolder ?? "Garden")}
-garden_url: ${q(s.gardenUrl || "")}
-garden_journal: ${s.gardenJournal !== false}
-` : ""}sidebar:
-${list((s.tree || []).map(([a, b, c]) => `${a} | ${b}${c ? ` | ${c}` : ""}`))}
-graph:
-${list(s.graph || [])}
-backlinks:
-${list((s.backlinks || []).map(([a, b]) => `${a} | ${b}`))}
----
-# My Caldera profile
-
-This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}/ . Edit the properties above, or ask your AI agent to, and the page republishes itself about a minute after you save. **Everything above is public.**
-
-- **name, headline** - shown at the top of your page.
-- **photo, banner** - paths to images in this vault, e.g. \`Attachments/me.jpg\`.
-- **links** - \`Label | https://...\`, one per line.
-- **properties** - short facts, \`Label | value\` (e.g. \`Based in | Lisbon\`).
-- **topics** - which of your tags may be counted publicly, \`tag | Label\`. Tags not listed are never shown.
-- **sections** - switch parts of the page on or off: ${Object.keys(s.sections).join(", ")}.
-- **listed** - \`true\` shows your card on the People page; \`false\` keeps the page link-only.
-- **autoConnectGithub** (or autoConnectRepos) - \`false\` stops Caldera making you friends with members you follow, who follow you, or who work on the same public GitHub repos (on by default).
-- **tags** - what you're building, shown as chips on your page and searchable in People (e.g. \`[Social features, Next.js]\`). **hideTags** hides tags Caldera worked out from your public GitHub; **autoTags** \`false\` turns those off entirely.
-- **privateRepos** - how private repos show on your public city: \`named\` (like your private view: names, language colours and activity in their real projects, but no links or code), \`show\` (padlocked buildings in place: no names, but size, activity and the project they sit beside are visible), \`anonymous\` (one separate padlocked district, no sizes, activity or projects) or \`hidden\` (no trace). Your private view always shows everything. **hideRepos** - with \`named\`, private repos to keep as nameless padlocks anyway (e.g. \`[client-project, secret-launch]\`).
-- **summary** - a short intro box. Links: \`[[Label|https://...]]\`, bold: \`**text**\`.
-- **now** - what you're doing now, one line each. Or \`now: auto\` (and when there's no list): your last week of journal wins, updated on every publish.
-- **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
-- **projects** - \`Name | status | https://link\`.
-- **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
-- **tabs** - extra tab labels in the top bar, like \`Now.md\`.
-${gardenEnabled() ? `- **garden** - a folder whose notes are published as full pages (your digital garden). Default \`Garden\`. Any note can also opt in with \`caldera: garden\`; \`caldera: private\` keeps a note out. In a garden note, \`stage: seedling | budding | evergreen\` and \`license: all-rights | cc-by | cc-by-nc | cc0 | ai-licensable\`. Email addresses and phone numbers are removed automatically. Link a friend's note with \`[[@handle/Their note]]\`.
-- **garden_journal** - \`true\` (default) grows garden pages from your daily journal: one per public project it keeps mentioning and one per recurring theme. Only journal text that is already public is used. \`false\` turns it off.
-- **garden_url** - an existing garden elsewhere (Quartz, Obsidian Publish...), linked from your page.
-` : ""}- **sidebar** - the left column, \`Group | item, item | folder\` (e.g. \`Projects | Caldera, Newsletter | Projects\`). Items that match a project, public note or section on your page become links. The optional folder shows how many notes it holds (a count only). Empty: your topics and public notes.
-- **graph** - note names for the graph on the right, sized by how many of your notes link to each (only the count is published). Empty: your topics.
-- **backlinks** - the list under the graph, \`Title | short context\`. Empty: your public notes.
-- **Your own sections (modules)** - add a note to \`Caldera/modules/\` (e.g. \`Caldera/modules/Reading list.md\`) and it becomes a section on your page, titled with the file name. Write ordinary Markdown: lists, tables, quotes, links, images from the vault. Optional frontmatter: \`place: side\` (right-hand column), \`order: 10\`, \`publish: false\` (draft). Or ask your AI agent: "add a Talks module with my last five talks".
-
-Your handle and identity key live in Settings -> Caldera, never here. Guide: ${hubUrl.replace(/\/$/, "")}/guide.html
-`;
-}
-async function ensureProfileFile(app, s, hubUrl) {
-  const existing = app.vault.getAbstractFileByPath(PROFILE_FILE);
-  if (existing instanceof import_obsidian6.TFile) return existing;
-  if (!app.vault.getAbstractFileByPath("Caldera")) await app.vault.createFolder("Caldera").catch(() => {
-  });
-  return app.vault.create(PROFILE_FILE, profileFileText(s, hubUrl));
-}
-
 // src/view.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/owner.ts
-var esc4 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc5 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var ago = (iso2, now) => {
   const m = Math.max(0, Math.round((Date.parse(now) - Date.parse(iso2)) / 6e4));
   return m < 60 ? `${m}m ago` : m < 48 * 60 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)} days ago`;
 };
-var open2 = (r) => `<a class="ow-link" href="#" data-open="${esc4(r.path)}">${esc4(r.title)}</a>`;
+var open2 = (r) => `<a class="ow-link" href="#" data-open="${esc5(r.path)}">${esc5(r.title)}</a>`;
 var pageName = (p) => p === "index.html" ? "your profile" : p === "garden.html" ? "garden home" : p.replace(/^n\//, "").replace(/\.html$/, "").replace(/-/g, " ");
 function renderOwner(o) {
   const out = [];
@@ -6404,7 +6810,7 @@ function renderOwner(o) {
     const when = o.lastLooked ? `since you last looked, ${ago(o.lastLooked, o.now)}` : "in the last 24 hours";
     let body = "";
     if (!a) body = `<p class="ow-muted">Publish your profile to start seeing visits, gravity and links here.</p>`;
-    else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc4(a.error)}). Your vault sections below still work offline.</p>`;
+    else if ("error" in a) body = `<p class="ow-muted">Couldn't reach the hub (${esc5(a.error)}). Your vault sections below still work offline.</p>`;
     else {
       const num2 = (v) => {
         const n = Number(v);
@@ -6426,18 +6832,18 @@ function renderOwner(o) {
         return byDay.get(k) || [k, 0, 0];
       });
       const max = Math.max(1, ...days14.map((d) => d[1]));
-      if (a.days.length) body += `<div class="ow-spark" title="Page views, last 14 days">${days14.map((d) => `<i style="height:${d[1] ? Math.max(6, Math.round(d[1] / max * 100)) : 2}%;${d[1] ? "" : "opacity:.25"}" title="${esc4(d[0])}: ${d[1]} views, ${d[2]} visitors"></i>`).join("")}</div><div class="ow-muted ow-small">Page views, last 14 days &middot; ${a.totalViews.toLocaleString("en-US")} all time</div>`;
+      if (a.days.length) body += `<div class="ow-spark" title="Page views, last 14 days">${days14.map((d) => `<i style="height:${d[1] ? Math.max(6, Math.round(d[1] / max * 100)) : 2}%;${d[1] ? "" : "opacity:.25"}" title="${esc5(d[0])}: ${d[1]} views, ${d[2]} visitors"></i>`).join("")}</div><div class="ow-muted ow-small">Page views, last 14 days &middot; ${a.totalViews.toLocaleString("en-US")} all time</div>`;
       if (typeof a.viewsAll === "number") body += `<div class="ow-muted ow-small">Your page's view count: <b>${a.viewsAll.toLocaleString("en-US")}</b> all time &middot; <b>${(a.viewsWeek || 0).toLocaleString("en-US")}</b> this week (one per visitor per day)${a.showViews === false ? " &middot; hidden from visitors" : ""}</div>`;
       const lines = [];
-      if (a.pages.length) lines.push(`<li>Most read: ${a.pages.slice(0, 4).map(([p, n]) => `${esc4(pageName(p))} (${n})`).join(", ")}</li>`);
-      for (const g of a.gravity.slice(0, 5)) lines.push(`<li><b>${g.from ? "@" + esc4(g.from) : "Someone"}</b> gave you gravity${g.reason ? `: &ldquo;${esc4(g.reason)}&rdquo;` : ""} <span class="ow-muted">${ago(g.ts, o.now)}</span></li>`);
-      for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc4(k.emoji)} <b>${k.from ? "@" + esc4(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
-      for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc4(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
+      if (a.pages.length) lines.push(`<li>Most read: ${a.pages.slice(0, 4).map(([p, n]) => `${esc5(pageName(p))} (${n})`).join(", ")}</li>`);
+      for (const g of a.gravity.slice(0, 5)) lines.push(`<li><b>${g.from ? "@" + esc5(g.from) : "Someone"}</b> gave you gravity${g.reason ? `: &ldquo;${esc5(g.reason)}&rdquo;` : ""} <span class="ow-muted">${ago(g.ts, o.now)}</span></li>`);
+      for (const k of (a.kudos || []).slice(0, 6)) lines.push(`<li>${esc5(k.emoji)} <b>${k.from ? "@" + esc5(k.from) : "Someone"}</b> sent you kudos <span class="ow-muted">${ago(k.ts, o.now)}</span></li>`);
+      for (const f of a.friends.slice(0, 5)) lines.push(`<li>You and <b>${f.handle ? "@" + esc5(f.handle) : "a new friend"}</b> are now friends <span class="ow-muted">${ago(f.ts, o.now)}</span></li>`);
       if (o.pending) lines.push(`<li><a href="#" data-action="panel" class="ow-link">${o.pending} new follower${o.pending === 1 ? "" : "s"}: follow back</a></li>`);
-      if (gardenEnabled() && a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map((l) => `@${esc4(l.src_handle)}'s &ldquo;${esc4(l.src_title)}&rdquo;`).join(", ")}</li>`);
+      if (gardenEnabled() && a.links.length) lines.push(`<li>Other gardens link to you ${a.links.length} time${a.links.length === 1 ? "" : "s"}: ${a.links.slice(0, 3).map((l) => `@${esc5(l.src_handle)}'s &ldquo;${esc5(l.src_title)}&rdquo;`).join(", ")}</li>`);
       body += lines.length ? `<ul class="ow-list">${lines.join("")}</ul>` : `<p class="ow-muted">Quiet so far. Share your invite link from the Caldera panel to bring friends in.</p>`;
     }
-    card("ow-since", "Since you last looked", body, `<span class="ow-muted ow-small">${esc4(when)}</span>`);
+    card("ow-since", "Since you last looked", body, `<span class="ow-muted ow-small">${esc5(when)}</span>`);
   }
   if (o.checklist?.some((i) => !i.done)) {
     const items = o.checklist, left = items.filter((i) => !i.done), done = items.length - left.length;
@@ -6456,7 +6862,7 @@ function renderOwner(o) {
     out.unshift(`<section class="ow-card ow-finish" id="ow-finish"><div class="ow-h"><h3>Finish your page</h3><span class="ow-muted ow-small">${done} of ${items.length} done</span></div>
 <div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
 <p class="ow-small">${act("finish-form", "Fill it in with a quick form")} <span class="ow-muted">name, photo, masthead and links${gardenEnabled() ? " and a first garden note" : ""} in one go</span></p>
-<ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc4(i.label)}</b> <span class="ow-muted">${esc4(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
+<ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc5(i.label)}</b> <span class="ow-muted">${esc5(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
   if (!o.checklist?.some((i) => !i.done) && o.unlock?.some((i) => !i.done)) {
     const items = o.unlock, left = items.filter((i) => !i.done), done = items.length - left.length;
@@ -6472,29 +6878,29 @@ function renderOwner(o) {
     out.unshift(`<section class="ow-card ow-finish ow-unlock" id="ow-unlock"><div class="ow-h"><h3>Unlock more</h3><span class="ow-muted ow-small">${done} of ${items.length} on</span></div>
 <div class="ow-bar"><i style="width:${Math.round(done / items.length * 100)}%"></i></div>
 <p class="ow-small ow-muted">Your basics are done. These are what make a Caldera page come alive. ${act("unlock-all", "Copy one prompt for all of them")}</p>
-<ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc4(i.label)}</b> <span class="ow-muted">${esc4(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
+<ul class="ow-list ow-todo">${left.map((i) => `<li><b>${esc5(i.label)}</b> <span class="ow-muted">${esc5(i.why)}</span><div class="ow-acts">${how[i.id] || ""}</div></li>`).join("")}</ul></section>`);
   }
   if (o.sources?.length) {
     const on = o.sources.filter((x) => x.ok).length, all = o.sources.length;
     const nudge = o.promptOutdated ? `<p class="ow-lead">Caldera can track more than your routine was set up for. Copy the setup prompt again and paste it into your AI agent: it upgrades what's there and fills in the rest.</p>` : on < all ? `<p class="ow-muted">Your page shows what your vault is fed. Copy the setup prompt into Claude Code, Codex or Cursor: it connects what it can find on this computer, schedules one routine to keep it fresh, and asks before anything goes public. Paste it again any time.</p>` : "";
-    card("ow-sources", "What feeds your page", `${nudge}<ul class="ow-list ow-src">${o.sources.map((x) => `<li>${x.ok ? "&#10003;" : "&#9675;"} <b>${esc4(x.label)}</b>${x.ok ? "" : ` <span class="ow-muted">${esc4(x.hint)}</span>`}</li>`).join("")}</ul>
+    card("ow-sources", "What feeds your page", `${nudge}<ul class="ow-list ow-src">${o.sources.map((x) => `<li>${x.ok ? "&#10003;" : "&#9675;"} <b>${esc5(x.label)}</b>${x.ok ? "" : ` <span class="ow-muted">${esc5(x.hint)}</span>`}</li>`).join("")}</ul>
 <p><a href="#" class="ow-link" data-action="prompt"><b>Copy the setup prompt</b></a>${o.promptOutdated ? "" : ` <span class="ow-muted ow-small">safe to paste again</span>`}</p>`, `<span class="ow-muted ow-small">${on} of ${all} connected</span>`);
   }
   {
     const t = o.today;
     const parts = [];
-    if (t.headline) parts.push(`<p class="ow-lead">${esc4(t.headline)}</p>`);
-    const chips = Object.entries(t.counts || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="ow-chip">${n} ${esc4(k)}</span>`);
+    if (t.headline) parts.push(`<p class="ow-lead">${esc5(t.headline)}</p>`);
+    const chips = Object.entries(t.counts || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="ow-chip">${n} ${esc5(k)}</span>`);
     if (chips.length) parts.push(`<div class="ow-chips">${chips.join("")}</div>`);
-    for (const [lab, xs] of [["Focus", t.focus], ["Wins", t.wins]]) if (xs?.length) parts.push(`<div class="ow-small"><b>${lab}:</b> ${xs.map(esc4).join(" &middot; ")}</div>`);
-    if (t.timeline.length) parts.push(`<ol class="ow-time">${t.timeline.map((r) => `<li><span class="ow-t">${esc4(r.time || "")}</span>${r.kind === "new" ? '<span class="ow-new">new</span>' : ""}${open2(r)}</li>`).join("")}</ol>`);
+    for (const [lab, xs] of [["Focus", t.focus], ["Wins", t.wins]]) if (xs?.length) parts.push(`<div class="ow-small"><b>${lab}:</b> ${xs.map(esc5).join(" &middot; ")}</div>`);
+    if (t.timeline.length) parts.push(`<ol class="ow-time">${t.timeline.map((r) => `<li><span class="ow-t">${esc5(r.time || "")}</span>${r.kind === "new" ? '<span class="ow-new">new</span>' : ""}${open2(r)}</li>`).join("")}</ol>`);
     else parts.push(`<p class="ow-muted">Nothing written yet today.</p>`);
-    card("ow-today", "Today", parts.join(""), `<span class="ow-muted ow-small">${esc4(t.date)}</span>`);
+    card("ow-today", "Today", parts.join(""), `<span class="ow-muted ow-small">${esc5(t.date)}</span>`);
   }
-  if (o.onThisDay.some((d) => d.items.length)) card("ow-otd", "On this day", o.onThisDay.filter((d) => d.items.length).map((d) => `<div class="ow-otd"><div class="ow-small ow-muted">${esc4(d.label)} &middot; ${esc4(d.date)}</div>${d.items.slice(0, 2).map((r) => `<div>${open2(r)}${r.excerpt ? `<p class="ow-x">${esc4(r.excerpt)}</p>` : ""}</div>`).join("")}</div>`).join(""));
+  if (o.onThisDay.some((d) => d.items.length)) card("ow-otd", "On this day", o.onThisDay.filter((d) => d.items.length).map((d) => `<div class="ow-otd"><div class="ow-small ow-muted">${esc5(d.label)} &middot; ${esc5(d.date)}</div>${d.items.slice(0, 2).map((r) => `<div>${open2(r)}${r.excerpt ? `<p class="ow-x">${esc5(r.excerpt)}</p>` : ""}</div>`).join("")}</div>`).join(""));
   if (o.rediscovered) {
     const r = o.rediscovered;
-    card("ow-back", "Brought back", `<div class="ow-big">${open2(r)}</div>${r.excerpt ? `<p class="ow-x">${esc4(r.excerpt)}</p>` : ""}<div class="ow-small ow-muted">${esc4(r.why)}</div>`, `<span class="ow-muted ow-small">changes every 3 hours</span>`);
+    card("ow-back", "Brought back", `<div class="ow-big">${open2(r)}</div>${r.excerpt ? `<p class="ow-x">${esc5(r.excerpt)}</p>` : ""}<div class="ow-small ow-muted">${esc5(r.why)}</div>`, `<span class="ow-muted ow-small">changes every 3 hours</span>`);
   }
   if (o.patterns.length) card("ow-pat", "Patterns", `<ul class="ow-list">${o.patterns.map((p) => `<li>${p}</li>`).join("")}</ul>`);
   if (o.goals === null) card("ow-goals", "Goals", `<p class="ow-muted">Track goals here with checkboxes in a note. <a href="#" class="ow-link" data-action="goals">Create Caldera/Goals.md</a></p>`);
@@ -6503,7 +6909,7 @@ function renderOwner(o) {
     "Goals",
     o.goals.map((g) => {
       const pct = g.total ? Math.round(g.done / g.total * 100) : 0;
-      return `<div class="ow-goal"><div class="ow-goal-h"><b>${esc4(g.heading)}</b><span class="ow-muted ow-small">${g.done}/${g.total}</span></div><div class="ow-bar"><i style="width:${pct}%"></i></div>${g.open.length ? `<div class="ow-small ow-muted">Next: ${g.open.slice(0, 2).map(esc4).join(" &middot; ")}</div>` : ""}</div>`;
+      return `<div class="ow-goal"><div class="ow-goal-h"><b>${esc5(g.heading)}</b><span class="ow-muted ow-small">${g.done}/${g.total}</span></div><div class="ow-bar"><i style="width:${pct}%"></i></div>${g.open.length ? `<div class="ow-small ow-muted">Next: ${g.open.slice(0, 2).map(esc5).join(" &middot; ")}</div>` : ""}</div>`;
     }).join(""),
     `<a href="#" class="ow-link ow-small" data-open="Caldera/Goals.md">edit</a>`
   );
@@ -6555,14 +6961,14 @@ var hm = (t) => {
   const d = new Date(t);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
-var esc5 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc6 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var SKIP = /^(\.|Caldera\/|templates?\/|_templates\/)/i;
 var BRIDGE = `(function(){var P=parent;document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a,[data-open],[data-action]');if(!a||a.hasAttribute('data-invite'))return;
 var o=a.getAttribute('data-open'),ac=a.getAttribute('data-action');if(o){e.preventDefault();P.postMessage({caldera:'open',path:o},'*');return}if(ac){e.preventDefault();P.postMessage({caldera:'action',name:ac},'*');return}
 var h=a.getAttribute('href');if(!h||h.charAt(0)==='#')return;e.preventDefault();P.postMessage({caldera:/^[a-z][a-z0-9+.-]*:/i.test(h)?'ext':'nav',href:h},'*')},true);
 var t;addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(function(){P.postMessage({caldera:'scroll',y:scrollY},'*')},250)});
 addEventListener('load',function(){var H=%%HASH%%,Y=%%Y%%;var el=H&&document.getElementById(H);if(el)el.scrollIntoView();else if(Y)scrollTo(0,Y)})})();`;
-var ProfileView = class extends import_obsidian7.ItemView {
+var ProfileView = class extends import_obsidian8.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -6612,11 +7018,11 @@ var ProfileView = class extends import_obsidian7.ItemView {
     this.status = bar.createSpan({ cls: "caldera-pv-status" });
     const btn = (icon, label, fn) => {
       const b = bar.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label } });
-      (0, import_obsidian7.setIcon)(b, icon);
+      (0, import_obsidian8.setIcon)(b, icon);
       b.onclick = () => fn();
     };
     btn("refresh-cw", "Refresh", () => this.refresh(true));
-    btn("external-link", "Open in browser (signed in as you)", () => this.plugin.settings.handle ? void this.plugin.openProfile(this.current === "index.html" ? "" : this.current) : new import_obsidian7.Notice("Publish your profile first"));
+    btn("external-link", "Open in browser (signed in as you)", () => this.plugin.settings.handle ? void this.plugin.openProfile(this.current === "index.html" ? "" : this.current) : new import_obsidian8.Notice("Publish your profile first"));
     if (this.plugin.settings.privateUrl) btn("lock", "Open my private web view (Tailscale)", async () => {
       await this.plugin.pushPrivate(false);
       window.open(this.plugin.settings.privateUrl);
@@ -6669,7 +7075,7 @@ var ProfileView = class extends import_obsidian7.ItemView {
   async popOut() {
     const handle = this.plugin.settings.handle;
     if (this.mode === "mine" && this.built) return this.plugin.floatCity({ html: this.cityMini(), live: true });
-    if (!handle) return void new import_obsidian7.Notice("Publish your profile first");
+    if (!handle) return void new import_obsidian8.Notice("Publish your profile first");
     return this.plugin.floatCity({ src: `${this.plugin.profileUrl()}city.html?caldera=owner#mini` });
   }
   async pushLive() {
@@ -6722,7 +7128,7 @@ var ProfileView = class extends import_obsidian7.ItemView {
       this.owner = renderOwner(this.ownerData);
       if (this.plugin.floatSpec?.html) this.plugin.floatCity({ html: this.cityMini(), live: true }, false);
       await this.show();
-      if (loud) new import_obsidian7.Notice("Profile refreshed");
+      if (loud) new import_obsidian8.Notice("Profile refreshed");
     } catch (e) {
       this.status.setText("Couldn't build: " + e.message);
     } finally {
@@ -6784,7 +7190,7 @@ var ProfileView = class extends import_obsidian7.ItemView {
       if (d.name === "prompt-banner" || d.name === "prompt-photo") void this.plugin.copyImagePrompt(d.name === "prompt-banner" ? "banner" : "photo");
       if (d.name === "settings") this.plugin.openSettings();
       if (typeof d.name === "string" && d.name.startsWith("unlock-")) void this.plugin.copyFeaturePrompt(d.name.slice(7));
-      if (d.name === "garden-help") new import_obsidian7.Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12e3);
+      if (d.name === "garden-help") new import_obsidian8.Notice(`Put any note in your "${this.plugin.settings.gardenFolder || "Garden"}" folder, or open a note and run "Caldera: Plant this note in my garden". It goes public on the next publish.`, 12e3);
       return;
     }
     if (d.caldera === "ext" && d.href) {
@@ -6808,15 +7214,15 @@ var ProfileView = class extends import_obsidian7.ItemView {
     const p = "Caldera/Goals.md";
     let f = this.app.vault.getAbstractFileByPath(p);
     if (!f) f = await this.app.vault.create(p, "# Goals\n\nOnly you see these, in the My profile tab. One heading per goal, checkboxes for the steps.\n\n## Example goal\n- [ ] First step\n- [ ] Second step\n");
-    if (f instanceof import_obsidian7.TFile) await this.app.workspace.getLeaf(true).openFile(f);
+    if (f instanceof import_obsidian8.TFile) await this.app.workspace.getLeaf(true).openFile(f);
   }
 };
 async function excerpt(app, f, n = 220) {
   try {
     const t = (await app.vault.cachedRead(f)).replace(/^---[\s\S]*?---\s*/, "");
     const para = t.split(/\n\s*\n/).map((x) => x.replace(/^#+\s.*$/gm, "").trim()).find((x) => x.replace(/[^A-Za-z]/g, "").length > 40 && (x.match(/\|/g) || []).length < 2 && !/^(navigation|nav|tags|source|sources|related|see also|aliases|links?)\s*:/i.test(x) && !/^[-*]?\s*\[\[/.test(x)) || "";
-    const clean = para.replace(/!\[\[[^\]]*\]\]/g, "").replace(/\[\[([^\]|]+)(\|([^\]]+))?\]\]/g, (_m, a, _b, l) => l || a).replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/^\s*[-*>]\s+/gm, "").replace(/[*_`=~#]/g, "").replace(/\s+/g, " ").trim();
-    return clean.length <= n ? clean : clean.slice(0, n).replace(/\s+\S*$/, "") + "\u2026";
+    const clean2 = para.replace(/!\[\[[^\]]*\]\]/g, "").replace(/\[\[([^\]|]+)(\|([^\]]+))?\]\]/g, (_m, a, _b, l) => l || a).replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/^\s*[-*>]\s+/gm, "").replace(/[*_`=~#]/g, "").replace(/\s+/g, " ").trim();
+    return clean2.length <= n ? clean2 : clean2.slice(0, n).replace(/\s+\S*$/, "") + "\u2026";
   } catch {
     return "";
   }
@@ -6895,7 +7301,7 @@ async function collectOwner(app, plugin, data, lastLooked) {
   };
   const recent = tally(0, 7), before = tally(7, 35);
   const rising = [...recent].map(([k, n]) => [k, n - (before.get(k) || 0) / 4]).filter(([k, s]) => s >= 2 && (recent.get(k) || 0) >= 3).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  if (rising.length) patterns.push(`Rising this week: ${rising.map(([k]) => `<b>${esc5(k)}</b>`).join(", ")}.`);
+  if (rising.length) patterns.push(`Rising this week: ${rising.map(([k]) => `<b>${esc6(k)}</b>`).join(", ")}.`);
   const heat = data.heat || [];
   if (heat.length) {
     let i = heat.length - 1;
@@ -6909,11 +7315,11 @@ async function collectOwner(app, plugin, data, lastLooked) {
     const best = heat.reduce((a, b) => b.n > a.n ? b : a);
     const last = heat[heat.length - 1];
     if (last.n > 0 && last.n >= best.n) patterns.push(`Today is your <b>busiest day in 6 months</b> (${last.n} notes touched).`);
-    else if (best.n) patterns.push(`Your busiest day in 6 months: ${esc5(best.date)} with ${best.n} notes touched. Today: ${last.n}.`);
+    else if (best.n) patterns.push(`Your busiest day in 6 months: ${esc6(best.date)} with ${best.n} notes touched. Today: ${last.n}.`);
   }
   let goals = null;
   const gf = app.vault.getAbstractFileByPath("Caldera/Goals.md");
-  if (gf instanceof import_obsidian7.TFile) {
+  if (gf instanceof import_obsidian8.TFile) {
     goals = [];
     let cur = null;
     for (const line of (await app.vault.cachedRead(gf)).split("\n")) {
@@ -7000,12 +7406,12 @@ async function collectOwner(app, plugin, data, lastLooked) {
 }
 
 // src/float.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var CITY_FLOAT_VIEW = "caldera-city-float";
 var W = 420;
 var H = 280;
 var TITLE = "Caldera city";
-var CityFloatView = class extends import_obsidian8.ItemView {
+var CityFloatView = class extends import_obsidian9.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -7067,7 +7473,7 @@ var CityFloatView = class extends import_obsidian8.ItemView {
   }
 };
 function pinWindow() {
-  if (!import_obsidian8.Platform.isDesktopApp) return;
+  if (!import_obsidian9.Platform.isDesktopApp) return;
   try {
     const remote = window.require("@electron/remote");
     const bw = remote.BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith(TITLE));
@@ -7108,7 +7514,7 @@ function quickLinkIndex(label, url) {
 }
 
 // src/suggest.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var STRUCTURAL = /^(entity|entities|company|companies|org|orgs|organization|concept|concepts|note|notes|index|moc|hub|stub|other|misc|reference|references|ref|file|files|image|images|img|pdf|doc|docs|document|documents|attachment|attachments|email|emails|mail|report|reports|contract|contracts|proposal|proposals|nda|invoice|invoices|receipt|receipts|data-room|dataroom|deck|decks|pitch-deck|startup-deck|transcript|transcripts|summary|summaries|digest|clip|web-clip|article|articles|bookmark|bookmarks|highlight|highlights|book-notes|imported|import|sync|auto|generated|ai-generated|wiki)$|(^|-)(pdf|email|attachment|digest|deck|transcript|import|imported)(-|$)/i;
 var SKIP2 = /^(private|personal|secret|todo|to-do|task|tasks|done|doing|wip|draft|inbox|archive|archived|daily|weekly|monthly|journal|diary|meeting|meetings|1on1|one-on-one|people|person|contact|contacts|family|health|medical|therapy|money|finance|finances|bank|tax|taxes|legal|client|clients|password|passwords|template|templates|excalidraw|status|type|source|sources|clippings|clipping|review|readwise|untagged|todo-later|idea-status)$|^(status|type|source|area|people|person|project-status|log)\//i;
 var ACRONYMS = { ai: "AI", ml: "ML", llm: "LLM", llms: "LLMs", ux: "UX", ui: "UI", vc: "VC", saas: "SaaS", api: "API", nlp: "NLP", seo: "SEO", cpg: "CPG", b2b: "B2B", b2c: "B2C", ios: "iOS", pkm: "PKM", gtd: "GTD", dao: "DAO", nft: "NFT", vr: "VR", ar: "AR", iot: "IoT", devops: "DevOps", js: "JS", ts: "TS" };
@@ -7123,7 +7529,7 @@ function tagCounts(app) {
     if (f.path.startsWith("Caldera/")) continue;
     const cache = app.metadataCache.getFileCache(f);
     if (!cache) continue;
-    for (const t of new Set(((0, import_obsidian9.getAllTags)(cache) || []).map((x) => x.replace(/^#/, "").toLowerCase()))) counts.set(t, (counts.get(t) || 0) + 1);
+    for (const t of new Set(((0, import_obsidian10.getAllTags)(cache) || []).map((x) => x.replace(/^#/, "").toLowerCase()))) counts.set(t, (counts.get(t) || 0) + 1);
   }
   return counts;
 }
@@ -7143,7 +7549,7 @@ function githubLogin(links) {
 }
 async function githubBio(login) {
   try {
-    const r = await (0, import_obsidian9.requestUrl)({ url: `https://api.github.com/users/${encodeURIComponent(login)}`, headers: { accept: "application/vnd.github+json" }, throw: false });
+    const r = await (0, import_obsidian10.requestUrl)({ url: `https://api.github.com/users/${encodeURIComponent(login)}`, headers: { accept: "application/vnd.github+json" }, throw: false });
     const bio = r.status === 200 ? String(r.json?.bio || "").replace(/\s+/g, " ").trim() : "";
     return bio ? bio.slice(0, 160) : null;
   } catch {
@@ -7153,7 +7559,7 @@ async function githubBio(login) {
 
 // src/main.ts
 var VIEW = "caldera-panel";
-var CalderaPlugin = class extends import_obsidian10.Plugin {
+var CalderaPlugin = class extends import_obsidian11.Plugin {
   constructor() {
     super(...arguments);
     this.pending = [];
@@ -7253,9 +7659,9 @@ var CalderaPlugin = class extends import_obsidian10.Plugin {
     this.addCommand({ id: "delete", name: "Delete my profile from the hub", callback: () => new ConfirmModal(this.app, "Delete your Caldera profile from the hub? Your page, friendships, asks, offers, gravity and credits on the hub are erased. Your vault is not touched.", async () => {
       try {
         await this.send("profile.delete", {});
-        new import_obsidian10.Notice("Your Caldera profile was deleted from the hub.");
+        new import_obsidian11.Notice("Your Caldera profile was deleted from the hub.");
       } catch (e) {
-        new import_obsidian10.Notice(e.message);
+        new import_obsidian11.Notice(e.message);
       }
     }).open() });
     this.addCommand({ id: "agent-prompt", name: "Copy the AI setup prompt (connects every source; safe to paste again)", callback: () => this.copyPrompt("setup") });
@@ -7310,7 +7716,7 @@ var CalderaPlugin = class extends import_obsidian10.Plugin {
   /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
   async importGithub(code) {
     if (!/^CAL-[\w-]{6,}$/.test(code)) {
-      new import_obsidian10.Notice("Paste the code from your account page (it starts with CAL-).");
+      new import_obsidian11.Notice("Paste the code from your account page (it starts with CAL-).");
       return false;
     }
     const go = async () => {
@@ -7323,12 +7729,12 @@ var CalderaPlugin = class extends import_obsidian10.Plugin {
         if (!this.settings.name && r.name) this.settings.name = r.name;
         if (!this.settings.headline && r.headline) this.settings.headline = r.headline;
         await this.saveSettings();
-        new import_obsidian10.Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
+        new import_obsidian11.Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
         const url = await this.publish(true);
-        if (url) new import_obsidian10.Notice("Published: " + url);
+        if (url) new import_obsidian11.Notice("Published: " + url);
         return true;
       } catch (e) {
-        new import_obsidian10.Notice("Couldn't import: " + e.message);
+        new import_obsidian11.Notice("Couldn't import: " + e.message);
         return false;
       }
     };
@@ -7347,7 +7753,7 @@ var CalderaPlugin = class extends import_obsidian10.Plugin {
     if (!this.settings.identity) {
       this.settings.identity = newIdentity();
       await this.saveSettings();
-      if (!quiet) new import_obsidian10.Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
+      if (!quiet) new import_obsidian11.Notice("Caldera identity created. Export your recovery key from settings and keep it safe.");
     }
     return this.settings.identity;
   }
@@ -7378,7 +7784,7 @@ var CalderaPlugin = class extends import_obsidian10.Plugin {
   async api(method, path, body, auth = false) {
     const headers = { "content-type": "application/json" };
     if (auth) headers.authorization = "Bearer " + await this.authToken();
-    const r = await (0, import_obsidian10.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + path, method, headers, body: body ? JSON.stringify(body) : void 0, throw: false });
+    const r = await (0, import_obsidian11.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + path, method, headers, body: body ? JSON.stringify(body) : void 0, throw: false });
     if (r.status >= 400) throw new Error(r.json?.error || `hub error ${r.status}`);
     return r.json;
   }
@@ -7450,17 +7856,17 @@ var CalderaPlugin = class extends import_obsidian10.Plugin {
     this.publishTimer = later(() => {
       this.publishTimer = null;
       void this.publish(true).then((url) => {
-        if (url && reason === "profile") new import_obsidian10.Notice("Caldera: your public page was updated.");
+        if (url && reason === "profile") new import_obsidian11.Notice("Caldera: your public page was updated.");
       });
     }, 45e3);
   }
   // What's new: the hub's release feed, shown only to the owner, inside Obsidian
   async checkReleases(manual = false) {
     try {
-      const r = await (0, import_obsidian10.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + "/releases.json", throw: false });
+      const r = await (0, import_obsidian11.requestUrl)({ url: this.settings.hubUrl.replace(/\/$/, "") + "/releases.json", throw: false });
       const list = r.status === 200 ? r.json?.releases || [] : [];
       if (!list.length) {
-        if (manual) new import_obsidian10.Notice("Couldn't load release notes.");
+        if (manual) new import_obsidian11.Notice("Couldn't load release notes.");
         return;
       }
       const seen = list.findIndex((x) => x.version === this.settings.lastSeenRelease);
@@ -7482,10 +7888,10 @@ var CalderaPlugin = class extends import_obsidian10.Plugin {
         f.appendText(unseen[0].title + " ");
         f.createEl("u", { text: "See what's new" });
       });
-      const n = new import_obsidian10.Notice(frag, 2e4);
+      const n = new import_obsidian11.Notice(frag, 2e4);
       n.noticeEl.addEventListener("click", open3);
     } catch {
-      if (manual) new import_obsidian10.Notice("Couldn't load release notes.");
+      if (manual) new import_obsidian11.Notice("Couldn't load release notes.");
     }
   }
   async preview() {
@@ -7506,7 +7912,7 @@ My agent hook (only if I say yes above), exactly as Caldera gave it to me:
 ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     const text = (kind === "edit" ? editPrompt : agentPrompt)({
       extras,
-      vaultPath: a instanceof import_obsidian10.FileSystemAdapter ? a.getBasePath() : void 0,
+      vaultPath: a instanceof import_obsidian11.FileSystemAdapter ? a.getBasePath() : void 0,
       hubUrl: this.settings.hubUrl,
       handle: this.settings.handle || void 0,
       activityFile: this.settings.activityFile,
@@ -7515,7 +7921,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
     });
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian10.Notice(kind === "edit" ? "Prompt copied. Paste it into your AI agent." : "Setup prompt copied. Paste it into Claude Code, Codex or Cursor: it connects every source it can find, keeps it fresh, and asks before anything goes public.", 8e3);
+      new import_obsidian11.Notice(kind === "edit" ? "Prompt copied. Paste it into your AI agent." : "Setup prompt copied. Paste it into Claude Code, Codex or Cursor: it connects every source it can find, keeps it fresh, and asks before anything goes public.", 8e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
@@ -7578,11 +7984,11 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (this.settings.privateWeb) void this.pushPrivate(false);
       void this.syncSites(cityPrivate, data.city?.districts.map((d) => d.name) || []);
       const url = this.profileUrl();
-      if (!quiet) new import_obsidian10.Notice(`Published: ${url}`);
+      if (!quiet) new import_obsidian11.Notice(`Published: ${url}`);
       if (!eff.name && Date.now() - (this.settings.nameNudgedAt || 0) > 864e5) {
         this.settings.nameNudgedAt = Date.now();
         await this.saveSettings();
-        new import_obsidian10.Notice(`Your page shows @${eff.handle || "your handle"} as your name. Add your name in Caldera/profile.md (the "name:" line) or Settings > Caldera.`, 12e3);
+        new import_obsidian11.Notice(`Your page shows @${eff.handle || "your handle"} as your name. Add your name in Caldera/profile.md (the "name:" line) or Settings > Caldera.`, 12e3);
       }
       if (!this.settings.sharePrompted && this.settings.welcomed) {
         this.settings.sharePrompted = true;
@@ -7592,7 +7998,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       return url;
     } catch (e) {
       this.lastPublishError = e.message;
-      if (!quiet) new import_obsidian10.Notice("Caldera publish failed: " + e.message);
+      if (!quiet) new import_obsidian11.Notice("Caldera publish failed: " + e.message);
       else console.warn("Caldera publish failed:", e.message);
       return null;
     }
@@ -7608,7 +8014,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (!fm.stage) fm.stage = "seedling";
       if (!fm.license) fm.license = "all-rights";
     });
-    new import_obsidian10.Notice(`"${f.basename}" is now in your garden as a seedling. It goes public on the next publish; run "Preview my garden" to check it first.`);
+    new import_obsidian11.Notice(`"${f.basename}" is now in your garden as a seedling. It goes public on the next publish; run "Preview my garden" to check it first.`);
   }
   profileUrl() {
     return `${this.settings.hubUrl.replace(/\/$/, "")}/@${this.settings.handle}/`;
@@ -7627,10 +8033,10 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   }
   /** Approve a sign-in code shown on another device (caldera.social/signin): that browser becomes the owner's. */
   pairDevice() {
-    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian10.Notice("Publish your profile first.");
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian11.Notice("Publish your profile first.");
     new PairModal(this.app, async (code) => {
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(this.settings.identity.id)}/pair`, { code }, true);
-      new import_obsidian10.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
+      new import_obsidian11.Notice(`Signed in. That device now shows the Private view button on @${r.handle || this.settings.handle}.`, 8e3);
     }, this.profileUrl()).open();
   }
   /** Write the setup form into Caldera/profile.md: name, headline, listed, chosen images (saved as Caldera/photo|banner.ext),
@@ -7642,8 +8048,8 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
       if (!im) continue;
       if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
       });
-      const path = (0, import_obsidian10.normalizePath)(`Caldera/${kind}.${im.ext}`), old = v.getAbstractFileByPath(path);
-      if (old instanceof import_obsidian10.TFile) await v.modifyBinary(old, im.buf);
+      const path = (0, import_obsidian11.normalizePath)(`Caldera/${kind}.${im.ext}`), old = v.getAbstractFileByPath(path);
+      if (old instanceof import_obsidian11.TFile) await v.modifyBinary(old, im.buf);
       else await v.createBinary(path, im.buf);
       paths[kind] = path;
     }
@@ -7674,7 +8080,7 @@ ${agentSetupPrompt(hub, this.settings.agentKey)}` : "";
   async copyFeaturePrompt(id) {
     const a = this.app.vault.adapter, s = this.settings, hub = s.hubUrl.replace(/\/$/, "");
     const o = {
-      vaultPath: a instanceof import_obsidian10.FileSystemAdapter ? a.getBasePath() : void 0,
+      vaultPath: a instanceof import_obsidian11.FileSystemAdapter ? a.getBasePath() : void 0,
       hubUrl: s.hubUrl,
       handle: s.handle || void 0,
       activityFile: s.activityFile,
@@ -7700,17 +8106,17 @@ ${o.agentSetup}`;
     else return;
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian10.Notice("Prompt copied. Paste it into Claude Code, Codex or Cursor.", 6e3);
+      new import_obsidian11.Notice("Prompt copied. Paste it into Claude Code, Codex or Cursor.", 6e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
   }
   async copyImagePrompt(kind) {
     const a = this.app.vault.adapter;
-    const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian10.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
+    const text = imagePrompt(kind, { vaultPath: a instanceof import_obsidian11.FileSystemAdapter ? a.getBasePath() : void 0, hubUrl: this.settings.hubUrl, handle: this.settings.handle || void 0 });
     try {
       await navigator.clipboard.writeText(text);
-      new import_obsidian10.Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8e3);
+      new import_obsidian11.Notice(`Prompt copied. Paste it into your AI agent: it sets your ${kind === "banner" ? "masthead" : "photo"} and the page republishes itself.`, 8e3);
     } catch {
       new PromptModal(this.app, text).open();
     }
@@ -7718,17 +8124,17 @@ ${o.agentSetup}`;
   /** Choose an image from disk: copied into the vault as Caldera/<kind>.<ext>, set in Caldera/profile.md (which republishes). */
   pickImage(kind) {
     return new Promise((done) => new ImagePickModal(this.app, kind, async (buf, ext) => {
-      const path = (0, import_obsidian10.normalizePath)(`Caldera/${kind}.${ext}`), v = this.app.vault;
+      const path = (0, import_obsidian11.normalizePath)(`Caldera/${kind}.${ext}`), v = this.app.vault;
       if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {
       });
       const old = v.getAbstractFileByPath(path);
-      if (old instanceof import_obsidian10.TFile) await v.modifyBinary(old, buf);
+      if (old instanceof import_obsidian11.TFile) await v.modifyBinary(old, buf);
       else await v.createBinary(path, buf);
       const pf = await ensureProfileFile(this.app, this.settings, this.settings.hubUrl);
       await this.app.fileManager.processFrontMatter(pf, (fm) => {
         fm[kind === "banner" ? "banner" : "photo"] = path;
       });
-      new import_obsidian10.Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
+      new import_obsidian11.Notice(`${kind === "banner" ? "Masthead" : "Photo"} set. Your page republishes in about a minute.`);
       done(true);
     }, () => done(false)).open());
   }
@@ -7745,7 +8151,7 @@ ${o.agentSetup}`;
     const root = "Caldera/site";
     for (const [p, t] of Object.entries(text)) await this.write(`${root}/${p}`, t);
     for (const [p, b] of Object.entries(binaries)) await this.writeBinary(`${root}/${p}`, b);
-    new import_obsidian10.Notice(`Exported to ${root}. Upload that folder to any static host.`);
+    new import_obsidian11.Notice(`Exported to ${root}. Upload that folder to any static host.`);
   }
   // ---------------------------------------------------------------- inbox
   /** Add friend / Accept tapped on caldera.social while signed in: the hub queues it (it never holds this vault's key);
@@ -7767,7 +8173,7 @@ ${o.agentSetup}`;
         console.warn("Caldera queued friend failed:", e?.message);
       }
     }
-    if (done.length) new import_obsidian10.Notice(`Caldera: from your taps on the web, ${done.join(", ")}.`, 8e3);
+    if (done.length) new import_obsidian11.Notice(`Caldera: from your taps on the web, ${done.join(", ")}.`, 8e3);
   }
   async syncInbox(loud) {
     try {
@@ -7783,7 +8189,7 @@ ${o.agentSetup}`;
       this.social = { friends: fr.friends.length, gravity: gr.gravity, credits: cr.balance };
       const seen = new Set(this.settings.seenRepoFriends || []), fresh = this.friends.filter((f) => (f.kind === "repo" || f.kind === "github") && f.why && !seen.has(f.id));
       if (fresh.length) {
-        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new import_obsidian10.Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} are now connected: ${f.kind === "repo" ? "you both work on " : ""}${f.why}.`, 1e4);
+        if (this.settings.seenRepoFriends) for (const f of fresh.slice(0, 3)) new import_obsidian11.Notice(`Caldera: you and ${f.handle ? "@" + f.handle : "a member"} are now connected: ${f.kind === "repo" ? "you both work on " : ""}${f.why}.`, 1e4);
         this.settings.seenRepoFriends = [...seen, ...fresh.map((f) => f.id)].slice(-500);
         await this.saveSettings();
       }
@@ -7798,13 +8204,13 @@ ${o.agentSetup}`;
           } catch {
           }
           this.pending.push({ request: envelopeHash(e), from: e.from, handle, note: e.body.note, ts: e.ts });
-          new import_obsidian10.Notice(`Caldera: ${handle ? "@" + handle : "someone new"} followed you. Open the Caldera panel to follow back.`);
+          new import_obsidian11.Notice(`Caldera: ${handle ? "@" + handle : "someone new"} followed you. Open the Caldera panel to follow back.`);
         }
         if (e.type === "friend.accept") {
           const f = this.friends.find((x) => x.id === e.from);
-          new import_obsidian10.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} followed you back. You're friends.`);
+          new import_obsidian11.Notice(`Caldera: ${f?.handle ? "@" + f.handle : "someone"} followed you back. You're friends.`);
         }
-        if (e.type === "gravity") new import_obsidian10.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
+        if (e.type === "gravity") new import_obsidian11.Notice(`Caldera: someone gave you gravity${e.body.reason ? ': "' + e.body.reason + '"' : ""}`);
         if (e.type === "card") {
           if (await this.receiveCard(e)) cards++;
         }
@@ -7815,7 +8221,7 @@ ${o.agentSetup}`;
         this.pending = rq.incoming.filter((r) => !ignored.has(r.request)).map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         this.sent = rq.outgoing.map((r) => ({ request: r.request, from: r.id, handle: r.handle || void 0, note: r.note || void 0, ts: r.ts }));
         const fresh2 = this.pending.filter((x) => !seen2.has(x.request));
-        if (fresh2.length) new import_obsidian10.Notice(`Caldera: ${fresh2.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")} followed you. Open the Caldera panel to follow back.`, 1e4);
+        if (fresh2.length) new import_obsidian11.Notice(`Caldera: ${fresh2.map((x) => x.handle ? "@" + x.handle : "someone new").join(", ")} followed you. Open the Caldera panel to follow back.`, 1e4);
         this.settings.seenRequests = this.pending.map((x) => x.request);
       }
       this.pending = this.pending.filter((x) => !this.friends.some((f) => f.id === x.from));
@@ -7830,7 +8236,7 @@ ${o.agentSetup}`;
           const r = await this.api("GET", `/v1/owner/${encodeURIComponent(me.id)}/intros`, void 0, true);
           this.intros = r.intros || [];
           const seen2 = new Set(this.settings.seenIntros || []), fresh2 = this.intros.filter((i) => !seen2.has(i.handle + i.ts));
-          if (fresh2.length) new import_obsidian10.Notice(`Caldera: ${fresh2.map((i) => "@" + i.handle).join(", ")} would like to meet you${fresh2[0].tag ? ` (also building ${fresh2[0].tag})` : ""}. Open the Caldera panel to answer.`, 1e4);
+          if (fresh2.length) new import_obsidian11.Notice(`Caldera: ${fresh2.map((i) => "@" + i.handle).join(", ")} would like to meet you${fresh2[0].tag ? ` (also building ${fresh2[0].tag})` : ""}. Open the Caldera panel to answer.`, 1e4);
           this.settings.seenIntros = this.intros.map((i) => i.handle + i.ts);
         } catch {
         }
@@ -7842,9 +8248,9 @@ ${o.agentSetup}`;
         void this.summaryPrompt();
       }
       this.refreshPanel();
-      if (loud || cards) new import_obsidian10.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
+      if (loud || cards) new import_obsidian11.Notice(`Caldera: inbox synced${cards ? `, ${cards} shared note(s) received` : ""}`);
     } catch (e) {
-      if (loud) new import_obsidian10.Notice("Caldera sync failed: " + e.message);
+      if (loud) new import_obsidian11.Notice("Caldera sync failed: " + e.message);
     }
   }
   async receiveCard(e) {
@@ -7871,12 +8277,12 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
     try {
       await this.send("friend.accept", { request: p.request, to: p.from });
     } catch (e) {
-      return void new import_obsidian10.Notice("Couldn't accept: " + e.message);
+      return void new import_obsidian11.Notice("Couldn't accept: " + e.message);
     }
     this.pending = this.pending.filter((x) => x !== p);
     this.settings.pendingRequests = this.pending;
     await this.syncInbox(false);
-    new import_obsidian10.Notice(`You and ${p.handle ? "@" + p.handle : "your new friend"} are now friends`);
+    new import_obsidian11.Notice(`You and ${p.handle ? "@" + p.handle : "your new friend"} are now friends`);
   }
   async ignoreFriend(p) {
     this.settings.ignoredRequests = [...this.settings.ignoredRequests || [], p.request].slice(-200);
@@ -7889,12 +8295,12 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
   async joinGroup(raw) {
     const g = groupsFrom(raw)[0];
     if (!g) return;
-    if ((this.settings.groups || []).includes(g)) return void new import_obsidian10.Notice(`You're already in ${g}.`);
+    if ((this.settings.groups || []).includes(g)) return void new import_obsidian11.Notice(`You're already in ${g}.`);
     this.settings.groups = [...this.settings.groups || [], g];
     await this.saveSettings();
-    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian10.Notice(`You'll join ${g} when you publish your profile.`);
+    if (!this.settings.identity || !this.settings.handle) return void new import_obsidian11.Notice(`You'll join ${g} when you publish your profile.`);
     const url = await this.publish(true);
-    new import_obsidian10.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
+    new import_obsidian11.Notice(url ? `You joined ${g}. Your city is on ${this.settings.hubUrl.replace(/\/$/, "")}/g/${g}` : `Saved: you'll join ${g} on the next publish.`);
   }
   openFinish() {
     new WelcomeModal(this.app, this, this.settings.handle && this.settings.identity ? "finish" : "welcome").open();
@@ -7943,9 +8349,9 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/email`, { email: email || null }, true);
       this.settings.summaryEmail = email;
       await this.saveSettings();
-      new import_obsidian10.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
+      new import_obsidian11.Notice(r.off ? "Daily summary emails are off." : r.message || "Check your inbox for a confirmation link.", 8e3);
     } catch (e) {
-      new import_obsidian10.Notice("Couldn't save: " + e.message);
+      new import_obsidian11.Notice("Couldn't save: " + e.message);
     }
   }
   /** New alerts from Caldera (welcome, release notes, announcements) appear once as a notice; click opens them, signed in. */
@@ -7973,7 +8379,7 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
           f.appendText(String(x.title) + " ");
           f.createEl("u", { text: "Read it" });
         });
-        const n = new import_obsidian10.Notice(frag, 2e4);
+        const n = new import_obsidian11.Notice(frag, 2e4);
         n.noticeEl.addEventListener("click", () => void this.openProfile("alerts"));
       }
     } catch {
@@ -7998,7 +8404,7 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
         f.appendText(`${m.unread} unread message${m.unread === 1 ? "" : "s"}${who ? ` from ${who}` : ""}. `);
         f.createEl("u", { text: "Open Messages" });
       });
-      const n = new import_obsidian10.Notice(frag, 2e4);
+      const n = new import_obsidian11.Notice(frag, 2e4);
       n.noticeEl.addEventListener("click", () => void this.openProfile("messages"));
     } catch {
     }
@@ -8024,7 +8430,7 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
         f.appendText(bits.join(", ") + ". ");
         f.createEl("u", { text: "Share your page" });
       });
-      const note = new import_obsidian10.Notice(frag, 15e3);
+      const note = new import_obsidian11.Notice(frag, 15e3);
       note.noticeEl.addEventListener("click", () => this.openShare());
     } catch {
     }
@@ -8043,7 +8449,7 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
         f.appendText("Who visited your page, kudos and new followers, people to meet. Only on days something happens. ");
         f.createEl("u", { text: "Add your email" });
       });
-      const note = new import_obsidian10.Notice(frag, 2e4);
+      const note = new import_obsidian11.Notice(frag, 2e4);
       note.noticeEl.addEventListener("click", () => new SummaryEmailModal(this.app, this).open());
     } catch {
     }
@@ -8060,7 +8466,7 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
       s.lastKudos = list[0].ts;
       await this.saveSettings();
       const who = list.slice(0, 3).map((k) => `${k.emoji} ${k.from ? "@" + k.from : "someone"}`).join(", ");
-      new import_obsidian10.Notice(`Caldera: kudos from ${who}${list.length > 3 ? ` and ${list.length - 3} more` : ""}`, 12e3);
+      new import_obsidian11.Notice(`Caldera: kudos from ${who}${list.length > 3 ? ` and ${list.length - 3} more` : ""}`, 12e3);
     } catch {
     }
   }
@@ -8072,21 +8478,21 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
     try {
       const r = await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/intros/${encodeURIComponent(handle)}`, how === "ask" ? { ask: true } : { accept: how === "accept" }, true);
       this.intros = this.intros.filter((i) => i.handle !== handle);
-      new import_obsidian10.Notice(how === "accept" || r.state === "friends" ? `You and @${handle} are now friends` : how === "ask" ? `Asked to meet @${handle}. They can accept or say not now.` : "Closed. They won't be told.");
+      new import_obsidian11.Notice(how === "accept" || r.state === "friends" ? `You and @${handle} are now friends` : how === "ask" ? `Asked to meet @${handle}. They can accept or say not now.` : "Closed. They won't be told.");
       if (how === "accept" || r.state === "friends") await this.syncInbox(false);
       else this.refreshPanel();
     } catch (e) {
-      new import_obsidian10.Notice(e.message);
+      new import_obsidian11.Notice(e.message);
     }
   }
   async sendKudos(handle, kind) {
     const me = this.settings.identity;
-    if (!me || !this.settings.handle) return void new import_obsidian10.Notice("Publish your page first.");
+    if (!me || !this.settings.handle) return void new import_obsidian11.Notice("Publish your page first.");
     try {
       await this.api("POST", `/v1/owner/${encodeURIComponent(me.id)}/kudos`, { to: handle, kind }, true);
-      new import_obsidian10.Notice(`Kudos sent to @${handle}`);
+      new import_obsidian11.Notice(`Kudos sent to @${handle}`);
     } catch (e) {
-      new import_obsidian10.Notice(e.message);
+      new import_obsidian11.Notice(e.message);
     }
   }
   /** Community hosts: a friend request (with a note) to each person who joins after the option was turned on. */
@@ -8120,15 +8526,15 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
     const h = raw.replace(/^@/, "").trim();
     if (!/^[a-z0-9_-]{1,40}$/i.test(h)) return;
     if (!this.settings.identity || !this.settings.handle) {
-      new import_obsidian10.Notice(`Publish your Caldera profile first, then click "Follow @${h}" again.`);
+      new import_obsidian11.Notice(`Publish your Caldera profile first, then click "Follow @${h}" again.`);
       return void new WelcomeModal(this.app, this).open();
     }
-    if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new import_obsidian10.Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
+    if (h.toLowerCase() === this.settings.handle.toLowerCase()) return void new import_obsidian11.Notice("That's your own profile. Share your invite link from the Caldera panel instead.");
     new ConfirmModal(this.app, `Follow @${h}? If they follow you back, you're friends: you can share notes end-to-end encrypted and give each other gravity.`, async () => {
       try {
         await this.requestFriend(h);
       } catch (e) {
-        new import_obsidian10.Notice(e.message);
+        new import_obsidian11.Notice(e.message);
       }
     }, "Send request", "Add a friend").open();
   }
@@ -8181,10 +8587,10 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
         this.settings.privateUrl = r.url;
         await this.saveSettings();
       }
-      if (loud) new import_obsidian10.Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
+      if (loud) new import_obsidian11.Notice("Private view pushed. Open it on any of your Tailscale devices: " + r.url);
       return r.url;
     } catch (e) {
-      if (loud) new import_obsidian10.Notice("Couldn't push the private view: " + e.message);
+      if (loud) new import_obsidian11.Notice("Couldn't push the private view: " + e.message);
       else console.warn("Caldera private push failed:", e.message);
       return null;
     }
@@ -8230,18 +8636,18 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
     if (pr.id === this.settings.identity?.id) throw new Error("That's your own profile");
     if (this.friends.some((f) => f.id === pr.id)) throw new Error(`You're already friends with @${pr.handle}`);
     await this.send("friend.request", { to: pr.id, note });
-    new import_obsidian10.Notice(`You follow @${pr.handle || pr.id}. If they follow you back, you're friends.`);
+    new import_obsidian11.Notice(`You follow @${pr.handle || pr.id}. If they follow you back, you're friends.`);
     await this.syncInbox(false);
   }
   async giveGravity(f, reason) {
     const r = await this.send("gravity", { to: f.id, reason: reason.slice(0, 140) });
-    new import_obsidian10.Notice(`Gravity sent. @${f.handle || "friend"} now has ${r.gravity}`);
+    new import_obsidian11.Notice(`Gravity sent. @${f.handle || "friend"} now has ${r.gravity}`);
   }
   async shareNote(file) {
     if (!this.friends.length) await this.syncInbox(false);
-    if (!this.friends.length) return new import_obsidian10.Notice("Add a friend first (Caldera panel)");
+    if (!this.friends.length) return new import_obsidian11.Notice("Add a friend first (Caldera panel)");
     new FriendPicker(this.app, this.friends, async (f) => {
-      if (!f.box_key) return new import_obsidian10.Notice("That friend has not published a profile yet");
+      if (!f.box_key) return new import_obsidian11.Notice("That friend has not published a profile yet");
       const me = await this.ensureIdentity();
       const text = await this.app.vault.read(file);
       const version = Date.now();
@@ -8252,12 +8658,12 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
         payload: { [f.id]: seal(text, f.box_key, me) },
         version
       });
-      new import_obsidian10.Notice(`Shared "${file.basename}" with @${f.handle || "friend"} (end-to-end encrypted)`);
+      new import_obsidian11.Notice(`Shared "${file.basename}" with @${f.handle || "friend"} (end-to-end encrypted)`);
     }).open();
   }
   // ---------------------------------------------------------------- utils
   async ensureFolder(path) {
-    const parts = (0, import_obsidian10.normalizePath)(path).split("/").slice(0, -1);
+    const parts = (0, import_obsidian11.normalizePath)(path).split("/").slice(0, -1);
     let cur = "";
     for (const p of parts) {
       cur = cur ? `${cur}/${p}` : p;
@@ -8266,17 +8672,17 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
     }
   }
   async write(path, text) {
-    path = (0, import_obsidian10.normalizePath)(path);
+    path = (0, import_obsidian11.normalizePath)(path);
     await this.ensureFolder(path);
     const f = this.app.vault.getAbstractFileByPath(path);
-    if (f instanceof import_obsidian10.TFile) await this.app.vault.modify(f, text);
+    if (f instanceof import_obsidian11.TFile) await this.app.vault.modify(f, text);
     else await this.app.vault.create(path, text);
   }
   async writeBinary(path, data) {
-    path = (0, import_obsidian10.normalizePath)(path);
+    path = (0, import_obsidian11.normalizePath)(path);
     await this.ensureFolder(path);
     const f = this.app.vault.getAbstractFileByPath(path);
-    if (f instanceof import_obsidian10.TFile) await this.app.vault.modifyBinary(f, data);
+    if (f instanceof import_obsidian11.TFile) await this.app.vault.modifyBinary(f, data);
     else await this.app.vault.createBinary(path, data);
   }
   async openPanel() {
@@ -8291,7 +8697,7 @@ caldera_received: ${JSON.stringify(String(e.ts || "").slice(0, 40))}
     for (const l of this.app.workspace.getLeavesOfType(VIEW)) l.view.render();
   }
 };
-var CalderaView = class extends import_obsidian10.ItemView {
+var CalderaView = class extends import_obsidian11.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -8317,7 +8723,7 @@ var CalderaView = class extends import_obsidian10.ItemView {
     el.createEl("h3", { text: "Caldera" });
     if (!s.identity || !s.handle) {
       el.createEl("p", { text: "Set your name and handle in settings, then publish your profile to join." });
-      new import_obsidian10.Setting(el).addButton((b) => b.setButtonText("Open settings").setCta().onClick(() => {
+      new import_obsidian11.Setting(el).addButton((b) => b.setButtonText("Open settings").setCta().onClick(() => {
         this.app.setting.open();
         this.app.setting.openTabById("caldera");
       }));
@@ -8362,11 +8768,11 @@ var CalderaView = class extends import_obsidian10.ItemView {
     el.createEl("h4", { text: "Add a friend" });
     el.createEl("p", { cls: "setting-item-description", text: 'Already on Caldera: enter their handle or paste their profile link. Or click "Follow" on their profile page.' });
     let handle = "";
-    new import_obsidian10.Setting(el).addText((t) => t.setPlaceholder("@handle or profile link").onChange((v) => handle = v)).addButton((b) => b.setButtonText("Request").onClick(async () => {
+    new import_obsidian11.Setting(el).addText((t) => t.setPlaceholder("@handle or profile link").onChange((v) => handle = v)).addButton((b) => b.setButtonText("Request").onClick(async () => {
       try {
         await p.requestFriend(handle.trim());
       } catch (e) {
-        new import_obsidian10.Notice(e.message);
+        new import_obsidian11.Notice(e.message);
       }
     }));
     if (p.suggestions.length) {
@@ -8383,7 +8789,7 @@ var CalderaView = class extends import_obsidian10.ItemView {
             p.suggestions = p.suggestions.filter((x) => x !== sg);
             this.render();
           } catch (e) {
-            new import_obsidian10.Notice(e.message);
+            new import_obsidian11.Notice(e.message);
           }
         };
         row.createEl("button", { text: "View" }).onclick = () => window.open(`${s.hubUrl.replace(/\/$/, "")}/@${sg.handle}/`);
@@ -8394,13 +8800,13 @@ var CalderaView = class extends import_obsidian10.ItemView {
     el.createEl("h4", { text: "Invite someone new" });
     el.createEl("p", { cls: "setting-item-description", text: "Not on Caldera yet: send them this link. It walks them through installing, then they add you with one click." });
     const inv = `${s.hubUrl.replace(/\/$/, "")}/?invite=${encodeURIComponent(s.handle)}#install`;
-    new import_obsidian10.Setting(el).addText((t) => {
+    new import_obsidian11.Setting(el).addText((t) => {
       t.setValue(inv);
       t.inputEl.readOnly = true;
       t.inputEl.onfocus = () => t.inputEl.select();
     }).addButton((b) => b.setButtonText("Copy").setCta().onClick(async () => {
       await navigator.clipboard.writeText(inv);
-      new import_obsidian10.Notice("Invite link copied");
+      new import_obsidian11.Notice("Invite link copied");
     }));
     if (!p.ghPeople && !p.ghPeopleLoading) void p.loadGithubPeople().then(() => {
       if (p.ghPeople?.people.length) this.render();
@@ -8408,9 +8814,9 @@ var CalderaView = class extends import_obsidian10.ItemView {
     if (p.ghPeople?.people.length) {
       el.createEl("h4", { text: "Your GitHub people" });
       el.createEl("p", { cls: "setting-item-description", text: "People you follow, who follow you, or who work on your repos, who aren't on Caldera yet. When they join, you start out connected." });
-      new import_obsidian10.Setting(el).setName("Invite message").setDesc(p.ghPeople.message).addButton((b) => b.setButtonText("Copy").onClick(async () => {
+      new import_obsidian11.Setting(el).setName("Invite message").setDesc(p.ghPeople.message).addButton((b) => b.setButtonText("Copy").onClick(async () => {
         await navigator.clipboard.writeText(p.ghPeople.message);
-        new import_obsidian10.Notice("Invite message copied. Send it to them anywhere.");
+        new import_obsidian11.Notice("Invite message copied. Send it to them anywhere.");
       }));
       for (const x of p.ghPeople.people.slice(0, 20)) {
         const row = el.createDiv("caldera-row");
@@ -8423,11 +8829,11 @@ var CalderaView = class extends import_obsidian10.ItemView {
         if (x.invited) row.createSpan({ cls: "setting-item-description", text: "invited" });
         else if (x.canEmail) row.createEl("button", { text: "Email invite" }).onclick = async () => {
           try {
-            new import_obsidian10.Notice(await p.githubInvite(x.login));
+            new import_obsidian11.Notice(await p.githubInvite(x.login));
             x.invited = true;
             this.render();
           } catch (e) {
-            new import_obsidian10.Notice(e.message);
+            new import_obsidian11.Notice(e.message);
           }
         };
       }
@@ -8442,12 +8848,12 @@ var CalderaView = class extends import_obsidian10.ItemView {
   }
 };
 function kudosMenu(ev, handle, plugin) {
-  const m = new import_obsidian10.Menu();
+  const m = new import_obsidian11.Menu();
   for (const [k, em] of [["heart", "\u2764\uFE0F"], ["up", "\u{1F44D}"], ["fire", "\u{1F525}"], ["sparkle", "\u2728"]])
     m.addItem((i) => i.setTitle(`${em}  Send @${handle} ${k === "up" ? "a thumbs up" : k}`).onClick(() => void plugin.sendKudos(handle, k)));
   m.showAtMouseEvent(ev);
 }
-var PreviewModal = class extends import_obsidian10.Modal {
+var PreviewModal = class extends import_obsidian11.Modal {
   constructor(app, html) {
     super(app);
     this.html = html;
@@ -8460,7 +8866,7 @@ var PreviewModal = class extends import_obsidian10.Modal {
     frame.srcdoc = this.html;
   }
 };
-var FriendPicker = class extends import_obsidian10.SuggestModal {
+var FriendPicker = class extends import_obsidian11.SuggestModal {
   constructor(app, list, pick) {
     super(app);
     this.list = list;
@@ -8477,7 +8883,7 @@ var FriendPicker = class extends import_obsidian10.SuggestModal {
     void this.pick(f);
   }
 };
-var SummaryEmailModal = class extends import_obsidian10.Modal {
+var SummaryEmailModal = class extends import_obsidian11.Modal {
   constructor(app, plugin) {
     super(app);
     this.plugin = plugin;
@@ -8487,7 +8893,7 @@ var SummaryEmailModal = class extends import_obsidian10.Modal {
     this.titleEl.setText("Where should we send your daily summary?");
     c.createEl("p", { text: "Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens, with a one-click unsubscribe. We send a confirmation link first.", cls: "setting-item-description" });
     let email = this.plugin.settings.summaryEmail || "";
-    new import_obsidian10.Setting(c).setName("Email").addText((t) => {
+    new import_obsidian11.Setting(c).setName("Email").addText((t) => {
       t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim());
       t.inputEl.type = "email";
     }).addButton((b) => b.setButtonText("Email me").setCta().onClick(async () => {
@@ -8500,7 +8906,7 @@ var SummaryEmailModal = class extends import_obsidian10.Modal {
     this.contentEl.empty();
   }
 };
-var GravityModal = class extends import_obsidian10.Modal {
+var GravityModal = class extends import_obsidian11.Modal {
   constructor(app, f, done) {
     super(app);
     this.f = f;
@@ -8510,13 +8916,13 @@ var GravityModal = class extends import_obsidian10.Modal {
     this.titleEl.setText(`Add gravity to @${this.f.handle || "friend"}`);
     this.contentEl.createEl("p", { text: "Gravity is positive only. Say what they helped with (optional)." });
     let reason = "";
-    new import_obsidian10.Setting(this.contentEl).addText((t) => t.setPlaceholder("They found me an operator").onChange((v) => reason = v)).addButton((b) => b.setButtonText("Add gravity").setCta().onClick(() => {
+    new import_obsidian11.Setting(this.contentEl).addText((t) => t.setPlaceholder("They found me an operator").onChange((v) => reason = v)).addButton((b) => b.setButtonText("Add gravity").setCta().onClick(() => {
       void this.done(reason);
       this.close();
     }));
   }
 };
-var ConfirmModal = class extends import_obsidian10.Modal {
+var ConfirmModal = class extends import_obsidian11.Modal {
   constructor(app, msg, yes, label = "Delete", title = "Are you sure?") {
     super(app);
     this.msg = msg;
@@ -8527,7 +8933,7 @@ var ConfirmModal = class extends import_obsidian10.Modal {
   onOpen() {
     this.titleEl.setText(this.title);
     this.contentEl.createEl("p", { text: this.msg });
-    new import_obsidian10.Setting(this.contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
+    new import_obsidian11.Setting(this.contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
       b.setButtonText(this.label).onClick(() => {
         void this.yes();
         this.close();
@@ -8537,7 +8943,7 @@ var ConfirmModal = class extends import_obsidian10.Modal {
     });
   }
 };
-var PairModal = class extends import_obsidian10.Modal {
+var PairModal = class extends import_obsidian11.Modal {
   constructor(app, approve, page2) {
     super(app);
     this.approve = approve;
@@ -8549,15 +8955,15 @@ var PairModal = class extends import_obsidian10.Modal {
     this.contentEl.createEl("p", { cls: "setting-item-description", text: "Only approve a code on a screen you're holding yourself: approving signs that browser in as you." });
     let code = "";
     const go = async () => {
-      if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new import_obsidian10.Notice("The code has 6 characters.");
+      if (code.replace(/[^A-Za-z0-9]/g, "").length !== 6) return void new import_obsidian11.Notice("The code has 6 characters.");
       try {
         await this.approve(code);
         this.close();
       } catch (e) {
-        new import_obsidian10.Notice(e.message);
+        new import_obsidian11.Notice(e.message);
       }
     };
-    new import_obsidian10.Setting(this.contentEl).setName("Code").addText((t) => {
+    new import_obsidian11.Setting(this.contentEl).setName("Code").addText((t) => {
       t.setPlaceholder("ABC 123").onChange((v) => code = v);
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") void go();
@@ -8569,7 +8975,7 @@ var PairModal = class extends import_obsidian10.Modal {
     this.contentEl.empty();
   }
 };
-var ImagePickModal = class extends import_obsidian10.Modal {
+var ImagePickModal = class extends import_obsidian11.Modal {
   constructor(app, kind, use, cancelled) {
     super(app);
     this.kind = kind;
@@ -8586,15 +8992,15 @@ var ImagePickModal = class extends import_obsidian10.Modal {
     const take = async (f) => {
       if (!f) return;
       const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : f.type === "image/jpeg" ? "jpg" : "";
-      if (!ext) return void new import_obsidian10.Notice("Use a JPG, PNG or WebP image.");
-      if (f.size > 5 * 1024 * 1024) return void new import_obsidian10.Notice("That image is over 5 MB. Try a smaller one.");
+      if (!ext) return void new import_obsidian11.Notice("Use a JPG, PNG or WebP image.");
+      if (f.size > 5 * 1024 * 1024) return void new import_obsidian11.Notice("That image is over 5 MB. Try a smaller one.");
       try {
         this.chosen = true;
         await this.use(await f.arrayBuffer(), ext);
         this.close();
       } catch (e) {
         this.chosen = false;
-        new import_obsidian10.Notice("Couldn't set it: " + e.message);
+        new import_obsidian11.Notice("Couldn't set it: " + e.message);
       }
     };
     input.addEventListener("change", () => void take(input.files?.[0]));
@@ -8603,14 +9009,14 @@ var ImagePickModal = class extends import_obsidian10.Modal {
       e.preventDefault();
       void take(e.dataTransfer?.files?.[0]);
     });
-    new import_obsidian10.Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton((b) => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
+    new import_obsidian11.Setting(this.contentEl).setDesc("Or drop an image on this window.").addButton((b) => b.setButtonText("Choose an image").setCta().onClick(() => input.click()));
   }
   onClose() {
     this.contentEl.empty();
     if (!this.chosen) this.cancelled();
   }
 };
-var PromptModal = class extends import_obsidian10.Modal {
+var PromptModal = class extends import_obsidian11.Modal {
   constructor(app, text) {
     super(app);
     this.text = text;
@@ -8627,7 +9033,7 @@ var PromptModal = class extends import_obsidian10.Modal {
     this.contentEl.empty();
   }
 };
-var NotePickModal = class extends import_obsidian10.SuggestModal {
+var NotePickModal = class extends import_obsidian11.SuggestModal {
   constructor(app, pick) {
     super(app);
     this.pick = pick;
@@ -8645,7 +9051,7 @@ var NotePickModal = class extends import_obsidian10.SuggestModal {
     this.pick(f);
   }
 };
-var TopicsModal = class extends import_obsidian10.Modal {
+var TopicsModal = class extends import_obsidian11.Modal {
   constructor(app, plugin) {
     super(app);
     this.plugin = plugin;
@@ -8678,21 +9084,21 @@ var TopicsModal = class extends import_obsidian10.Modal {
       };
     }
     upd();
-    new import_obsidian10.Setting(c).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => b.setButtonText("Save and publish").setCta().onClick(async () => {
+    new import_obsidian11.Setting(c).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => b.setButtonText("Save and publish").setCta().onClick(async () => {
       b.setDisabled(true);
       const keep = eff.publicTopics.filter(([t]) => !tags.some((x) => x.tag === t.replace(/^#/, "").toLowerCase()));
       const picked = [...tags.filter((t) => on.has(t.tag)).map((t) => [t.tag, current.get(t.tag) || labelOf(t.tag)]), ...keep].slice(0, 24);
       await this.plugin.saveTopics(picked);
       this.close();
       const url = await this.plugin.publish(true);
-      new import_obsidian10.Notice(url ? `Topics saved: ${picked.length}. Your page is updated.` : "Topics saved. They'll show on your next publish.");
+      new import_obsidian11.Notice(url ? `Topics saved: ${picked.length}. Your page is updated.` : "Topics saved. They'll show on your next publish.");
     }));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var WelcomeModal = class extends import_obsidian10.Modal {
+var WelcomeModal = class extends import_obsidian11.Modal {
   constructor(app, plugin, mode = "welcome") {
     super(app);
     this.plugin = plugin;
@@ -8706,7 +9112,7 @@ var WelcomeModal = class extends import_obsidian10.Modal {
     const c = this.contentEl;
     c.createEl("p", { text: finish ? "A few details make your page worth visiting. Fill in what you like - everything is optional, and you can change it later in Caldera/profile.md." : "Set up your page in a minute. Caldera creates your identity on this device and publishes a page that keeps itself fresh from your vault. Nothing private leaves your vault. Private GitHub repos show by name on your city (never their code); change that in Settings." });
     let name = eff.name || "", handle = s.handle || "", headline = eff.headline || "", listed = eff.listed !== false;
-    const clean = (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
+    const clean2 = (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
     const status = createDiv({ cls: "caldera-welcome-status" });
     const head2 = (t) => c.createEl("h4", { text: t, cls: "caldera-welcome-h" });
     if (!finish && !s.handle) {
@@ -8717,7 +9123,7 @@ var WelcomeModal = class extends import_obsidian10.Modal {
       d.createEl("a", { text: `${hubBase.replace(/^https?:\/\//, "")}/settings`, href: `${hubBase}/settings#conn-obsidian` });
       d.appendText(" (Connections > Obsidian > Get my code).");
       let code = "";
-      new import_obsidian10.Setting(c).setName("Import my GitHub sign-up").setDesc("Paste the code (it starts with CAL-).").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => code = v.trim())).addButton((b) => b.setButtonText("Import").onClick(async () => {
+      new import_obsidian11.Setting(c).setName("Import my GitHub sign-up").setDesc("Paste the code (it starts with CAL-).").addText((t) => t.setPlaceholder("CAL-...").onChange((v) => code = v.trim())).addButton((b) => b.setButtonText("Import").onClick(async () => {
         b.setDisabled(true);
         const ok = await this.plugin.importGithub(code);
         b.setDisabled(false);
@@ -8730,15 +9136,15 @@ var WelcomeModal = class extends import_obsidian10.Modal {
       head2("New to Caldera? Make your page");
     }
     head2("You");
-    new import_obsidian10.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
-    if (finish) new import_obsidian10.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
-    else new import_obsidian10.Setting(c).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
-      handle = clean(v);
+    new import_obsidian11.Setting(c).setName("Your name").addText((t) => t.setPlaceholder("Ada Lovelace").setValue(name).onChange((v) => name = v.trim()));
+    if (finish) new import_obsidian11.Setting(c).setName("Handle").setDesc(this.plugin.profileUrl());
+    else new import_obsidian11.Setting(c).setName("Handle").setDesc(`${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/@handle`).addText((t) => t.setPlaceholder("ada").setValue(handle).onChange((v) => {
+      handle = clean2(v);
       if (v !== handle) t.setValue(handle);
       status.setText("");
     }));
     const examples = ["Designer writing about tools for thought", "Founder building in public", "Researcher: notes on climate and cities"];
-    new import_obsidian10.Setting(c).setName("Headline").setDesc("One line about what you do or think about").addText((t) => {
+    new import_obsidian11.Setting(c).setName("Headline").setDesc("One line about what you do or think about").addText((t) => {
       t.setPlaceholder(examples[Math.floor(Math.random() * examples.length)]).setValue(headline).onChange((v) => headline = v.trim());
       t.inputEl.addClass("caldera-wide");
       const gh = !headline && githubLogin(eff.links || []);
@@ -8752,12 +9158,12 @@ var WelcomeModal = class extends import_obsidian10.Modal {
     });
     if (finish) {
       const n = topicsInUse(this.app, eff.publicTopics), tags = vaultTags(this.app, 5);
-      if (tags.length) new import_obsidian10.Setting(c).setName("Topics").setDesc(n ? `${n} of your tags show as topics.` : `None yet. Your most used tags: ${tags.slice(0, 3).map((t) => "#" + t.tag).join(", ")}.`).addButton((b) => b.setButtonText(n ? "Change" : "Pick topics").onClick(() => this.plugin.openTopics()));
+      if (tags.length) new import_obsidian11.Setting(c).setName("Topics").setDesc(n ? `${n} of your tags show as topics.` : `None yet. Your most used tags: ${tags.slice(0, 3).map((t) => "#" + t.tag).join(", ")}.`).addButton((b) => b.setButtonText(n ? "Change" : "Pick topics").onClick(() => this.plugin.openTopics()));
     }
     head2("Pictures");
     const img = { photo: null, banner: null };
     const picRow = (kind, label, desc, current) => {
-      const st = new import_obsidian10.Setting(c).setName(label).setDesc(current ? `${desc} Now: ${current}` : desc);
+      const st = new import_obsidian11.Setting(c).setName(label).setDesc(current ? `${desc} Now: ${current}` : desc);
       st.addButton((b) => b.setButtonText(current ? "Change" : "Choose an image").onClick(() => new ImagePickModal(this.app, kind, async (buf, ext) => {
         img[kind] = { buf, ext };
         st.setDesc(`${desc} Chosen. It's saved when you publish.`);
@@ -8774,11 +9180,11 @@ var WelcomeModal = class extends import_obsidian10.Modal {
     head2("Links");
     const have = (eff.links || []).map(([l, u]) => ({ l, u, i: quickLinkIndex(l, u) }));
     const quick = QUICK_LINKS.map((_, i) => have.find((h) => h.i === i)?.u || "");
-    QUICK_LINKS.forEach((q2, i) => new import_obsidian10.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
+    QUICK_LINKS.forEach((q2, i) => new import_obsidian11.Setting(c).setName(q2.label).addText((t) => t.setPlaceholder(q2.ph).setValue(quick[i]).onChange((v) => quick[i] = v.trim())));
     let plant = null;
     if (gardenEnabled()) {
       head2("Your garden");
-      const gs = new import_obsidian10.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
+      const gs = new import_obsidian11.Setting(c).setName("Plant your first note").setDesc("Optional. Pick a note to publish as a page in your garden, marked seedling - rough is fine.");
       gs.addButton((b) => b.setButtonText("Pick a note").onClick(() => new NotePickModal(this.app, (f) => {
         plant = f;
         gs.setDesc(`"${f.basename}" goes public as a seedling when you publish.`);
@@ -8786,10 +9192,10 @@ var WelcomeModal = class extends import_obsidian10.Modal {
       }).open()));
     }
     head2("Staying in touch");
-    new import_obsidian10.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
+    new import_obsidian11.Setting(c).setName("List me in People").setDesc("Your card appears on the public directory. Change it anytime.").addToggle((t) => t.setValue(listed).onChange((v) => listed = v));
     head2("Where should we send your daily summary?");
     let email = s.summaryEmail || "";
-    new import_obsidian10.Setting(c).setName("Your email").setDesc("Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens; one-click unsubscribe.").addText((t) => {
+    new import_obsidian11.Setting(c).setName("Your email").setDesc("Who visited your page, new friends and kudos, people to meet, and a nudge when your page needs attention. Only on days something happens; one-click unsubscribe.").addText((t) => {
       t.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim());
       t.inputEl.type = "email";
       t.inputEl.addClass("caldera-email-wide");
@@ -8803,7 +9209,7 @@ var WelcomeModal = class extends import_obsidian10.Modal {
       legal.appendText(" of Caldera (mjonesone, LLC).");
     }
     c.appendChild(status);
-    const go = new import_obsidian10.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
+    const go = new import_obsidian11.Setting(c).addButton((b) => b.setButtonText("Use my AI agent instead").setTooltip("Copies a setup prompt for Claude Code, Codex or Cursor").onClick(() => this.plugin.copyPrompt("setup"))).addButton((b) => b.setButtonText(finish ? "Save and publish" : "Publish my page").setCta().onClick(async () => {
       if (!name) {
         status.setText("Add your name.");
         return;
@@ -8822,7 +9228,7 @@ var WelcomeModal = class extends import_obsidian10.Modal {
       try {
         const me = await this.plugin.ensureIdentity(true);
         if (!finish) {
-          const r = await (0, import_obsidian10.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
+          const r = await (0, import_obsidian11.requestUrl)({ url: `${s.hubUrl.replace(/\/$/, "")}/v1/profiles/${handle}`, throw: false });
           if (r.status === 200 && r.json?.id !== me.id) return fail(`@${handle} is taken. If it's yours from signing up with GitHub, import it above instead. Otherwise try another.`);
           s.handle = handle;
           if (!s.autoPublishHours) s.autoPublishHours = 6;
@@ -8861,7 +9267,7 @@ var WelcomeModal = class extends import_obsidian10.Modal {
     this.contentEl.empty();
   }
 };
-var ShareModal = class extends import_obsidian10.Modal {
+var ShareModal = class extends import_obsidian11.Modal {
   constructor(app, plugin, firstRun = false) {
     super(app);
     this.plugin = plugin;
@@ -8875,30 +9281,30 @@ var ShareModal = class extends import_obsidian10.Modal {
     c.createEl("p", { text: "This is what people see when you post your link. Pages that get shared get visitors, followers and kudos." });
     const img = c.createEl("img", { cls: "caldera-share-card", attr: { src: `${url}card.png?t=${Date.now()}`, alt: "Your link preview" } });
     img.onerror = () => img.remove();
-    const copy = async (t2, msg) => {
+    const copy2 = async (t2, msg) => {
       try {
         await navigator.clipboard.writeText(t2);
-        new import_obsidian10.Notice(msg);
+        new import_obsidian11.Notice(msg);
       } catch {
-        new import_obsidian10.Notice(t2, 1e4);
+        new import_obsidian11.Notice(t2, 1e4);
       }
     };
-    new import_obsidian10.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy(url, "Link copied")));
+    new import_obsidian11.Setting(c).setName("Your link").setDesc(url).addButton((b) => b.setButtonText("Copy link").setCta().onClick(() => copy2(url, "Link copied")));
     const text = `My page on Caldera: a living profile built from my Obsidian vault, with my work as a little city. ${url}`, t = encodeURIComponent(text);
-    new import_obsidian10.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
-    new import_obsidian10.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy(invite, "Invite link copied")));
+    new import_obsidian11.Setting(c).setName("Post it").addButton((b) => b.setButtonText("X").onClick(() => window.open(`https://x.com/intent/post?text=${t}`))).addButton((b) => b.setButtonText("Bluesky").onClick(() => window.open(`https://bsky.app/intent/compose?text=${t}`))).addButton((b) => b.setButtonText("LinkedIn").onClick(() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`))).addButton((b) => b.setButtonText("Mastodon").onClick(() => window.open(`https://mastodonshare.com/?text=${t}`)));
+    new import_obsidian11.Setting(c).setName("Invite a friend").setDesc(`${invite} - they're walked through setup and add you with one click.`).addButton((b) => b.setButtonText("Copy invite link").onClick(() => copy2(invite, "Invite link copied")));
     let email = s.summaryEmail || "";
-    new import_obsidian10.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and new followers, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
+    new import_obsidian11.Setting(c).setName("Daily summary email").setDesc("Who visited your page, kudos and new followers, people to meet. Only on days something happens.").addText((tx) => tx.setPlaceholder("you@example.com").setValue(email).onChange((v) => email = v.trim())).addButton((b) => b.setButtonText("Email me").onClick(() => {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
-    if (this.firstRun) new import_obsidian10.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
-    new import_obsidian10.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
+    if (this.firstRun) new import_obsidian11.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy2(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
+    new import_obsidian11.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var WhatsNewModal = class extends import_obsidian10.Modal {
+var WhatsNewModal = class extends import_obsidian11.Modal {
   constructor(app, plugin, releases) {
     super(app);
     this.plugin = plugin;
@@ -8915,7 +9321,7 @@ var WhatsNewModal = class extends import_obsidian10.Modal {
     if (newest && older(have, newest)) {
       const up = this.contentEl.createDiv({ cls: "caldera-release-howto" });
       up.createEl("p", { text: `You have Caldera ${have}. Version ${newest} is out: open Community plugins, click "Check for updates", then update Caldera.` });
-      new import_obsidian10.Setting(up).addButton((b) => b.setButtonText("Open Community plugins").setCta().onClick(() => {
+      new import_obsidian11.Setting(up).addButton((b) => b.setButtonText("Open Community plugins").setCta().onClick(() => {
         const st = this.app.setting;
         if (st) {
           st.open();
@@ -8933,13 +9339,13 @@ var WhatsNewModal = class extends import_obsidian10.Modal {
       if (r.howto) box.createEl("p", { cls: "caldera-release-howto", text: r.howto });
     }
     const hub = this.plugin.settings.hubUrl.replace(/\/$/, "");
-    new import_obsidian10.Setting(this.contentEl).addButton((b) => b.setButtonText("All release notes").onClick(() => window.open(hub + "/changelog.html"))).addButton((b) => b.setButtonText("Guide").onClick(() => window.open(hub + "/guide.html"))).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
+    new import_obsidian11.Setting(this.contentEl).addButton((b) => b.setButtonText("All release notes").onClick(() => window.open(hub + "/changelog.html"))).addButton((b) => b.setButtonText("Guide").onClick(() => window.open(hub + "/guide.html"))).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var GardenPreviewModal = class extends import_obsidian10.Modal {
+var GardenPreviewModal = class extends import_obsidian11.Modal {
   constructor(app, report, folder, url) {
     super(app);
     this.report = report;

@@ -10,6 +10,7 @@ import { activityScore, ACTIVITY_WEIGHTS, ACTIVITY_CAPS, externalLinksNewWindow,
 import { gardenSection, renderGarden, type GardenNote } from "./garden";
 import { citySnapshot, renderCity, type CityData } from "./city";
 import type { ProfileModule } from "./modules";
+import { appsCards, siteCards, LISTINGS_CSS, type Listing } from "./listings";
 
 export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
 export interface ProfileData {
@@ -52,6 +53,8 @@ export interface ProfileData {
   id?: string;                                             // cal: id, shown in note provenance
   city?: CityData;                                         // public subset only (see city.ts publicCity)
   modules?: ProfileModule[];                               // owner/agent-written sections from Caldera/modules/*.md (already safe HTML)
+  apps?: Listing[];                                         // App Store / Google Play apps the owner listed (details from the hub)
+  websites?: Listing[];                                     // websites the owner listed (title, favicon, description from the hub)
   ai?: { total: number; window_days?: number; models: [string, number][]; providers?: [string, number][]; sources?: [string, number][]; note?: string };   // AI tokens, counts only
 }
 
@@ -116,8 +119,8 @@ export function scored(daily: DailyEntry[]) {
 
 /** Where each part of a profile comes from: a small tag beside every section header, so a visitor can tell what is
  *  Obsidian, what is GitHub and what is Caldera's own. */
-type Src = "obsidian" | "github" | "caldera" | "agents" | "calendar" | "profile" | "module" | "self";
-const SRC_LABEL: Record<Src, string> = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", self: "In their words", profile: "Profile note", module: "Custom module" };
+type Src = "obsidian" | "github" | "caldera" | "agents" | "calendar" | "profile" | "module" | "self" | "stores" | "web";
+const SRC_LABEL: Record<Src, string> = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", self: "In their words", profile: "Profile note", module: "Custom module", stores: "App Store and Google Play", web: "Their websites" };
 const srcLine = (src: Src[], what: string) => `<p class="sec-src">${src.map(x => `<span class="src s-${x}">${SRC_LABEL[x]}</span>`).join("")}<span class="sec-what">${what}</span></p>`;
 /** a section header: the h2 (listed in "On this page") plus its source tags and one line on what it is */
 const head = (title: string, src: Src[], what: string) => `<h2>${esc(title)}</h2>${srcLine(src, what)}`;
@@ -226,6 +229,9 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     const hasC = p.projects.some(x => x.commits);
     parts.push(`${gh ? head("Projects", ["github"], "Public repositories with the most commits.") : em ? head("Projects", ["self"], "What they're building, with the number of updates on each.") : head("Projects", hasC ? ["obsidian", "github"] : ["obsidian"], `Notes in the vault's Projects folder${hasC ? ", with commit counts from GitHub" : ""}.`) + `<div class="query">TABLE status, ${hasC ? "commits, " : ""}link FROM "Projects" SORT ${hasC ? "commits DESC" : "file.name"}</div>`}<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>status</th>${hasC ? `<th class="num">${em ? "updates" : "commits"}</th>` : ""}<th>link</th></tr></thead><tbody>${p.projects.map(x => `<tr><td>${/^https?:\/\//.test(x.url) ? `<a href="${esc(x.url)}" rel="noopener">${esc(x.name)}</a>` : esc(x.name)}</td><td>${esc(x.status)}</td>${hasC ? `<td class="num">${x.commits ? fmt(x.commits) : ""}</td>` : ""}<td>${/^https?:\/\//.test(x.url) ? `<a href="${esc(x.url)}" rel="noopener">${esc(x.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
   }
+  const listSrc: Src = gh ? "caldera" : em ? "self" : "profile";
+  if (s.apps !== false && p.apps?.length) parts.push(`${head("Apps", [listSrc, "stores"], "Apps they made, with details from the store.")}${appsCards(p.apps)}`);
+  if (s.websites !== false && p.websites?.length) parts.push(`${head("Websites", [listSrc, "web"], "Sites they run.")}${siteCards(p.websites)}`);
   if (s.code !== false && p.code && p.code.commits > 0) {
     const c = p.code, wk = c.weekly || [], f = Math.max(0, Math.min(wk.findIndex(x => x > 0), wk.length - 26)), w2 = [...Array(Math.max(0, 26 - wk.length)).fill(0), ...wk.slice(f)], peak = Math.max(1, ...w2);
     parts.push(`${head("Code", ["github"], "Commits and languages, from GitHub.")}<p class="small"><b>${fmt(c.commits)}</b> commits across <b>${fmt(c.repos)}</b> repositories in the last year.${c.languages?.length ? ` Mostly ${esc(c.languages.slice(0, -1).join(", "))}${c.languages.length > 1 ? " and " : ""}${esc(c.languages[c.languages.length - 1])}.` : ""}${c.url && /^https?:\/\//.test(c.url) ? ` <a href="${esc(c.url)}" rel="noopener">${esc(c.url.replace(/^https?:\/\//, ""))}</a>` : ""}</p>${w2.length ? `<div class="bars" role="img" aria-label="Commits per week">${w2.map(x => `<span class="${x >= peak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x / peak * 100).toFixed(1)}%" title="${x}"></span>`).join("")}</div><div class="bars-legend"><span>${esc(c.start || "")}</span><span>peak week: ${fmt(peak)}</span><span>this week</span></div>` : ""}`);
@@ -257,7 +263,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     ? renderGarden({ name: p.name, handle: p.handle, hub: p.hub, icon: p.icon, theme: p.theme, id: p.id, external: p.gardenExternal, nav: (d, cur) => nav(d, cur) }, p.garden, p.gardenImages) : {};
   const city: Record<string, string> = s.city !== false && p.city?.districts.length
     ? { "city.html": renderCity({ name: p.name, handle: p.handle, theme: p.theme, icon: p.icon, github: githubOf(p), nav: (d, cur) => nav(d, cur) }, p.city) } : {};
-  const out: Record<string, string> = { ...garden, ...city, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS, "assets/favicon.svg": LOGO_SVG };
+  const out: Record<string, string> = { ...garden, ...city, "index.html": html, "assets/theme.css": THEME_CSS as string, "assets/profile.css": PROFILE_CSS + LISTINGS_CSS, "assets/favicon.svg": LOGO_SVG };
   // every link that leaves the hub opens in a new window
   let own = "caldera.social"; try { own = new URL(p.hub || "https://caldera.social").host; } catch { /* default hub */ }
   for (const k of Object.keys(out)) if (k.endsWith(".html")) out[k] = externalLinksNewWindow(out[k], [own]);

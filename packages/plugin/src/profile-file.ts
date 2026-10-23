@@ -35,6 +35,7 @@ export function effectiveSettings(app: App, s: CalderaSettings): CalderaSettings
   if (typeof fm.autoConnectGithub === "boolean") e.autoConnectRepos = fm.autoConnectGithub;   // same setting, newer name
   const list = (v: unknown) => Array.isArray(v) ? v.map(x => String(x ?? "").trim()).filter(Boolean) : typeof v === "string" ? v.split(",").map(x => x.trim()).filter(Boolean) : null;
   { const t = list(fm.tags); if (t) (e as any).tags = t.slice(0, 12); const h = list(fm.hideTags); if (h) (e as any).hideTags = h.slice(0, 40); const hr = list(fm.hideRepos); if (hr) (e as any).hideRepos = hr.slice(0, 200); }
+  { const hs = Array.isArray(fm.hideStorefronts) ? fm.hideStorefronts.map((x: unknown) => String(x ?? "").trim()).filter(Boolean) : typeof fm.hideStorefronts === "string" ? fm.hideStorefronts.split(",").map((x: string) => x.trim()).filter(Boolean) : null; if (hs) e.hideStorefronts = hs.slice(0, 300); }
   if (typeof fm.autoTags === "boolean") (e as any).autoTags = fm.autoTags;
   if (["show", "anonymous", "hidden", "named"].includes(String(fm.privateRepos))) e.privateRepos = fm.privateRepos as CalderaSettings["privateRepos"];
   if (Array.isArray(fm.sidebar)) e.tree = fm.sidebar.map((x: unknown) => { const [g = "", items = "", folder = ""] = String(x ?? "").split("|").map(v => v.trim()); return [g, items, folder || undefined] as [string, string, string?]; }).filter(([g]) => g);
@@ -49,6 +50,8 @@ export function effectiveSettings(app: App, s: CalderaSettings): CalderaSettings
   if (typeof fm.garden === "string") e.gardenFolder = fm.garden.trim().replace(/^\/+|\/+$/g, "");
   if (typeof fm.garden_journal === "boolean") e.gardenJournal = fm.garden_journal;
   if (typeof fm.garden_url === "string") e.gardenUrl = /^https:\/\//.test(fm.garden_url.trim()) ? fm.garden_url.trim() : "";
+  // apps / websites: "link" or "link | repo-name", one per line (validated again when the page is built)
+  for (const k of ["apps", "websites"] as const) { const v = fm[k]; if (Array.isArray(v)) e[k] = v.map((x: unknown) => String(x ?? "").trim()).filter(Boolean).slice(0, 24); else if (typeof v === "string") e[k] = v.split(/\r?\n/).map(x => x.trim()).filter(Boolean).slice(0, 24); }
   if (Array.isArray(fm.tabs)) e.tabs = fm.tabs.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 5);
   return e;
 }
@@ -78,6 +81,12 @@ timeline:
 ${list((s.timeline || []).map(([a, b]) => `${a} | ${b}`))}
 projects:
 ${list((s.projects || []).map(([a, b]) => `${a} | ${b}`))}
+apps:
+${list(s.apps || [])}
+websites:
+${list(s.websites || [])}
+hideStorefronts:
+${list(s.hideStorefronts || [])}
 knows:
 ${list((s.knows || []).map(([a, b]) => `${a} | ${b}`))}
 tabs:
@@ -110,6 +119,10 @@ This note controls your public page at ${hubUrl.replace(/\/$/, "")}/@${s.handle}
 - **now** - what you're doing now, one line each. Or \`now: auto\` (and when there's no list): your last week of journal wins, updated on every publish.
 - **timeline** - \`Year | what happened | optional one-line detail\`. Start a chapter with \`era | Name | 1995-2006\`.
 - **projects** - \`Name | status | https://link\`.
+- **apps** - your apps in the App Store or Google Play, one store link each (e.g. \`https://apps.apple.com/us/app/name/id123456789\`). Add \` | repo-name\` to stand the app beside that repo in your city; a private repo's name is never shown. Name, icon, category and rating come from the store. Up to 12.
+- **websites** - sites you run, one link each (http or https). Add \` | repo-name\` to tie a site to the repo that builds it, so its live visitors walk into that building. Title, icon and description come from the site. Up to 12.
+- **Storefronts** - every app and website you list stands as a storefront building in your city (its profile card shows either way). Turn one off with a third field: \`link | repo-name | no-storefront\` (no repo: \`link | | no-storefront\`). A website with its storefront off, tied to a repo shown by name, lights up that repo's building instead.
+- **hideStorefronts** - repos whose apps and websites get no storefront, e.g. \`[old-site, client-work]\`. Those repos' own websites (GitHub homepage or city.json) are also left off your public city.
 - **knows** - \`Label | vault folder\`; shows how many notes are in each folder (counts only).
 - **tabs** - extra tab labels in the top bar, like \`Now.md\`.
 ${gardenEnabled() ? `- **garden** - a folder whose notes are published as full pages (your digital garden). Default \`Garden\`. Any note can also opt in with \`caldera: garden\`; \`caldera: private\` keeps a note out. In a garden note, \`stage: seedling | budding | evergreen\` and \`license: all-rights | cc-by | cc-by-nc | cc0 | ai-licensable\`. Email addresses and phone numbers are removed automatically. Link a friend's note with \`[[@handle/Their note]]\`.

@@ -15,6 +15,8 @@ import { App, TFile, getAllTags } from "obsidian";
 import { slug, type DailyEntry, type ProfileData } from "./render";
 import type { CalderaSettings } from "./settings";
 import { publicTextFilter, gardenEnabled } from "@caldera/core";
+import { requestUrl } from "obsidian";
+import { parseListings, toListing, withListingsPrivate, withListingsPublic, type Listing, type ListingMeta, type ListingRef } from "./listings";
 import { aiUsage, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, githubRepoSig, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
 import { collectModules, type ModuleReport } from "./modules";
@@ -223,7 +225,7 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
   let modulesReport: ModuleReport[] = [];
   if (s.sections.modules !== false) { const mo = await collectModules(app, s.hubUrl || "https://caldera.social"); if (mo.modules.length) data.modules = mo.modules; Object.assign(files, mo.files); modulesReport = mo.report; }
   // Caldera City: Caldera/city.json (repos + commit counts, written by the owner's tools). Houses = notes linking to the project's note.
-  let cityPrivate: CityData | undefined;
+  let cityPrivate: CityData | undefined, cityPublicBase: CityData | undefined;
   if (s.sections.city !== false) {
     try {
       const path = "Caldera/city.json";
@@ -272,13 +274,41 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
           const vault = md.filter(inVault)
             .map(f => ({ path: f.path, title: f.basename, ctime: bornAt(f), mtime: f.stat.mtime, out: Object.keys(resolved[f.path] || {}) }));
           cityPrivate.under = underground(vault, hubs, t => gslug.get(t.toLowerCase()));
-          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map(d => d.name) : fromVault ? [] : (s.projects || []).map(p => p[0]), s.privateRepos || "show", (s as any).hideRepos || []);   // unset: the hub applies Caldera's default when it serves the page   // public repos only: every district is public
+          const pub = publicCity(cityPrivate, fromGithub ? cityPrivate.districts.map(d => d.name) : fromVault ? [] : (s.projects || []).map(p => p[0]), s.privateRepos || "show", (s as any).hideRepos || []);
+          cityPublicBase = pub;   // unset: the hub applies Caldera's default when it serves the page   // public repos only: every district is public
           if (pub.districts.length) data.city = pub;
         }
       }
     } catch (e) { console.warn("Caldera city.json unreadable:", e); }
   }
+  // apps and websites the owner listed: details from the hub (which caches them), cards on the page, storefronts in the city
+  const listed = await collectListings(s);
+  if (listed.length) {
+    data.apps = listed.filter(l => l.kind === "app"); data.websites = listed.filter(l => l.kind === "site");
+    if (!data.apps.length) delete data.apps; if (!data.websites.length) delete data.websites;
+  }
+  if (s.sections.city !== false && (listed.length || s.hideStorefronts?.length)) {
+    const hs = s.hideStorefronts || [];
+    const pub = withListingsPublic(cityPublicBase || (cityPrivate ? undefined : { districts: [], private: false }), cityPrivate, listed, s.privateRepos || "show", (s as any).hideRepos || [], hs);
+    if (pub?.districts.length) data.city = pub;
+    cityPrivate = withListingsPrivate(cityPrivate, listed, hs);
+  }
   return { data, files, gardenReport, modulesReport, cityPrivate };
+}
+
+/** The owner's listed apps and websites, with their public details from the hub. Only the store or site links are sent;
+ *  if the hub can't be reached the page still shows them, named from the link. */
+export async function collectListings(s: CalderaSettings): Promise<Listing[]> {
+  const refs: ListingRef[] = [...parseListings(s.apps || [], "app"), ...parseListings(s.websites || [], "site")];
+  if (!refs.length) return [];
+  const hub = (s.hubUrl || "https://caldera.social").replace(/\/$/, "");
+  let meta: Record<string, ListingMeta> = {};
+  try {
+    const r: any = await Promise.race([requestUrl({ url: `${hub}/v1/listings/resolve`, method: "POST", contentType: "application/json", body: JSON.stringify({ items: refs.map(x => ({ kind: x.kind, url: x.url })) }), throw: false }),
+      new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 20_000))]);
+    if (r?.status === 200 && Array.isArray(r.json?.items)) for (const m of r.json.items) if (m && typeof m.key === "string") meta[m.key] = m;
+  } catch { meta = {}; }
+  return refs.map(x => toListing(x, meta[x.key], hub));
 }
 
 function asList(v: unknown): string[] {

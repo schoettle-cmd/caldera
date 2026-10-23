@@ -14,6 +14,7 @@ await esbuild.build({ entryPoints: ["src/render.ts"], bundle: true, loader: { ".
 await esbuild.build({ entryPoints: ["src/garden.ts"], bundle: true, loader: { ".css": "text" }, format: "esm", platform: "node", packages: "external", outfile: "test/garden.build.mjs" });
 await esbuild.build({ entryPoints: ["src/owner.ts"], bundle: true, format: "esm", platform: "node", packages: "external", outfile: "test/owner.build.mjs" });
 await esbuild.build({ entryPoints: ["src/city.ts"], bundle: true, format: "esm", platform: "node", packages: "external", outfile: "test/city.build.mjs" });
+await esbuild.build({ entryPoints: ["src/listings.ts"], bundle: true, format: "esm", platform: "node", packages: "external", outfile: "test/listings.build.mjs" });
 await esbuild.build({ entryPoints: ["src/links.ts"], bundle: true, format: "esm", platform: "node", packages: "external", outfile: "test/links.build.mjs" });
 // suggest.ts talks to Obsidian only through getAllTags/requestUrl: tested against a tiny stand-in
 await esbuild.build({ entryPoints: ["src/suggest.ts"], bundle: true, format: "esm", platform: "node", packages: "external", alias: { obsidian: "./test/obsidian-stub.mjs" }, outfile: "test/suggest.build.mjs" });

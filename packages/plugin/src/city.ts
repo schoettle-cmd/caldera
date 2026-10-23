@@ -15,6 +15,9 @@ export interface CityRepo {
   locked?: boolean;                                   // a private repo on the public page: shape only, no details
   priv?: boolean;                                     // a private repo shown by name ("named" mode): name, language and activity, never code, links or descriptions
   sites?: string[];                                   // the websites this repo runs (hostnames), so live visitors stand in its building
+  kind?: "app" | "site";                              // not a repo: an app or website the owner listed (a storefront; see listings.ts)
+  meta?: { store?: "apple" | "play"; icon?: string; genre?: string; rating?: number; ratings?: number; desc?: string; host?: string };
+  pv?: boolean;                                       // a listing placed beside a private repo: moves to "Apps & sites" if private work turns anonymous
 }
 /** Hostnames from a homepage URL, a host, or a list of them: "https://www.kitse.co/x" -> "kitse.co". At most 6. */
 export function cleanSites(v: unknown): string[] | undefined {
@@ -159,12 +162,16 @@ export function applyPrivateMode(c: CityData, mode: PrivateMode | undefined): Ci
   if (!mode || mode === "show" || mode === "named" || c.private) return c;
   const isPriv = (r: CityRepo) => !!r.locked || r.public !== true || !r.name;
   let n = 0;
-  const districts: CityDistrict[] = [];
+  const districts: CityDistrict[] = [], moved: CityRepo[] = [];
   for (const d of c.districts) {
     if (d.apart) { n += d.repos.length; continue; }
-    const pub = d.repos.filter(r => !isPriv(r)); n += d.repos.length - pub.length;
+    // a listing that stood beside private work would give away where that work is: it moves to "Apps & sites"
+    const go = d.name === "Apps & sites" ? [] : d.repos.filter(r => r.kind && r.pv); moved.push(...go);
+    const pub = d.repos.filter(r => !isPriv(r) && !go.includes(r)); n += d.repos.filter(isPriv).length;
     if (pub.length || (d.notes > 0 && !/^(private|vault)$/i.test(d.name))) districts.push({ ...d, repos: pub });   // a named project keeps its notes; private repos leave it
   }
+  if (moved.length) { let g = districts.find(x => x.name === "Apps & sites"); if (!g) { g = { name: "Apps & sites", notes: 0, repos: [] }; districts.push(g); }
+    g.repos.push(...moved.map(r => ({ ...r, project: "Apps & sites", pv: undefined }))); }
   const label = c.kind === "vault" ? "Vault" : "Private";
   if (mode === "anonymous" && n > 0)
     districts.push({ name: label, notes: 0, apart: true, repos: Array.from({ length: privateCluster(n) }, () => ({ name: "", project: label, public: false, locked: true, language: "Private", commits: 25, weeks: [], week: 0, today: 0 })) });
@@ -258,7 +265,7 @@ ${cityStats(city)}
 <div class="c-tools"><button id="t-labels" aria-pressed="true" title="Labels">&#x1F3F7;&#xFE0F;<span class="t-txt"> Labels</span></button><button id="t-sky">Auto</button><button id="t-wx" title="Weather">Weather</button>${city.under ? '<button id="t-under" aria-pressed="false">&#x2B07;<span class="t-txt"> Underground</span></button>' : ""}<button id="t-snd" aria-pressed="false" title="Sound for arrivals, signups and sales (off)">&#x1F507;</button><button id="t-reset" title="Reset the view">&#x21BA;<span class="t-txt"> Reset</span></button><button id="t-pop" aria-label="Pop out a small window" title="Pop out a small window">&#x29C9;<span class="t-txt"> Pop out</span></button><button id="t-full" aria-label="Full screen" title="Full screen">&#x26F6;<span class="t-txt"> Full screen</span></button></div>
 <div class="c-toasts" aria-live="polite"></div><div class="c-mininame" aria-hidden="true"><i></i>${esc(site.name)}</div>
 <div class="c-card" id="card" hidden></div><div class="c-hint">Drag to move &middot; scroll or pinch to zoom &middot; tap a building</div></div>
-<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some(r => r.locked) ? PADLOCK_LEGEND : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
+<div class="c-legend"><span><i style="background:#3178C6"></i>TypeScript</span><span><i style="background:#E8C547"></i>JavaScript</span><span><i style="background:#4FB89A"></i>Python</span><span><i style="background:#E07A4F"></i>HTML</span><span><i style="background:#F05138"></i>Swift</span><span><i style="background:#8A8A93"></i>Other</span>${repos.some(r => r.locked) ? PADLOCK_LEGEND : ""}${repos.some(r => r.kind) ? '<span><i style="background:#6C63FF"></i>Apps</span><span><i style="background:#1FA39A"></i>Websites</span>' : ""}<span>&#127959; built this week</span><span>&#127968; notes about the project</span></div>
 <div class="c-table-wrap"><table class="c-table"><thead><tr><th>District</th><th>Buildings</th><th>Commits this year</th><th>This week</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
 ${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.generated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}.</p>` : ""}
 </div></main></div>
@@ -269,7 +276,7 @@ ${city.generated ? `<p class="c-foot">GitHub counts from ${esc(new Date(city.gen
 /** A small, still isometric picture of the city for the top of the profile: same packing, colors and heights as
  * the live city, drawn as inline SVG (no script, no scroll capture), linking through to city.html. */
 export function citySnapshot(city: CityData, o: { name: string; href?: string }): string {
-  const LANG: Record<string, string> = { TypeScript: "#3178C6", JavaScript: "#E8C547", Python: "#4FB89A", HTML: "#E07A4F", Swift: "#F05138", CSS: "#6E5BD0", Shell: "#7FB24A", Go: "#2FB5D6", Rust: "#C9744A" };
+  const LANG: Record<string, string> = { TypeScript: "#3178C6", JavaScript: "#E8C547", Python: "#4FB89A", HTML: "#E07A4F", Swift: "#F05138", CSS: "#6E5BD0", Shell: "#7FB24A", Go: "#2FB5D6", Rust: "#C9744A", App: "#6C63FF", Web: "#1FA39A" };
   const shade = (hex: string, f: number) => { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, n >> 8 & 255, n & 255].map(v => Math.round(Math.min(255, v * f))); return `rgb(${c.join(",")})`; };
   const TW = 64, TH = 32, ds = city.districts.slice(0, 14);
   const area = ds.reduce((a, d) => { const k = Math.max(2, Math.ceil(Math.sqrt(Math.min(d.repos.length, 36)))); return a + (k + 1) * (k + 1); }, 0);
@@ -410,7 +417,7 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 export const CITY_JS = String.raw`(function(){
 var D=JSON.parse(document.getElementById('city-data').textContent);
 var cv=document.getElementById('city'),st=document.getElementById('stage'),cx=cv.getContext('2d'),card=document.getElementById('card');
-var TW=64,TH=32,LANG={TypeScript:'#3178C6',JavaScript:'#E8C547',Python:'#4FB89A',HTML:'#E07A4F',Swift:'#F05138',CSS:'#6E5BD0',Shell:'#7FB24A',Go:'#2FB5D6',Rust:'#C9744A'};
+var TW=64,TH=32,LANG={TypeScript:'#3178C6',JavaScript:'#E8C547',Python:'#4FB89A',HTML:'#E07A4F',Swift:'#F05138',CSS:'#6E5BD0',Shell:'#7FB24A',Go:'#2FB5D6',Rust:'#C9744A',App:'#6C63FF',Web:'#1FA39A'};
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var hr=new Date().getHours(),night=hr<6||hr>=19,labels=true;
 var MINI=/[#&]mini\b/.test(location.hash)||window.CALDERA_MINI===1;if(MINI){document.documentElement.classList.add('c-mini');labels=false}
@@ -932,6 +939,7 @@ function tronObjects(){var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.w
     if(t.t==='h'&&(!BUILDING||buildF(t,i,j)>=1)){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],blk=null;blocks.forEach(function(b){if(b.d===t.d)blk=b});var hc=blk&&blk.neon||CYAN;
       for(var q2=0;q2<t.n;q2++){var hx=p.x+spots[q2][0],hy=p.y+spots[q2][1],hw=TW/2*.24,hh=TH/2*.24;c.fillStyle='#0A1220';poly(c,[[hx-hw,hy],[hx,hy+hh],[hx+hw,hy],[hx+hw,hy-6],[hx,hy-14],[hx-hw,hy-6]]);c.fill();
         glowLine(c,[[hx-hw,hy-6],[hx,hy-14],[hx+hw,hy-6]],hc,1,6);c.fillStyle=hc;c.globalAlpha=.8;c.fillRect(hx-1,hy-4,2,2);c.globalAlpha=1}}
+    if(t.t==='b'&&t.r.kind){storefront(c,p,t,true,tags);continue}
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),col=r.locked?'#CFEFFF':dm?'#5A6A80':neon(r);
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?.03:r.locked?(t.d&&t.d.apart?0:r.week?.45:.12):Math.min(.95,.25+(r.week/Math.max(wk,1))*.7);
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
@@ -1145,6 +1153,30 @@ var GLASS={TypeScript:1,Swift:1,Go:1,Rust:1,Private:1};
 function face(c,pts,col,f,y0,y1){var g=c.createLinearGradient(0,y0,0,y1);g.addColorStop(0,mix(col,f*P.light*1.04));g.addColorStop(1,mix(col,f*P.light*.78));poly(c,pts,g)}
 function awning(c,x,y,w,cols){var hw=TW/2*w,hh=TH/2*w,n=6;for(var k=0;k<n;k++){var a=k/n,b=(k+1)/n;c.fillStyle=cols[k%2];c.beginPath();
   c.moveTo(x-hw+hw*a,y+hh*a);c.lineTo(x-hw+hw*b,y+hh*b);c.lineTo(x-hw+hw*b-3,y+hh*b+5);c.lineTo(x-hw+hw*a-3,y+hh*a+5);c.closePath();c.fill()}}
+// ---- listings: apps and websites the owner listed stand as storefronts (a sign with the app's icon or the site's favicon)
+var LCOL={app:'#6C63FF',site:'#1FA39A'},LIMG={};
+function limg(u){if(!u||!/^https?:\/\/[^\s"<>]+\/v1\/listings\/img\/[A-Za-z0-9._%-]+$/.test(u))return null;var im=LIMG[u];if(im)return im.complete&&im.naturalWidth?im:null;
+  im=new Image();im.onload=function(){draw()};im.src=u;LIMG[u]=im;return null}
+function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function storefront(c,p,t,tron,tags){var r=t.r,x=p.x,y=p.y+4,col=LCOL[r.kind]||'#8A8A93',h=20,dark=tron||sky==='night'||sky==='evening',m=r.meta||{};
+  if(tron)tronPrism(c,x,y,.74,h,col,.5,hash(r.name||'l'),false);
+  else{prism(c,x,y,.74,h,col);awning(c,x,y-h+7,.8,[mix(col,1.25),'#FFF4E8']);c.fillStyle=dark?'rgba(255,214,140,.95)':'rgba(40,50,70,.55)';c.fillRect(x-3,y-8,6,8)}
+  var s=16,sy=y-h-22,im=limg(m.icon);
+  c.fillStyle=tron?col:'#6B6F7A';c.fillRect(x-.6,sy+s+2,1.2,(y-h)-(sy+s+2)+2);
+  c.save();if(dark){c.shadowColor=col;c.shadowBlur=10}c.fillStyle=tron?'rgba(2,6,12,.92)':'#FFFFFF';rrect(c,x-s/2-2,sy-2,s+4,s+4,5);c.fill();if(tron){c.strokeStyle=col;c.lineWidth=1;c.stroke()}c.restore();
+  if(im){c.save();rrect(c,x-s/2,sy,s,s,r.kind==='app'?4:3);c.clip();c.drawImage(im,x-s/2,sy,s,s);c.restore()}
+  else{c.fillStyle=col;c.font='700 10px IBM Plex Sans,Arial,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(r.name||'?').charAt(0).toUpperCase(),x,sy+s/2+.5);c.textBaseline='alphabetic'}
+  if(sel===r){c.save();c.strokeStyle=tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;rrect(c,x-s/2-4,sy-4,s+8,s+8,6);c.stroke();c.restore()}
+  hits.push({r:r,d:t.d,x0:x-TW*.42,x1:x+TW*.42,y0:sy-6,y1:p.y+TH*.45});
+  if(labels&&!WORLD&&(cam.z>.55||sel===r))tags.push({x:x,y:sy-6,text:r.name.length>18?r.name.slice(0,17)+'…':r.name,col:col,url:repoUrl(r)})}
+function listingCard(h){var r=h.r,m=r.meta||{},app=r.kind==='app',u=repoUrl(r);sel=r;
+  card.innerHTML='<button class="x" aria-label="Close">&times;</button>'+(limg(m.icon)?'<img src="'+e(m.icon)+'" alt="" style="width:44px;height:44px;border-radius:'+(app?10:8)+'px;float:right;margin:0 0 6px 8px">':'')
+   +'<h3>'+e(r.name)+'</h3><div class="k">'+(app?(m.store==='play'?'App on Google Play':'App on the App Store'):'Website'+(m.host?' &middot; '+e(m.host):''))+(h.d&&h.d.name&&!D.world?' &middot; '+e(h.d.name)+' district':'')+'</div>'
+   +(m.desc?'<p style="margin:6px 0 0">'+e(m.desc)+'</p>':'')
+   +(m.genre?'<div class="row"><span>Category</span><b>'+e(m.genre)+'</b></div>':'')
+   +(+m.rating>0?'<div class="row"><span>Rating</span><b>&#9733; '+(+m.rating).toFixed(1)+(+m.ratings>0?' ('+(+m.ratings).toLocaleString('en-US')+')':'')+'</b></div>':'')
+   +(u?'<p style="margin:8px 0 0"><a href="'+e(u)+'" target="_blank" rel="noopener">'+(app?(m.store==='play'?'Open on Google Play':'Open on the App Store'):'Visit '+e(m.host||'the site'))+' &#8599;</a></p>':'');
+  card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
 var SHOPLBL=null;
 function drawShop(c,p,LOD){if(!SHOP)return;var x=p.x,y=p.y+4,night=sky==='night'||sky==='evening';
   if(SHOP.big){var q=iso(SHOP.i+1,SHOP.j+1);x=q.x;y=q.y+4;var n=Math.min(8,Math.max(4,TOOLS.length)),pal=[['#E85D75','#FFF4E8'],['#4FB89A','#FFF4E8'],['#7AA7FF','#FFF4E8'],['#E8C547','#FFF4E8'],['#8B6CF6','#FFF4E8'],['#F28C38','#FFF4E8']];
@@ -1206,7 +1238,7 @@ function houseAt(c,px,py,col,seed){var w=.26,hw=TW/2*w,hh=TH/2*w,h=8;prism(c,px,
   c.fillStyle=sky==='night'?'rgba(255,208,120,.95)':'rgba(70,90,120,.7)';poly(c,[[px-hw*.6,py-3+hh*.4-3],[px-hw*.3,py-3+hh*.7-3],[px-hw*.3,py-3+hh*.7-6],[px-hw*.6,py-3+hh*.4-6]]);c.fill()}
 function lamp(c,px,py){c.strokeStyle=sky==='night'?'#555B66':'#4A4F58';c.lineWidth=1;c.beginPath();c.moveTo(px,py);c.lineTo(px,py-14);c.lineTo(px+3,py-15);c.stroke();c.fillStyle=sky==='night'?'#FFE3A0':'#C9CDD4';c.fillRect(px+2,py-16,3,2)}
 // a public repo's name label is a link to it (private and locked buildings never link)
-var tagHits=[];function repoUrl(r){return !r.locked&&r.public!==false&&/^https:\/\/[^\s"<>]+$/.test(r.url||'')?r.url:''}
+var tagHits=[];function repoUrl(r){return !r.locked&&r.public!==false&&(/^https:\/\/[^\s"<>]+$/.test(r.url||'')||(r.kind==='site'&&/^http:\/\/[^\s"<>]+$/.test(r.url||'')))?r.url:''}
 function tagHit(c,g,font){if(!g.url)return;c.font=font;var w=c.measureText(g.text).width+12;tagHits.push({x0:g.x-w/2,x1:g.x+w/2,y0:g.y-17,y1:g.y+2,url:g.url})}
 function openRepo(u){if(u)window.open(u,'_blank','noopener')}
 function pill(c,x,y,text,bg,fg,font){c.font=font;var tw=c.measureText(text).width,w=tw+12,h=17,r=8.5;c.save();c.shadowColor='rgba(0,0,0,.3)';c.shadowBlur=6;c.shadowOffsetY=2;c.fillStyle=bg;c.beginPath();
@@ -1220,6 +1252,7 @@ function drawObjects(){var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(1,0,0,1,0
     if(t.t==='w')drawShop(c,p,LOD);
     if(t.t==='p'){tree2(c,p.x-10,p.y+1,.9);pine(c,p.x+11,p.y-2,.8);tree2(c,p.x+2,p.y+7,.6)}
     if(t.t==='h'){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],sd=hash(t.d.name);for(var q=0;q<t.n;q++)houseAt(c,p.x+spots[q][0],p.y+spots[q][1],['#E8DCC8','#CFD8E6','#EAD2B8','#D2E0CC'][(sd+q)%4],sd+q)}
+    if(t.t==='b'&&t.r.kind){storefront(c,p,t,false,tags);continue}
     if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;if(bf<1)h=Math.max(2,h*bf);
       var col=r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
@@ -1288,17 +1321,21 @@ var GT={},GL={},GS={},glowAt=0,glowDraw=0;
   // (its website on GitHub, or "sites" in city.json) owns it; otherwise the one repo named like the site ("relay" for
   // relay.example.com). A site no repo owns puts nobody anywhere: people only ever stand where the visitors really are.
   function sNorm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
-  function sHostOwns(sites,h){if(!sites||!h||h.indexOf('.')<0)return false;for(var i=0;i<sites.length;i++){var s=String(sites[i]);if(h===s||h.slice(-s.length-1)==='.'+s)return true}return false}
+  // a site is a host ("kitse.co", also owning its subdomains) or a page ("mjonesone.com/dictate", owning only visits the hub
+  // reports for that path). A path site never takes a whole host's visitors: nobody stands where they weren't.
+  function sHostOwns(sites,h){if(!sites||!h||h.indexOf('.')<0)return false;var hh=h.split('/')[0];for(var i=0;i<sites.length;i++){var s=String(sites[i]);
+    if(s.indexOf('/')>=0){if(h===s||h.indexOf(s+'/')===0)return true;continue}if(hh===s||hh.slice(-s.length-1)==='.'+s)return true}return false}
   function sWord(h){var l=String(h).split('.');while(l.length>2&&/^(www|app|m|my|go|get|beta|staging)$/.test(l[0]))l.shift();return sNorm(l[0])}
   var SBK=null,SBT=null,SBG=null,SBAt=0;
   function siteBook(){if(SBK&&SBT===tiles&&SBG===GS&&(!BUILDING||T-SBAt<1000))return SBK;SBT=tiles;SBG=GS;SBAt=T;SBK=new Map();var by={},k,dn;   // rebuilt when the layout or the live data changes
-    for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t)}
+    var stores=[];for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t);if(t.r.kind==='site')stores.push(t)}
     for(dn in by){var ts=by[dn],d=ts[0].d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null;if(!ds)continue;var mx=0;for(k in ds)mx=Math.max(mx,ds[k]);
-      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(t.r.sites,k)});
+      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(t.r.sites,k)}),kk=k;
+        var pth=own.filter(function(t){return (t.r.sites||[]).some(function(x){x=String(x);return x.indexOf('/')>=0&&(kk===x||kk.indexOf(x+'/')===0)})});if(pth.length)own=pth;   // a page (host/path) beats its bare host
         if(!own.length){var w=k.indexOf('.')<0?sNorm(k):sWord(k),best=null,bs=0;
           if(w.length>=3)ts.forEach(function(t){var rn=sNorm(t.r.name),sc=rn===w?1000:(w.length>=4&&rn.indexOf(w)>=0)||(rn.length>=4&&w.indexOf(rn)>=0)?100-Math.abs(rn.length-w.length):0;
             if(sc>bs&&!(t.r.sites&&t.r.sites.length&&sc<1000)){bs=sc;best=t}});   // a repo that names its own sites isn't guessed into another
-          if(best)own=[best]}
+          if(best)own=[best];else own=stores.filter(function(t){return t.d!==d&&sHostOwns(t.r.sites,k)})}   // a listed website standing in another district
         own.forEach(function(t){SBK.set(t.r,Math.max(SBK.get(t.r)||0,share))})}}
     return SBK}
   function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;return gw*(siteBook().get(t.r)||0)}
@@ -1330,7 +1367,7 @@ function agentCard(id){var g=AG[id];if(!g)return show(null);var a=g.a,st={workin
      +'<div class="row"><span>Where</span><b>'+(a.repo?e(a.repo)+' &middot; ':'')+where+'</b></div>'+(a.tokens?'<div class="row"><span>Tokens today</span><b>'+(+a.tokens).toLocaleString('en-US')+'</b></div>':'')
     :'<h3>AI agent</h3><p style="margin:6px 0 0">An agent is '+st+(a.d?' in the '+where:'')+'. What it is working on is private.</p>');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw()}
-function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
+function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=null;UDIRTY=true;card.hidden=true;return}if(h&&h.agent)return agentCard(h.agent);sel=h?h.r:null;if(!h){card.hidden=true;draw();return}if(h.r&&h.r.kind)return listingCard(h);var r=h.r,d=h.d,mx=Math.max.apply(null,(r.weeks||[0]).concat([1]));
   var notes=(d.notePaths||[]).map(function(p){var n=p.split('/').pop().replace(/\.md$/,'');return D.openBase?'<a href="'+e(D.openBase+encodeURIComponent(p))+'" target="_blank" rel="noopener">'+e(n)+'</a>':'<a href="#" data-open="'+e(p)+'">'+e(n)+'</a>'}).join(', ');
   if(r.locked){card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>&#128274; Private '+(D.kind==='vault'?'folder':'repo')+'</h3><div class="k">'+e(d.name)+' district</div><p style="margin:8px 0 0">'+(d.apart?'This person keeps private work anonymous: these padlocks don\'t show how many repos there are, how big they are, which projects they belong to or when they were busy.':'The details of this building are private. Its size and lights show roughly how much work goes on inside.')+'</p>';card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};draw();return}
   card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(r.name)+'</h3><div class="k">'+e(d.name)+' district &middot; '+e(r.language)+(r.public?' &middot; public':r.priv?' &middot; &#128274; private repo, code not shared':'')+'</div>'
