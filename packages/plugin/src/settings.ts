@@ -16,6 +16,7 @@ export interface CalderaSettings {
   sections: Record<string, boolean>;
   publicTopics: [string, string][];   // [tag, label] - only these tags are ever counted
   activityFile: string; historyDays: number;
+  gitLines?: boolean; gitFolders?: string;   // lines of code from this computer's git repos (counts only); extra folders to look in
   inboxFolder: string; lastInboxSync: string;
   citySetupDismissed?: boolean;   // hide the 'turn on live visitors / agents' row under My view's city
   ownerLastLooked?: string;   // when the owner last opened the My profile tab (drives 'Since you last looked')
@@ -211,6 +212,9 @@ export class CalderaSettingTab extends PluginSettingTab {
     }
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
+    new Setting(containerEl).setName("Count lines of code").setDesc("Desktop: lines you added and removed each day in the git repos on this computer (your own commits). Only the two totals per day leave this device: never repo names, files or code. Shown in your daily email, not part of your score.")
+      .addToggle(t => t.setValue(s.gitLines !== false).onChange(async v => { s.gitLines = v; await this.plugin.saveSettings(); }));
+    this.text("Code folders", "Optional: more folders that hold your repos, comma-separated (folders right under your home folder and ~/code, ~/src, ~/projects are found on their own)", "gitFolders");
 
     new Setting(containerEl).setName("My profile tab").setHeading();
     new Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.")

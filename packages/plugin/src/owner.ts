@@ -135,7 +135,7 @@ export function renderOwner(o: OwnerData): string {
   {
     const t = o.today; const parts: string[] = [];
     if (t.headline) parts.push(`<p class="ow-lead">${esc(t.headline)}</p>`);
-    const chips = Object.entries(t.counts || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="ow-chip">${n} ${esc(k)}</span>`);
+    const chips = Object.entries(t.counts || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="ow-chip">${k === "linesAdded" ? "+" + n : k === "linesRemoved" ? "-" + n : n} ${esc(k === "linesAdded" || k === "linesRemoved" ? "lines" : k)}</span>`);
     if (chips.length) parts.push(`<div class="ow-chips">${chips.join("")}</div>`);
     for (const [lab, xs] of [["Focus", t.focus], ["Wins", t.wins]] as const) if (xs?.length) parts.push(`<div class="ow-small"><b>${lab}:</b> ${xs.map(esc).join(" &middot; ")}</div>`);
     if (t.timeline.length) parts.push(`<ol class="ow-time">${t.timeline.map(r => `<li><span class="ow-t">${esc(r.time || "")}</span>${r.kind === "new" ? '<span class="ow-new">new</span>' : ""}${open(r)}</li>`).join("")}</ol>`);

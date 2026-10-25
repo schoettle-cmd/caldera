@@ -17,7 +17,7 @@ import type { CalderaSettings } from "./settings";
 import { publicTextFilter, gardenEnabled } from "@caldera/core";
 import { requestUrl } from "obsidian";
 import { parseListings, toListing, withListingsPrivate, withListingsPublic, type Listing, type ListingMeta, type ListingRef } from "./listings";
-import { aiUsage, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, githubRepoSig, vaultKinds } from "./auto";
+import { aiUsage, localGitLines, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, githubRepoSig, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
 import { collectModules, type ModuleReport } from "./modules";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
@@ -84,6 +84,10 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     if (code) extra.code = code;
   }
 
+  // lines of code added/removed per day from this computer's git repos (counts only; not part of the score). An owner
+  // tool's linesAdded/linesRemoved in activity.json wins; days we can't know stay empty (never a made-up 0).
+  const gitDays = s.gitLines === false ? undefined : await localGitLines(14, String(s.gitFolders || "").split(/[\n,]+/).map(x => x.trim()).filter(Boolean)).catch(() => undefined);
+  const gitFrom = iso(Date.now() - 13 * DAY);
   const today = Date.now();
   const daily: DailyEntry[] = [];
   // Journal text is the riskiest public text (often AI-written, daily, about real days). Every line passes the privacy
@@ -99,7 +103,9 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     const j = journal.get(date) || {};
     daily.push({
       date,
-      counts: { notes: Math.max(created.get(date) || 0, changed.get(date) || 0), meetings: ext.meetings, emails: ext.emails, prompts: ext.prompts, commits: ext.commits, docs: ext.docs },
+      counts: { notes: Math.max(created.get(date) || 0, changed.get(date) || 0), meetings: ext.meetings, emails: ext.emails, prompts: ext.prompts, commits: ext.commits, docs: ext.docs,
+        ...(typeof ext.linesAdded === "number" ? { linesAdded: ext.linesAdded, linesRemoved: Number(ext.linesRemoved) || 0 }
+          : gitDays && date >= gitFrom ? { linesAdded: gitDays[date]?.added || 0, linesRemoved: gitDays[date]?.removed || 0 } : {}) },
       tokens: Number(ext.tokens) || undefined,
       headline: [j.headline || ext.headline].filter(h => h && safe(String(h)))[0], focus: clean(j.focus?.length ? j.focus : asList(ext.focus)), wins: clean(j.wins?.length ? j.wins : asList(ext.wins)),
       themes: clean(j.themes?.length ? j.themes : asList(ext.themes)),

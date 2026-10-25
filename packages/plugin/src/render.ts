@@ -12,7 +12,8 @@ import { citySnapshot, renderCity, type CityData } from "./city";
 import type { ProfileModule } from "./modules";
 import { appsCards, siteCards, LISTINGS_CSS, type Listing } from "./listings";
 
-export interface DailyEntry { date: string; counts: DailyCounts; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
+/** linesAdded/linesRemoved: lines of code that day (shown in the owner's numbers and daily email; never scored) */
+export interface DailyEntry { date: string; counts: DailyCounts & { linesAdded?: number; linesRemoved?: number }; tokens?: number; headline?: string; focus?: string[]; wins?: string[]; themes?: string[]; }
 export interface ProfileData {
   name: string; handle?: string; headline?: string; theme?: "dark" | "light";
   avatar?: string; banner?: string;                       // relative paths inside the bundle, e.g. img/avatar.jpg

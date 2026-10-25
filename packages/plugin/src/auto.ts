@@ -7,6 +7,14 @@
  */
 import { App, Platform, TFile, requestUrl } from "obsidian";
 import { cleanSites } from "./city";
+import { gitLines, type DayLines } from "./gitlines";
+
+/** Lines of code added/removed per day from this computer's git repos (desktop only; counts only, see gitlines.ts). */
+export async function localGitLines(days = 14, extra: string[] = []): Promise<DayLines | undefined> {
+  if (!Platform.isDesktopApp) return undefined;
+  let mods: any; try { const r = (window as any).require; mods = { fs: r("fs"), path: r("path"), os: r("os"), cp: r("child_process") }; } catch { return undefined; }
+  return gitLines(mods, days, extra);
+}
 
 type AI = { total: number; window_days: number; days: Record<string, number>; models: [string, number][]; providers: [string, number][]; note: string };
 

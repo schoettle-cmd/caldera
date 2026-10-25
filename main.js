@@ -1,4 +1,4 @@
-/* Caldera 0.28.8 */
+/* Caldera 0.28.9 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -4325,7 +4325,105 @@ fit();
 if(reduce)frame();else requestAnimationFrame(tick);
 })();`;
 
+// src/gitlines.ts
+var PROTECTED = /* @__PURE__ */ new Set(["Library", "Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Public", "Applications", "Dropbox", "Google Drive", "OneDrive", "Creative Cloud Files", "node_modules"]);
+var CODE_DIRS = ["code", "Code", "src", "dev", "Dev", "projects", "Projects", "repos", "git", "GitHub", "github", "work", "Developer", "Sites", "workspace"];
+var GENERATED = /(^|\/)(node_modules|dist|build|out|vendor|third_party|\.next|coverage|__pycache__)\/|(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|Cargo\.lock|poetry\.lock|Pipfile\.lock|uv\.lock|Gemfile\.lock|composer\.lock|go\.sum)$|\.min\.(js|css)$|\.(map|snap)$/;
+var MAX_FILE_LINES = 5e3;
+var MAX_REPOS = 80;
+function parseNumstat(out, into = {}) {
+  for (const rec of out.split("")) {
+    const lines = rec.split("\n"), head2 = (lines[0] || "").split(""), day = (head2[0] || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    for (const l of lines.slice(1)) {
+      const m = /^(\d+)\t(\d+)\t(.+)$/.exec(l.trim());
+      if (!m) continue;
+      const a = Number(m[1]), d = Number(m[2]), file = m[3].replace(/^.*=> /, "").replace(/[{}]/g, "");
+      if (GENERATED.test(file) || a > MAX_FILE_LINES || d > MAX_FILE_LINES) continue;
+      const e = into[day] || (into[day] = { added: 0, removed: 0 });
+      e.added += a;
+      e.removed += d;
+    }
+  }
+  return into;
+}
+var run = (m, args, cwd) => new Promise((res, rej) => m.cp.execFile("git", args, { cwd, timeout: 15e3, maxBuffer: 32 * 1024 * 1024, windowsHide: true, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", LC_ALL: "C" } }, (err, stdout) => err ? rej(err) : res(String(stdout))));
+async function findRepos(m, days, extra = []) {
+  const { fs, path, os } = m, home = os.homedir(), since = Date.now() - (days + 1) * 864e5;
+  const kids = async (dir) => {
+    try {
+      return (await fs.promises.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory() && !e.name.startsWith(".") && !PROTECTED.has(e.name)).map((e) => path.join(dir, e.name));
+    } catch {
+      return [];
+    }
+  };
+  const roots = [home, ...CODE_DIRS.map((d) => path.join(home, d)), ...extra.map((x) => x.trim().replace(/^~(?=$|\/)/, home)).filter(Boolean)];
+  const cand = [];
+  for (const r of roots) {
+    if (r !== home) cand.push(r);
+    cand.push(...await kids(r));
+  }
+  const out = [], seen = /* @__PURE__ */ new Set();
+  for (const c of cand) {
+    if (out.length >= MAX_REPOS) break;
+    try {
+      const g = path.join(c, ".git");
+      const st = await fs.promises.stat(g);
+      let t = st.mtimeMs;
+      if (st.isDirectory()) {
+        try {
+          t = Math.max(t, (await fs.promises.stat(path.join(g, "index"))).mtimeMs, (await fs.promises.stat(path.join(g, "logs", "HEAD"))).mtimeMs);
+        } catch {
+        }
+      }
+      if (t < since) continue;
+      const real = await fs.promises.realpath(c);
+      if (seen.has(real)) continue;
+      seen.add(real);
+      out.push(c);
+    } catch {
+    }
+  }
+  return out;
+}
+var memo = null;
+async function gitLines(m, days = 14, extra = []) {
+  const key = days + "|" + extra.join(",");
+  if (memo && memo.key === key && memo.at > Date.now() - 15 * 6e4) return memo.v;
+  const repos = await findRepos(m, days, extra);
+  let v;
+  if (repos.length) {
+    v = {};
+    const one = async (r) => {
+      let email = "";
+      try {
+        email = (await run(m, ["config", "user.email"], r)).trim();
+      } catch {
+      }
+      try {
+        const out = await run(m, ["log", `--since=${days}.days`, "--no-merges", "--numstat", "--date=format-local:%Y-%m-%d", "--pretty=format:%x1e%ad%x1f%ae", ...email ? [`--author=<${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}>`] : []], r);
+        parseNumstat(out, v);
+      } catch {
+      }
+    };
+    for (let i = 0; i < repos.length; i += 4) await Promise.all(repos.slice(i, i + 4).map(one));
+  }
+  memo = { key, at: Date.now(), v };
+  return v;
+}
+
 // src/auto.ts
+async function localGitLines(days = 14, extra = []) {
+  if (!import_obsidian.Platform.isDesktopApp) return void 0;
+  let mods;
+  try {
+    const r = window.require;
+    mods = { fs: r("fs"), path: r("path"), os: r("os"), cp: r("child_process") };
+  } catch {
+    return void 0;
+  }
+  return gitLines(mods, days, extra);
+}
 var isoLocal = (t) => {
   const d = new Date(t);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -5275,6 +5373,11 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
     }
     this.pairs("Public topics", "Only these tags are counted. One per line: tag | Label", "publicTopics");
     this.text("Activity file", "Optional JSON of daily counts from outside tools (calendar, email, git)", "activityFile");
+    new import_obsidian3.Setting(containerEl).setName("Count lines of code").setDesc("Desktop: lines you added and removed each day in the git repos on this computer (your own commits). Only the two totals per day leave this device: never repo names, files or code. Shown in your daily email, not part of your score.").addToggle((t) => t.setValue(s.gitLines !== false).onChange(async (v) => {
+      s.gitLines = v;
+      await this.plugin.saveSettings();
+    }));
+    this.text("Code folders", "Optional: more folders that hold your repos, comma-separated (folders right under your home folder and ~/code, ~/src, ~/projects are found on their own)", "gitFolders");
     new import_obsidian3.Setting(containerEl).setName("My profile tab").setHeading();
     new import_obsidian3.Setting(containerEl).setName("Open my profile when Obsidian starts").setDesc("The My profile tab shows your page built from your vault, plus private sections only you can see (visits, today, on this day, patterns, goals). Switch to Public view to see the live page.").addToggle((t) => t.setValue(!!s.openProfileOnStartup).onChange(async (v) => {
       s.openProfileOnStartup = v;
@@ -6381,6 +6484,8 @@ async function collectProfile(app, s, social) {
     const code = await (fg?.kind === "forgejo" ? forgejoCode(fg) : githubCode(s.links || [])).catch(() => void 0);
     if (code) extra.code = code;
   }
+  const gitDays = s.gitLines === false ? void 0 : await localGitLines(14, String(s.gitFolders || "").split(/[\n,]+/).map((x) => x.trim()).filter(Boolean)).catch(() => void 0);
+  const gitFrom = iso(Date.now() - 13 * DAY);
   const today = Date.now();
   const daily = [];
   const ownerPublic = [
@@ -6403,7 +6508,15 @@ async function collectProfile(app, s, social) {
     const j = journal.get(date) || {};
     daily.push({
       date,
-      counts: { notes: Math.max(created.get(date) || 0, changed.get(date) || 0), meetings: ext.meetings, emails: ext.emails, prompts: ext.prompts, commits: ext.commits, docs: ext.docs },
+      counts: {
+        notes: Math.max(created.get(date) || 0, changed.get(date) || 0),
+        meetings: ext.meetings,
+        emails: ext.emails,
+        prompts: ext.prompts,
+        commits: ext.commits,
+        docs: ext.docs,
+        ...typeof ext.linesAdded === "number" ? { linesAdded: ext.linesAdded, linesRemoved: Number(ext.linesRemoved) || 0 } : gitDays && date >= gitFrom ? { linesAdded: gitDays[date]?.added || 0, linesRemoved: gitDays[date]?.removed || 0 } : {}
+      },
       tokens: Number(ext.tokens) || void 0,
       headline: [j.headline || ext.headline].filter((h) => h && safe(String(h)))[0],
       focus: clean2(j.focus?.length ? j.focus : asList(ext.focus)),
@@ -6940,7 +7053,7 @@ function renderOwner(o) {
     const t = o.today;
     const parts = [];
     if (t.headline) parts.push(`<p class="ow-lead">${esc5(t.headline)}</p>`);
-    const chips = Object.entries(t.counts || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="ow-chip">${n} ${esc5(k)}</span>`);
+    const chips = Object.entries(t.counts || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="ow-chip">${k === "linesAdded" ? "+" + n : k === "linesRemoved" ? "-" + n : n} ${esc5(k === "linesAdded" || k === "linesRemoved" ? "lines" : k)}</span>`);
     if (chips.length) parts.push(`<div class="ow-chips">${chips.join("")}</div>`);
     for (const [lab, xs] of [["Focus", t.focus], ["Wins", t.wins]]) if (xs?.length) parts.push(`<div class="ow-small"><b>${lab}:</b> ${xs.map(esc5).join(" &middot; ")}</div>`);
     if (t.timeline.length) parts.push(`<ol class="ow-time">${t.timeline.map((r) => `<li><span class="ow-t">${esc5(r.time || "")}</span>${r.kind === "new" ? '<span class="ow-new">new</span>' : ""}${open2(r)}</li>`).join("")}</ol>`);
