@@ -158,7 +158,7 @@ export class CalderaSettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.showViews !== false).onChange(async v => { s.showViews = v; await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));
 
     new Setting(containerEl).setName("Friends and sharing").setHeading();
-    new Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).")
+    new Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link. People who join from your invite start out following you (follow them back and you're friends), and your daily summary tells you when someone joins.")
       .addButton(b => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
     new Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`)
       .addText(t => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async v => { s.groups = groupsFrom(v); await this.plugin.saveSettings(); this.plugin.queuePublish("profile"); }));

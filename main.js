@@ -1,4 +1,4 @@
-/* Caldera 0.28.9 */
+/* Caldera 0.28.10 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -5304,7 +5304,7 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
       this.plugin.queuePublish("profile");
     }));
     new import_obsidian3.Setting(containerEl).setName("Friends and sharing").setHeading();
-    new import_obsidian3.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link (you get 25 help credits for each person who joins from it).").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
+    new import_obsidian3.Setting(containerEl).setName("Share my page").setDesc("Your link, the picture people see when you post it, and your invite link. People who join from your invite start out following you (follow them back and you're friends), and your daily summary tells you when someone joins.").addButton((b) => b.setButtonText("Share my page").setCta().setDisabled(!s.handle).onClick(() => this.plugin.openShare()));
     new import_obsidian3.Setting(containerEl).setName("Groups").setDesc(`Comma separated, like producthunt. Each group is a town of everyone's cities at ${s.hubUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/g/name, and people in your groups are suggested to you as friends.`).addText((t) => t.setPlaceholder("producthunt, obsidian-pkm").setValue((s.groups || []).join(", ")).onChange(async (v) => {
       s.groups = groupsFrom(v);
       await this.plugin.saveSettings();
