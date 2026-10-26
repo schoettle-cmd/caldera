@@ -1,4 +1,4 @@
-/* Caldera 0.28.12 */
+/* Caldera 0.28.13 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -9467,6 +9467,12 @@ var ShareModal = class extends import_obsidian11.Modal {
       if (email) void this.plugin.setSummaryEmail(email);
     }));
     if (this.firstRun) new import_obsidian11.Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.").addButton((b) => b.setButtonText("Copy recovery key").onClick(() => copy2(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
+    const gh = githubUser(s.links || []);
+    if (gh) {
+      const md = `[![My GitHub city on Caldera](${hub}/@${s.handle}/badge.svg?style=card)](${hub}/@${s.handle}/city.html)`;
+      new import_obsidian11.Setting(c).setName("Put your city in your GitHub README").setDesc(`A badge with your skyline that updates itself. Paste it into github.com/${gh}/${gh} (your profile README).`).addButton((b) => b.setButtonText("Copy Markdown").onClick(() => copy2(md, "Badge Markdown copied. Paste it into your profile README."))).addButton((b) => b.setButtonText("Open README repo").onClick(() => window.open(`https://github.com/${gh}/${gh}`)));
+    }
+    new import_obsidian11.Setting(c).setName("Caldera is open source").setDesc("A star on GitHub helps other people find it.").addButton((b) => b.setButtonText("Star on GitHub").onClick(() => window.open("https://github.com/schoettle-cmd/caldera")));
     new import_obsidian11.Setting(c).addButton((b) => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() {
