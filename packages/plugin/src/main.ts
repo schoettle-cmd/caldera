@@ -7,7 +7,7 @@ import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Plugin, Setting,
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
 import { collectProfile } from "./collect";
-import { forgeOf, githubRepoSig } from "./auto";
+import { forgeOf, githubRepoSig, githubUser } from "./auto";
 import { later, every, cancel, type BgTimer } from "./bgtimers";
 import { renderProfile, renderPrivateCity } from "./render";
 import { gardenManifest, LICENSES } from "./garden";
@@ -1290,6 +1290,16 @@ class ShareModal extends Modal {
       .addButton(b => b.setButtonText("Email me").onClick(() => { if (email) void this.plugin.setSummaryEmail(email); }));
     if (this.firstRun) new Setting(c).setName("Save your recovery key").setDesc("Your login is a key stored in this vault - no password. Keep a copy in your password manager to recover your page on another device. Anyone with it can act as you.")
       .addButton(b => b.setButtonText("Copy recovery key").onClick(() => copy(btoa(JSON.stringify(s.identity)), "Recovery key copied. Paste it into your password manager.")));
+    // a city on the user's GitHub profile README is the badge every profile visitor sees, linking back to this page
+    const gh = githubUser(s.links || []);
+    if (gh) {
+      const md = `[![My GitHub city on Caldera](${hub}/@${s.handle}/badge.svg?style=card)](${hub}/@${s.handle}/city.html)`;
+      new Setting(c).setName("Put your city in your GitHub README").setDesc(`A badge with your skyline that updates itself. Paste it into github.com/${gh}/${gh} (your profile README).`)
+        .addButton(b => b.setButtonText("Copy Markdown").onClick(() => copy(md, "Badge Markdown copied. Paste it into your profile README.")))
+        .addButton(b => b.setButtonText("Open README repo").onClick(() => window.open(`https://github.com/${gh}/${gh}`)));
+    }
+    new Setting(c).setName("Caldera is open source").setDesc("A star on GitHub helps other people find it.")
+      .addButton(b => b.setButtonText("Star on GitHub").onClick(() => window.open("https://github.com/schoettle-cmd/caldera")));
     new Setting(c).addButton(b => b.setButtonText("Open my page").onClick(() => void this.plugin.openProfile())).addButton(b => b.setButtonText("Done").setCta().onClick(() => this.close()));
   }
   onClose() { this.contentEl.empty(); }
