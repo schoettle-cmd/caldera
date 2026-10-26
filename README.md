@@ -4,6 +4,18 @@ Your vault becomes a **living profile** that updates itself, and vaults can **be
 
 **Private by default.** Nothing leaves your vault unless you switch a section on, mark a note `caldera: public`, or share it with a named friend. Every publish can be previewed first.
 
+## See your GitHub as a city (no install)
+
+Open **[caldera.social/gh/&lt;your-username&gt;](https://caldera.social/gh)**: your public repos become a living city in a few seconds. No sign-up needed to look.
+
+Put it in your GitHub profile README. It updates itself:
+
+```md
+[![My GitHub city on Caldera](https://caldera.social/gh/YOUR-USERNAME/badge.svg?style=card)](https://caldera.social/gh/YOUR-USERNAME)
+```
+
+[![@mike's GitHub city on Caldera](https://caldera.social/@mike/badge.svg?style=card)](https://caldera.social/@mike/city.html)
+
 ## Your work as a city
 
 ![Your repos as a neon city, with live visitors and AI agents](https://raw.githubusercontent.com/schoettle-cmd/caldera/main/docs/img/1-city-live.jpg)
