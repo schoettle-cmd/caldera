@@ -956,7 +956,7 @@ function tronObjects(){SIGNS=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect
       if(r.week>0&&!dm)cranes.push({x:p.x+4,y:top,seed:seed,col:col});
       if(sel===r){var hw2=TW/2*.78,hh2=TH/2*.78;glowLine(c,[[p.x-hw2,base],[p.x,base+hh2],[p.x+hw2,base],[p.x+hw2,top],[p.x,top-TH/2*.46],[p.x-hw2,top]],'#FFFFFF',2/cam.z+.6,16,true)}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
-      if(labels&&!r.locked&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0)))tags.push({x:p.x,y:top-(r===tallest?12:8),text:r.name.length>18?r.name.slice(0,17)+'\u2026':r.name,col:col,url:repoUrl(r)})}}
+      if(labels&&!r.locked&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase()===String(r.name).toLowerCase()))tags.push({x:p.x,y:top-(r===tallest?12:8),text:r.name.length>18?r.name.slice(0,17)+'\u2026':r.name,col:col,url:repoUrl(r)})}}
   drawSigns();
   if(SHOPLBL){pill(c,SHOPLBL.x,SHOPLBL.y,SHOPLBL.text,SHOPLBL.bg,'#fff','700 11px IBM Plex Sans,Arial,sans-serif');hits.push({shop:1,x0:SHOPLBL.x-80,x1:SHOPLBL.x+80,y0:SHOPLBL.y-12,y1:SHOPLBL.y+8});SHOPLBL=null}
   if(WORLD){worldLabels(tags);return}
@@ -1172,7 +1172,7 @@ function storefront(c,p,t,tron,tags){var r=t.r,x=p.x,y=p.y+4,col=LCOL[r.kind]||'
     c.fillStyle=dark?'rgba(255,226,170,.85)':'rgba(255,255,255,.55)';c.fillRect(x-TW*.3,y-h*.55,6,7);c.fillRect(x+TW*.3-6,y-h*.55,6,7)}
   var sy=y-h-34;SIGNS.push({c:c,x:x,y:y,h:h,r:r,d:t.d,col:col,tron:tron,dark:dark,im:limg(m.icon)});   // the sign (with its pole) is drawn after every building, so a tower in front never hides it
   hits.push({r:r,d:t.d,x0:x-TW*.46,x1:x+TW*.46,y0:sy-10,y1:p.y+TH*.48});
-  if(labels&&!WORLD&&(cam.z>.45||sel===r))tags.push({x:x,y:sy-9,text:r.name.length>22?r.name.slice(0,21)+'…':r.name,col:col,url:repoUrl(r)})}
+  if(labels&&!WORLD&&(cam.z>.45||sel===r)&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase()===String(r.name).toLowerCase()))tags.push({x:x,y:sy-9,text:r.name.length>22?r.name.slice(0,21)+'…':r.name,col:col,url:repoUrl(r)})}
 var SIGNS=[];
 function drawSigns(){SIGNS.forEach(function(g){var c=g.c,x=g.x,y=g.y,h=g.h,r=g.r,d=g.d,col=g.col,tron=g.tron,dark=g.dark,im=g.im;
   var s=24,sy=y-h-34;
@@ -1299,7 +1299,7 @@ function drawObjects(){SIGNS=[];var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(
       if(r.week>0&&!dm)cranes.push({x:p.x+4,y:top,seed:seed});
       if(sel===r){c.save();c.strokeStyle='#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;var hw=TW/2*.78,hh=TH/2*.78;c.beginPath();c.moveTo(p.x-hw,base);c.lineTo(p.x,base+hh);c.lineTo(p.x+hw,base);c.lineTo(p.x+hw,top+ (base-top>0?0:0));c.lineTo(p.x,top-TH/2*.46);c.lineTo(p.x-hw,top);c.closePath();c.stroke();c.restore()}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
-      if(labels&&!r.locked&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0)))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name,url:repoUrl(r)})}}
+      if(labels&&!r.locked&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase()===String(r.name).toLowerCase()))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name,url:repoUrl(r)})}}
   drawSigns();
   if(SHOPLBL){pill(c,SHOPLBL.x,SHOPLBL.y,SHOPLBL.text,SHOPLBL.bg,'#fff','700 11px IBM Plex Sans,Arial,sans-serif');hits.push({shop:1,x0:SHOPLBL.x-80,x1:SHOPLBL.x+80,y0:SHOPLBL.y-12,y1:SHOPLBL.y+8});SHOPLBL=null}
   if(WORLD){worldLabels(tags);return}
