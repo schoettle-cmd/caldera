@@ -1,4 +1,4 @@
-/* Caldera 0.28.14 */
+/* Caldera 0.28.15 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -3250,10 +3250,10 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 @keyframes clive{50%{opacity:.35}}
 .c-live .h{cursor:pointer}.c-live.c-min>:not(.h){display:none}.c-live.c-min .h{margin:0}
 .c-live .q{font-size:11px;padding-top:3px;border-top:1px solid rgba(61,242,255,.12)}
-@media (max-width:600px){.c-live{max-height:none;font-size:11px}.c-hint{display:none}.c-tools .t-txt{display:none}
+@media (max-width:600px){.c-live{max-height:55%;font-size:11px}.c-hint{display:none}.c-tools .t-txt{display:none}
 .c-tools{left:6px;right:6px;flex-wrap:nowrap;justify-content:flex-end;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.c-tools::-webkit-scrollbar{display:none}
 .c-tools button{flex:none;white-space:nowrap;min-width:32px;padding:4px 9px;line-height:1.2}}
-@media (max-width:600px){.c-main{padding:20px 16px 48px}.c-title{font-size:1.7rem}.c-stage{height:62vh;min-height:360px}}
+@media (max-width:600px){.c-main{padding:20px 16px 48px}.c-title{font-size:1.7rem}.c-stage{height:50vh;height:min(50svh,460px);min-height:300px}}
 `;
 var CITY_JS = String.raw`(function(){
 var D=JSON.parse(document.getElementById('city-data').textContent);
@@ -5298,7 +5298,7 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
       await this.plugin.saveSettings();
       this.plugin.queuePublish("profile");
     }));
-    new import_obsidian3.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (padlocked)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("Private repos on my city").setDesc("How your private repos appear on your public city, the World and your share card. With names: they look exactly like your private view (names, language colours, activity, real projects) but nobody can open the code. Padlocked: nameless locked buildings in place, which still show roughly how big and how busy private work is, and which project it sits beside. Anonymous: one separate padlocked district with no sizes, activity or projects. Hidden: no trace at all. Your private view always shows everything. Also: privateRepos in Caldera/profile.md.").addDropdown((d) => d.addOption("", "Caldera's default (Anonymous for new members)").addOption("named", "Show with names (code stays private)").addOption("show", "Show as padlocked").addOption("anonymous", "Anonymous").addOption("hidden", "Hidden").setValue(s.privateRepos || "").onChange(async (v) => {
       s.privateRepos = v || void 0;
       s.privateReposTs = (/* @__PURE__ */ new Date()).toISOString();
       await this.plugin.saveSettings();
@@ -9403,10 +9403,6 @@ var WelcomeModal = class extends import_obsidian11.Modal {
           if (!s.autoPublishHours) s.autoPublishHours = 6;
         }
         Object.assign(s, { name, headline, listed });
-        if (!finish && !s.privateRepos) {
-          s.privateRepos = "named";
-          s.privateReposTs = (/* @__PURE__ */ new Date()).toISOString();
-        }
         await this.plugin.saveSettings();
         await this.plugin.applyProfileForm({ name, headline, listed, images: img, links: quick.map((v, i) => [QUICK_LINKS[i].label, quickLinkUrl(i, v)]), plant });
         const firstRun = !s.welcomed;

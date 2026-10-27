@@ -1241,7 +1241,7 @@ class WelcomeModal extends Modal {
             s.handle = handle; if (!s.autoPublishHours) s.autoPublishHours = 6;
           }
           Object.assign(s, { name, headline, listed });
-          if (!finish && !s.privateRepos) { s.privateRepos = "named"; s.privateReposTs = new Date().toISOString(); }   // new members: private repos show by name (never code); Settings to change
+          // private repos: no choice made here, so Caldera's default applies (new members: Anonymous). Names only if the member picks them in Settings
           await this.plugin.saveSettings();
           await this.plugin.applyProfileForm({ name, headline, listed, images: img, links: quick.map((v, i) => [QUICK_LINKS[i]!.label, quickLinkUrl(i, v)] as [string, string]), plant });
           const firstRun = !s.welcomed;
