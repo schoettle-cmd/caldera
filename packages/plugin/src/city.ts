@@ -414,10 +414,10 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 @keyframes clive{50%{opacity:.35}}
 .c-live .h{cursor:pointer}.c-live.c-min>:not(.h){display:none}.c-live.c-min .h{margin:0}
 .c-live .q{font-size:11px;padding-top:3px;border-top:1px solid rgba(61,242,255,.12)}
-@media (max-width:600px){.c-live{max-height:none;font-size:11px}.c-hint{display:none}.c-tools .t-txt{display:none}
+@media (max-width:600px){.c-live{max-height:55%;font-size:11px}.c-hint{display:none}.c-tools .t-txt{display:none}
 .c-tools{left:6px;right:6px;flex-wrap:nowrap;justify-content:flex-end;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.c-tools::-webkit-scrollbar{display:none}
 .c-tools button{flex:none;white-space:nowrap;min-width:32px;padding:4px 9px;line-height:1.2}}
-@media (max-width:600px){.c-main{padding:20px 16px 48px}.c-title{font-size:1.7rem}.c-stage{height:62vh;min-height:360px}}
+@media (max-width:600px){.c-main{padding:20px 16px 48px}.c-title{font-size:1.7rem}.c-stage{height:50vh;height:min(50svh,460px);min-height:300px}}
 `;
 
 // The renderer (plain ES5-ish so it runs everywhere, including inside Obsidian's sandboxed tab).
