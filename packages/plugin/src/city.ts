@@ -807,14 +807,47 @@ function heliScale(){return D.world?Math.min(10,Math.max(1,.85/cam.z)):Math.min(
 function heliPos(h,tn){var age=tn-h.born;if(age<0)return null;var k=Math.min(1,age/2200),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,ang=h.ang+h.sp*tn,ox=h.c.x+Math.cos(ang)*h.rr,oy=h.c.y-h.alt+Math.sin(ang)*h.rr*.45;
   var x=h.fx+(ox-h.fx)*e,y=h.fy+(oy-h.fy)*e,f=Math.min(1,age/400);if(h.stay&&age>h.stay){var g=Math.min(1,(age-h.stay)/1800);f*=1-g;x+=g*420;y-=g*160}
   return {x:x,y:y,f:f,face:(k<1?(ox>h.fx?1:-1):(-Math.sin(ang)*(h.sp>0?1:-1)>0?1:-1))}}
-function drawHeli(c,x,y,s,tn,seed,face){c.save();c.translate(x,y);c.scale(s*face,s);
-  var gl=c.createRadialGradient(0,2,0,0,2,16);gl.addColorStop(0,'rgba(255,190,90,.35)');gl.addColorStop(1,'rgba(255,190,90,0)');c.fillStyle=gl;c.beginPath();c.arc(0,2,16,0,7);c.fill();   // warm glow
-  c.strokeStyle='#F5E6C8';c.lineWidth=1.4;c.beginPath();c.moveTo(-5,0);c.lineTo(-12,-1.5);c.stroke();c.lineWidth=1;c.beginPath();c.moveTo(-12,-3.6);c.lineTo(-12,.6);c.stroke();   // tail boom + tail rotor
-  c.fillStyle='#F5E6C8';c.strokeStyle='#3A2A12';c.lineWidth=.8;c.beginPath();c.ellipse(0,0,6,3.4,0,0,7);c.fill();c.stroke();   // body
-  c.fillStyle='rgba(120,200,255,.9)';c.beginPath();c.ellipse(3,-.6,2.4,1.8,0,0,7);c.fill();   // canopy
-  c.strokeStyle='#3A2A12';c.beginPath();c.moveTo(-3.5,3.8);c.lineTo(4.5,3.8);c.moveTo(-2,3.4);c.lineTo(-2,2.6);c.moveTo(3,3.4);c.lineTo(3,2.6);c.stroke();   // skids
-  c.strokeStyle='#3A2A12';c.beginPath();c.moveTo(0,-3.4);c.lineTo(0,-4.6);c.stroke();var rw=Math.abs(Math.cos(tn/45+seed))*11+2;c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=1.1;c.beginPath();c.moveTo(-rw,-4.7);c.lineTo(rw,-4.7);c.stroke();   // main rotor
-  if(Math.floor(tn/600+seed)%2===0){c.fillStyle='#FF4D4D';c.shadowColor='#FF4D4D';c.shadowBlur=6;c.beginPath();c.arc(-12,-3.8,1.1,0,7);c.fill()}   // beacon
+var HLIV=[['#F3E9D6','#C8B996','#E8A33D'],['#1F2A44','#141C30','#F2C14E'],['#E9EEF4','#B8C2CF','#D9433B'],['#2B2B2E','#18181A','#E8B44A'],['#F4F1EA','#C9C2B2','#2F7DD1']];   // body, belly, stripe
+// A helicopter in 3/4 side view, drawn in local units (about 30 wide) and scaled: shaped fuselage with shading and a
+// livery stripe, glossy canopy, engine housing, tapered tail with fin, stabilizer and tail-rotor disc, four-blade main
+// rotor with a motion-blur disc, skids on struts, nav lights + strobe + beacon, a soft shadow and (some) a searchlight.
+function drawHeli(c,x,y,s,tn,seed,face){var L=HLIV[seed%HLIV.length],k=.62;c.save();c.translate(x,y);
+  if(!D.world&&seed%5===0){c.save();c.globalCompositeOperation='lighter';var sg=c.createLinearGradient(0,4*s,0,120*s);sg.addColorStop(0,'rgba(255,240,200,.22)');sg.addColorStop(1,'rgba(255,240,200,0)');c.fillStyle=sg;c.beginPath();c.moveTo(-1.5*s,4*s);c.lineTo(1.5*s,4*s);c.lineTo(22*s,120*s);c.lineTo(-22*s,120*s);c.closePath();c.fill();c.restore()}   // searchlight
+  c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.ellipse(0,46*s*k,13*s*k,3.2*s*k,0,0,7);c.fill();   // soft shadow below
+  c.scale(s*k*face,s*k);c.rotate(.07+Math.sin(tn/900+seed)*.02);   // nose-down cruise tilt, gentle bob
+  c.lineJoin='round';c.lineCap='round';
+  // tail boom (tapered) + fin + stabilizer
+  c.fillStyle=L[1];c.beginPath();c.moveTo(-6,-2.6);c.lineTo(-21,-3.4);c.lineTo(-21,-1.6);c.lineTo(-6,1.6);c.closePath();c.fill();
+  c.fillStyle=L[0];c.beginPath();c.moveTo(-6,-2.6);c.lineTo(-21,-3.4);c.lineTo(-21,-2.6);c.lineTo(-6,-.6);c.closePath();c.fill();
+  c.fillStyle=L[2];c.beginPath();c.moveTo(-18.5,-3.2);c.lineTo(-22.5,-8.6);c.lineTo(-20.6,-8.6);c.lineTo(-17,-3.1);c.closePath();c.fill();   // vertical fin
+  c.fillStyle=L[1];c.beginPath();c.moveTo(-17,-1.9);c.lineTo(-19.5,.6);c.lineTo(-18.4,.6);c.lineTo(-15.6,-1.9);c.closePath();c.fill();   // stabilizer
+  var tr=tn/22+seed;c.save();c.translate(-21.8,-5.4);c.fillStyle='rgba(235,240,248,.28)';c.beginPath();c.ellipse(0,0,.9,3.4,0,0,7);c.fill();c.strokeStyle='rgba(255,255,255,.75)';c.lineWidth=.7;c.beginPath();c.moveTo(0,-3.3*Math.cos(tr));c.lineTo(0,3.3*Math.cos(tr));c.stroke();c.restore();   // tail rotor
+  // fuselage: teardrop with belly shading
+  var fg=c.createLinearGradient(0,-6,0,6);fg.addColorStop(0,L[0]);fg.addColorStop(.55,L[0]);fg.addColorStop(1,L[1]);c.fillStyle=fg;c.strokeStyle='rgba(20,16,10,.65)';c.lineWidth=.7;
+  c.beginPath();c.moveTo(-7,-2.8);c.bezierCurveTo(-5,-6.4,4,-6.6,8.5,-3.4);c.bezierCurveTo(11.6,-1.2,11.4,2.6,8.2,4.2);c.bezierCurveTo(4,5.8,-3,5.6,-7,2.2);c.closePath();c.fill();c.stroke();
+  c.fillStyle=L[2];c.beginPath();c.moveTo(-6.6,.8);c.bezierCurveTo(-2,2.2,4,2.2,10.2,1.2);c.lineTo(10,2.3);c.bezierCurveTo(4,3.3,-2,3.3,-6.8,1.9);c.closePath();c.fill();   // livery stripe
+  c.fillStyle=L[1];c.beginPath();c.moveTo(-4,-5.2);c.bezierCurveTo(-2,-7.4,3,-7.4,4.6,-5.6);c.lineTo(-4,-5.2);c.fill();   // engine housing
+  c.fillStyle='#2A2F38';c.beginPath();c.ellipse(-4.6,-5.4,.9,.6,0,0,7);c.fill();   // exhaust
+  // canopy + side windows
+  var cg=c.createLinearGradient(5,-5,11,1);cg.addColorStop(0,'#BFE6FF');cg.addColorStop(.5,'#4E8FC4');cg.addColorStop(1,'#1D3A5A');c.fillStyle=cg;
+  c.beginPath();c.moveTo(4.2,-4.6);c.bezierCurveTo(7.6,-4.4,10.4,-2.4,10.6,.4);c.lineTo(5.6,.4);c.closePath();c.fill();
+  c.fillStyle='rgba(255,255,255,.75)';c.beginPath();c.moveTo(5.2,-4);c.bezierCurveTo(7,-3.8,8.4,-3,9,-2);c.lineTo(8.2,-1.8);c.bezierCurveTo(7.6,-2.6,6.6,-3.2,5.2,-3.4);c.closePath();c.fill();   // glint
+  c.fillStyle='#24486B';c.beginPath();c.roundRect?c.roundRect(-.6,-3.6,4,2.6,.8):c.rect(-.6,-3.6,4,2.6);c.fill();   // side window
+  c.strokeStyle='rgba(20,16,10,.5)';c.lineWidth=.45;c.beginPath();c.moveTo(4.4,-4.4);c.lineTo(4.6,3.8);c.stroke();   // door seam
+  // skids
+  c.strokeStyle='#2A2F38';c.lineWidth=.9;c.beginPath();c.moveTo(-3.4,4.6);c.lineTo(-4.2,7.4);c.moveTo(4,4.6);c.lineTo(4.6,7.4);c.stroke();
+  c.lineWidth=1.1;c.beginPath();c.moveTo(-7,7.4);c.lineTo(8,7.4);c.quadraticCurveTo(9.6,7.4,10,6.2);c.stroke();
+  // main rotor: mast, hub, blur disc, four blades in perspective
+  c.strokeStyle='#2A2F38';c.lineWidth=1;c.beginPath();c.moveTo(0,-6.6);c.lineTo(0,-8.6);c.stroke();
+  c.fillStyle='rgba(225,232,242,.13)';c.beginPath();c.ellipse(0,-8.8,21,3.6,0,0,7);c.fill();
+  var ra=tn/60+seed;c.strokeStyle='rgba(250,252,255,.85)';c.lineWidth=.9;c.beginPath();for(var b=0;b<4;b++){var a=ra+b*1.5708;c.moveTo(0,-8.8);c.lineTo(Math.cos(a)*21,-8.8+Math.sin(a)*3.6)}c.stroke();
+  c.fillStyle='#3A3F48';c.beginPath();c.ellipse(0,-8.8,1.4,.7,0,0,7);c.fill();
+  // lights: red beacon (top), red/green nav, white tail strobe
+  var on=Math.floor(tn/650+seed)%2===0,st=Math.floor(tn/90+seed*3)%14===0;
+  c.globalCompositeOperation='lighter';
+  if(on){c.fillStyle='rgba(255,70,60,.95)';c.shadowColor='#FF463C';c.shadowBlur=8;c.beginPath();c.arc(-1,-6.9,.9,0,7);c.fill()}
+  c.shadowBlur=5;c.shadowColor='#FF3B30';c.fillStyle='#FF5A50';c.beginPath();c.arc(-.5,4.6,.6,0,7);c.fill();c.shadowColor='#38E07B';c.fillStyle='#4CF08D';c.beginPath();c.arc(2.6,4.4,.6,0,7);c.fill();
+  if(st){c.shadowColor='#FFFFFF';c.shadowBlur=12;c.fillStyle='#FFFFFF';c.beginPath();c.arc(-21.4,-2.8,1,0,7);c.fill()}
   c.restore()}
 function drawHelis(c,tn){if(!HELIS.length)return;var s=heliScale();HELIS=HELIS.filter(function(h){var p=heliPos(h,tn);if(!p)return true;if(p.f<=0&&h.stay&&tn-h.born>h.stay)return false;if(p.f<=0)return true;c.save();c.globalAlpha=p.f;drawHeli(c,p.x,p.y,s,tn,h.seed,p.face);c.restore();return true})}
 function heliPill(t){if(!labels||MINI||!st)return;if(!HPILL){HPILL=document.createElement('div');HPILL.className='c-heli';HPILL.style.cssText='position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:4;pointer-events:none;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#FFD9A0;background:rgba(2,6,12,.86);border:1px solid rgba(255,190,90,.5);border-radius:999px;padding:6px 11px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis';HPILL.setAttribute('role','status');HPILL.setAttribute('aria-live','polite');st.appendChild(HPILL)}HPILL.textContent=t;HPILL.style.display=t?'':'none'}
