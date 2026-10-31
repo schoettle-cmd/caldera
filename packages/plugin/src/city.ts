@@ -361,6 +361,7 @@ export const CITY_CSS = `
 .c-stats div{flex:1 1 120px;background:var(--bg-raised);border:1px solid var(--line);border-radius:var(--radius-md,10px);padding:10px 14px;display:flex;flex-direction:column}
 .c-stats b{font-size:1.5rem;font-variant-numeric:tabular-nums;color:var(--text-strong)}.c-stats span{font-size:var(--text-xs,12px);color:var(--text-muted)}
 .c-stage{position:relative;height:min(72vh,720px);min-height:420px;border-radius:var(--radius-md,10px);overflow:hidden;border:1px solid rgba(61,242,255,.35);box-shadow:0 0 24px rgba(61,242,255,.12);background:#010207;touch-action:none}
+.c-heli{position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:4;pointer-events:none;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#FFD9A0;background:rgba(2,6,12,.86);border:1px solid rgba(255,190,90,.5);border-radius:999px;padding:6px 11px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}.c-heli[hidden]{display:none}
 .c-stage canvas{width:100%;height:100%;display:block;cursor:grab}.c-stage canvas.c-link{cursor:pointer}.c-stage canvas.drag{cursor:grabbing}
 .c-tools{position:absolute;top:10px;right:10px;display:flex;gap:6px}
 .c-tools .t-sw{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;background:conic-gradient(#A78BFA 0 25%,#2DD4BF 0 50%,#FBBF24 0 75%,#FB7185 0)}
@@ -794,6 +795,39 @@ function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var park
     c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(g.x,g.y-6*sc);c.lineTo(g.x+5*sc,g.y);c.lineTo(g.x,g.y+3.5*sc);c.lineTo(g.x-5*sc,g.y);c.closePath();c.fill();c.restore();
     g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;
     if(labels&&a.label&&!sp.hq&&(cam.z>.55||ids.length<=8))tronPill(c,g.x,g.y-15,a.label,col,'600 9px ui-monospace,monospace')})}
+// ---- visitor helicopters: the people who visited this member's profile over the last days. On a member's city they
+// replay day by day (oldest first), flying in from the edge to circle the city, and the last two days keep circling;
+// in the world they circle each neighborhood, more for more recent visitors. Counts only: who visited is never sent.
+var HELIS=[],HPILL=null,HMAX=150;
+function heliCenter(key){if(D.world){var n=NBM[key];if(!n)return null;var p=iso(n.ox+n.w/2,n.oy+n.h/2);return {x:p.x,y:p.y-70,r:Math.max(50,(n.w+n.h)*TW/6)}}
+  var p0=iso(W/2,H/2);return {x:p0.x,y:p0.y-150,r:Math.max(90,Math.min(320,(W+H)*TW/7))}}
+function heliAdd(key,born,stay,seed){if(HELIS.length>=HMAX)return;var c=heliCenter(key);if(!c)return;var a=rnd(seed)*6.283,ed=iso(-6,H*rnd(seed+1));
+  HELIS.push({c:c,born:born,stay:stay,seed:seed,ang:a,sp:(.00016+rnd(seed+2)*.00014)*(rnd(seed+3)<.5?-1:1),fx:D.world?c.x+Math.cos(a)*c.r*3:ed.x,fy:D.world?c.y-c.r*2:ed.y-220,rr:c.r*(.55+rnd(seed+4)*.5),alt:rnd(seed+5)*40})}
+function heliScale(){return D.world?Math.min(10,Math.max(1,.85/cam.z)):Math.min(2.6,Math.max(1.5,1.1/cam.z))}
+function heliPos(h,tn){var age=tn-h.born;if(age<0)return null;var k=Math.min(1,age/2200),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,ang=h.ang+h.sp*tn,ox=h.c.x+Math.cos(ang)*h.rr,oy=h.c.y-h.alt+Math.sin(ang)*h.rr*.45;
+  var x=h.fx+(ox-h.fx)*e,y=h.fy+(oy-h.fy)*e,f=Math.min(1,age/400);if(h.stay&&age>h.stay){var g=Math.min(1,(age-h.stay)/1800);f*=1-g;x+=g*420;y-=g*160}
+  return {x:x,y:y,f:f,face:(k<1?(ox>h.fx?1:-1):(-Math.sin(ang)*(h.sp>0?1:-1)>0?1:-1))}}
+function drawHeli(c,x,y,s,tn,seed,face){c.save();c.translate(x,y);c.scale(s*face,s);
+  var gl=c.createRadialGradient(0,2,0,0,2,16);gl.addColorStop(0,'rgba(255,190,90,.35)');gl.addColorStop(1,'rgba(255,190,90,0)');c.fillStyle=gl;c.beginPath();c.arc(0,2,16,0,7);c.fill();   // warm glow
+  c.strokeStyle='#F5E6C8';c.lineWidth=1.4;c.beginPath();c.moveTo(-5,0);c.lineTo(-12,-1.5);c.stroke();c.lineWidth=1;c.beginPath();c.moveTo(-12,-3.6);c.lineTo(-12,.6);c.stroke();   // tail boom + tail rotor
+  c.fillStyle='#F5E6C8';c.strokeStyle='#3A2A12';c.lineWidth=.8;c.beginPath();c.ellipse(0,0,6,3.4,0,0,7);c.fill();c.stroke();   // body
+  c.fillStyle='rgba(120,200,255,.9)';c.beginPath();c.ellipse(3,-.6,2.4,1.8,0,0,7);c.fill();   // canopy
+  c.strokeStyle='#3A2A12';c.beginPath();c.moveTo(-3.5,3.8);c.lineTo(4.5,3.8);c.moveTo(-2,3.4);c.lineTo(-2,2.6);c.moveTo(3,3.4);c.lineTo(3,2.6);c.stroke();   // skids
+  c.strokeStyle='#3A2A12';c.beginPath();c.moveTo(0,-3.4);c.lineTo(0,-4.6);c.stroke();var rw=Math.abs(Math.cos(tn/45+seed))*11+2;c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=1.1;c.beginPath();c.moveTo(-rw,-4.7);c.lineTo(rw,-4.7);c.stroke();   // main rotor
+  if(Math.floor(tn/600+seed)%2===0){c.fillStyle='#FF4D4D';c.shadowColor='#FF4D4D';c.shadowBlur=6;c.beginPath();c.arc(-12,-3.8,1.1,0,7);c.fill()}   // beacon
+  c.restore()}
+function drawHelis(c,tn){if(!HELIS.length)return;var s=heliScale();HELIS=HELIS.filter(function(h){var p=heliPos(h,tn);if(!p)return true;if(p.f<=0&&h.stay&&tn-h.born>h.stay)return false;if(p.f<=0)return true;c.save();c.globalAlpha=p.f;drawHeli(c,p.x,p.y,s,tn,h.seed,p.face);c.restore();return true})}
+function heliPill(t){if(!labels||MINI||!st)return;if(!HPILL){HPILL=document.createElement('div');HPILL.className='c-heli';HPILL.style.cssText='position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:4;pointer-events:none;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#FFD9A0;background:rgba(2,6,12,.86);border:1px solid rgba(255,190,90,.5);border-radius:999px;padding:6px 11px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis';HPILL.setAttribute('role','status');HPILL.setAttribute('aria-live','polite');st.appendChild(HPILL)}HPILL.textContent=t;HPILL.style.display=t?'':'none'}
+function heliCity(days){if(!Array.isArray(days)||!days.length)return;days=days.slice(-7);var tot=days.reduce(function(s,d){return s+(+d[1]||0)},0);if(!tot)return;
+  var lab='\u{1F681} VISITORS · last '+days.length+' days · '+tot,DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],t0=performance.now()+1500,per=1000,nd=days.length;
+  if(reduce){days.slice(-2).forEach(function(d){for(var k=0;k<Math.min(12,+d[1]||0);k++)heliAdd('',t0-9000,0,hash(d[0]+k)%100000)});heliPill(lab);return}
+  days.forEach(function(d,i){var n=Math.min(12,+d[1]||0),keep=i>=nd-2;for(var k=0;k<n;k++)heliAdd('',t0+i*per+k*140,keep?0:3800,hash(d[0]+':'+k)%100000);
+    setTimeout(function(){var dt=new Date(d[0]+'T12:00:00Z'),v=+d[1]||0;heliPill('\u{1F681} '+DN[dt.getUTCDay()]+' '+(dt.getUTCMonth()+1)+'/'+dt.getUTCDate()+' · '+v+' visitor'+(v===1?'':'s'))},1500+i*per)});
+  setTimeout(function(){heliPill(lab)},1500+nd*per+600)}
+function heliWorld(m){if(!m||typeof m!=='object')return;var tn=performance.now();Object.keys(m).sort(function(a,b){return (+m[b]||0)-(+m[a]||0)}).forEach(function(key){var v=+m[key]||0;if(v<=0||!NBM[key])return;
+  var n=Math.min(12,Math.max(1,Math.round(Math.log2(1+v)*2)));for(var k=0;k<n;k++)heliAdd(key,reduce?tn-9000:tn+800+rnd(hash(key)+k)*5000,0,(hash(key)+k*7919)%100000)});var tot=Object.keys(m).reduce(function(s,k){return s+(NBM[k]?(+m[k]||0):0)},0);if(tot)heliPill('\u{1F681} helicopters = profile visitors \u00B7 last 3 days \u00B7 '+tot)}
+(function(){var u=D.world?'/v1/visits':(HND?'/v1/visits/'+HND:'');if(!u||!window.fetch)return;
+  fetch(u,{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j)return;if(D.world)heliWorld(j.m);else heliCity(j.days);draw()}).catch(function(){})})();
 // ---- the Underground: the vault under the city. Notes = nodes (size = notes linking in), links = tunnels,
 // depth = age, notes about a project sit under its district with roots up into it. Toggle with the Underground button.
 var U=D.under||null,under=false,UL=document.createElement('canvas'),uc=UL.getContext('2d'),UP=[],upulse=[],UDIRTY=true;
@@ -1481,7 +1515,7 @@ var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=t
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);drawObjects()}dirty=false}
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh)}
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
 var last=0,FPS_MS=MINI?50:30;function tick(ts){if(!document.hidden&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
