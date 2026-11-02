@@ -3,7 +3,7 @@
  * Network use (disclosed): only when you publish, sync your inbox, or act on friends/asks/gravity,
  * and only to the hub you configure. No telemetry.
  */
-import { fillFromPage, isPageCode } from "./page-import";
+import { fillFromPage, isPageCode, photoPlan } from "./page-import";
 import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
@@ -161,6 +161,16 @@ export default class CalderaPlugin extends Plugin {
       if (!r?.identity?.id || !r.handle) throw new Error("the hub didn't return the page");
       if (this.settings.identity && this.settings.identity.id !== r.identity.id) (this.settings as any).previousIdentity = this.settings.identity;   // kept, in case
       this.settings = fillFromPage(this.settings as any, r.page) as any;
+      // the photo too, before the vault's publish replaces the page. Best effort: a page without its photo is better than a failed import
+      try {
+        const eff = effectiveSettings(this.app, this.settings), plan = photoPlan(eff.avatarPath, this.settings.hubUrl, r.handle, r.page?.photoExt);
+        if (plan) {
+          const img = await requestUrl({ url: plan.from }), v = this.app.vault;
+          if (!v.getAbstractFileByPath("Caldera")) await v.createFolder("Caldera").catch(() => {});
+          const old = v.getAbstractFileByPath(plan.to); if (old instanceof TFile) await v.modifyBinary(old, img.arrayBuffer); else await v.createBinary(plan.to, img.arrayBuffer);
+          this.settings.avatarPath = plan.to;
+        }
+      } catch (e: any) { console.error("Caldera: couldn't bring the photo over", e?.message); new Notice("Your photo didn't come over. Add it again in Settings > Caldera."); }
       this.settings.identity = r.identity; this.settings.handle = r.handle; (this.settings as any).pendingPageClaim = code;
       await this.saveSettings();
       await this.confirmPageClaim();
