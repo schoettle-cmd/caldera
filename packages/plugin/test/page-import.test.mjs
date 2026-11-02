@@ -1,0 +1,11 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { buildSync } from "esbuild";
+import fs from "node:fs"; import os from "node:os"; import path from "node:path";
+const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pi-")), "pi.mjs");
+buildSync({ entryPoints: [new URL("../src/page-import.ts", import.meta.url).pathname], outfile: out, format: "esm", bundle: true });
+const { fillFromPage, isPageCode } = await import(out);
+const page = { name: "Olive", headline: "Builds", summary: "About", now: ["x"], links: [["a", "b"]], timeline: [["2020", "y"]], projects: [["p", "q"]] };
+test("an empty vault gets the page", () => { const r = fillFromPage({ name: "", headline: "", summary: "", now: [], links: [], timeline: [], projects: [] }, page); assert.deepEqual({ name: r.name, summary: r.summary, projects: r.projects, links: r.links }, { name: "Olive", summary: "About", projects: page.projects, links: page.links }); });
+test("what the vault already has never changes", () => { const r = fillFromPage({ name: "Me", headline: "Mine", summary: "Mine", now: ["mine"], links: [["m", "n"]], timeline: [], projects: [] , theme: "dark" }, page); assert.equal(r.name, "Me"); assert.deepEqual(r.now, ["mine"]); assert.deepEqual(r.links, [["m", "n"]]); assert.equal(r.theme, "dark"); assert.deepEqual(r.timeline, page.timeline); });
+test("page codes are told apart from GitHub codes", () => { assert.ok(isPageCode("CAL-P-abcdefghij12")); assert.ok(!isPageCode("CAL-abcdef")); });

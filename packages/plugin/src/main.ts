@@ -3,6 +3,7 @@
  * Network use (disclosed): only when you publish, sync your inbox, or act on friends/asks/gravity,
  * and only to the hub you configure. No telemetry.
  */
+import { fillFromPage, isPageCode } from "./page-import";
 import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
@@ -120,6 +121,7 @@ export default class CalderaPlugin extends Plugin {
       this.timers.push(later(() => { void this.checkRepos(); }, 60_000));
     });
     this.scheduleAutoPublish();
+    this.timers.push(later(() => { void this.confirmPageClaim(); }, 30_000));
   }
 
   // every repeating timer is cleared on unload: an update or reload must not leave the old code publishing in the background
@@ -131,6 +133,7 @@ export default class CalderaPlugin extends Plugin {
   async importGithub(code: string): Promise<boolean> {
     if (!/^CAL-[\w-]{6,}$/.test(code)) { new Notice("Paste the code from your account page (it starts with CAL-)."); return false; }
     const go = async () => {
+      if (isPageCode(code)) return this.importPage(code);
       try {
         const r = await this.api("POST", "/v1/github/claim", { code });
         if (!r?.identity?.id || !r.handle) throw new Error("the hub didn't return the profile");
@@ -149,6 +152,29 @@ export default class CalderaPlugin extends Plugin {
         async () => res(await go()), "Import", "Switch profiles?").open());
     }
     return go();
+  }
+
+  /** A page made on the website (email or Google) moves into this vault. Key saved first, then the hub is told, then publish. */
+  private async importPage(code: string): Promise<boolean> {
+    try {
+      const r = await this.api("POST", "/v1/page/claim", { code });
+      if (!r?.identity?.id || !r.handle) throw new Error("the hub didn't return the page");
+      if (this.settings.identity && this.settings.identity.id !== r.identity.id) (this.settings as any).previousIdentity = this.settings.identity;   // kept, in case
+      this.settings = fillFromPage(this.settings as any, r.page) as any;
+      this.settings.identity = r.identity; this.settings.handle = r.handle; (this.settings as any).pendingPageClaim = code;
+      await this.saveSettings();
+      await this.confirmPageClaim();
+      new Notice(`@${r.handle} now lives in this vault. Publishing it from your vault...`);
+      const url = await this.publish(true); if (url) new Notice("Published: " + url);
+      return true;
+    } catch (e: any) { new Notice("Couldn't import: " + e.message); return false; }
+  }
+  /** Tell the hub the key is safe here, so it can erase its copy. Retried on load until it lands. */
+  async confirmPageClaim(): Promise<void> {
+    const code = (this.settings as any).pendingPageClaim; if (!code) return;
+    try { await this.api("POST", "/v1/page/claim/confirm", { code }); }
+    catch (e: any) { if (!/unknown or expired/i.test(String(e?.message))) return; }   // network: try again later. Expired or already done: nothing left to confirm
+    delete (this.settings as any).pendingPageClaim; await this.saveSettings();
   }
 
   async ensureIdentity(quiet = false): Promise<C.Identity> {

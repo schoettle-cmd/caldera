@@ -138,8 +138,8 @@ export class CalderaSettingTab extends PluginSettingTab {
       }));
     this.text("Handle", "Your address on the hub: hub/@handle", "handle", v => v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
     let claim = "";
-    new Setting(containerEl).setName("Import a GitHub sign-up")
-      .setDesc("Started your Caldera profile with GitHub on the website? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.")
+    new Setting(containerEl).setName("Import a sign-up")
+      .setDesc("Started your Caldera profile on the website, with GitHub, Google or email? Get a code on your settings page (caldera.social/settings, Connections > Obsidian) and paste it here: your vault takes over that profile (same handle and page) and the hub deletes its copy of the key.")
       .addText(t => t.setPlaceholder("CAL-...").onChange(v => { claim = v.trim(); }))
       .addButton(b => b.setButtonText("Import").onClick(() => this.plugin.importGithub(claim).then(ok => { if (ok) this.display(); })));
     this.text("Hub", "Where your profile is hosted and friends connect. Self-hosters can point this at their own hub.", "hubUrl");
