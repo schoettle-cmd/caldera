@@ -1,11 +1,14 @@
 import { githubUser } from "./auto";
-import { App, PluginSettingTab, Setting, Notice, TFile } from "obsidian";
+import { App, PluginSettingTab, Setting, Notice, TFile, TFolder } from "obsidian";
+import { normFolder, skippedMessage } from "./ihsync";
 import type CalderaPlugin from "./main";
 import { gardenEnabled, type Identity } from "@caldera/core";
 import { cleanLabel, listingLine, MAX_LABEL, MAX_LISTINGS, parseListingLine, type ListingKind, type ListingRef } from "./listings";
 import { PROFILE_FILE } from "./profile-file";
 
 export interface CalderaSettings {
+  ihSync?: import("./ihsync").IhSyncState;   // Inbox Hero connector (private): token, folder, what was sent. Never published, never sent to the hub
+  ihOnly?: boolean;                   // installed only for the Inbox Hero connector: no Caldera onboarding, nudges or hub calls
   lastMsgUnread?: number;             // unread direct messages already announced with a notice
   lastAlertTs?: string;               // newest Caldera alert already shown as a notice
   hubUrl: string;
@@ -102,7 +105,14 @@ export class CalderaSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this; const s = this.plugin.settings;
     containerEl.empty();
+    if (s.ihOnly) {   // installed for the Inbox Hero connector only: just the connector, Caldera stays out of the way
+      this.ihSection(containerEl, true);
+      new Setting(containerEl).setName("Caldera (optional)").setDesc("Caldera can also turn your vault into a living public profile. Nothing is published unless you set it up.")
+        .addButton(b => b.setButtonText("Set up a Caldera page").onClick(async () => { s.ihOnly = false; await this.plugin.saveSettings(); this.display(); }));
+      return;
+    }
     containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
+    this.ihSection(containerEl, false);
 
     // Connections: the same lights as caldera.social/settings, so it's obvious what's connected and what isn't
     new Setting(containerEl).setName("Connections").setHeading();
@@ -260,6 +270,30 @@ export class CalderaSettingTab extends PluginSettingTab {
   }
 
   /** The current list: from Caldera/profile.md when the note sets it (it wins there), else from settings. */
+  /** Inbox Hero connector: one folder of this vault, one way, private. Works without a Caldera account. */
+  private ihSection(el: HTMLElement, alone: boolean) {
+    const st = this.plugin.settings.ihSync || {}, on = !!st.token;
+    new Setting(el).setName("Inbox Hero connector").setHeading();
+    el.createEl("p", { cls: "setting-item-description", text: "Sync one folder of this vault to your Inbox Hero account so it can use your notes when it answers and drafts. Private and one way: only that folder is read, nothing in your vault is ever changed, nothing goes to Caldera, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
+    if (!on) {
+      new Setting(el).setName("Not connected").setDesc("Start in Inbox Hero: Settings > Knowledge > Connect your notes. Its Connect button opens Obsidian and connects this vault.")
+        .addButton(b => b.setButtonText("Open Inbox Hero").onClick(() => window.open("https://joininboxhero.com/settings")));
+      if (st.error) el.createEl("p", { cls: "setting-item-description", text: st.error });
+      return;
+    }
+    const folders = this.app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder && f.path && f.path !== "/" && !f.path.startsWith(".")).map(f => f.path).sort((a, b) => a.localeCompare(b)).slice(0, 2000);
+    new Setting(el).setName("Folder").setDesc("The one folder that syncs (its subfolders too). Changing it removes the old folder's notes from Inbox Hero.")
+      .addDropdown(d => { d.addOption("", "None (nothing syncs)"); for (const f of folders) d.addOption(f, f); d.setValue(normFolder(st.folder)); d.onChange(async v => { this.plugin.ihState().folder = v; await this.plugin.saveSettings(); if (v) void this.plugin.ihSyncNow(true).then(() => this.display()); else this.display(); }); });
+    const last = st.lastSync ? new Date(st.lastSync).toLocaleString() : "not yet";
+    el.createEl("p", { cls: "setting-item-description", text: `Last sync: ${last}. ${Object.keys(st.sent || {}).length} notes in Inbox Hero.` + (st.skipped?.length ? " " + skippedMessage(st.skipped) + "." : "") + (st.error ? " Last problem: " + st.error : "") });
+    new Setting(el).setName("Sync").setDesc("Changes sync a few seconds after you save. A full resync sends the whole folder again.")
+      .addButton(b => b.setButtonText("Sync now").onClick(async () => { await this.plugin.ihSyncNow(false); this.display(); }))
+      .addButton(b => b.setButtonText("Full resync").onClick(async () => { await this.plugin.ihSyncNow(true); this.display(); }));
+    new Setting(el).setName("Disconnect").setDesc("Stops syncing, revokes this vault's access and asks Inbox Hero to delete every note it got from here. Your vault is not touched.")
+      .addButton(b => b.setButtonText("Disconnect and delete synced notes").setWarning().onClick(async () => { if (!window.confirm("Disconnect from Inbox Hero and delete the notes it has from this vault?")) return; await this.plugin.ihDisconnect(); this.display(); }));
+    void alone;
+  }
+
   private async listValue(key: "apps" | "websites" | "hideStorefronts"): Promise<string[]> {
     const f = this.app.vault.getAbstractFileByPath(PROFILE_FILE), fm = f instanceof TFile ? this.app.metadataCache.getFileCache(f)?.frontmatter : null;
     const v = fm && key in fm ? fm[key] : this.plugin.settings[key];
