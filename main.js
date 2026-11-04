@@ -1,4 +1,4 @@
-/* Caldera 0.28.24 */
+/* Caldera 0.28.25 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -6827,7 +6827,7 @@ function locSection(L) {
 <div class="sb-stats loc-stats"><div class="sb-stat"><div class="v">${pm(sum(1))}</div><div class="l">today</div></div><div class="sb-stat"><div class="v">${pm(sum(7))}</div><div class="l">last 7 days</div></div><div class="sb-stat"><div class="v">${pm(sum(30))}</div><div class="l">last 30 days</div></div></div>
 <div class="loc-tools" role="group" aria-label="Range">${[7, 30, 90].map((n) => `<button type="button" data-n="${n}"${n === 30 ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"'}>${n} days</button>`).join("")}<span class="loc-tip" aria-live="polite">Hover a day</span></div>
 ${chart(7)}${chart(30)}${chart(90)}<div class="loc-key"><span><i class="loc-a"></i>added</span><span><i class="loc-r"></i>removed</span></div>${repos}
-<script>(function(s){if(!s)return;var t=s.querySelector('.loc-tip');s.querySelectorAll('.loc-tools button').forEach(function(b){b.onclick=function(){var n=b.getAttribute('data-n');s.querySelectorAll('.loc-tools button').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on?'true':'false')});s.querySelectorAll('.loc-chart').forEach(function(c){c.hidden=c.getAttribute('data-n')!==n})}});
+<script>(function(s){if(!s)return;var t=s.querySelector('.loc-tip');s.querySelectorAll('.loc-tools button').forEach(function(b){b.onclick=function(){var n=b.getAttribute('data-n');s.querySelectorAll('.loc-tools button').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on?'true':'false')});s.querySelectorAll('.loc-chart').forEach(function(c){if(c.getAttribute('data-n')===n)c.removeAttribute('hidden');else c.setAttribute('hidden','')})}});
 function show(e){var g=e.target.closest&&e.target.closest('g[data-d]');if(!g)return;s.querySelectorAll('g.on').forEach(function(x){x.classList.remove('on')});g.classList.add('on');t.textContent=g.getAttribute('data-d')+': +'+(+g.getAttribute('data-a')).toLocaleString('en-US')+' added, \u2212'+(+g.getAttribute('data-r')).toLocaleString('en-US')+' removed'}
 s.querySelectorAll('.loc-chart').forEach(function(c){c.addEventListener('mousemove',show);c.addEventListener('touchstart',show,{passive:true});c.addEventListener('click',show)})})(document.currentScript&&document.currentScript.closest('section'))<\/script></section>`;
 }

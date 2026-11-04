@@ -60,6 +60,7 @@ test("loc: the section (today / 7 / 30 days, 7-30-90 chart with hover, public re
   assert.ok(html.includes("today") && html.includes("last 7 days") && html.includes("last 30 days"));
   assert.ok(!/streak/i.test(html), "no streaks");
   assert.ok(html.includes('data-a="') && html.includes("<title>"), "hover values on every day");
+  assert.ok(html.includes("removeAttribute('hidden')") && !/c\.hidden=/.test(html), "the range buttons toggle the hidden attribute (an <svg> has no .hidden property)");
   assert.ok(html.includes('href="https://github.com/me/web"'));
   const base = { name: "A", handle: "a", sections: { loc: true }, daily: [], topics: [], links: [], properties: [], publicNotes: [], stats: { notes: 0, words: 0, links: 0, activeDays: 0 }, updated: "2026-11-04T00:00:00Z", loc: { days, repos: [] } };
   assert.ok(renderProfile(base)["index.html"].includes('id="loc"'));
