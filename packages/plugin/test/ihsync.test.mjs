@@ -183,3 +183,9 @@ test("connector: Caldera publishing is unaffected (no connector data in what get
   const st = fs.readFileSync(new URL("../src/settings.ts", import.meta.url), "utf8");
   assert.ok(/ihSync\?: import\("\.\/ihsync"\)\.IhSyncState;\s+\/\/ Inbox Hero connector \(private\)[^\n]*Never published/.test(st));
 });
+
+test("settings: no input is filled in after display() returns (an async setValue froze Obsidian 1.15's settings window)", () => {
+  const st = fs.readFileSync(new URL("../src/settings.ts", import.meta.url), "utf8");
+  assert.ok(!/listValue\([^)]*\)\.then/.test(st) && !/private async listValue/.test(st), "listValue is synchronous");
+  assert.ok(!/\.then\([^)]*=>\s*t\.setValue/.test(st), "no setValue inside a .then");
+});

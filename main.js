@@ -1,4 +1,4 @@
-/* Caldera 0.28.22 */
+/* Caldera 0.28.23 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -5945,7 +5945,7 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
     this.listing("Apps", "Your apps in the App Store or Google Play (up to 12). Each one gets a card on your page and, with Storefront on, a storefront building in your city. Repo: the repo it's built from, so it stands beside that repo (a private repo's name is never shown). Short name: what your page and storefront call it, instead of the store's title.", "apps", "app");
     this.listing("Websites", "Sites you run (up to 12), a whole site or one page like example.com/tool. Each one gets a card on your page and, with Storefront on, a storefront building in your city that its live visitors walk into. Repo: the repo that builds it. Storefront off: the site lights up that repo's building instead. Short name: what your page and storefront call it, instead of the site's title.", "websites", "site");
     new import_obsidian3.Setting(containerEl).setName("Repos without storefronts").setDesc("Comma separated repo names. Their apps and websites get no storefront, and their own websites (GitHub homepage) are left off your public city. Also hideStorefronts in Caldera/profile.md.").addText((t) => {
-      void this.listValue("hideStorefronts").then((v) => t.setValue(v.join(", ")));
+      t.setValue(this.listValue("hideStorefronts").join(", "));
       t.setPlaceholder("old-site, client-work").onChange((v) => this.saveList("hideStorefronts", v.split(",").map((x) => x.trim()).filter((x) => /^[A-Za-z0-9._-]{1,100}$/.test(x))));
     });
     new import_obsidian3.Setting(containerEl).setName("GitHub username").setDesc("Your public repos become your city, and your contributions your code chart. Refreshed every 6 hours. Same as a GitHub line in Links.").addText((t) => t.setPlaceholder("octocat").setValue(githubUser(s.links || []) || "").onChange(async (v) => {
@@ -6039,7 +6039,6 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
   }
-  /** The current list: from Caldera/profile.md when the note sets it (it wins there), else from settings. */
   /** Inbox Hero connector: one folder of this vault, one way, private. Works without a Caldera account. */
   ihSection(el, alone) {
     const st = this.plugin.settings.ihSync || {}, on = !!st.token;
@@ -6078,7 +6077,9 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
     }));
     void alone;
   }
-  async listValue(key) {
+  /** The current list: from Caldera/profile.md when the note sets it (it wins there), else from settings. */
+  // synchronous on purpose: an input filled in after display() returned (a .then) froze Obsidian 1.12's settings window
+  listValue(key) {
     const f = this.app.vault.getAbstractFileByPath(PROFILE_FILE), fm = f instanceof import_obsidian3.TFile ? this.app.metadataCache.getFileCache(f)?.frontmatter : null;
     const v = fm && key in fm ? fm[key] : this.plugin.settings[key];
     return Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : typeof v === "string" ? v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean) : [];
@@ -6151,10 +6152,8 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
         draw();
       }));
     };
-    void this.listValue(key).then((lines) => {
-      refs = lines.map((l) => parseListingLine(l, kind)).filter((x) => !!x).slice(0, MAX_LISTINGS);
-      draw();
-    });
+    refs = this.listValue(key).map((l) => parseListingLine(l, kind)).filter((x) => !!x).slice(0, MAX_LISTINGS);
+    draw();
   }
   pairs(name, desc, key) {
     new import_obsidian3.Setting(this.containerEl).setName(name).setDesc(desc).addTextArea((t) => {
