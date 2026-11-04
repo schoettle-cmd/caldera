@@ -45,6 +45,9 @@ export interface ProfileData {
   knows?: [string, number][];
   inbox?: { total?: number; note?: string; kinds: [string, number][]; series?: { label: string; weeks: [string, number][] } };
   code?: { commits: number; repos: number; languages?: string[]; weekly?: number[]; url?: string; start?: string };
+  /** Lines of code (opt-in section "loc"): 90 days [date, added, removed] summed over every repo (private ones in the totals only),
+   *  and 30-day [name, url, added, removed] for repos the public page already names. */
+  loc?: { days: [string, number, number][]; repos: [string, string, number, number][] };
   extraNumbers?: [string, string][];                        // [value, label] appended to the number strip
   tabs?: string[];                                          // extra (decorative) tabs next to the page tab
   source?: string;                                          // where the page comes from ("vault" by default; "GitHub" for GitHub sign-ups)
@@ -120,11 +123,32 @@ export function scored(daily: DailyEntry[]) {
 
 /** Where each part of a profile comes from: a small tag beside every section header, so a visitor can tell what is
  *  Obsidian, what is GitHub and what is Caldera's own. */
-type Src = "obsidian" | "github" | "caldera" | "agents" | "calendar" | "profile" | "module" | "self" | "stores" | "web";
-const SRC_LABEL: Record<Src, string> = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", self: "In their words", profile: "Profile note", module: "Custom module", stores: "App Store and Google Play", web: "Their websites" };
+type Src = "obsidian" | "github" | "caldera" | "agents" | "calendar" | "profile" | "module" | "self" | "stores" | "web" | "git";
+const SRC_LABEL: Record<Src, string> = { obsidian: "Obsidian vault", github: "GitHub", caldera: "Caldera", agents: "AI agents", calendar: "Calendar and email", self: "In their words", profile: "Profile note", module: "Custom module", stores: "App Store and Google Play", web: "Their websites", git: "Git on their computer" };
 const srcLine = (src: Src[], what: string) => `<p class="sec-src">${src.map(x => `<span class="src s-${x}">${SRC_LABEL[x]}</span>`).join("")}<span class="sec-what">${what}</span></p>`;
 /** a section header: the h2 (listed in "On this page") plus its source tags and one line on what it is */
 const head = (title: string, src: Src[], what: string) => `<h2>${esc(title)}</h2>${srcLine(src, what)}`;
+
+/** "Lines of code": today / 7 days / 30 days, a 7-30-90 day chart (added up, removed down, hover for the day) and the
+ *  public repos behind the last 30 days. No streaks, no score: just the lines. */
+export function locSection(L: NonNullable<ProfileData["loc"]>): string {
+  const d = L.days.slice(-90), sum = (n: number) => d.slice(-n).reduce((a, x) => [a[0] + x[1], a[1] + x[2]], [0, 0]);
+  const pm = ([a, r]: number[]) => `<span class="loc-a">+${fmt(a)}</span> <span class="loc-r">&minus;${fmt(r)}</span>`;
+  const chart = (n: number) => { const rows = d.slice(-n), mx = Math.max(1, ...rows.map(x => Math.max(x[1], x[2]))), W = 600, H = 150, mid = 92, up = 82, dn = 50, bw = W / rows.length;
+    const day = (x: string) => new Date(x + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const bars = rows.map((x, i) => { const ha = x[1] / mx * up, hr = x[2] / mx * dn, X = (i * bw + bw * .12).toFixed(1), w = Math.max(1, bw * .76).toFixed(1);
+      return `<g data-d="${esc(day(x[0]))}" data-a="${x[1]}" data-r="${x[2]}"><rect class="loc-hit" x="${(i * bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H}"></rect>${x[1] ? `<rect class="loc-ba" x="${X}" y="${(mid - ha).toFixed(1)}" width="${w}" height="${Math.max(1, ha).toFixed(1)}" rx="1"></rect>` : ""}${x[2] ? `<rect class="loc-br" x="${X}" y="${mid}" width="${w}" height="${Math.max(1, hr).toFixed(1)}" rx="1"></rect>` : ""}<title>${esc(day(x[0]))}: +${fmt(x[1])} / -${fmt(x[2])} lines</title></g>`; }).join("");
+    return `<svg class="loc-chart" data-n="${n}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Lines added and removed per day, last ${n} days"${n === 30 ? "" : " hidden"}><line class="axis" x1="0" y1="${mid}" x2="${W}" y2="${mid}"></line>${bars}</svg>`; };
+  const rmax = Math.max(1, ...L.repos.map(r => r[2] + r[3]));
+  const repos = L.repos.length ? `<div class="loc-repos"><div class="label">Last 30 days, by repo</div>${L.repos.map(([n, u, a, r]) => `<div class="hbar"><span>${u ? `<a href="${esc(u)}" rel="noopener">${esc(n)}</a>` : esc(n)}</span><span class="track"><span class="fill" style="width:${((a + r) / rmax * 100).toFixed(1)}%"></span></span><span class="num">${pm([a, r])}</span></div>`).join("")}</div>` : "";
+  return `<section class="loc" id="loc">${head("Lines of code", ["git"], "Lines added and removed each day in their own commits, across every repo they work in. Private repos count toward the totals; only repos this page already shows are named. Merges, lockfiles, data, docs, generated, vendored and minified files don't count.")}
+<div class="sb-stats loc-stats"><div class="sb-stat"><div class="v">${pm(sum(1))}</div><div class="l">today</div></div><div class="sb-stat"><div class="v">${pm(sum(7))}</div><div class="l">last 7 days</div></div><div class="sb-stat"><div class="v">${pm(sum(30))}</div><div class="l">last 30 days</div></div></div>
+<div class="loc-tools" role="group" aria-label="Range">${[7, 30, 90].map(n => `<button type="button" data-n="${n}"${n === 30 ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"'}>${n} days</button>`).join("")}<span class="loc-tip" aria-live="polite">Hover a day</span></div>
+${chart(7)}${chart(30)}${chart(90)}<div class="loc-key"><span><i class="loc-a"></i>added</span><span><i class="loc-r"></i>removed</span></div>${repos}
+<script>(function(s){if(!s)return;var t=s.querySelector('.loc-tip');s.querySelectorAll('.loc-tools button').forEach(function(b){b.onclick=function(){var n=b.getAttribute('data-n');s.querySelectorAll('.loc-tools button').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on?'true':'false')});s.querySelectorAll('.loc-chart').forEach(function(c){c.hidden=c.getAttribute('data-n')!==n})}});
+function show(e){var g=e.target.closest&&e.target.closest('g[data-d]');if(!g)return;s.querySelectorAll('g.on').forEach(function(x){x.classList.remove('on')});g.classList.add('on');t.textContent=g.getAttribute('data-d')+': +'+(+g.getAttribute('data-a')).toLocaleString('en-US')+' added, −'+(+g.getAttribute('data-r')).toLocaleString('en-US')+' removed'}
+s.querySelectorAll('.loc-chart').forEach(function(c){c.addEventListener('mousemove',show);c.addEventListener('touchstart',show,{passive:true});c.addEventListener('click',show)})})(document.currentScript&&document.currentScript.closest('section'))</script></section>`;
+}
 
 export function renderProfile(p: ProfileData): Record<string, string> {
   const s = p.sections, gh = p.source === "GitHub", em = p.source === "Caldera";   // em: a page made by email + an AI, no vault or GitHub
@@ -237,6 +261,7 @@ ${(() => { const best = days.slice(0, -2).map((d, i) => ({ d, i })).sort((a, b) 
     const c = p.code, wk = c.weekly || [], f = Math.max(0, Math.min(wk.findIndex(x => x > 0), wk.length - 26)), w2 = [...Array(Math.max(0, 26 - wk.length)).fill(0), ...wk.slice(f)], peak = Math.max(1, ...w2);
     parts.push(`${head("Code", ["github"], "Commits and languages, from GitHub.")}<p class="small"><b>${fmt(c.commits)}</b> commits across <b>${fmt(c.repos)}</b> repositories in the last year.${c.languages?.length ? ` Mostly ${esc(c.languages.slice(0, -1).join(", "))}${c.languages.length > 1 ? " and " : ""}${esc(c.languages[c.languages.length - 1])}.` : ""}${c.url && /^https?:\/\//.test(c.url) ? ` <a href="${esc(c.url)}" rel="noopener">${esc(c.url.replace(/^https?:\/\//, ""))}</a>` : ""}</p>${w2.length ? `<div class="bars" role="img" aria-label="Commits per week">${w2.map(x => `<span class="${x >= peak * .5 ? "" : "quiet"}" style="height:${Math.max(2, x / peak * 100).toFixed(1)}%" title="${x}"></span>`).join("")}</div><div class="bars-legend"><span>${esc(c.start || "")}</span><span>peak week: ${fmt(peak)}</span><span>this week</span></div>` : ""}`);
   }
+  if (s.loc === true && p.loc?.days?.length) parts.push(locSection(p.loc));
   if (s.ai !== false && p.ai && p.ai.total > 0) {
     const a = p.ai, td = days.map(d => ({ date: d.date, n: d.tokens || 0 })), tpeak = Math.max(1, ...td.map(x => x.n));
     const share = (n: number) => a.total ? Math.round(n / a.total * 1000) / 10 : 0;

@@ -17,7 +17,8 @@ import type { CalderaSettings } from "./settings";
 import { publicTextFilter, gardenEnabled } from "@caldera/core";
 import { requestUrl } from "obsidian";
 import { parseListings, toListing, withListingsPrivate, withListingsPublic, type Listing, type ListingMeta, type ListingRef } from "./listings";
-import { aiUsage, localGitLines, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, githubRepoSig, vaultKinds } from "./auto";
+import { linesOfCode } from "./gitlines";
+import { aiUsage, localGitLinesDetail, forgeOf, forgeSource, forgejoCity, forgejoCode, githubCity, githubCode, githubRepoSig, vaultKinds } from "./auto";
 import { cityData, parseCityRepos, publicCity, underground, vaultRepos, type CityData } from "./city";
 import { collectModules, type ModuleReport } from "./modules";
 import { excerptOf, journalGarden, normLicense, normStage, parseXLink, redact, type GardenNote, type JournalDay } from "./garden";
@@ -86,8 +87,11 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
 
   // lines of code added/removed per day from this computer's git repos (counts only; not part of the score). An owner
   // tool's linesAdded/linesRemoved in activity.json wins; days we can't know stay empty (never a made-up 0).
-  const gitDays = s.gitLines === false ? undefined : await localGitLines(14, String(s.gitFolders || "").split(/[\n,]+/).map(x => x.trim()).filter(Boolean)).catch(() => undefined);
-  const gitFrom = iso(Date.now() - 13 * DAY);
+  // The "Lines of code" section (opt-in: sections.loc) reads 90 days; otherwise 14 are enough for the daily counts.
+  const locOn = s.sections.loc === true, gitWin = locOn ? 90 : 14;
+  const gitDetail = s.gitLines === false ? undefined : await localGitLinesDetail(gitWin, String(s.gitFolders || "").split(/[\n,]+/).map(x => x.trim()).filter(Boolean)).catch(() => undefined);
+  const gitDays = gitDetail?.days;
+  const gitFrom = iso(Date.now() - (gitWin - 1) * DAY);
   const today = Date.now();
   const daily: DailyEntry[] = [];
   // Journal text is the riskiest public text (often AI-written, daily, about real days). Every line passes the privacy
@@ -299,8 +303,10 @@ export async function collectProfile(app: App, s: CalderaSettings, social?: Prof
     if (pub?.districts.length) data.city = pub;
     cityPrivate = withListingsPrivate(cityPrivate, listed, hs);
   }
+  if (locOn && gitDetail) data.loc = linesOfCode(gitDetail, data.city, external);
   return { data, files, gardenReport, modulesReport, cityPrivate };
 }
+
 
 /** The owner's listed apps and websites, with their public details from the hub. Only the store or site links are sent;
  *  if the hub can't be reached the page still shows them, named from the link. */

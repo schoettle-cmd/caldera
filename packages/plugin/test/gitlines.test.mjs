@@ -7,8 +7,8 @@ import cp from "node:child_process";
 import { parseNumstat, findRepos, gitLines } from "./gitlines.build.mjs";
 
 test("numstat: lines per day; binary, lockfiles, build output and huge single-file changes don't count", () => {
-  const out = "\x1e2026-10-24\x1fme@x.dev\n10\t2\tsrc/a.ts\n-\t-\timg.png\n500\t0\tpackage-lock.json\n9000\t0\tsrc/vendor.js\n3\t1\tdist/main.js\n\n\x1e2026-10-24\x1fme@x.dev\n5\t5\tsrc/{old => new}.ts\n\x1e2026-10-25\x1fme@x.dev\n1\t0\tREADME.md";
-  assert.deepEqual(parseNumstat(out), { "2026-10-24": { added: 15, removed: 7 }, "2026-10-25": { added: 1, removed: 0 } });
+  const out = "\x1e2026-10-24\x1fme@x.dev\n10\t2\tsrc/a.ts\n-\t-\timg.png\n500\t0\tpackage-lock.json\n9000\t0\tsrc/vendor.js\n3\t1\tdist/main.js\n\n\x1e2026-10-24\x1fme@x.dev\n5\t5\tsrc/{old => new}.ts\n\x1e2026-10-25\x1fme@x.dev\n1\t0\tREADME.md\n4\t0\tlib/x.py\n800\t0\tdata/dump.json\n300\t0\tnotes/log.txt";
+  assert.deepEqual(parseNumstat(out), { "2026-10-24": { added: 15, removed: 7 }, "2026-10-25": { added: 4, removed: 0 } }, "docs, data and text files aren't code");
 });
 
 test("git repos on this computer: only my commits, counted per local day; no repos = unknown (undefined)", async () => {
