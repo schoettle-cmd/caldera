@@ -1,4 +1,4 @@
-/* Caldera 0.28.21 */
+/* Caldera 0.28.22 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2264,7 +2264,9 @@ var require_nacl_fast = __commonJS({
 // src/main.ts
 var main_exports = {};
 __export(main_exports, {
-  default: () => CalderaPlugin
+  IhConnectModal: () => IhConnectModal,
+  default: () => CalderaPlugin,
+  ihFolders: () => ihFolders
 });
 module.exports = __toCommonJS(main_exports);
 
@@ -2281,6 +2283,360 @@ function photoPlan(avatarPath, hubUrl, handle, ext) {
   return { from: `${hubUrl.replace(/\/$/, "")}/@${handle}/img/photo.${ext}`, to: `Caldera/photo.${ext}` };
 }
 var isPageCode = (code) => /^CAL-P-[\w-]{10,}$/.test(code);
+
+// src/ihsync.ts
+var IH_API_DEFAULT = "https://joininboxhero.com";
+var IH_PATHS = {
+  pair: "/api/obsidian/pair",
+  limits: "/api/obsidian/limits",
+  notes: "/api/obsidian/notes",
+  remove: "/api/obsidian/notes/delete",
+  resync: "/api/obsidian/resync",
+  disconnect: "/api/obsidian/disconnect"
+};
+var IH_LIMITS_DEFAULT = { maxNoteBytes: 2e6, maxTotalBytes: 5e7, maxNotes: 5e3, maxBatchNotes: 50, maxBatchBytes: 4e6 };
+function ihApiOk(u) {
+  const s = String(u ?? "").trim().replace(/\/+$/, "").toLowerCase();
+  return s === IH_API_DEFAULT ? s : null;
+}
+var ihTokenOk = (t) => typeof t === "string" && /^iho_[A-Za-z0-9_-]{30,80}$/.test(t);
+var ihCodeOk = (t) => typeof t === "string" && /^ihp_[A-Za-z0-9_-]{20,80}$/.test(t);
+function normFolder(f) {
+  return String(f ?? "").trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+}
+function inFolder(path, folder) {
+  const f = normFolder(folder);
+  if (!f || !/\.md$/i.test(path)) return false;
+  const p = String(path).replace(/\\/g, "/");
+  if (p.split("/").some((seg) => seg === ".." || seg === ".")) return false;
+  return p.startsWith(f + "/");
+}
+var RX = [
+  ["private key", /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----/],
+  ["AWS access key", /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/],
+  ["GitHub token", /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})\b/],
+  ["Slack token", /\bxox[abprs]-[A-Za-z0-9-]{10,}/],
+  ["Stripe key", /\b(?:sk|rk|pk)_(?:live|test)_[0-9A-Za-z]{16,}/],
+  ["Google API key", /\bAIza[0-9A-Za-z_-]{35}\b/],
+  ["OpenAI / Anthropic key", /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{24,}/],
+  ["SendGrid key", /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/],
+  ["Twilio key", /\bSK[0-9a-f]{32}\b/],
+  ["JSON web token", /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/],
+  ["URL with a password", /\b[a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:[^\s/@]{3,}@/i],
+  ["password", /\b(?:password|passwd|pwd|passcode|passphrase|pass)\b\s*(?:is\s*)?[:=]\s*["'`]?[^\s"'`]{4,}/i]
+];
+var KEYLABEL = /\b(?:api[_ -]?key|apikey|secret(?:[_ -]?key)?|client[_ -]?secret|access[_ -]?token|auth[_ -]?token|bearer|token|private[_ -]?key|access[_ -]?key|signing[_ -]?key|webhook[_ -]?secret)\b\s*[:=]\s*["'`]?([A-Za-z0-9_\-\/+=.]{16,})/gi;
+function entropy(s) {
+  if (!s) return 0;
+  const m = {};
+  for (const ch of s) m[ch] = (m[ch] || 0) + 1;
+  let e = 0;
+  for (const k in m) {
+    const p = m[k] / s.length;
+    e -= p * Math.log2(p);
+  }
+  return e;
+}
+function luhn(d) {
+  let sum = 0, alt = false;
+  for (let i = d.length - 1; i >= 0; i--) {
+    let n = d.charCodeAt(i) - 48;
+    if (alt) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+function seedPhrase(text) {
+  const ctx = /\b(?:seed|mnemonic|recovery|secret)\s*(?:phrase|words)\b|\bwallet\b|\bbip-?39\b|\bledger\b|\bmetamask\b/i.test(text);
+  const words = text.replace(/\b\d{1,2}[.)]\s*/g, " ").split(/[\s,]+/);
+  let run2 = 0, best = 0;
+  for (const w of words) {
+    if (/^[a-z]{3,8}$/.test(w)) {
+      run2++;
+      best = Math.max(best, run2);
+    } else if (w) run2 = 0;
+  }
+  if (ctx && best >= 12) return true;
+  const numbered = text.match(/(?:^|\s)(?:\d{1,2}[.)]\s*[a-z]{3,8}\b[\s,]*){12,}/);
+  return !!numbered;
+}
+function scanSecrets(text) {
+  const t = String(text || ""), out = /* @__PURE__ */ new Set();
+  for (const [why, rx] of RX) if (rx.test(t)) out.add(why);
+  for (const m of t.matchAll(KEYLABEL)) {
+    const v = m[1];
+    if (v.length >= 16 && entropy(v) >= 3.3 && /\d/.test(v) && /[A-Za-z]/.test(v)) {
+      out.add("key or token");
+      break;
+    }
+  }
+  for (const m of t.matchAll(/\b(?:\d[ -]?){13,19}\b/g)) {
+    const d = m[0].replace(/\D/g, "");
+    if (d.length >= 13 && d.length <= 19 && /^[3-6]/.test(d) && luhn(d) && !/^(\d)\1+$/.test(d)) {
+      out.add("card number");
+      break;
+    }
+  }
+  if (seedPhrase(t)) out.add("seed phrase");
+  for (const m of t.matchAll(/(?<![\w/.-])[A-Za-z0-9+\/_-]{32,}={0,2}(?![\w/.-])/g)) {
+    const v = m[0];
+    if (/^[0-9a-f]+$/i.test(v)) continue;
+    if (/[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v) && entropy(v) >= 4.3) {
+      out.add("high-entropy string");
+      break;
+    }
+  }
+  return [...out];
+}
+function buildNote(path, text, mtime, cache, hash) {
+  const fm = {};
+  let fmBytes = 2;
+  for (const [k, v0] of Object.entries(cache?.frontmatter || {})) {
+    if (k === "position") continue;
+    const v = v0 !== null && typeof v0 === "object" && !(Array.isArray(v0) && v0.every((x) => x === null || typeof x !== "object")) ? JSON.stringify(v0) : v0;
+    const b = new TextEncoder().encode(JSON.stringify(k) + ":" + JSON.stringify(v) + ",").length;
+    if (fmBytes + b > 16e3) continue;
+    fmBytes += b;
+    fm[k] = v;
+  }
+  const body = String(text || "").replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/, "");
+  const links = [...cache?.links || [], ...cache?.embeds || []].map((l) => String(l.link || "").split("#")[0].trim()).filter(Boolean);
+  const fmTags = [].concat(fm.tags ?? [], fm.tag ?? []).flatMap((x) => String(x ?? "").split(/[,\s]+/));
+  const tags = [...(cache?.tags || []).map((t) => t.tag), ...fmTags].map((x) => String(x).replace(/^#/, "").trim()).filter(Boolean);
+  const title = String(path.split("/").pop() || path).replace(/\.md$/i, "").slice(0, 300);
+  const cap = (l) => [...new Set(l.map((x) => x.slice(0, 200)))].slice(0, 500);
+  return { path, title, frontmatter: fm, body, mtime: Math.round(Number(mtime) || 0), wikilinks: cap(links), tags: cap(tags), hash };
+}
+var noteBytes = (n) => new TextEncoder().encode(JSON.stringify(n)).length;
+function batches(notes, lim) {
+  const out = [];
+  let cur = [], bytes = 0;
+  for (const n of notes) {
+    const b = noteBytes(n);
+    if (cur.length && (cur.length >= lim.maxBatchNotes || bytes + b > lim.maxBatchBytes)) {
+      out.push(cur);
+      cur = [];
+      bytes = 0;
+    }
+    cur.push(n);
+    bytes += b;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+function limitsFrom(j) {
+  const n = (v, d, max) => {
+    const x = Math.round(Number(v));
+    return x > 0 ? Math.min(x, max) : d;
+  };
+  return {
+    maxNoteBytes: n(j?.maxNoteBytes, IH_LIMITS_DEFAULT.maxNoteBytes, 2e7),
+    maxTotalBytes: n(j?.maxTotalBytes, IH_LIMITS_DEFAULT.maxTotalBytes, 1e10),
+    maxNotes: n(j?.maxNotes, IH_LIMITS_DEFAULT.maxNotes, 1e5),
+    maxBatchNotes: n(j?.maxBatchNotes, IH_LIMITS_DEFAULT.maxBatchNotes, 1e3),
+    maxBatchBytes: n(j?.maxBatchBytes, IH_LIMITS_DEFAULT.maxBatchBytes, 5e7),
+    folder: typeof j?.folder === "string" ? j.folder : null,
+    notes: Math.max(0, Number(j?.notes) || 0),
+    bytes: Math.max(0, Number(j?.bytes) || 0)
+  };
+}
+async function sha256(s) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+var IhError = class extends Error {
+  constructor(msg, status = 0, code = "") {
+    super(msg);
+    this.status = status;
+    this.code = code;
+  }
+};
+var IhSyncEngine = class {
+  constructor(st, vault, cacheOf, req, vaultName) {
+    this.st = st;
+    this.vault = vault;
+    this.cacheOf = cacheOf;
+    this.req = req;
+    this.vaultName = vaultName;
+  }
+  async raw(path, method, body, auth = true) {
+    const api = ihApiOk(this.st.api || IH_API_DEFAULT);
+    if (!api) throw new IhError("Inbox Hero address isn't valid");
+    if (auth && !ihTokenOk(this.st.token)) throw new IhError("Not connected to Inbox Hero", 401);
+    const headers = { "content-type": "application/json" };
+    if (auth) headers.authorization = "Bearer " + this.st.token;
+    return this.req({ url: api + path, method, headers, ...body === void 0 ? {} : { body: JSON.stringify(body) } });
+  }
+  async call(path, method, body) {
+    const r = await this.raw(path, method, body);
+    if (r.status === 401) {
+      this.st.token = void 0;
+      throw new IhError("Inbox Hero disconnected this vault. Make a new link in Inbox Hero Settings to connect again.", 401);
+    }
+    if (r.status === 404) throw new IhError("The Inbox Hero connector isn't available for this account", 404);
+    if (r.status === 409) throw new IhError("folder changed", 409, "folder_changed");
+    if (r.status === 413) throw new IhError("Over Inbox Hero's size limit", 413);
+    if (r.status === 429) throw new IhError("Inbox Hero asked to slow down; trying again later", 429);
+    if (r.status < 200 || r.status >= 300) throw new IhError("Inbox Hero answered " + r.status, r.status);
+    return r.json;
+  }
+  /** Swap the one-time pairing code for the upload token. */
+  async pair(code, device) {
+    if (!ihCodeOk(code)) throw new IhError("That pairing link isn't valid. Make a new one in Inbox Hero Settings.");
+    const r = await this.raw(IH_PATHS.pair, "POST", { code, vault: this.vaultName, device: String(device || "").slice(0, 80) }, false);
+    if (r.status === 401) throw new IhError("That pairing link was already used or has expired. Make a new one in Inbox Hero Settings.", 401, "bad_code");
+    if (r.status === 404) throw new IhError("The Inbox Hero connector isn't available for this account", 404);
+    if (r.status < 200 || r.status >= 300 || !ihTokenOk(r.json?.token)) throw new IhError("Inbox Hero couldn't connect (" + r.status + ")", r.status);
+    this.st.token = r.json.token;
+    this.st.sent = {};
+    this.st.error = void 0;
+  }
+  async limits() {
+    return limitsFrom(await this.call(IH_PATHS.limits, "GET"));
+  }
+  /** Read one note and decide: send it, or skip it (secrets / too big / path too long). */
+  async prepare(f, lim) {
+    if (f.path.length > 512) return { skip: "path too long" };
+    if (f.stat.size > lim.maxNoteBytes) return { skip: "too large" };
+    const text = await this.vault.cachedRead(f);
+    const found = scanSecrets(text);
+    if (found.length) return { skip: "sensitive data: " + found.join(", ") };
+    const note = buildNote(f.path, text, f.stat.mtime, this.cacheOf(f.path), "");
+    note.hash = await sha256(note.body);
+    if (noteBytes(note) > lim.maxNoteBytes) return { skip: "too large" };
+    return { note };
+  }
+  async upload(folder, notes, res, sent) {
+    try {
+      const j = await this.call(IH_PATHS.notes, "POST", { vault: this.vaultName, folder, notes });
+      const bad = new Map((j && j.rejected || []).map((x) => [String(x.path), String(x.reason || "")]));
+      res.unchanged += Math.max(0, Number(j?.unchanged) || 0);
+      for (const n of notes) {
+        const why = bad.get(n.path);
+        if (why !== void 0) {
+          res.skipped.push({ path: n.path, why: why === "secret" ? "sensitive data (flagged by Inbox Hero)" : why === "quota" ? "over the limit" : why === "too_big" ? "too large" : "Inbox Hero refused it (" + why + ")" });
+          delete sent[n.path];
+          continue;
+        }
+        sent[n.path] = n.hash;
+        res.sent++;
+      }
+    } catch (e) {
+      if (e instanceof IhError && e.status === 413) {
+        if (notes.length === 1) {
+          res.skipped.push({ path: notes[0].path, why: "too large" });
+          return;
+        }
+        const h = Math.ceil(notes.length / 2);
+        await this.upload(folder, notes.slice(0, h), res, sent);
+        await this.upload(folder, notes.slice(h), res, sent);
+        return;
+      }
+      throw e;
+    }
+  }
+  /** Sync the chosen folder. full = re-send everything and tell Inbox Hero the complete list (it drops the rest).
+   *  only = just these changed paths (debounced file events). */
+  async sync(full = false, only) {
+    const folder = normFolder(this.st.folder);
+    const res = { sent: 0, removed: 0, skipped: [], unchanged: 0 };
+    if (!folder) return res;
+    const lim = await this.limits();
+    const files = this.vault.getMarkdownFiles().filter((f) => inFolder(f.path, folder)).sort((a, b) => a.path.localeCompare(b.path));
+    let sent = { ...this.st.sent || {} };
+    if (lim.folder && normFolder(lim.folder) !== folder) {
+      await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] });
+      sent = {};
+      full = true;
+      only = void 0;
+    }
+    const keep = [], up = [], gone = [];
+    let bytes = 0;
+    for (const f of files) {
+      if (only && !only.has(f.path)) {
+        if (sent[f.path]) keep.push(f.path);
+        continue;
+      }
+      const p = await this.prepare(f, lim);
+      if (p.skip) {
+        res.skipped.push({ path: f.path, why: p.skip });
+        if (sent[f.path]) gone.push(f.path);
+        continue;
+      }
+      const b = noteBytes(p.note);
+      if (keep.length >= lim.maxNotes || bytes + b > lim.maxTotalBytes) {
+        res.skipped.push({ path: f.path, why: "over the limit" });
+        if (sent[f.path]) gone.push(f.path);
+        continue;
+      }
+      keep.push(f.path);
+      bytes += b;
+      if (!full && sent[f.path] === p.note.hash) {
+        res.unchanged++;
+        continue;
+      }
+      up.push(p.note);
+    }
+    const here = new Set(files.map((f) => f.path));
+    for (const path of Object.keys(sent)) if (!here.has(path)) gone.push(path);
+    const goneU = [...new Set(gone)];
+    for (let i = 0; i < goneU.length; i += 200) await this.call(IH_PATHS.remove, "POST", { paths: goneU.slice(i, i + 200) });
+    for (const p of goneU) delete sent[p];
+    res.removed = goneU.length;
+    try {
+      for (const b of batches(up, lim)) await this.upload(folder, b, res, sent);
+    } catch (e) {
+      if (!(e instanceof IhError && e.code === "folder_changed")) throw e;
+      await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] });
+      sent = {};
+      for (const b of batches(up, lim)) await this.upload(folder, b, res, sent);
+    }
+    if (full && !only) {
+      const j = await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: keep });
+      res.removed += Math.max(0, Number(j?.removed) || 0);
+    }
+    this.st.sent = sent;
+    this.st.lastSync = Date.now();
+    this.st.skipped = res.skipped;
+    this.st.error = void 0;
+    return res;
+  }
+  /** Scan the folder without sending anything: what would sync and what the secret scanner would skip. */
+  async preview(folderIn) {
+    const folder = normFolder(folderIn ?? this.st.folder);
+    if (!folder) return { notes: 0, skipped: [] };
+    const out = { notes: 0, skipped: [] };
+    for (const f of this.vault.getMarkdownFiles().filter((f2) => inFolder(f2.path, folder))) {
+      const p = await this.prepare(f, IH_LIMITS_DEFAULT);
+      if (p.skip) out.skipped.push({ path: f.path, why: p.skip });
+      else out.notes++;
+    }
+    return out;
+  }
+  /** Revoke the token and ask Inbox Hero to delete everything synced with it. */
+  async disconnect() {
+    try {
+      await this.call(IH_PATHS.disconnect, "POST", {});
+    } finally {
+      this.st.token = void 0;
+      this.st.sent = {};
+      this.st.lastSync = void 0;
+      this.st.skipped = [];
+    }
+  }
+};
+function skippedMessage(sk) {
+  const sens = sk.filter((s) => /^sensitive/.test(s.why)), big2 = sk.filter((s) => !/^sensitive/.test(s.why));
+  const names = (l) => l.slice(0, 8).map((s) => s.path.split("/").pop().replace(/\.md$/i, "")).join(", ") + (l.length > 8 ? ` and ${l.length - 8} more` : "");
+  const parts = [];
+  if (sens.length) parts.push(`Skipped ${sens.length} note${sens.length === 1 ? "" : "s"} with sensitive data: ${names(sens)}`);
+  if (big2.length) parts.push(`Left out ${big2.length} note${big2.length === 1 ? "" : "s"} (too large or over the limit): ${names(big2)}`);
+  return parts.join(". ");
+}
 
 // src/main.ts
 var import_obsidian11 = require("obsidian");
@@ -5467,7 +5823,17 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
     const { containerEl } = this;
     const s = this.plugin.settings;
     containerEl.empty();
+    if (s.ihOnly) {
+      this.ihSection(containerEl, true);
+      new import_obsidian3.Setting(containerEl).setName("Caldera (optional)").setDesc("Caldera can also turn your vault into a living public profile. Nothing is published unless you set it up.").addButton((b) => b.setButtonText("Set up a Caldera page").onClick(async () => {
+        s.ihOnly = false;
+        await this.plugin.saveSettings();
+        this.display();
+      }));
+      return;
+    }
     containerEl.createEl("p", { text: "Your vault stays private. Only the sections you switch on below, notes you mark caldera: public, and counts are published. Use 'Preview profile' before publishing.", cls: "setting-item-description" });
+    this.ihSection(containerEl, false);
     new import_obsidian3.Setting(containerEl).setName("Connections").setHeading();
     const lights = containerEl.createDiv({ cls: "caldera-conn" });
     lights.createEl("p", { text: s.identity && s.handle ? "Checking..." : "Publish your page to see your connections.", cls: "setting-item-description" });
@@ -5674,6 +6040,44 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
     }));
   }
   /** The current list: from Caldera/profile.md when the note sets it (it wins there), else from settings. */
+  /** Inbox Hero connector: one folder of this vault, one way, private. Works without a Caldera account. */
+  ihSection(el, alone) {
+    const st = this.plugin.settings.ihSync || {}, on = !!st.token;
+    new import_obsidian3.Setting(el).setName("Inbox Hero connector").setHeading();
+    el.createEl("p", { cls: "setting-item-description", text: "Sync one folder of this vault to your Inbox Hero account so it can use your notes when it answers and drafts. Private and one way: only that folder is read, nothing in your vault is ever changed, nothing goes to Caldera, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
+    if (!on) {
+      new import_obsidian3.Setting(el).setName("Not connected").setDesc("Start in Inbox Hero: Settings > Knowledge > Connect your notes. Its Connect button opens Obsidian and connects this vault.").addButton((b) => b.setButtonText("Open Inbox Hero").onClick(() => window.open("https://joininboxhero.com/settings")));
+      if (st.error) el.createEl("p", { cls: "setting-item-description", text: st.error });
+      return;
+    }
+    const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian3.TFolder && f.path && f.path !== "/" && !f.path.startsWith(".")).map((f) => f.path).sort((a, b) => a.localeCompare(b)).slice(0, 2e3);
+    new import_obsidian3.Setting(el).setName("Folder").setDesc("The one folder that syncs (its subfolders too). Changing it removes the old folder's notes from Inbox Hero.").addDropdown((d) => {
+      d.addOption("", "None (nothing syncs)");
+      for (const f of folders) d.addOption(f, f);
+      d.setValue(normFolder(st.folder));
+      d.onChange(async (v) => {
+        this.plugin.ihState().folder = v;
+        await this.plugin.saveSettings();
+        if (v) void this.plugin.ihSyncNow(true).then(() => this.display());
+        else this.display();
+      });
+    });
+    const last = st.lastSync ? new Date(st.lastSync).toLocaleString() : "not yet";
+    el.createEl("p", { cls: "setting-item-description", text: `Last sync: ${last}. ${Object.keys(st.sent || {}).length} notes in Inbox Hero.` + (st.skipped?.length ? " " + skippedMessage(st.skipped) + "." : "") + (st.error ? " Last problem: " + st.error : "") });
+    new import_obsidian3.Setting(el).setName("Sync").setDesc("Changes sync a few seconds after you save. A full resync sends the whole folder again.").addButton((b) => b.setButtonText("Sync now").onClick(async () => {
+      await this.plugin.ihSyncNow(false);
+      this.display();
+    })).addButton((b) => b.setButtonText("Full resync").onClick(async () => {
+      await this.plugin.ihSyncNow(true);
+      this.display();
+    }));
+    new import_obsidian3.Setting(el).setName("Disconnect").setDesc("Stops syncing, revokes this vault's access and asks Inbox Hero to delete every note it got from here. Your vault is not touched.").addButton((b) => b.setButtonText("Disconnect and delete synced notes").setWarning().onClick(async () => {
+      if (!window.confirm("Disconnect from Inbox Hero and delete the notes it has from this vault?")) return;
+      await this.plugin.ihDisconnect();
+      this.display();
+    }));
+    void alone;
+  }
   async listValue(key) {
     const f = this.app.vault.getAbstractFileByPath(PROFILE_FILE), fm = f instanceof import_obsidian3.TFile ? this.app.metadataCache.getFileCache(f)?.frontmatter : null;
     const v = fm && key in fm ? fm[key] : this.plugin.settings[key];
@@ -7976,6 +8380,11 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
     this.token = null;
     this.timers = [];
     this.unloaded = false;
+    // ---- Inbox Hero connector (private, one folder, one way; see ihsync.ts). Never touches the Caldera hub.
+    this.welcome = null;
+    this.ihBusy = false;
+    this.ihQueue = /* @__PURE__ */ new Set();
+    this.ihTimer = 0;
     // ---------------------------------------------------------------- hub client
     /** "Your GitHub people" (circle logins not on Caldera yet), loaded when the friends panel opens. */
     this.ghPeople = null;
@@ -8008,6 +8417,7 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
       if (friend) void this.confirmFriend(friend);
       if (params.open === "private") void this.openPrivate();
       if (params.open === "finish") void this.openProfileTab();
+      if (params.ih === "pair") void this.ihPair(String(params.code || ""), String(params.api || ""));
     });
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
     this.addCommand({ id: "publish", name: "Publish my profile", callback: () => this.publish() });
@@ -8076,16 +8486,22 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
         void this.pushPrivate(false);
       }, 3e4));
       if (this.settings.identity && this.settings.handle) void this.syncInbox(false);
-      else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();
-      window.setTimeout(() => {
-        void this.checkReleases(false);
-      }, 8e3);
-      window.setTimeout(() => {
-        void this.offerFinish();
-      }, 12e3);
-      window.setTimeout(() => {
-        void this.offerTopics();
-      }, 4e4);
+      else if (!this.settings.welcomed && !this.settings.ihOnly) {
+        this.welcome = new WelcomeModal(this.app, this);
+        this.welcome.open();
+      }
+      if (!this.settings.ihOnly) {
+        window.setTimeout(() => {
+          void this.checkReleases(false);
+        }, 8e3);
+        window.setTimeout(() => {
+          void this.offerFinish();
+        }, 12e3);
+        window.setTimeout(() => {
+          void this.offerTopics();
+        }, 4e4);
+      }
+      this.ihWatch();
       this.timers.push(later(() => {
         if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 36e5) void this.publish(true);
       }, 2e4));
@@ -8094,14 +8510,14 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
       if (this.settings.identity) void this.syncInbox(false);
     }, 10 * 6e4));
     this.timers.push(every(() => {
-      void this.checkRepos();
+      if (!this.settings.ihOnly) void this.checkRepos();
     }, 10 * 6e4));
     this.app.workspace.onLayoutReady(() => {
       this.registerEvent(this.app.vault.on("modify", (f) => {
         if (f.path === "Caldera/city.json" && !this.publishing) this.queuePublish("profile");
       }));
       this.timers.push(later(() => {
-        void this.checkRepos();
+        if (!this.settings.ihOnly) void this.checkRepos();
       }, 6e4));
     });
     this.scheduleAutoPublish();
@@ -8118,6 +8534,110 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+  ihState() {
+    return this.settings.ihSync || (this.settings.ihSync = {});
+  }
+  ihConnected() {
+    return !!this.settings.ihSync?.token;
+  }
+  ihEngine() {
+    const v = this.app.vault;
+    return new IhSyncEngine(
+      this.ihState(),
+      { getMarkdownFiles: () => v.getMarkdownFiles(), cachedRead: (f) => v.cachedRead(f) },
+      // reads only
+      (path) => this.app.metadataCache.getCache(path) || null,
+      async (o) => {
+        const r = await (0, import_obsidian11.requestUrl)({ url: o.url, method: o.method, headers: o.headers, body: o.body, throw: false });
+        let json = null;
+        try {
+          json = r.json;
+        } catch {
+        }
+        return { status: r.status, json };
+      },
+      v.getName()
+    );
+  }
+  /** obsidian://caldera?ih=pair&code=ihp_...: swap the one-time code for the upload token, then pick the folder. */
+  async ihPair(code, api) {
+    const base = ihApiOk(api || IH_API_DEFAULT);
+    if (!base) {
+      new import_obsidian11.Notice("That link doesn't come from Inbox Hero.");
+      return;
+    }
+    if (!this.settings.identity && !this.settings.handle) this.settings.ihOnly = true;
+    if (this.welcome) {
+      this.welcome.close();
+      this.welcome = null;
+    }
+    const st = this.ihState();
+    st.api = base;
+    try {
+      await this.ihEngine().pair(code, (import_obsidian11.Platform.isMobile ? "Phone" : import_obsidian11.Platform.isMacOS ? "Mac" : import_obsidian11.Platform.isWin ? "Windows PC" : "Computer") + " \xB7 " + this.app.vault.getName());
+    } catch (e) {
+      await this.saveSettings();
+      new import_obsidian11.Notice(e.message, 1e4);
+      return;
+    }
+    await this.saveSettings();
+    new IhConnectModal(this.app, this).open();
+  }
+  async ihSyncNow(full, only, quiet = false) {
+    if (!this.ihConnected() || !normFolder(this.settings.ihSync?.folder)) return;
+    if (this.ihBusy) {
+      if (only) only.forEach((p) => this.ihQueue.add(p));
+      else window.setTimeout(() => void this.ihSyncNow(full, void 0, quiet), 5e3);
+      return;
+    }
+    this.ihBusy = true;
+    try {
+      const r = await this.ihEngine().sync(full, only);
+      if (!quiet || r.skipped.length) new import_obsidian11.Notice(`Inbox Hero: ${r.sent} note${r.sent === 1 ? "" : "s"} sent${r.removed ? `, ${r.removed} removed` : ""}.${r.skipped.length ? " " + skippedMessage(r.skipped) + "." : ""}`, r.skipped.length ? 12e3 : 5e3);
+    } catch (e) {
+      this.ihState().error = e.message;
+      if (!quiet || /disconnected|isn't available/.test(e.message)) new import_obsidian11.Notice("Inbox Hero: " + e.message, 1e4);
+      if (/slow down/.test(e.message)) window.setTimeout(() => void this.ihSyncNow(false, void 0, true), 12e4);
+    } finally {
+      this.ihBusy = false;
+      await this.saveSettings();
+    }
+  }
+  /** File changes inside the folder sync after a quiet moment (debounced). */
+  ihWatch() {
+    const hit = (path) => {
+      const st = this.settings.ihSync;
+      if (!st?.token || !inFolder(path, st.folder || "")) return;
+      this.ihQueue.add(path);
+      window.clearTimeout(this.ihTimer);
+      this.ihTimer = window.setTimeout(() => {
+        const q2 = new Set(this.ihQueue);
+        this.ihQueue.clear();
+        void this.ihSyncNow(false, q2, true);
+      }, 4e3);
+    };
+    for (const ev of ["create", "modify", "delete"]) this.registerEvent(this.app.vault.on(ev, (f) => {
+      if (f instanceof import_obsidian11.TFile) hit(f.path);
+    }));
+    this.registerEvent(this.app.vault.on("rename", (f, old) => {
+      if (f instanceof import_obsidian11.TFile) {
+        hit(old);
+        hit(f.path);
+      }
+    }));
+    this.timers.push(later(() => {
+      if (this.ihConnected()) void this.ihSyncNow(false, void 0, true);
+    }, 15e3));
+  }
+  async ihDisconnect() {
+    try {
+      await this.ihEngine().disconnect();
+      new import_obsidian11.Notice("Disconnected from Inbox Hero. It is deleting the notes it had from this vault.");
+    } catch (e) {
+      new import_obsidian11.Notice("Disconnected here. Inbox Hero answered: " + e.message + " You can also delete the synced notes in Inbox Hero Settings.", 12e3);
+    }
+    await this.saveSettings();
   }
   /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
   async importGithub(code) {
@@ -9553,6 +10073,55 @@ var TopicsModal = class extends import_obsidian11.Modal {
     this.contentEl.empty();
   }
 };
+var IhConnectModal = class extends import_obsidian11.Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    const st = this.plugin.ihState();
+    contentEl.createEl("h2", { text: "Inbox Hero connector" });
+    contentEl.createEl("p", { text: "Connected. Pick one folder to sync to your Inbox Hero account. Only that folder's notes are read, it's one way (nothing in your vault is ever changed), and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
+    let folder = normFolder(st.folder);
+    const out = contentEl.createEl("p", { cls: "setting-item-description" });
+    let go;
+    const show = async () => {
+      out.setText(folder ? "Checking the folder..." : "No folder chosen yet: nothing syncs.");
+      if (go) go.setDisabled(!folder);
+      if (!folder) return;
+      const p = await this.plugin.ihEngine().preview(folder);
+      if (normFolder(folder) !== folder) return;
+      out.setText(`${p.notes} note${p.notes === 1 ? "" : "s"} will sync.` + (p.skipped.length ? " " + skippedMessage(p.skipped) + "." : ""));
+    };
+    new import_obsidian11.Setting(contentEl).setName("Folder").setDesc("One folder (its subfolders too).").addDropdown((d) => {
+      d.addOption("", "Choose a folder");
+      for (const f of ihFolders(this.app)) d.addOption(f, f);
+      d.setValue(folder);
+      d.onChange((v) => {
+        folder = v;
+        void show();
+      });
+    });
+    new import_obsidian11.Setting(contentEl).addButton((b) => {
+      go = b;
+      b.setButtonText("Start syncing").setCta().setDisabled(!folder).onClick(async () => {
+        st.folder = folder;
+        await this.plugin.saveSettings();
+        this.close();
+        void this.plugin.ihSyncNow(true);
+      });
+    }).addButton((b) => b.setButtonText("Not now").onClick(() => this.close()));
+    void show();
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+function ihFolders(app) {
+  return app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian11.TFolder && f.path && f.path !== "/" && !f.path.startsWith(".")).map((f) => f.path).sort((a, b) => a.localeCompare(b)).slice(0, 2e3);
+}
 var WelcomeModal = class extends import_obsidian11.Modal {
   constructor(app, plugin, mode = "welcome") {
     super(app);
