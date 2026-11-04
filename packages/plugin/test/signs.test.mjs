@@ -86,3 +86,26 @@ test("signs privacy: switching a named city to anonymous at serve time drops met
   const ds = scrubSignHosts([{ name: "X", notes: 0, repos: [shop("S", { meta: { on: "ghost" } }), repo("real", 5)] }]);
   assert.equal(ds[0].repos[0].meta.on, undefined);
 });
+
+// ---- Mike 2026-11-04: "make sure they're in front of the construction cranes and clickable to their destination"
+const frame = CITY_JS.slice(CITY_JS.indexOf("function frame(){"), CITY_JS.indexOf("function draw(){"));
+test("signs: drawn after cranes, helicopters, agents and labels (their own layer, composited last)", () => {
+  const at = k => { const i = frame.indexOf(k); assert.ok(i >= 0, k); return i; };
+  const signs = at("cx.drawImage(L4,0,0)");
+  for (const k of ["drawLive()", "drawFx()", "drawAgents(cx", "drawHelis(cx", "cx.drawImage(L3,0,0)", "cx.drawImage(L2,0,0)"]) assert.ok(at(k) < signs, k + " comes before the signs");
+  assert.ok(/cranes\.forEach/.test(CITY_JS.slice(CITY_JS.indexOf("function drawLive("), CITY_JS.indexOf("function drawLive(") + 4000)), "cranes are drawn in drawLive");
+  assert.ok(CITY_JS.includes("function drawSigns(){var z=cam.z,placed=[],items=[],c=c4;"), "signs paint onto L4, not the buildings layer");
+  assert.ok(!/\.c-heli\{[^}]*top:70px/.test(CITY_JS) && !CITY_JS.includes("left:50%;top:70px"), "the viewing pill no longer sits over the top sign");
+});
+
+test("signs: a click opens the listing's store or website, never the building or crane under it", () => {
+  const atFn = CITY_JS.slice(CITY_JS.indexOf("function at(px,py){"), CITY_JS.indexOf("var ptr={}"));
+  const iSign = atFn.indexOf("SHITS"), iTag = atFn.indexOf("tagHits"), iAgent = atFn.indexOf("for(var aid in AG)"), iHits = atFn.indexOf("hits.length-1");
+  assert.ok(iSign > 0 && iSign < iTag && iSign < iAgent && iSign < iHits, "signs are hit-tested before labels, agents and buildings");
+  assert.ok(CITY_JS.includes("SHITS.push({r:r,d:g.d,sign:1,url:repoUrl(r),"), "a sign's target is its listing's URL");
+  assert.ok(/if\(h&&h\.url\)return openRepo\(h\.url\)/.test(CITY_JS), "a tap with a URL opens it in a new tab");
+  assert.ok(CITY_JS.includes("window.open(u,'_blank','noopener')"));
+  assert.ok(CITY_JS.includes("var m=44/z"), "the whole card is a 44 px target");
+  assert.ok(CITY_JS.includes("h.url||h.sign||"), "pointer cursor over a sign");
+  assert.ok(CITY_JS.includes("if(h&&h.r&&!h.sign&&!MINI)openRepo"), "a double click doesn't open a second tab");
+});

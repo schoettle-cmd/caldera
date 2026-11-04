@@ -1,4 +1,4 @@
-/* Caldera 0.28.19 */
+/* Caldera 0.28.20 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -3208,7 +3208,7 @@ var CITY_CSS = `
 .c-stats div{flex:1 1 120px;background:var(--bg-raised);border:1px solid var(--line);border-radius:var(--radius-md,10px);padding:10px 14px;display:flex;flex-direction:column}
 .c-stats b{font-size:1.5rem;font-variant-numeric:tabular-nums;color:var(--text-strong)}.c-stats span{font-size:var(--text-xs,12px);color:var(--text-muted)}
 .c-stage{position:relative;height:min(72vh,720px);min-height:420px;border-radius:var(--radius-md,10px);overflow:hidden;border:1px solid rgba(61,242,255,.35);box-shadow:0 0 24px rgba(61,242,255,.12);background:#010207;touch-action:none}
-.c-heli{position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:4;pointer-events:none;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#FFD9A0;background:rgba(2,6,12,.86);border:1px solid rgba(255,190,90,.5);border-radius:999px;padding:6px 11px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}.c-heli[hidden]{display:none}
+.c-heli{position:absolute;left:10px;bottom:76px;z-index:4;pointer-events:none;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#FFD9A0;background:rgba(2,6,12,.86);border:1px solid rgba(255,190,90,.5);border-radius:999px;padding:6px 11px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}.c-heli[hidden]{display:none}
 .c-stage canvas{width:100%;height:100%;display:block;cursor:grab}.c-stage canvas.c-link{cursor:pointer}.c-stage canvas.drag{cursor:grabbing}
 .c-tools{position:absolute;top:10px;right:10px;display:flex;gap:6px}
 .c-tools .t-sw{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;background:conic-gradient(#A78BFA 0 25%,#2DD4BF 0 50%,#FBBF24 0 75%,#FB7185 0)}
@@ -3723,7 +3723,7 @@ function drawHelis(c,tn){if(!HELIS.length)return;var s=heliScale(),ps=s*.62*cam.
   HELIS=HELIS.filter(function(h){var p=heliPos(h,tn);if(!p)return true;if(p.done)return false;if(p.f<=0)return true;
     if(p.x<x0||p.x>x1||p.y<y0||p.y>y1)return true;   // off screen
     c.globalAlpha=p.f;drawHeli(c,p.x,p.y,s,tn,h.seed,p.face,ps);return true});c.globalAlpha=1}
-function heliPill(t){if(!labels||MINI||!st)return;if(!HPILL){HPILL=document.createElement('div');HPILL.className='c-heli';HPILL.style.cssText='position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:4;pointer-events:none;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#FFD9A0;background:rgba(2,6,12,.86);border:1px solid rgba(255,190,90,.5);border-radius:999px;padding:6px 11px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis';HPILL.setAttribute('role','status');HPILL.setAttribute('aria-live','polite');st.appendChild(HPILL)}HPILL.textContent=t;HPILL.style.display=t?'':'none'}
+function heliPill(t){if(!labels||MINI||!st)return;if(!HPILL){HPILL=document.createElement('div');HPILL.className='c-heli';HPILL.style.cssText='position:absolute;left:10px;bottom:'+(vw<600?62:76)+'px;z-index:4;pointer-events:none;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;color:#FFD9A0;background:rgba(2,6,12,.86);border:1px solid rgba(255,190,90,.5);border-radius:999px;padding:6px 11px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis';HPILL.setAttribute('role','status');HPILL.setAttribute('aria-live','polite');st.appendChild(HPILL)}HPILL.textContent=t;HPILL.style.display=t?'':'none'}
 // the hub's answer -> helicopters: new viewers fly in, viewers who left fly out (at most HCAP in the air)
 function heliSync(j){var want=[],tot=0,tn=performance.now();
   if(D.world){var m=j&&j.m&&typeof j.m==='object'?j.m:{},ks=Object.keys(m).filter(function(k){return NBM[k]&&+m[k]>0}).sort(function(a,b){return (+m[b])-(+m[a])||(a<b?-1:1)});
@@ -3934,7 +3934,7 @@ function mix(h,f,toward){var c=rgb(h);if(toward){var t=rgb(toward);return hex(c.
 function lit(hex,f){return mix(hex,f*P.light+(f>=1?0:0))}
 var tallest=null,second=null;(function(){var all=[];D.districts.forEach(function(d){d.repos.forEach(function(r){all.push(r)})});all.sort(function(a,b){return bh(b)-bh(a)});tallest=all[0];second=all[1]})();
 // ---- layers: ground (L1) and objects (L2) are cached; cars, cranes and lights animate on top
-var L1=document.createElement('canvas'),L2=document.createElement('canvas'),L3=document.createElement('canvas'),c1=L1.getContext('2d'),c2=L2.getContext('2d'),c3=L3.getContext('2d'),dirty=true,hits=[],sel=null,T=0;
+var L1=document.createElement('canvas'),L2=document.createElement('canvas'),L3=document.createElement('canvas'),L4=document.createElement('canvas'),c1=L1.getContext('2d'),c2=L2.getContext('2d'),c3=L3.getContext('2d'),c4=L4.getContext('2d'),dirty=true,hits=[],sel=null,T=0;
 function isRoad(i,j){var t=tiles[i+','+j];return t&&t.t==='r'}
 function poly(ctx,pts,fill){ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(var k=1;k<pts.length;k++)ctx.lineTo(pts[k][0],pts[k][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}}
 function dia(i,j,s){var p=iso(i,j),hw=TW/2*s,hh=TH/2*s;return [[p.x,p.y-hh],[p.x+hw,p.y],[p.x,p.y+hh],[p.x-hw,p.y]]}
@@ -4212,32 +4212,36 @@ function ltex(r){var m=r.meta||{},im=limg(m.icon),app=r.kind==='app',k=(im?m.ico
   if(im){var pad=app?0:14;g.save();rrect(g,pad,pad,128-pad*2,128-pad*2,app?28:14);g.clip();g.drawImage(im,pad,pad,128-pad*2,128-pad*2);g.restore()}
   else{g.fillStyle=LCOL[r.kind]||'#8A8A93';g.font='700 76px IBM Plex Sans,Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(String(r.name||'?').charAt(0).toUpperCase(),64,68)}
   if(im)LTEX[k]=t;else if(!m.icon||!/^https?:/.test(m.icon))LTEX[k]=t;return t}   // a letter tile for a loading icon isn't kept
-var SIGNS=[];
+var SIGNS=[],SHITS=[],SHOVER=null;
 // Signs float above their building on a short mast, face the camera and never shrink below a readable size on screen
 // (icon + short name; icon only on the zoomed-out World map). Drawn after every building so a tower never hides one;
 // a sign that would cover another is raised above it. Day: a white card with a glow in the listing's colour; night: a
-// dark card with a neon edge and a stronger glow.
-function drawSigns(){var z=cam.z,placed=[],items=[];
+// dark card with a neon edge and a stronger glow. They go on their own layer (L4), composited after everything else in
+// the frame (cranes, helicopters, agents, labels), and their tap targets are tested first: a click on a sign opens the
+// listing's store or website and never falls through to the building or crane under it.
+function drawSigns(){var z=cam.z,placed=[],items=[],c=c4;var tb=st.querySelector('.c-tools'),topY=((tb&&!MINI?tb.getBoundingClientRect().bottom-st.getBoundingClientRect().top:0)+8-cam.y)/z;SHITS=[];c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L4.width,L4.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
   SIGNS.forEach(function(g){g.list.forEach(function(s,ix){items.push({g:g,s:s,ix:ix})})});
   items.sort(function(a,b){return (b.g.base-a.g.base)||(a.ix-b.ix)});   // nearest first: they keep their natural spot
-  items.forEach(function(it){var g=it.g,r=it.s.r,c=g.c,LOD=g.LOD,k=D.world?.85:1,H=Math.max(26*k,(LOD?(vw<600?20:24):(vw<600?24:32))/z),u=H/26,is=18*u,pad=4*u,fs=11.5*u,txt='',W;
+  items.forEach(function(it){var g=it.g,r=it.s.r,LOD=g.LOD,k=D.world?.85:1,H=Math.max(26*k,(LOD?(vw<600?20:24):(vw<600?24:32))/z),u=H/26,is=18*u,pad=4*u,fs=11.5*u,txt='',W;
     c.font='700 '+fs.toFixed(2)+'px IBM Plex Sans,Arial,sans-serif';
     if(!LOD){txt=String(r.name||'');if(txt.length>24)txt=txt.slice(0,23)+'…';W=pad+is+5*u+c.measureText(txt).width+pad+2*u}else W=H;
     var ax=g.x,roof=g.top-(g.lift||0),y1=roof-10*u-it.ix*(H+5*u),x0=ax-W/2,y0=y1-H,tries=0;
     while(tries++<10){var hit=null;for(var q=0;q<placed.length;q++){var P2=placed[q];if(x0<P2.x1+3*u&&x0+W>P2.x0-3*u&&y0<P2.y1+3*u&&y1>P2.y0-3*u){hit=P2;break}}if(!hit)break;y1=hit.y0-5*u;y0=y1-H}
+    if(y0<topY&&y1+(topY-y0)<roof){y1+=topY-y0;y0=topY}   // never up under the toolbar, where it couldn't be tapped
     placed.push({x0:x0,x1:x0+W,y0:y0,y1:y1,it:it,W:W,H:H,u:u,txt:txt,fs:fs,is:is,pad:pad,roof:roof})});
-  placed.slice().reverse().forEach(function(P2){var it=P2.it,g=it.g,c=g.c,r=it.s.r,u=P2.u,col=LCOL[r.kind]||'#8A8A93',dark=g.tron||sky==='night'||sky==='evening',ax=g.x,x0=P2.x0,y0=P2.y0,W=P2.W,H=P2.H;
+  placed.slice().reverse().forEach(function(P2){var it=P2.it,g=it.g,r=it.s.r,u=P2.u,col=LCOL[r.kind]||'#8A8A93',dark=g.tron||sky==='night'||sky==='evening',ax=g.x,x0=P2.x0,y0=P2.y0,W=P2.W,H=P2.H,hov=SHOVER===r;if(hov){y0-=2*u}   // hover: the card lifts a little
     if(!g.LOD){c.fillStyle='rgba(0,0,0,'+(dark?.32:.2)+')';c.beginPath();c.ellipse(ax,g.top+1,8*u,2.6*u,0,0,7);c.fill()}   // soft shadow on the roof
     c.strokeStyle=g.tron?col:dark?'#8A90A0':'#5B606C';c.lineWidth=1.5*u;c.beginPath();c.moveTo(ax,g.top-1);c.lineTo(ax,P2.y1);c.stroke();   // mast
-    c.save();c.shadowColor=col;c.shadowBlur=(dark?22:9)*dpr;c.fillStyle=dark?'#0E1220':'#FFFFFF';rrect(c,x0,y0,W,H,6*u);c.fill();c.restore();
+    c.save();c.shadowColor=col;c.shadowBlur=(hov?30:dark?22:9)*dpr;c.fillStyle=dark?'#0E1220':'#FFFFFF';rrect(c,x0,y0,W,H,6*u);c.fill();c.restore();
     c.fillStyle=dark?'#0E1220':'#FFFFFF';c.beginPath();c.moveTo(ax-4*u,y0+H-.5);c.lineTo(ax+4*u,y0+H-.5);c.lineTo(ax,y0+H+4*u);c.closePath();c.fill();   // pointer down to the mast
-    c.strokeStyle=col;c.lineWidth=(dark?2:1.6)*u;rrect(c,x0,y0,W,H,6*u);c.stroke();
+    c.strokeStyle=hov?mix(col,1.25):col;c.lineWidth=(hov?2.8:dark?2:1.6)*u;rrect(c,x0,y0,W,H,6*u);c.stroke();
     if(dark){c.save();c.globalAlpha=.55;c.strokeStyle=mix(col,1.5);c.lineWidth=.8*u;rrect(c,x0+1.6*u,y0+1.6*u,W-3.2*u,H-3.2*u,4.6*u);c.stroke();c.restore()}   // inner neon tube
     var is=g.LOD?H-6*u:P2.is,ix=g.LOD?x0+3*u:x0+P2.pad;c.drawImage(ltex(r),ix,y0+(H-is)/2,is,is);
     if(!g.LOD&&P2.txt){c.font='700 '+P2.fs.toFixed(2)+'px IBM Plex Sans,Arial,sans-serif';c.textAlign='left';c.textBaseline='middle';c.fillStyle=dark?'#FFFFFF':'#141824';
       if(dark){c.save();c.shadowColor=col;c.shadowBlur=6*dpr}c.fillText(P2.txt,ix+is+5*u,y0+H/2+.5*u);if(dark)c.restore();c.textAlign='center';c.textBaseline='alphabetic'}
     if(sel===r){c.save();c.strokeStyle=g.tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=14;rrect(c,x0-4*u,y0-4*u,W+8*u,H+8*u,8*u);c.stroke();c.restore()}
-    hits.push({r:r,d:g.d,x0:x0-4*u,x1:x0+W+4*u,y0:y0-4*u,y1:y0+H+6*u})});   // pushed last: tapping a sign wins over the tower in front of it
+    var m=44/z,cx0=x0+W/2,cy0=y0+H/2,hw=Math.max(W/2+4*u,m/2),hh=Math.max(H/2+4*u,m/2);   // the whole card, never under 44 px on screen
+    SHITS.push({r:r,d:g.d,sign:1,url:repoUrl(r),x0:cx0-hw,x1:cx0+hw,y0:cy0-hh,y1:cy0+hh,card:[x0,y0,x0+W,y0+H]})});
   SIGNS=[]}
 // ---- the store directory: tapping any storefront (or "Stores" in the toolbar) lists every storefront in that city in one menu
 function storeList(key){var out=[];for(var k in tiles){var t=tiles[k];if(t.t!=='b'||!t.r||!(!key||(t.d&&(t.d.nb||t.d.name))===key))continue;var L=SFA.get(t.r);if(!L)continue;var a=k.split(',');
@@ -4329,7 +4333,7 @@ function lamp(c,px,py){c.strokeStyle=sky==='night'?'#555B66':'#4A4F58';c.lineWid
 // a public repo's name label is a link to it (private and locked buildings never link)
 var tagHits=[];function repoUrl(r){return !r.locked&&r.public!==false&&(/^https:\/\/[^\s"<>]+$/.test(r.url||'')||(r.kind==='site'&&/^http:\/\/[^\s"<>]+$/.test(r.url||'')))?r.url:''}
 function tagHit(c,g,font){if(!g.url)return;c.font=font;var w=c.measureText(g.text).width+12;tagHits.push({x0:g.x-w/2,x1:g.x+w/2,y0:g.y-17,y1:g.y+2,url:g.url})}
-function openRepo(u){if(u)window.open(u,'_blank','noopener')}
+var LASTOPEN={u:'',t:0};function openRepo(u){if(!u)return;var t=Date.now();if(u===LASTOPEN.u&&t-LASTOPEN.t<1200)return;LASTOPEN={u:u,t:t};window.open(u,'_blank','noopener')}   // a double click opens one tab
 function pill(c,x,y,text,bg,fg,font){c.font=font;var tw=c.measureText(text).width,w=tw+12,h=17,r=8.5;c.save();c.shadowColor='rgba(0,0,0,.3)';c.shadowBlur=6;c.shadowOffsetY=2;c.fillStyle=bg;c.beginPath();
   c.moveTo(x-w/2+r,y-h);c.arcTo(x+w/2,y-h,x+w/2,y,r);c.arcTo(x+w/2,y,x-w/2,y,r);c.lineTo(x+3,y);c.lineTo(x,y+4);c.lineTo(x-3,y);c.arcTo(x-w/2,y,x-w/2,y-h,r);c.arcTo(x-w/2,y-h,x+w/2,y-h,r);c.closePath();c.fill();c.restore();
   c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+.5);c.textBaseline='alphabetic'}
@@ -4436,7 +4440,7 @@ function stepGlow(tn){var dt=Math.min(1000,tn-(glowAt||tn));glowAt=tn;var moving
   for(k in ks){var g=GL[k]||0,t=GT[k]||0;if(Math.abs(t-g)<.003){if(t)GL[k]=t;else delete GL[k];continue}GL[k]=g+(t-g)*Math.min(1,dt/2200);moving=true}
   if(moving&&tn-glowDraw>220){glowDraw=tn;dirty=true}}
 function glowOf(d){return d?(GL[d.name]||(d.nb&&GL[d.nb])||0):0}
-var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=true;stepGlow(T);if(L1.width!==cv.width||L1.height!==cv.height){L1.width=L2.width=L3.width=cv.width;L1.height=L2.height=L3.height=cv.height;dirty=true}
+var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=true;stepGlow(T);if(L1.width!==cv.width||L1.height!==cv.height){L1.width=L2.width=L3.width=L4.width=cv.width;L1.height=L2.height=L3.height=L4.height=cv.height;dirty=true}
   if(under){if(UL.width!==cv.width||UL.height!==cv.height){UL.width=cv.width;UL.height=cv.height;UDIRTY=true}
     if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false;UDIRTY=true}if(UDIRTY){drawUnder();UDIRTY=false}
     cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#03020A';cx.fillRect(0,0,cv.width,cv.height);
@@ -4445,7 +4449,8 @@ var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=t
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);drawObjects()}dirty=false}
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
   drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
-  cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh)}
+  cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh);
+  cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0)}   // storefront signs over everything: cranes, helicopters, agents, labels
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
 var last=0,FPS_MS=MINI?50:30;function tick(ts){if(!document.hidden&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
   if(LV.on){var tg=performance.now();cars=cars.filter(function(c){return !c.gone||tg-c.gone<1500})}
@@ -4473,6 +4478,7 @@ function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=n
    +(D.world&&d.nb&&r.public&&!r.locked?giftHtml(d.nb,r.name):'');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};giftWire(function(){show(h)});draw()}
 function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=null,bd=1e9;UP.forEach(function(p,ix){var d=Math.hypot(p.x-wx0,p.y-wy0);if(d<Math.max(p.r+3,7/cam.z)&&d<bd){bd=d;best=ix}});return best==null?null:{note:best}}
+  var sx=(px-cam.x)/cam.z,sy=(py-cam.y)/cam.z;for(var si=SHITS.length-1;si>=0;si--){var sh=SHITS[si];if(sx>=sh.x0&&sx<=sh.x1&&sy>=sh.y0&&sy<=sh.y1)return sh}   // signs sit on top of everything, so they win every tap
   if(labels){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return th.shop?{shop:1}:th.block?{block:th.block}:{url:th.url}}}
   for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
 var ptr={},moved=false,pinch=0;
@@ -4488,6 +4494,8 @@ function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.
   if(MINI&&h&&h.r)return openRepo(repoUrl(h.r));   // the pop-out has no room for cards: a public building opens its repo
   show(h)}}
 if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes in page coordinates, for automated checks
+  signs:function(){var b=st.getBoundingClientRect();return SHITS.map(function(h){var k=h.card;return {name:h.r.name,url:h.url,x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0+h.y1)/2*cam.z,w:(h.x1-h.x0)*cam.z,h:(h.y1-h.y0)*cam.z,card:[b.left+cam.x+k[0]*cam.z,b.top+cam.y+k[1]*cam.z,b.left+cam.x+k[2]*cam.z,b.top+cam.y+k[3]*cam.z]}})},
+  cranes:function(){var b=st.getBoundingClientRect();return cranes.map(function(k){return {x:b.left+cam.x+k.x*cam.z,y:b.top+cam.y+(k.y-30)*cam.z}})},
   buildings:function(){var b=st.getBoundingClientRect();return hits.filter(function(h){return h.r}).map(function(h){return {name:h.r.locked?'':h.r.name,locked:!!h.r.locked,url:repoUrl(h.r),x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0*.35+h.y1*.65)*cam.z}})},
   world:function(){return WLAB.map(function(l){return {text:l.text,pr:l.pr,x0:l.x0,x1:l.x1,y0:l.y0,y1:l.y1}})},
   zoomTo:function(k,z){var n=NBM[k];if(!n)return false;var c=iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5);cam.z=z;cam.x=vw/2-c.x*z;cam.y=vh/2-c.y*z;draw();return true},
@@ -4502,11 +4510,12 @@ if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes i
   point:function(locked){var b=st.getBoundingClientRect();for(var i=0;i<hits.length;i++){var h=hits[i];if(!h.r||!!h.r.locked!==locked||(!locked&&!repoUrl(h.r)))continue;
     for(var fy=.2;fy<.95;fy+=.1)for(var fx=.2;fx<.85;fx+=.15){var wx=h.x0+(h.x1-h.x0)*fx,wy=h.y0+(h.y1-h.y0)*fy,sx=cam.x+wx*cam.z,sy=cam.y+wy*cam.z,g=at(sx,sy);
       if(g&&g.r===h.r)return {x:b.left+sx,y:b.top+sy,url:repoUrl(h.r)}}}return null}};
-cv.addEventListener('dblclick',function(ev){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);if(h&&h.r&&!MINI)openRepo(repoUrl(h.r))});
+cv.addEventListener('dblclick',function(ev){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);if(h&&h.r&&!h.sign&&!MINI)openRepo(repoUrl(h.r))});
 cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return;var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
-  cv.classList.toggle('c-link',!!(h&&(h.url||h.block||(h.r&&repoUrl(h.r)))));
-  if(WORLD){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
-cv.addEventListener('pointerleave',function(){if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
+  cv.classList.toggle('c-link',!!(h&&(h.url||h.sign||h.block||(h.r&&repoUrl(h.r)))));
+  var hv=h&&h.sign?h.r:null;if(hv!==SHOVER){SHOVER=hv;cv.title=hv?(h.url?'Open '+hv.name+' \u2197':hv.name+': see the stores'):'';draw();if(reduce)frame()}
+  if(WORLD&&!(h&&h.sign)){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
+cv.addEventListener('pointerleave',function(){if(SHOVER){SHOVER=null;cv.title='';draw()}if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
 // /world?focus=<handle> (the World link on a profile): fly straight to that person's neighborhood
 if(D.world){try{var FQ=(new URLSearchParams(location.search).get('focus')||'').toLowerCase().replace(/^@/,'');if(FQ&&byName['@'+FQ])setTimeout(function(){worldFocus(byName['@'+FQ])},700)}catch(err){}}
 function rayWhy(k){var out=[];((WORLD&&WORLD.links)||[]).forEach(function(l){if(l[0]!==k&&l[1]!==k)return;var o=l[0]===k?l[1]:l[0];out.push(o+(l[2]===2&&l[3]?': both work on '+l[3]:l[2]===3&&l[3]?': '+l[3]:l[2]===4?': similar stack'+(l[3]?' ('+l[3]+')':''):l[2]===1?': welcome link':': friends'))});return out.length?k+' is connected to '+out.slice(0,8).join(', ')+(out.length>8?' and '+(out.length-8)+' more':''):''}
