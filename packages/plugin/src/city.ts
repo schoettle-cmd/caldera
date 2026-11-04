@@ -16,7 +16,7 @@ export interface CityRepo {
   priv?: boolean;                                     // a private repo shown by name ("named" mode): name, language and activity, never code, links or descriptions
   sites?: string[];                                   // the websites this repo runs (hostnames), so live visitors stand in its building
   kind?: "app" | "site";                              // not a repo: an app or website the owner listed (a storefront; see listings.ts)
-  meta?: { store?: "apple" | "play"; icon?: string; genre?: string; rating?: number; ratings?: number; desc?: string; host?: string };
+  meta?: { store?: "apple" | "play"; icon?: string; genre?: string; rating?: number; ratings?: number; desc?: string; host?: string; on?: string };   // on: the repo it is built from, only when that repo stands in the same district by name (its sign hangs there)
   pv?: boolean;                                       // a listing placed beside a private repo: moves to "Apps & sites" if private work turns anonymous
 }
 /** Hostnames from a homepage URL, a host, or a list of them: "https://www.kitse.co/x" -> "kitse.co". At most 6. */
@@ -158,6 +158,15 @@ const locked = (r: CityRepo, project: string): CityRepo => ({ name: "", project,
 
 /** Apply a member's private-repos setting to an already PUBLIC city (works on any build: anything locked or not marked
  *  public counts as private). "show" returns it as it is. Totals are recomputed from public repos only. */
+/** A listing's meta.on (the repo its sign hangs on) stays only while a building of that name stands, unlocked and named,
+ *  in the same district; anything else is dropped so a page never carries a repo name it doesn't already show. */
+export function scrubSignHosts(districts: CityDistrict[]): CityDistrict[] {
+  return districts.map(d => {
+    const names = new Set(d.repos.filter(r => !r.kind && !r.locked && r.name).map(r => r.name.toLowerCase()));
+    if (!d.repos.some(r => r.kind && r.meta?.on && !names.has(String(r.meta.on).toLowerCase()))) return d;
+    return { ...d, repos: d.repos.map(r => r.kind && r.meta?.on && !names.has(String(r.meta.on).toLowerCase()) ? { ...r, meta: { ...r.meta, on: undefined } } : r) };
+  });
+}
 export function applyPrivateMode(c: CityData, mode: PrivateMode | undefined): CityData {
   if (!mode || mode === "show" || mode === "named" || c.private) return c;
   const isPriv = (r: CityRepo) => !!r.locked || r.public !== true || !r.name;
@@ -176,7 +185,7 @@ export function applyPrivateMode(c: CityData, mode: PrivateMode | undefined): Ci
   if (mode === "anonymous" && n > 0)
     districts.push({ name: label, notes: 0, apart: true, repos: Array.from({ length: privateCluster(n) }, () => ({ name: "", project: label, public: false, locked: true, language: "Private", commits: 25, weeks: [], week: 0, today: 0 })) });
   const pub = districts.flatMap(d => d.repos).filter(r => !r.locked);
-  return { ...c, districts, privateMode: mode, totals: { commits: pub.reduce((s, r) => s + (Number(r.commits) || 0), 0), active: pub.filter(r => r.week > 0).length },
+  return { ...c, districts: scrubSignHosts(districts), privateMode: mode, totals: { commits: pub.reduce((s, r) => s + (Number(r.commits) || 0), 0), active: pub.filter(r => r.week > 0).length },
     under: c.under ? publicUnderground(c.under, districts.filter(d => !d.apart).map(d => d.name)) : undefined };
 }
 export function publicCity(c: CityData, publicProjects: string[], mode: PrivateMode = "show", hideRepos: string[] = []): CityData {
@@ -433,6 +442,43 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 @media (max-width:600px){.c-main{padding:20px 16px 48px}.c-title{font-size:1.7rem}.c-stage{height:50vh;height:min(50svh,460px);min-height:300px}}
 `;
 
+/** Storefronts as signage: where each listed app or website hangs its sign. Plain ES5 (it runs inside CITY_JS too).
+ *  Rules, the same for every viewer and stable across loads (only the city's data decides):
+ *  - a listing tied to a repo ("| repo-name") hangs on that repo's building, as a rooftop billboard when the roof has room;
+ *  - otherwise on a building of its own district: the least-busy building first, the least-used kind of sign first, so a
+ *    city gets a mix of rooftop billboards, vertical blade signs, wall billboards and street-level fascia signs;
+ *  - blade (vertical) signs only on tall buildings (72+ px, 56+ on the World map); wall billboards need a base tier of 40+
+ *    (30+); a roof only has room when its top is wide, it isn't the city's tallest tower (beacon) and no crane stands on it;
+ *  - each building carries at most one roof sign and one sign per visible face; padlocked (private) buildings never host;
+ *  - a listing with no host left keeps a small shop building of its own and its sign goes on that.
+ *  Returns [{r: listing, host: the repo it hangs on (or the listing itself), v: "roof"|"blade"|"wall"|"fascia", side: "L"|"R"}]. */
+const SF_PLACE_JS = String.raw`function sfPlace(ds,world,bh,dormant){
+  function hs(t){var h=0;t=String(t||'');for(var i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return Math.abs(h)}
+  function rr(s){var x=Math.sin(s)*10000;return x-Math.floor(x)}
+  function tiers(h){return h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]]}
+  var top=null,tb=-1,used={roof:0,blade:0,wall:0,fascia:0},out=[];
+  ds.forEach(function(d){(d.repos||[]).forEach(function(r){if(!r.kind&&bh(r)>tb){tb=bh(r);top=r}})});
+  function faceVs(h){var t=tiers(h),v=['fascia'];if(t[0][1]>=(world?30:40))v.push('wall');if(h>=(world?56:72))v.push('blade');return v}
+  ds.forEach(function(d){
+    var ls=(d.repos||[]).filter(function(r){return r.kind}).sort(function(a,b){return String(a.name).localeCompare(String(b.name))||String(a.url||'').localeCompare(String(b.url||''))});
+    if(!ls.length)return;
+    var hosts=d.apart?[]:(d.repos||[]).filter(function(r){return !r.kind&&!r.locked&&r.name}).map(function(r){var h=bh(r),t=tiers(h);
+      return {r:r,roof:t[t.length-1][0]>=.6&&r!==top&&!(r.week>0&&!dormant(r)),L:false,R:false,n:0,vs:faceVs(h)}}).sort(function(a,b){return String(a.r.name).localeCompare(String(b.r.name))});
+    ls.forEach(function(l){var sd=hs(l.name+'|'+(d.nb||'')+'|'+d.name),on=String((l.meta||{}).on||'').toLowerCase(),tied=null,cand=[];
+      if(on)hosts.forEach(function(H){if(String(H.r.name).toLowerCase()===on)tied=H});
+      hosts.forEach(function(H,hi){var tie=H===tied?-1000:0,pref=sd%2?'R':'L';
+        if(H.roof===true)cand.push({H:H,v:'roof',side:pref,s:tie+(tie?-500:0)+used.roof*10+H.n*6+rr(sd+hi*13.7)*5});
+        ['L','R'].forEach(function(sdn){if(H[sdn])return;H.vs.forEach(function(v,vi){cand.push({H:H,v:v,side:sdn,s:tie+used[v]*10+H.n*6+(sdn===pref?0:1)+rr(sd+hi*13.7+vi*3.1)*5})})})});
+      if(cand.length){cand.sort(function(a,b){return a.s-b.s});var c=cand[0];used[c.v]++;c.H.n++;if(c.v==='roof')c.H.roof='used';else c.H[c.side]=true;
+        out.push({r:l,host:c.H.r,v:c.v,side:c.side});return}
+      var own=['roof','wall','fascia'].map(function(v,vi){return {v:v,s:used[v]*10+rr(sd+vi*7.7)*5}}).sort(function(a,b){return a.s-b.s})[0].v;used[own]++;
+      out.push({r:l,host:l,v:own,side:sd%2?'R':'L'})})});
+  return out}`;
+/** Test hook: the renderer's placement, run in Node. */
+export function placeStorefronts(districts: CityDistrict[], world: boolean, bh: (r: CityRepo) => number, dormant: (r: CityRepo) => boolean = () => false): { r: CityRepo; host: CityRepo; v: "roof" | "blade" | "wall" | "fascia"; side: "L" | "R" }[] {
+  return (new Function(SF_PLACE_JS + ";return sfPlace") as () => (...a: unknown[]) => never)()(districts, world, bh, dormant);
+}
+
 // The renderer (plain ES5-ish so it runs everywhere, including inside Obsidian's sandboxed tab).
 export const CITY_JS = String.raw`(function(){
 var D=JSON.parse(document.getElementById('city-data').textContent);
@@ -456,6 +502,11 @@ function placeDistrict(d,x,y,k,houses){
   while(left>0&&hi<cells.length){var c=cells[hi++];var n=Math.min(4,left);left-=n;tiles[c[0]+','+c[1]]={t:'h',n:n,d:d}}
   for(;hi<cells.length;hi++){var c2=cells[hi];tiles[c2[0]+','+c2[1]]={t:'p',d:d}}
   return b}
+// ---- storefronts as signage (see sfPlace): a listing hangs its sign on a building and stops taking a plot of its own
+${SF_PLACE_JS}
+var SFA=new Map();(function(){var pl=sfPlace(D.districts,!!D.world,bh,dormant),gone=new Set();
+  pl.forEach(function(p){var L=SFA.get(p.host);if(!L){L=[];SFA.set(p.host,L)}L.push({r:p.r,v:p.v,side:p.side});if(p.host!==p.r)gone.add(p.r)});
+  if(gone.size)D.districts.forEach(function(d){d.repos=d.repos.filter(function(r){return !gone.has(r)})})})();
 var NBS=[],NBM={},AVX={},AVY={};
 if(D.world){
   // the world: each member is a neighborhood (their own districts packed together), neighborhoods sit on a loose grid
@@ -503,7 +554,7 @@ var TOOLS=Array.isArray(window.CALDERA_TOOLS)?window.CALDERA_TOOLS.filter(functi
   if(D.world)for(var a=0;a<3;a++)for(var b2=0;b2<3;b2++)if(a||b2)tiles[(best[0]+a)+','+(best[1]+b2)]={t:'wp'}})();
 // ---- buildings
 var maxC=1;D.districts.forEach(function(d){d.repos.forEach(function(r){maxC=Math.max(maxC,r.commits)})});
-function bh(r){return D.world?14+Math.min(110,Math.round(20*Math.log2(1+r.commits/8))):16+Math.min(230,Math.round(34*Math.log2(1+r.commits/8)))}
+function bh(r){if(r.kind)return D.world?30:46;return D.world?14+Math.min(110,Math.round(20*Math.log2(1+r.commits/8))):16+Math.min(230,Math.round(34*Math.log2(1+r.commits/8)))}
 var maxH=0,ranked=[];D.districts.forEach(function(d){d.repos.forEach(function(r){maxH=Math.max(maxH,bh(r));ranked.push(r)})});
 ranked.sort(function(a,b){return (b.week*20+b.commits)-(a.week*20+a.commits)});var topSet=ranked.slice(0,12);
 function dormant(r){return r.pushed&&now-Date.parse(r.pushed)>60*DAY&&!r.week}
@@ -1034,17 +1085,17 @@ function tronObjects(){SIGNS=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect
     if(t.t==='h'&&(!BUILDING||buildF(t,i,j)>=1)){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],blk=null;blocks.forEach(function(b){if(b.d===t.d)blk=b});var hc=blk&&blk.neon||CYAN;
       for(var q2=0;q2<t.n;q2++){var hx=p.x+spots[q2][0],hy=p.y+spots[q2][1],hw=TW/2*.24,hh=TH/2*.24;c.fillStyle='#0A1220';poly(c,[[hx-hw,hy],[hx,hy+hh],[hx+hw,hy],[hx+hw,hy-6],[hx,hy-14],[hx-hw,hy-6]]);c.fill();
         glowLine(c,[[hx-hw,hy-6],[hx,hy-14],[hx+hw,hy-6]],hc,1,6);c.fillStyle=hc;c.globalAlpha=.8;c.fillRect(hx-1,hy-4,2,2);c.globalAlpha=1}}
-    if(t.t==='b'&&t.r.kind){storefront(c,p,t,true,tags);continue}
-    if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),col=r.locked?'#CFEFFF':dm?'#5A6A80':neon(r);
+    if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),col=r.kind?(LCOL[r.kind]||'#9FB4FF'):r.locked?'#CFEFFF':dm?'#5A6A80':neon(r);
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?.03:r.locked?(t.d&&t.d.apart?0:r.week?.45:.12):Math.min(.95,.25+(r.week/Math.max(wk,1))*.7);
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
       for(var k=0;k<tiers.length;k++){tronPrism(c,p.x,top,tiers[k][0],tiers[k][1],col,litp,seed+k*101,r.locked);top-=tiers[k][1]}
       if(r.locked){glowLine(c,[[p.x-3,top-6],[p.x-3,top-8],[p.x,top-11],[p.x+3,top-8],[p.x+3,top-6]],col,1.2,6);c.fillStyle=col;c.fillRect(p.x-4,top-6,8,6)}
       if(r===tallest){c.save();c.globalCompositeOperation='lighter';var g=c.createLinearGradient(0,top-260,0,top);g.addColorStop(0,col+'00');g.addColorStop(1,col+'90');c.fillStyle=g;c.fillRect(p.x-2.5,top-260,5,260);c.restore();beacons.push({x:p.x,y:top-4})}
       if(r.week>0&&!dm)cranes.push({x:p.x+4,y:top,seed:seed,col:col});
+      var SLt=SFA.get(r);if(SLt&&(!BUILDING||buildF(t,i,j)>=1))SIGNS.push({c:c,x:p.x,base:base,top:top,tiers:tiers,list:SLt,d:t.d,tron:true,LOD:false});
       if(sel===r){var hw2=TW/2*.78,hh2=TH/2*.78;glowLine(c,[[p.x-hw2,base],[p.x,base+hh2],[p.x+hw2,base],[p.x+hw2,top],[p.x,top-TH/2*.46],[p.x-hw2,top]],'#FFFFFF',2/cam.z+.6,16,true)}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
-      if(labels&&!r.locked&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase().replace(/[^a-z0-9]/g,'')===String(r.name).toLowerCase().replace(/[^a-z0-9]/g,'')))tags.push({x:p.x,y:top-(r===tallest?12:8),text:r.name.length>18?r.name.slice(0,17)+'\u2026':r.name,col:col,url:repoUrl(r),r:r})}}
+      if(labels&&!r.locked&&!r.kind&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase().replace(/[^a-z0-9]/g,'')===String(r.name).toLowerCase().replace(/[^a-z0-9]/g,'')))tags.push({x:p.x,y:top-(r===tallest?12:8),text:r.name.length>18?r.name.slice(0,17)+'\u2026':r.name,col:col,url:repoUrl(r),r:r})}}
   drawSigns();
   if(SHOPLBL){pill(c,SHOPLBL.x,SHOPLBL.y,SHOPLBL.text,SHOPLBL.bg,'#fff','700 11px IBM Plex Sans,Arial,sans-serif');hits.push({shop:1,x0:SHOPLBL.x-80,x1:SHOPLBL.x+80,y0:SHOPLBL.y-12,y1:SHOPLBL.y+8});SHOPLBL=null}
   if(WORLD){worldLabels(tags);return}
@@ -1332,31 +1383,87 @@ var GLASS={TypeScript:1,Swift:1,Go:1,Rust:1,Private:1};
 function face(c,pts,col,f,y0,y1){var g=c.createLinearGradient(0,y0,0,y1);g.addColorStop(0,mix(col,f*P.light*1.04));g.addColorStop(1,mix(col,f*P.light*.78));poly(c,pts,g)}
 function awning(c,x,y,w,cols){var hw=TW/2*w,hh=TH/2*w,n=6;for(var k=0;k<n;k++){var a=k/n,b=(k+1)/n;c.fillStyle=cols[k%2];c.beginPath();
   c.moveTo(x-hw+hw*a,y+hh*a);c.lineTo(x-hw+hw*b,y+hh*b);c.lineTo(x-hw+hw*b-3,y+hh*b+5);c.lineTo(x-hw+hw*a-3,y+hh*a+5);c.closePath();c.fill()}}
-// ---- listings: apps and websites the owner listed stand as storefronts (a sign with the app's icon or the site's favicon)
-var LCOL={app:'#6C63FF',site:'#1FA39A'},LIMG={};
+// ---- listings: apps and websites the owner listed hang signs on the city's buildings (sfPlace picks which and how):
+// rooftop billboards on struts, vertical blade signs on tall towers, wall billboards and street-level fascia signs over
+// an awning. Each sign shows the listing's real icon and short name, in a metal frame, lit in the listing's colour
+// (neon at night, soft by day), skewed onto the face it hangs on so it sits in the city's projection.
+var LCOL={app:'#6C63FF',site:'#1FA39A'},LIMG={},LTEX={},SHOPC=['#D9C7AE','#C7CED6','#E0CDB5','#BFC9B8','#D6BFB4'];
 function limg(u){if(!u||!/^https?:\/\/[^\s"<>]+\/v1\/listings\/img\/[A-Za-z0-9._%-]+$/.test(u))return null;var im=LIMG[u];if(im)return im.complete&&im.naturalWidth?im:null;
   im=new Image();im.onload=function(){draw()};im.src=u;LIMG[u]=im;return null}
 function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
-function storefront(c,p,t,tron,tags){var r=t.r,x=p.x,y=p.y+4,col=LCOL[r.kind]||'#8A8A93',h=30,dark=tron||sky==='night'||sky==='evening',m=r.meta||{};
-  if(tron)tronPrism(c,x,y,.9,h,col,.55,hash(r.name||'l'),false);
-  else{prism(c,x,y,.9,h,col);awning(c,x,y-h+10,.98,[mix(col,1.25),'#FFF4E8']);c.fillStyle=dark?'rgba(255,214,140,.95)':'rgba(40,50,70,.55)';c.fillRect(x-4,y-12,8,12);
-    c.fillStyle=dark?'rgba(255,226,170,.85)':'rgba(255,255,255,.55)';c.fillRect(x-TW*.3,y-h*.55,6,7);c.fillRect(x+TW*.3-6,y-h*.55,6,7)}
-  var sy=y-h-34;SIGNS.push({c:c,x:x,y:y,h:h,r:r,d:t.d,col:col,tron:tron,dark:dark,im:limg(m.icon)});   // the sign (with its pole) is drawn after every building, so a tower in front never hides it
-  hits.push({r:r,d:t.d,x0:x-TW*.46,x1:x+TW*.46,y0:sy-10,y1:p.y+TH*.48});
-  if(labels&&!WORLD&&(cam.z>.45||sel===r)&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase().replace(/[^a-z0-9]/g,'')===String(r.name).toLowerCase().replace(/[^a-z0-9]/g,'')))tags.push({x:x,y:sy-9,text:r.name.length>22?r.name.slice(0,21)+'…':r.name,col:col,url:repoUrl(r),r:r})}
+// the icon as a texture: drawn once per icon onto a 128px white tile with rounded corners (no per-frame clipping)
+function ltex(r){var m=r.meta||{},im=limg(m.icon),app=r.kind==='app',k=(im?m.icon:'#'+(r.name||'?').charAt(0))+'|'+(app?'a':'s')+'|'+r.kind,t=LTEX[k];if(t)return t;
+  t=document.createElement('canvas');t.width=t.height=128;var g=t.getContext('2d');g.fillStyle='#FFFFFF';rrect(g,0,0,128,128,app?28:24);g.fill();
+  if(im){var pad=app?0:14;g.save();rrect(g,pad,pad,128-pad*2,128-pad*2,app?28:14);g.clip();g.drawImage(im,pad,pad,128-pad*2,128-pad*2);g.restore()}
+  else{g.fillStyle=LCOL[r.kind]||'#8A8A93';g.font='700 76px IBM Plex Sans,Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(String(r.name||'?').charAt(0).toUpperCase(),64,68)}
+  if(im)LTEX[k]=t;else if(!m.icon||!/^https?:/.test(m.icon))LTEX[k]=t;return t}   // a letter tile for a loading icon isn't kept
+function fitText(c,txt,maxW,fs,min,wt){txt=String(txt||'');c.font=wt+' '+fs+'px IBM Plex Sans,Arial,sans-serif';var w=c.measureText(txt).width;
+  if(w>maxW&&fs>min){fs=Math.max(min,fs*maxW/w*.96);c.font=wt+' '+fs.toFixed(2)+'px IBM Plex Sans,Arial,sans-serif';w=c.measureText(txt).width}
+  while(w>maxW*1.03&&txt.length>2){txt=txt.slice(0,-2)+'…';w=c.measureText(txt).width}return {t:txt,fs:fs}}
 var SIGNS=[];
-function drawSigns(){SIGNS.forEach(function(g){var c=g.c,x=g.x,y=g.y,h=g.h,r=g.r,d=g.d,col=g.col,tron=g.tron,dark=g.dark,im=g.im;
-  var s=24,sy=y-h-34;
-  c.fillStyle=tron?col:'#6B6F7A';c.fillRect(x-.8,sy+s+3,1.6,(y-h)-(sy+s+3)+3);
-  // the sign glows softly in the listing's colour by day and strongly at night (one blurred plate per storefront: cheap on phones)
-  c.save();c.shadowColor=col;c.shadowBlur=dark?26:10;c.fillStyle=col;c.globalAlpha=dark?.95:.7;rrect(c,x-s/2-5,sy-5,s+10,s+10,8);c.fill();c.restore();
-  c.save();c.fillStyle=tron?'rgba(2,6,12,.92)':'#FFFFFF';rrect(c,x-s/2-2,sy-2,s+4,s+4,6);c.fill();c.restore();
-  if(im){c.save();rrect(c,x-s/2,sy,s,s,r.kind==='app'?6:4);c.clip();c.drawImage(im,x-s/2,sy,s,s);c.restore()}
-  else{c.fillStyle=col;c.font='700 14px IBM Plex Sans,Arial,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(r.name||'?').charAt(0).toUpperCase(),x,sy+s/2+.5);c.textBaseline='alphabetic'}
-  if(sel===r){c.save();c.strokeStyle=tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.6/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=16;rrect(c,x-s/2-8,sy-8,s+16,s+16,9);c.stroke();c.restore()}
-  hits.push({r:r,d:d,x0:x-s/2-8,x1:x+s/2+8,y0:sy-10,y1:sy+s+8})});SIGNS=[]}   // pushed last: tapping a sign wins over the tower in front of it
+// one sign panel in local (face) coordinates: x0,y0 top-left, w x h. vert = a blade (icon on top, letters stacked)
+function signPanel(c,r,x0,y0,w,h,col,dark,tron,LOD,vert){
+  if(LOD){c.fillStyle=col;c.globalAlpha=dark?1:.85;c.fillRect(x0,y0,w,h);c.globalAlpha=1;return}
+  c.save();c.shadowColor=col;c.shadowBlur=dark?14:3;c.fillStyle=tron?'#02060C':'#2B2F3A';rrect(c,x0-1.3,y0-1.3,w+2.6,h+2.6,1.8);c.fill();c.restore();   // frame + glow
+  var g=c.createLinearGradient(0,y0,0,y0+h);g.addColorStop(0,tron?'#06121C':mix(col,dark?1.18:1.1));g.addColorStop(1,tron?'#02060C':mix(col,dark?.78:.72));c.fillStyle=g;c.fillRect(x0,y0,w,h);
+  c.strokeStyle=dark||tron?mix(col,1.45):'rgba(255,255,255,.55)';c.lineWidth=.6;c.strokeRect(x0+.3,y0+.3,w-.6,h-.6);   // neon tube / bright rim
+  var tx=ltex(r),is,ix,iy;
+  if(vert){is=Math.min(w-2.4,h*.4);ix=x0+(w-is)/2;iy=y0+1.2;c.drawImage(tx,ix,iy,is,is);
+    var name=String(r.name||'').replace(/\s+/g,'').toUpperCase(),fs=Math.min(w*.66,7.5),step=fs*1.02,room=y0+h-(iy+is+1.5),n=Math.max(0,Math.min(name.length,Math.floor(room/step)));
+    if(n<name.length&&n>1)name=name.slice(0,n-1)+'·';c.fillStyle=dark?'#FFFFFF':'#FFFDF6';c.font='800 '+fs.toFixed(2)+'px IBM Plex Sans,Arial,sans-serif';c.textAlign='center';c.textBaseline='top';
+    if(dark){c.save();c.shadowColor='#FFFFFF';c.shadowBlur=4}for(var q=0;q<Math.min(n,name.length);q++)c.fillText(name.charAt(q),x0+w/2,iy+is+1.5+q*step+(room-n*step)/2);if(dark)c.restore();
+    if(dark)for(var b=y0+1.5;b<y0+h-1;b+=2.6){c.fillStyle=(Math.floor((b-y0)/2.6)%2)?'#FFE9B0':'#FFF6DC';c.fillRect(x0-1.6,b,.9,.9);c.fillRect(x0+w+.7,b,.9,.9)}}   // marquee bulbs
+  else{is=Math.min(h-2.4,w*.42);ix=x0+1.4;iy=y0+(h-is)/2;c.drawImage(tx,ix,iy,is,is);var tw=w-is-4.2;
+    if(tw>5){var f=fitText(c,r.name,tw,Math.min(h*.46,9),2.6,'700');c.fillStyle='#FFFFFF';c.textAlign='left';c.textBaseline='middle';if(dark){c.save();c.shadowColor='#FFFFFF';c.shadowBlur=3}
+      c.fillText(f.t,ix+is+1.6,y0+h/2+.3);if(dark)c.restore()}}
+  c.textBaseline='alphabetic';c.textAlign='center';
+  if(!tron&&!dark){c.fillStyle='rgba(255,255,255,.16)';c.fillRect(x0,y0,w,h*.38)}   // daylight sheen
+  if(sel===r){c.save();c.strokeStyle=tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;rrect(c,x0-3,y0-3,w+6,h+6,2.5);c.stroke();c.restore()}}
+// a sign's screen bounds for tapping: the transformed corners of its local box
+function signHit(s,g,ox,oy,uy,x0,y0,w,h){var xs=[],ys=[];[[x0,y0],[x0+w,y0],[x0,y0+h],[x0+w,y0+h]].forEach(function(q){xs.push(ox+q[0]);ys.push(oy+uy*q[0]+q[1])});
+  var a=Math.min.apply(null,xs),b=Math.max.apply(null,xs),u=Math.min.apply(null,ys),v=Math.max.apply(null,ys),px=Math.max(0,(14-(b-a))/2),py=Math.max(0,(14-(v-u))/2);
+  hits.push({r:s.r,d:g.d,x0:a-3-px,x1:b+3+px,y0:u-3-py,y1:v+3+py})}
+function drawSigns(){SIGNS.forEach(function(g){var c=g.c,x=g.x,k=D.world?.8:1,w0=g.tiers[0][0],th0=g.tiers[0][1],hw=TW/2*w0,hh=TH/2*w0,dark=g.tron||sky==='night'||sky==='evening';
+  g.list.forEach(function(s){var r=s.r,col=LCOL[r.kind]||'#8A8A93',L=s.side!=='R',uy,ox,oy;
+    if(s.v==='roof'){var wT=g.tiers[g.tiers.length-1][0],hwT=TW/2*wT,pw=hwT*1.3,ph=Math.max(8,pw*.42),sh=5*k,bx=L?1:-1;   // billboard on struts across the roof, facing the viewer
+      uy=L?.5:-.5;var cx0=x+bx*hwT*.2,cy0=g.top-hwT*.1;ox=cx0-pw/2;oy=cy0-uy*pw/2;
+      c.save();c.transform(1,uy,0,1,ox,oy);
+      if(!g.LOD){c.fillStyle='rgba(0,0,0,'+(dark?.3:.2)+')';c.beginPath();c.moveTo(0,0);c.lineTo(pw,0);c.lineTo(pw+bx*2.5,-1.6);c.lineTo(bx*2.5,-1.6);c.closePath();c.fill();   // shadow on the roof
+        c.strokeStyle=g.tron?col:'#4A4F5C';c.lineWidth=.9;c.beginPath();[.12,.5,.88].forEach(function(f){c.moveTo(pw*f,0);c.lineTo(pw*f,-sh)});c.moveTo(pw*.12,0);c.lineTo(pw*.5,-sh);c.moveTo(pw*.88,0);c.lineTo(pw*.5,-sh);c.stroke();   // struts + braces
+        c.fillStyle=g.tron?'#0A1422':'#5A606E';c.fillRect(-1,-sh-1.2,pw+2,1.2)}   // catwalk
+      signPanel(c,r,0,-sh-1.2-ph,pw,ph,col,dark,g.tron,g.LOD,false);
+      if(!g.LOD)[.18,.5,.82].forEach(function(f){var lx=pw*f,ly=-sh-.6;c.fillStyle='#3A3F4A';c.fillRect(lx-.9,ly-1.1,1.8,1.6);   // spotlights on the catwalk
+        if(dark){c.fillStyle='rgba(255,246,214,.16)';c.beginPath();c.moveTo(lx,ly-1);c.lineTo(lx-pw*.17,-sh-1.2-ph);c.lineTo(lx+pw*.17,-sh-1.2-ph);c.closePath();c.fill();c.fillStyle='#FFF4D0';c.fillRect(lx-.6,ly-1.3,1.2,.8)}});
+      c.restore();signHit(s,g,ox,oy,uy,0,-sh-1.2-ph,pw,ph+sh);return}
+    // the face it hangs on: left face runs (x-hw,base) -> (x,base+hh), right face (x,base+hh) -> (x+hw,base)
+    uy=L?.5:-.5;var ax=L?x-hw:x,ay=L?g.base:g.base+hh;
+    if(s.v==='blade'){var dp=11*k,bl=Math.min(th0*.62,62*k),v0=Math.max(10*k,th0*.2),u=L?.8:.2,pxA=ax+hw*u,pyA=ay+uy*hw*u,buy=L?-.5:.5;   // vertical, sticking out from the wall
+      ox=L?pxA-dp:pxA;oy=L?pyA+dp*.5:pyA;c.save();c.transform(1,buy,0,1,ox,oy);var x0=L?0:1.6,bw=dp-1.6,wx=L?dp:0;
+      if(!g.LOD){c.strokeStyle=g.tron?col:'#3E434E';c.lineWidth=.9;c.beginPath();c.moveTo(wx,-v0-bl*.12);c.lineTo(L?bw:x0,-v0-bl*.12);c.moveTo(wx,-v0-bl*.88);c.lineTo(L?bw:x0,-v0-bl*.88);c.stroke()}   // brackets
+      signPanel(c,r,x0,-v0-bl,bw,bl,col,dark,g.tron,g.LOD,true);c.restore();
+      if(!g.LOD&&!g.tron){c.save();c.transform(1,uy,0,1,ax,ay);var su=hw*u;c.fillStyle='rgba(0,0,0,'+(dark?.25:.16)+')';c.fillRect(L?su-3:su,-v0-bl,3,bl);c.restore()}   // its shadow on the wall
+      signHit(s,g,ox,oy,buy,x0,-v0-bl,bw,bl);return}
+    c.save();c.transform(1,uy,0,1,ax,ay);
+    if(s.v==='wall'){var pw2=hw*.8,ph2=Math.min(pw2*.6,th0*.42),lx0=(hw-pw2)/2,vb=Math.min(th0-ph2-3,Math.max(9*k,th0*.52-ph2/2));   // a framed billboard on the face
+      if(!g.LOD){c.fillStyle='rgba(0,0,0,'+(dark?.3:.18)+')';c.fillRect(lx0+1.4,-vb-ph2+1.6,pw2,ph2);
+        c.strokeStyle=g.tron?col:'#3E434E';c.lineWidth=.7;c.beginPath();[.2,.5,.8].forEach(function(f){var lx=lx0+pw2*f;c.moveTo(lx,-vb-ph2-.5);c.lineTo(lx,-vb-ph2-3);c.lineTo(lx+(L?-1.4:1.4),-vb-ph2-3.6)});c.stroke()}   // gooseneck lamps
+      signPanel(c,r,lx0,-vb-ph2,pw2,ph2,col,dark,g.tron,g.LOD,false);
+      if(!g.LOD&&dark)[.2,.5,.8].forEach(function(f){var lx=lx0+pw2*f+(L?-1.4:1.4);c.fillStyle='rgba(255,246,214,.14)';c.beginPath();c.moveTo(lx,-vb-ph2-3.4);c.lineTo(lx-4,-vb-ph2*.3);c.lineTo(lx+4,-vb-ph2*.3);c.closePath();c.fill();c.fillStyle='#FFF4D0';c.fillRect(lx-.6,-vb-ph2-3.9,1.2,.8)});
+      c.restore();signHit(s,g,ax,ay,uy,lx0,-vb-ph2,pw2,ph2);return}
+    // fascia: shop window, striped awning, and the name board above it, at street level
+    var fw=hw*.9,fx0=(hw-fw)/2,wnd=7*k,aw=3*k,bd=Math.max(6,7.5*k);
+    if(!g.LOD){c.fillStyle=dark?'rgba(255,214,140,.95)':'rgba(40,52,72,.62)';c.fillRect(fx0+1,-wnd,fw-2,wnd-.6);
+      c.fillStyle=dark?'rgba(120,70,30,.6)':'rgba(255,255,255,.35)';c.fillRect(fx0+fw*.45,-wnd+1,fw*.1,wnd-1.6);   // door
+      if(dark){c.save();c.globalAlpha=.35;c.shadowColor='#FFD98A';c.shadowBlur=8;c.fillStyle='#FFD98A';c.fillRect(fx0+1,-wnd,fw-2,wnd-.6);c.restore()}}
+    signPanel(c,r,fx0,-wnd-aw-bd,fw,bd,col,dark,g.tron,g.LOD,false);
+    c.restore();
+    if(!g.LOD){var n=6,ox2=L?-2.2:2.2;for(var q=0;q<n;q++){var a0=fx0+fw*q/n,a1=fx0+fw*(q+1)/n,P0={x:ax+a0,y:ay+uy*a0-wnd-aw},P1={x:ax+a1,y:ay+uy*a1-wnd-aw};   // awning, leaning out over the street
+      c.fillStyle=q%2?'#FFF4E8':mix(col,dark?.95:1.15);c.beginPath();c.moveTo(P0.x,P0.y);c.lineTo(P1.x,P1.y);c.lineTo(P1.x+ox2,P1.y+aw+1.4);c.lineTo(P0.x+ox2,P0.y+aw+1.4);c.closePath();c.fill()}
+      if(dark){c.save();c.transform(1,uy,0,1,ax,ay);[fx0+1,fx0+fw-1].forEach(function(lx){c.fillStyle='#FFF4D0';c.beginPath();c.arc(lx,-wnd-aw-bd-1.2,.8,0,7);c.fill()});c.restore()}}   // sconces
+    signHit(s,g,ax,ay,uy,fx0,-wnd-aw-bd,fw,bd+aw+wnd)})});SIGNS=[]}   // pushed last: tapping a sign wins over the tower in front of it
 // ---- the store directory: tapping any storefront (or "Stores" in the toolbar) lists every storefront in that city in one menu
-function storeList(key){var out=[];for(var k in tiles){var t=tiles[k];if(t.t==='b'&&t.r&&t.r.kind&&(!key||(t.d&&(t.d.nb||t.d.name))===key)){var a=k.split(',');out.push({r:t.r,d:t.d,i:+a[0],j:+a[1]})}}
+function storeList(key){var out=[];for(var k in tiles){var t=tiles[k];if(t.t!=='b'||!t.r||!(!key||(t.d&&(t.d.nb||t.d.name))===key))continue;var L=SFA.get(t.r);if(!L)continue;var a=k.split(',');
+    L.forEach(function(s){out.push({r:s.r,d:t.d,i:+a[0],j:+a[1]})})}
   out.sort(function(a,b){return String(a.r.name).localeCompare(String(b.r.name),undefined,{sensitivity:'base'})||placeOf(a).localeCompare(placeOf(b))});return out}
 function placeOf(s){if(!s.d)return '';if(D.world){var key=s.d.nb||s.d.name,m=WORLD&&WORLD.m&&WORLD.m[key]||{};return m.name||key}return s.d.name||''}
 function storeAddr(r){var m=r.meta||{},s=r.sites&&r.sites[0];return typeof s==='string'&&s.indexOf(m.host||'\u0000')===0?s:(m.host||'')}
@@ -1458,21 +1565,21 @@ function drawObjects(){SIGNS=[];var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(
     if(t.t==='p'){tree2(c,p.x-10,p.y+1,.9);pine(c,p.x+11,p.y-2,.8);tree2(c,p.x+2,p.y+7,.6)}
     if(t.t==='h'){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],sd=hash(t.d.name);for(var q=0;q<t.n;q++)houseAt(c,p.x+spots[q][0],p.y+spots[q][1],['#E8DCC8','#CFD8E6','#EAD2B8','#D2E0CC'][(sd+q)%4],sd+q)}
     if(hf<1)c.restore();if(gp<1&&t.t!=='b')c.restore();
-    if(t.t==='b'&&t.r.kind){var sf=BUILDING?buildF(t,i,j):1;if(sf<1){plate(c,p.x,p.y+4,.78,'#8A8A93',.9);if(sf>0){c.save();var sk=backOut(Math.min(1,sf*1.3));c.translate(p.x,p.y+4);c.scale(sk,sk);c.translate(-p.x,-p.y-4);storefront(c,p,t,false,[]);c.restore()}continue}storefront(c,p,t,false,tags);continue}
-    if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;
-      var col=r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
-      var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
+    if(t.t==='b'){var r=t.r,SL=SFA.get(r),h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;
+      var col=r.kind?SHOPC[seed%SHOPC.length]:r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
+      var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=r.kind?.6:dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
       var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));   // people on the site right now light up its building (the rest of the district a little)
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
       if(bf<1){top=lego(c,p.x,base,tiers,h,col,glass,litp,seed,r,bf,i+','+j,t.d&&(t.d.nb||t.d.name),LOD);if(bf>0&&bf<.8&&!LOD)cranes.push({x:p.x+4,y:top,seed:seed})}
       else{for(var k=0;k<tiers.length;k++){var tw=tiers[k][0],th=tiers[k][1];var sh=prism(c,p.x,top,tw,th,col);if(!LOD)facadeWindows(c,p.x,top,tw,th,glass,litp,seed+k*101,base,sg>0?Math.min(.55,sg*.75):0);top-=th}
-      if(!LOD)roofProps(c,p.x,top,tiers[tiers.length-1][0],r,seed)}
+      if(!LOD&&!(SL&&SL.some(function(s){return s.v==='roof'})))roofProps(c,p.x,top,tiers[tiers.length-1][0],r,seed)}
       if(r===tallest)beacons.push({x:p.x,y:top-26});
       if(r.week>0&&!dm&&bf>=1)cranes.push({x:p.x+4,y:top,seed:seed});
+      if(SL&&bf>=1)SIGNS.push({c:c,x:p.x,base:base,top:top,tiers:tiers,list:SL,d:t.d,tron:false,LOD:LOD});
       if(sel===r){c.save();c.strokeStyle='#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;var hw=TW/2*.78,hh=TH/2*.78;c.beginPath();c.moveTo(p.x-hw,base);c.lineTo(p.x,base+hh);c.lineTo(p.x+hw,base);c.lineTo(p.x+hw,top+ (base-top>0?0:0));c.lineTo(p.x,top-TH/2*.46);c.lineTo(p.x-hw,top);c.closePath();c.stroke();c.restore()}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
-      if(labels&&bf>=1&&!INTRO&&!r.locked&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase().replace(/[^a-z0-9]/g,'')===String(r.name).toLowerCase().replace(/[^a-z0-9]/g,'')))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name,url:repoUrl(r),r:r})}}
+      if(labels&&bf>=1&&!INTRO&&!r.locked&&!r.kind&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase().replace(/[^a-z0-9]/g,'')===String(r.name).toLowerCase().replace(/[^a-z0-9]/g,'')))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name,url:repoUrl(r),r:r})}}
   drawDust(c);drawSigns();
   if(SHOPLBL){pill(c,SHOPLBL.x,SHOPLBL.y,SHOPLBL.text,SHOPLBL.bg,'#fff','700 11px IBM Plex Sans,Arial,sans-serif');hits.push({shop:1,x0:SHOPLBL.x-80,x1:SHOPLBL.x+80,y0:SHOPLBL.y-12,y1:SHOPLBL.y+8});SHOPLBL=null}
   if(WORLD){worldLabels(tags);return}
@@ -1533,15 +1640,17 @@ var GT={},GL={},GS={},glowAt=0,glowDraw=0;
     if(s.indexOf('/')>=0){if(h===s||h.indexOf(s+'/')===0)return true;continue}if(hh===s||hh.slice(-s.length-1)==='.'+s)return true}return false}
   function sWord(h){var l=String(h).split('.');while(l.length>2&&/^(www|app|m|my|go|get|beta|staging)$/.test(l[0]))l.shift();return sNorm(l[0])}
   var SBK=null,SBT=null,SBG=null,SBAt=0;
+  // a building's sites, plus those of the websites whose signs hang on it (their visitors walk into this building)
+  function tSites(t){var L=SFA.get(t.r);if(!L)return t.r.sites;if(t._st)return t._st;var o=(t.r.sites||[]).slice();L.forEach(function(s){if(s.r!==t.r)(s.r.sites||[]).forEach(function(x){if(o.indexOf(x)<0)o.push(x)})});return t._st=o}
   function siteBook(){if(SBK&&SBT===tiles&&SBG===GS&&(!BUILDING||T-SBAt<1000))return SBK;SBT=tiles;SBG=GS;SBAt=T;SBK=new Map();var by={},k,dn;   // rebuilt when the layout or the live data changes
-    var stores=[];for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t);if(t.r.kind==='site')stores.push(t)}
+    var stores=[];for(k in tiles){var t=tiles[k];if(!t||t.t!=='b'||!t.d||!t.r||!t.r.name)continue;(by[t.d.name]||(by[t.d.name]=[])).push(t);if((SFA.get(t.r)||[]).some(function(s){return s.r.kind==='site'}))stores.push(t)}
     for(dn in by){var ts=by[dn],d=ts[0].d,ds=GS[d.name]||(d.nb&&GS[d.nb])||null;if(!ds)continue;var mx=0;for(k in ds)mx=Math.max(mx,ds[k]);
-      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(t.r.sites,k)}),kk=k;
-        var pth=own.filter(function(t){return (t.r.sites||[]).some(function(x){x=String(x);return x.indexOf('/')>=0&&(kk===x||kk.indexOf(x+'/')===0)})});if(pth.length)own=pth;   // a page (host/path) beats its bare host
+      for(k in ds){var share=ds[k]/(mx||1),own=ts.filter(function(t){return sHostOwns(tSites(t),k)}),kk=k;
+        var pth=own.filter(function(t){return (tSites(t)||[]).some(function(x){x=String(x);return x.indexOf('/')>=0&&(kk===x||kk.indexOf(x+'/')===0)})});if(pth.length)own=pth;   // a page (host/path) beats its bare host
         if(!own.length){var w=k.indexOf('.')<0?sNorm(k):sWord(k),best=null,bs=0;
           if(w.length>=3)ts.forEach(function(t){var rn=sNorm(t.r.name),sc=rn===w?1000:(w.length>=4&&rn.indexOf(w)>=0)||(rn.length>=4&&w.indexOf(rn)>=0)?100-Math.abs(rn.length-w.length):0;
-            if(sc>bs&&!(t.r.sites&&t.r.sites.length&&sc<1000)){bs=sc;best=t}});   // a repo that names its own sites isn't guessed into another
-          if(best)own=[best];else own=stores.filter(function(t){return t.d!==d&&sHostOwns(t.r.sites,k)})}   // a listed website standing in another district
+            if(sc>bs&&!(tSites(t)&&tSites(t).length&&sc<1000)){bs=sc;best=t}});   // a repo that names its own sites isn't guessed into another
+          if(best)own=[best];else own=stores.filter(function(t){return t.d!==d&&sHostOwns(tSites(t),k)})}   // a listed website standing in another district
         own.forEach(function(t){SBK.set(t.r,Math.max(SBK.get(t.r)||0,share))})}}
     return SBK}
   function siteGlowOf(t){var gw=glowOf(t.d);if(!(gw>0)||!t.r)return 0;return gw*(siteBook().get(t.r)||0)}

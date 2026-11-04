@@ -133,11 +133,11 @@ export function toListing(r: ListingRef, m: ListingMeta | undefined, hub: string
 
 /** A listing as a city building (a CityRepo with kind set). Public by design: the owner listed it. A website carries its
  *  own site ("host" or "host/path"), so its live visitors stand in the storefront. */
-export function listingBuilding(l: Listing, project: string, besidePrivate = false): CityRepo {
+export function listingBuilding(l: Listing, project: string, besidePrivate = false, on?: string): CityRepo {
   const site = l.kind === "site" ? siteKey(l) : "";
   return { ...(besidePrivate ? { pv: true } : {}), name: clean(l.name, 60) || "App", project, public: true, language: l.kind === "app" ? "App" : "Web", commits: 0, weeks: [], week: 0, today: 0,
     url: l.url, kind: l.kind, ...(site ? { sites: [site] } : {}),
-    meta: { store: l.store, icon: l.icon, genre: l.genre, rating: l.rating, ratings: l.ratings, desc: l.desc, host: l.host } };
+    meta: { store: l.store, icon: l.icon, genre: l.genre, rating: l.rating, ratings: l.ratings, desc: l.desc, host: l.host, ...(on ? { on } : {}) } };
 }
 /** "kitse.co" for https://www.kitse.co/, "mjonesone.com/dictate" for https://mjonesone.com/dictate */
 export function siteKey(l: { url: string; host?: string }): string {
@@ -169,7 +169,7 @@ export function withListingsPrivate(city: CityData | undefined, items: Listing[]
   for (const l of items) {
     const hit = l.repo ? findRepo(c, l.repo) : null;
     if (!storefrontOn(l, hideStorefronts)) { if (hit && l.kind === "site" && l.storefront === false) addSite(hit.r, l.host); continue; }
-    (hit ? hit.d : general(c.districts)).repos.push(listingBuilding(l, hit ? hit.d.name : LISTING_DISTRICT));
+    (hit ? hit.d : general(c.districts)).repos.push(listingBuilding(l, hit ? hit.d.name : LISTING_DISTRICT, false, hit?.r.name));
   }
   return dropEmptyGeneral(c);
 }
@@ -177,7 +177,8 @@ export function withListingsPrivate(city: CityData | undefined, items: Listing[]
 /** The PUBLIC city: `pub` is publicCity() of `priv` (both without listings). A listing tied to a repo stands in that
  *  repo's district only when the district is public and the setting already reveals that the repo belongs there (a
  *  public repo, or private repos shown by name or as padlocks in place); otherwise it goes to "Apps & sites". Nothing
- *  here ever carries the tied repo's name. */
+ *  here ever carries the tied repo's name, except as meta.on when that repo already stands in the same district by name
+ *  (so its sign can hang on that building). */
 export function withListingsPublic(pub: CityData | undefined, priv: CityData | undefined, items: Listing[], mode: PrivateMode = "show", hideRepos: string[] = [], hideStorefronts: string[] = []): CityData | undefined {
   const hs = new Set(hideStorefronts.map(lc).filter(Boolean));
   if (!items.length && !hs.size) return pub;
@@ -201,7 +202,7 @@ export function withListingsPublic(pub: CityData | undefined, priv: CityData | u
     }
     if (!storefrontOn(l, [...hs])) { if (l.kind === "site" && l.storefront === false && named && !hs.has(lc(named.name))) addSite(named, l.host); continue; }
     const d = district || general(c.districts);
-    d.repos.push(listingBuilding(l, d.name, pv && !!district));
+    d.repos.push(listingBuilding(l, d.name, pv && !!district, district && named ? named.name : undefined));   // its sign hangs on the tied repo only when that repo stands here by name
   }
   return dropEmptyGeneral(c);
 }
