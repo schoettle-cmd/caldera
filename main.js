@@ -1,4 +1,4 @@
-/* Caldera 0.28.20 */
+/* Caldera 0.28.21 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -4478,7 +4478,7 @@ function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=n
    +(D.world&&d.nb&&r.public&&!r.locked?giftHtml(d.nb,r.name):'');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};giftWire(function(){show(h)});draw()}
 function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=null,bd=1e9;UP.forEach(function(p,ix){var d=Math.hypot(p.x-wx0,p.y-wy0);if(d<Math.max(p.r+3,7/cam.z)&&d<bd){bd=d;best=ix}});return best==null?null:{note:best}}
-  var sx=(px-cam.x)/cam.z,sy=(py-cam.y)/cam.z;for(var si=SHITS.length-1;si>=0;si--){var sh=SHITS[si];if(sx>=sh.x0&&sx<=sh.x1&&sy>=sh.y0&&sy<=sh.y1)return sh}   // signs sit on top of everything, so they win every tap
+  var sx=(px-cam.x)/cam.z,sy=(py-cam.y)/cam.z,sb=null,sd=1e18;for(var si=SHITS.length-1;si>=0;si--){var sh=SHITS[si],k=sh.card;if(sx>=sh.x0&&sx<=sh.x1&&sy>=sh.y0&&sy<=sh.y1){var inside=sx>=k[0]&&sx<=k[2]&&sy>=k[1]&&sy<=k[3],dd=inside?-1:Math.pow(sx-(k[0]+k[2])/2,2)+Math.pow(sy-(k[1]+k[3])/2,2);if(dd<sd){sd=dd;sb=sh;if(inside)break}}}if(sb)return sb   // signs sit on top of everything, so they win every tap; padded 44 px targets that overlap go to the nearest card
   if(labels){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return th.shop?{shop:1}:th.block?{block:th.block}:{url:th.url}}}
   for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
 var ptr={},moved=false,pinch=0;
