@@ -848,7 +848,7 @@ function heliAdd(key,id){var seed=hash(key+'#'+id)%100000,c=heliCenter(key);if(!
   HELIS.push({id:key+'#'+id,c:c,born:performance.now(),seed:seed,side:side,ang:rnd(seed)*6.283,sp:(.00005+rnd(seed+2)*.00004)*(rnd(seed+3)<.5?-1:1),
     fx:c.x+side*far,fy:c.y-c.r-200,rr:c.r*(.6+rnd(seed+4)*.4),alt:rnd(seed+5)*30,leave:0,face:-side})}
 function heliLeave(h,tn){if(h.leave)return;var p=heliPos(h,tn)||{x:h.fx,y:h.fy};h.leave=tn;h.lx=p.x;h.ly=p.y;var far=h.c.r*2.5+520;h.ex=h.c.x-h.side*far;h.ey=h.c.y-h.c.r-200}   // out the other side
-function heliScale(){return D.world?Math.min(10,Math.max(1,.85/cam.z)):Math.min(2.6,Math.max(1.5,1.1/cam.z))}
+function heliScale(){return D.world?Math.min(14,Math.max(1,24/(18.6*cam.z))):Math.min(12,Math.max(1.5,(vw<600?28:38)/(18.6*cam.z)))}   // a helicopter is never smaller than ~38 px on screen (28 on phones, 24 on the World map): few of them, so each one is easy to see
 function heliPos(h,tn){var age=tn-h.born;if(age<0)return null;var k=Math.min(1,age/6000),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,ang=h.ang+h.sp*age,ox=h.c.x+Math.cos(ang)*h.rr,oy=h.c.y-h.alt+Math.sin(ang)*h.rr*.45;
   var x=h.fx+(ox-h.fx)*e,y=h.fy+(oy-h.fy)*e,f=Math.min(1,age/900),done=false;
   if(h.leave){var g=Math.min(1,(tn-h.leave)/6000),ge=g*g*(3-2*g);x=h.lx+(h.ex-h.lx)*ge;y=h.ly+(h.ey-h.ly)*ge;f=g>.8?Math.max(0,(1-g)/.2):1;done=g>=1}
