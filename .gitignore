@@ -11,3 +11,4 @@ packages/plugin/test/suggest.build.mjs
 packages/plugin/test/city.build.mjs
 packages/plugin/test/listings.build.mjs
 packages/plugin/test/gitlines.build.mjs
+packages/plugin/test/ihsync.build.mjs

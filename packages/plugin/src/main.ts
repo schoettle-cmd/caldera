@@ -4,7 +4,8 @@
  * and only to the hub you configure. No telemetry.
  */
 import { fillFromPage, isPageCode, photoPlan } from "./page-import";
-import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Plugin, Setting, SuggestModal, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
+import { IhSyncEngine, IH_API_DEFAULT, ihApiOk, inFolder, normFolder, skippedMessage, type IhSyncState } from "./ihsync";
+import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Platform, Plugin, Setting, SuggestModal, TFile, TFolder, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
 import { collectProfile } from "./collect";
@@ -56,6 +57,7 @@ export default class CalderaPlugin extends Plugin {
       if (friend) void this.confirmFriend(friend);
       if (params.open === "private") void this.openPrivate();   // "Private view in Obsidian" on your own public page
       if (params.open === "finish") void this.openProfileTab();   // "Finish your page" from the daily email
+      if (params.ih === "pair") void this.ihPair(String(params.code || ""), String(params.api || ""));   // Inbox Hero connector: obsidian://caldera?ih=pair&code=ihp_...
     });
 
     this.addCommand({ id: "preview", name: "Preview my public profile", callback: () => this.preview() });
@@ -105,20 +107,23 @@ export default class CalderaPlugin extends Plugin {
       if (this.settings.openProfileOnStartup) void this.openProfileTab();
       this.schedulePrivatePush(); if (this.settings.privateWeb) this.timers.push(later(() => { void this.pushPrivate(false); }, 30_000));
       if (this.settings.identity && this.settings.handle) void this.syncInbox(false);
-      else if (!this.settings.welcomed) new WelcomeModal(this.app, this).open();   // first run: one screen to a live profile
-      window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
-      window.setTimeout(() => { void this.offerFinish(); }, 12_000);   // once: a bare page gets an offer to fill it in
-      window.setTimeout(() => { void this.offerTopics(); }, 40_000);   // once: a page with no topics gets the vault's own tags to pick from
+      else if (!this.settings.welcomed && !this.settings.ihOnly) { this.welcome = new WelcomeModal(this.app, this); this.welcome.open(); }   // first run: one screen to a live profile (not for Inbox Hero-only installs)
+      if (!this.settings.ihOnly) {   // Caldera nudges; an Inbox Hero-only install never sees them
+        window.setTimeout(() => { void this.checkReleases(false); }, 8_000);
+        window.setTimeout(() => { void this.offerFinish(); }, 12_000);   // once: a bare page gets an offer to fill it in
+        window.setTimeout(() => { void this.offerTopics(); }, 40_000);   // once: a page with no topics gets the vault's own tags to pick from
+      }
+      this.ihWatch();
       // catch up after Obsidian was closed: the daily journal (and the garden it grows) may have changed meanwhile
       this.timers.push(later(() => { if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 3600_000) void this.publish(true); }, 20_000));
     });
     this.timers.push(every(() => { if (this.settings.identity) void this.syncInbox(false); }, 10 * 60_000));
     // new repos show up within minutes: check GitHub every 10 minutes, and republish when a tool of your own rewrites
     // Caldera/city.json (the plugin's own writes happen inside a publish and are ignored)
-    this.timers.push(every(() => { void this.checkRepos(); }, 10 * 60_000));
+    this.timers.push(every(() => { if (!this.settings.ihOnly) void this.checkRepos(); }, 10 * 60_000));
     this.app.workspace.onLayoutReady(() => {
       this.registerEvent(this.app.vault.on("modify", f => { if (f.path === "Caldera/city.json" && !this.publishing) this.queuePublish("profile"); }));
-      this.timers.push(later(() => { void this.checkRepos(); }, 60_000));
+      this.timers.push(later(() => { if (!this.settings.ihOnly) void this.checkRepos(); }, 60_000));
     });
     this.scheduleAutoPublish();
     this.timers.push(later(() => { void this.confirmPageClaim(); }, 30_000));
@@ -128,6 +133,55 @@ export default class CalderaPlugin extends Plugin {
   onunload() { this.timers.forEach(t => cancel(t)); for (const k of ["_auto", "_priv"]) cancel((this as any)[k]); cancel(this.publishTimer); this.unloaded = true; }
   private unloaded = false;
   async saveSettings() { await this.saveData(this.settings); }
+
+  // ---- Inbox Hero connector (private, one folder, one way; see ihsync.ts). Never touches the Caldera hub.
+  welcome: Modal | null = null;
+  private ihBusy = false; private ihQueue = new Set<string>(); private ihTimer = 0;
+  ihState(): IhSyncState { return this.settings.ihSync || (this.settings.ihSync = {}); }
+  ihConnected(): boolean { return !!this.settings.ihSync?.token; }
+  ihEngine(): IhSyncEngine {
+    const v = this.app.vault;
+    return new IhSyncEngine(this.ihState(),
+      { getMarkdownFiles: () => v.getMarkdownFiles(), cachedRead: f => v.cachedRead(f as TFile) },   // reads only
+      path => (this.app.metadataCache.getCache(path) as any) || null,
+      async o => { const r = await requestUrl({ url: o.url, method: o.method, headers: o.headers, body: o.body, throw: false }); let json: any = null; try { json = r.json; } catch { /* not JSON */ } return { status: r.status, json }; },
+      v.getName());
+  }
+  /** obsidian://caldera?ih=pair&code=ihp_...: swap the one-time code for the upload token, then pick the folder. */
+  async ihPair(code: string, api: string) {
+    const base = ihApiOk(api || IH_API_DEFAULT); if (!base) { new Notice("That link doesn't come from Inbox Hero."); return; }
+    if (!this.settings.identity && !this.settings.handle) this.settings.ihOnly = true;   // here for Inbox Hero only: no Caldera onboarding
+    if (this.welcome) { this.welcome.close(); this.welcome = null; }
+    const st = this.ihState(); st.api = base;
+    try { await this.ihEngine().pair(code, (Platform.isMobile ? "Phone" : Platform.isMacOS ? "Mac" : Platform.isWin ? "Windows PC" : "Computer") + " · " + this.app.vault.getName()); }
+    catch (e: any) { await this.saveSettings(); new Notice(e.message, 10_000); return; }
+    await this.saveSettings();
+    new IhConnectModal(this.app, this).open();
+  }
+  async ihSyncNow(full: boolean, only?: Set<string>, quiet = false) {
+    if (!this.ihConnected() || !normFolder(this.settings.ihSync?.folder)) return;
+    if (this.ihBusy) { if (only) only.forEach(p => this.ihQueue.add(p)); else window.setTimeout(() => void this.ihSyncNow(full, undefined, quiet), 5_000); return; }
+    this.ihBusy = true;
+    try {
+      const r = await this.ihEngine().sync(full, only);
+      if (!quiet || r.skipped.length) new Notice(`Inbox Hero: ${r.sent} note${r.sent === 1 ? "" : "s"} sent${r.removed ? `, ${r.removed} removed` : ""}.${r.skipped.length ? " " + skippedMessage(r.skipped) + "." : ""}`, r.skipped.length ? 12_000 : 5_000);
+    } catch (e: any) { this.ihState().error = e.message; if (!quiet || /disconnected|isn't available/.test(e.message)) new Notice("Inbox Hero: " + e.message, 10_000); if (/slow down/.test(e.message)) window.setTimeout(() => void this.ihSyncNow(false, undefined, true), 120_000); }
+    finally { this.ihBusy = false; await this.saveSettings(); }
+  }
+  /** File changes inside the folder sync after a quiet moment (debounced). */
+  private ihWatch() {
+    const hit = (path: string) => { const st = this.settings.ihSync; if (!st?.token || !inFolder(path, st.folder || "")) return;
+      this.ihQueue.add(path); window.clearTimeout(this.ihTimer);
+      this.ihTimer = window.setTimeout(() => { const q = new Set(this.ihQueue); this.ihQueue.clear(); void this.ihSyncNow(false, q, true); }, 4_000); };
+    for (const ev of ["create", "modify", "delete"] as const) this.registerEvent(this.app.vault.on(ev as any, (f: any) => { if (f instanceof TFile) hit(f.path); }));
+    this.registerEvent(this.app.vault.on("rename", (f, old) => { if (f instanceof TFile) { hit(old); hit(f.path); } }));
+    this.timers.push(later(() => { if (this.ihConnected()) void this.ihSyncNow(false, undefined, true); }, 15_000));   // catch up on changes made while Obsidian was closed
+  }
+  async ihDisconnect() {
+    try { await this.ihEngine().disconnect(); new Notice("Disconnected from Inbox Hero. It is deleting the notes it had from this vault."); }
+    catch (e: any) { new Notice("Disconnected here. Inbox Hero answered: " + e.message + " You can also delete the synced notes in Inbox Hero Settings.", 12_000); }
+    await this.saveSettings();
+  }
 
   /** Take over a profile that was started with "Sign up with GitHub" on the hub (one-time code from caldera.social/me). */
   async importGithub(code: string): Promise<boolean> {
@@ -1165,6 +1219,30 @@ class TopicsModal extends Modal {
       }));
   }
   onClose() { this.contentEl.empty(); }
+}
+
+/** First run from the Inbox Hero pairing link: only the connector (pick one folder, see what the scanner leaves out). */
+export class IhConnectModal extends Modal {
+  constructor(app: App, private plugin: CalderaPlugin) { super(app); }
+  onOpen() {
+    const { contentEl } = this; contentEl.empty(); const st = this.plugin.ihState();
+    contentEl.createEl("h2", { text: "Inbox Hero connector" });
+    contentEl.createEl("p", { text: "Connected. Pick one folder to sync to your Inbox Hero account. Only that folder's notes are read, it's one way (nothing in your vault is ever changed), and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
+    let folder = normFolder(st.folder); const out = contentEl.createEl("p", { cls: "setting-item-description" });
+    let go: any;
+    const show = async () => { out.setText(folder ? "Checking the folder..." : "No folder chosen yet: nothing syncs.");
+      if (go) go.setDisabled(!folder); if (!folder) return;
+      const p = await this.plugin.ihEngine().preview(folder); if (normFolder(folder) !== folder) return;
+      out.setText(`${p.notes} note${p.notes === 1 ? "" : "s"} will sync.` + (p.skipped.length ? " " + skippedMessage(p.skipped) + "." : "")); };
+    new Setting(contentEl).setName("Folder").setDesc("One folder (its subfolders too).").addDropdown(d => { d.addOption("", "Choose a folder"); for (const f of ihFolders(this.app)) d.addOption(f, f); d.setValue(folder); d.onChange(v => { folder = v; void show(); }); });
+    new Setting(contentEl).addButton(b => { go = b; b.setButtonText("Start syncing").setCta().setDisabled(!folder).onClick(async () => { st.folder = folder; await this.plugin.saveSettings(); this.close(); void this.plugin.ihSyncNow(true); }); })
+      .addButton(b => b.setButtonText("Not now").onClick(() => this.close()));
+    void show();
+  }
+  onClose() { this.contentEl.empty(); }
+}
+export function ihFolders(app: App): string[] {
+  return app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder && f.path && f.path !== "/" && !f.path.startsWith(".")).map(f => f.path).sort((a, b) => a.localeCompare(b)).slice(0, 2000);
 }
 
 class WelcomeModal extends Modal {
