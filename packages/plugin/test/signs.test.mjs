@@ -109,3 +109,13 @@ test("signs: a click opens the listing's store or website, never the building or
   assert.ok(CITY_JS.includes("h.url||h.sign||"), "pointer cursor over a sign");
   assert.ok(CITY_JS.includes("if(h&&h.r&&!h.sign&&!MINI)openRepo"), "a double click doesn't open a second tab");
 });
+
+test("city canvas recovery (Mike 2026-11-05, black city on the Hades card): context loss, health checks, parent messages, mini DPR cap", () => {
+  assert.ok(CITY_JS.includes("cv.addEventListener('contextlost',function(e){e.preventDefault();lose()})"), "contextlost: stop and tell the parent");
+  assert.ok(CITY_JS.includes("cv.addEventListener('contextrestored',function(){recover()})"), "contextrestored: rebuild and redraw");
+  assert.ok(/lostT=setTimeout\(function\(\)\{if\(LOST\)location\.reload\(\)\},2000\)/.test(CITY_JS), "not back in 2 s: reload");
+  assert.ok(CITY_JS.includes("postMessage({type:'caldera-city',state:s},'*')") && CITY_JS.includes("postState('ready')"), "ready after the first real frame");
+  assert.ok(CITY_JS.includes("dpr=Math.min(window.devicePixelRatio||1,MINI?1.5:3)"), "mini frame DPR capped at 1.5");
+  assert.ok(CITY_JS.includes("new IntersectionObserver(") && CITY_JS.includes("ONSCREEN&&!LOST&&"), "mini pauses off screen");
+  assert.ok(CITY_JS.includes("m.type==='caldera-city-ping'"), "answers the parent's ping");
+});

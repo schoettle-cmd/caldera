@@ -552,7 +552,7 @@ function dormant(r){return r.pushed&&now-Date.parse(r.pushed)>60*DAY&&!r.week}
 var dpr=1,vw=0,vh=0,cam={x:0,y:0,z:1};
 function iso(i,j){return {x:(i-j)*TW/2,y:(i+j)*TH/2}}
 var FITZ=0;   // the zoom that fits the whole map: world labels loosen their budget as you zoom past it
-function fit(){var r=st.getBoundingClientRect();dpr=window.devicePixelRatio||1;vw=r.width;vh=r.height;cv.width=vw*dpr;cv.height=vh*dpr;
+function fit(){var r=st.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,MINI?1.5:3);vw=r.width;vh=r.height;cv.width=vw*dpr;cv.height=vh*dpr;
   var spanX=(W+H)*TW/2+TW,spanY=(W+H)*TH/2+maxH+40;cam.z=Math.min(1.6,Math.max(D.world?.08:.3,Math.min(vw/spanX,vh/spanY)*.98));
   var c=iso(W/2,H/2);cam.x=vw/2-c.x*cam.z;cam.y=vh/2-c.y*cam.z+(maxH/2)*cam.z;
   if(under){var y0=iso(0,0).y-maxH*.6,y1=iso(W,H).y+DROP+DSPAN+20;cam.z=Math.min(1.4,Math.max(.25,Math.min(vw/spanX,vh/(y1-y0))*.96));cam.x=vw/2-c.x*cam.z;cam.y=vh/2-((y0+y1)/2)*cam.z}
@@ -1627,9 +1627,10 @@ var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=t
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
   drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh);
-  cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0)}   // storefront signs over everything: cranes, helicopters, agents, labels
+  cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0);
+  if(!SENT_READY&&!LOST){SENT_READY=true;postState('ready')}}   // storefront signs over everything: cranes, helicopters, agents, labels
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
-var last=0,FPS_MS=MINI?50:30;function tick(ts){if(!document.hidden&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
+var last=0,FPS_MS=MINI?50:30,ONSCREEN=true;function tick(ts){if(!document.hidden&&ONSCREEN&&!LOST&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
   if(LV.on){var tg=performance.now();cars=cars.filter(function(c){return !c.gone||tg-c.gone<1500})}
   if(vis.length){var tn=performance.now();vis=vis.filter(function(v){return tn-v.born<v.life});vis.forEach(function(v){v.t+=v.sp;if(v.t>=1)step(v);var p=carPos(v);(v.trail=v.trail||[]).push([p.x,p.y-1]);if(v.trail.length>26)v.trail.shift()})}frame()}requestAnimationFrame(tick)}
 // ---- interaction
@@ -1737,6 +1738,29 @@ document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hid
 (function(){var n=storeList(null).length,tb=st.querySelector('.c-tools');if(!n||!tb||MINI)return;var b=document.createElement('button');b.id='t-stores';b.type='button';b.title='Every storefront in this '+(D.world?'world':'city');
   b.innerHTML='&#x1F3EA;<span class="t-txt"> Stores ('+n+')</span>';b.setAttribute('aria-label','Stores ('+n+')');b.onclick=function(){if(!card.hidden&&card.classList.contains('is-dir')){show(null);return}storeDir(null,null,true)};
   var ref=tb.querySelector('#t-reset');tb.insertBefore(b,ref||null)})();
+// ---- the canvas going black (2026-11-05, Mike on the Hades card: "often caldera does not load in this view"). iOS drops
+// canvas backing stores on background/resume, on re-layout (the Duo folding) and under memory pressure, and can lose
+// the 2D context outright. So: on contextlost stop drawing and tell the parent; on contextrestored rebuild the layers
+// and redraw; not back within 2 s, reload. On every return to the page (and every 5 s in the mini frame) check the
+// canvas still holds a picture and redraw from scratch if it doesn't. The parent (Hades) gets {type:'caldera-city',
+// state:'ready'|'lost'} and can ping with {type:'caldera-city-ping'}.
+var LOST=false,SENT_READY=false,lostT=0;
+function postState(s){try{if(window.parent&&window.parent!==window)window.parent.postMessage({type:'caldera-city',state:s},'*')}catch(e){}}
+function rebuildLayers(){L1=document.createElement('canvas');L2=document.createElement('canvas');L3=document.createElement('canvas');L4=document.createElement('canvas');
+  c1=L1.getContext('2d');c2=L2.getContext('2d');c3=L3.getContext('2d');c4=L4.getContext('2d');UL=document.createElement('canvas');uc=UL.getContext('2d');
+  L1.width=L2.width=L3.width=L4.width=UL.width=cv.width;L1.height=L2.height=L3.height=L4.height=UL.height=cv.height;dirty=true;UDIRTY=true}
+function ctxLost(){try{return !!(cx.isContextLost&&cx.isContextLost())}catch(e){return false}}
+function blank(){try{if(!cv.width||!cv.height)return false;var x=Math.floor(cv.width/2),y=Math.floor(cv.height/3),d=cx.getImageData(x,y,1,1).data;return d[3]===0}catch(e){return false}}   // nothing drawn at all (a dropped backing store reads back empty)
+function lose(){if(LOST)return;LOST=true;SENT_READY=false;postState('lost');clearTimeout(lostT);lostT=setTimeout(function(){if(LOST)location.reload()},2000)}
+function recover(){LOST=false;clearTimeout(lostT);cx=cv.getContext('2d');rebuildLayers();fit();SENT_READY=false;if(reduce)frame()}
+function healthCheck(){if(ctxLost())return lose();if(blank()){rebuildLayers();fit();frame();if(blank()||ctxLost())lose();return}if(!LOST&&SENT_READY)postState('ready')}
+cv.addEventListener('contextlost',function(e){e.preventDefault();lose()});
+cv.addEventListener('contextrestored',function(){recover()});
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){rebuildLayers();fit();setTimeout(healthCheck,300)}});
+window.addEventListener('pageshow',function(e){if(e.persisted){rebuildLayers();fit();setTimeout(healthCheck,300)}});
+window.addEventListener('message',function(e){var m=e.data;if(m&&m.type==='caldera-city-ping'){healthCheck();if(!LOST)postState(SENT_READY?'ready':'loading')}});
+if(MINI){setInterval(function(){if(!document.hidden&&ONSCREEN)healthCheck()},5000);
+  if(window.IntersectionObserver)new IntersectionObserver(function(es){var on=es[0]&&es[0].isIntersecting;if(on&&!ONSCREEN){ONSCREEN=true;rebuildLayers();fit();setTimeout(healthCheck,300)}else ONSCREEN=on}).observe(cv)}
 window.addEventListener('resize',function(){fit();draw()});
 fit();
 if(reduce)frame();else{cityIntro();requestAnimationFrame(tick)}
