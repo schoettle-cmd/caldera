@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { inFolder, normFolder, scanSecrets, buildNote, batches, IhSyncEngine, ihApiOk, ihTokenOk, IH_API_DEFAULT, skippedMessage, entropy } from "./ihsync.build.mjs";
+import { inFolder, normFolder, scopeOf, suggestedScope, scopeRoot, scopeEmpty, inScope, topmost, defaultExclusions, isPrivateNote, countScope, scopeLabel, scanSecrets, buildNote, batches, IhSyncEngine, ihApiOk, ihTokenOk, IH_API_DEFAULT, skippedMessage, entropy } from "./ihsync.build.mjs";
 
 const TOKEN = "iho_" + "A".repeat(20) + "b1_-" + "x".repeat(19);
 const CODE = "ihp_" + "Q".repeat(32);
@@ -188,4 +188,57 @@ test("settings: no input is filled in after display() returns (an async setValue
   const st = fs.readFileSync(new URL("../src/settings.ts", import.meta.url), "utf8");
   assert.ok(!/listValue\([^)]*\)\.then/.test(st) && !/private async listValue/.test(st), "listValue is synchronous");
   assert.ok(!/\.then\([^)]*=>\s*t\.setValue/.test(st), "no setValue inside a .then");
+});
+
+// ---- 0.28.30: several folders, or the whole vault minus some (Mike 2026-11-05 "how do we fix this folder thing") ----
+test("scope: several folders, a parent includes its subfolders, whole vault minus sensitive folders, private notes out", () => {
+  assert.deepEqual(topmost(["wiki/a", "wiki", "Work/People", "Work"]), ["wiki", "Work"]);
+  const folders = ["wiki", "wiki/People", ".raw", "Slack", "Slack/general", "meetings", "Trading", "Trading/Grid bots", "Finance/Taxes 2025", "Health/Medical", "Notes", "Notes/Journal", "Real Estate", "Projects/quantum", "Projects/Caldera"];
+  const ex = defaultExclusions(folders);
+  for (const f of [".raw", "Slack", "meetings", "Trading", "Finance/Taxes 2025", "Health/Medical", "Notes/Journal", "Real Estate", "Projects/quantum"]) assert.ok(ex.includes(f), f + " starts excluded");
+  assert.ok(!ex.includes("Slack/general") && !ex.includes("Trading/Grid bots"), "only the topmost match is listed (it covers its subfolders)");
+  assert.ok(!ex.includes("wiki") && !ex.includes("Notes") && !ex.includes("Projects/Caldera"));
+  const many = { mode: "folders", include: ["wiki", "Projects/Caldera"], skipPrivate: true };
+  assert.ok(inScope("wiki/People/Ana.md", many) && inScope("Projects/Caldera/x.md", many) && !inScope("Projects/Other/x.md", many) && !inScope("wikipedia/a.md", many) && !inScope("wiki/a.png", many) && !inScope("wiki/../x.md", many));
+  const vault = { mode: "vault", include: [], exclude: ex, skipPrivate: true };
+  assert.ok(inScope("Notes/idea.md", vault) && inScope("top.md", vault) && !inScope("Slack/general/a.md", vault) && !inScope("Notes/Journal/2026-11-05.md", vault) && !inScope(".obsidian/x.md", vault) && !inScope(".trash/x.md", vault));
+  assert.equal(scopeRoot({ mode: "folders", include: ["wiki"], skipPrivate: true }), "wiki", "one folder: sent as the root, same as before");
+  assert.equal(scopeRoot(many), "", "several folders: the vault root");
+  assert.equal(scopeRoot(vault), "");
+  assert.ok(isPrivateNote({ frontmatter: { private: true } }) && isPrivateNote({ frontmatter: { private: "yes" } }) && isPrivateNote({ tags: [{ tag: "#private" }] }) && isPrivateNote({ frontmatter: { tags: ["work", "private"] } }));
+  assert.ok(!isPrivateNote({ frontmatter: { private: false, tags: ["privacy"] } }) && !isPrivateNote(null));
+  const fl = [{ path: "wiki/a.md" }, { path: "wiki/b.md", priv: true }, { path: "Notes/c.md" }, { path: "Slack/d.md" }];
+  assert.equal(countScope(fl, { mode: "folders", include: ["wiki"], skipPrivate: true }), 1);
+  assert.equal(countScope(fl, { mode: "folders", include: ["wiki"], skipPrivate: false }), 2);
+  assert.equal(countScope(fl, vault), 2);
+  assert.equal(scopeLabel(many), "wiki and 1 more folder");
+  assert.match(scopeLabel(vault), /^Whole vault, except 9 folders$/);
+});
+
+test("scope: old single-folder installs keep their folder; nothing chosen = nothing syncs; wiki/ is only a suggestion", () => {
+  assert.deepEqual(scopeOf({ folder: "Work" }).include, ["Work"]);
+  assert.ok(scopeEmpty(scopeOf({ token: TOKEN })), "connected, nothing picked: nothing syncs (wiki is never auto-synced)");
+  assert.deepEqual(suggestedScope({ token: TOKEN }, ["wiki", "Work"]).include, ["wiki"], "the picker starts on wiki/");
+  assert.deepEqual(suggestedScope({ token: TOKEN }, ["Notes/wiki", "Work"]).include, [], "only a top-level wiki/");
+  assert.deepEqual(suggestedScope({ folder: "Work" }, ["wiki"]).include, ["Work"], "a saved choice wins");
+});
+
+test("connector: several folders sync under the vault root, only in-scope non-private notes are read, and deselected ones leave Inbox Hero", async () => {
+  const fs2 = { ...files(), "wiki/Ana.md": "Ana works at Harborlane.", "wiki/Secret.md": "---\nprivate: true\n---\nnot for Inbox Hero" };
+  const { v, reads } = fakeVault(fs2), ih = fakeIh();
+  const cache2 = p => p === "wiki/Secret.md" ? { frontmatter: { private: true } } : cache(p);
+  const st = { api: IH_API_DEFAULT, scope: { mode: "folders", include: ["Work", "wiki"], skipPrivate: true } };
+  const e = new IhSyncEngine(st, v, cache2, ih.req, "Mike"); await e.pair(CODE, "Mac");
+  const r = await e.sync(true);
+  assert.equal(ih.folder, "", "two folders: the root sent is the vault root");
+  assert.deepEqual([...ih.store.keys()].sort(), ["Work/People/Jordan.md", "Work/Plan.md", "wiki/Ana.md"]);
+  assert.ok(!reads.includes("wiki/Secret.md") && !reads.includes("Personal/Diary.md") && !reads.includes("Workshop/Other.md"), "private and out-of-scope notes are never read");
+  assert.ok(r.skipped.some(s => s.path === "Work/keys.md"), "the secret scanner still applies");
+  st.scope = { mode: "folders", include: ["wiki"], skipPrivate: true };
+  await e.sync(true);
+  assert.deepEqual([...ih.store.keys()], ["wiki/Ana.md"], "back to one folder: Work's notes are removed from Inbox Hero");
+  assert.equal(ih.folder, "wiki");
+  st.scope = { mode: "vault", include: [], exclude: ["Personal", "Caldera"], skipPrivate: true };
+  await e.sync(true);
+  assert.deepEqual([...ih.store.keys()].sort(), ["Work/People/Jordan.md", "Work/Plan.md", "Workshop/Other.md", "wiki/Ana.md"], "whole vault minus Personal and Caldera, minus private and secret notes");
 });

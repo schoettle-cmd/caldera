@@ -1,4 +1,4 @@
-/* Caldera 0.28.29 */
+/* Caldera 0.28.30 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2266,7 +2266,7 @@ var main_exports = {};
 __export(main_exports, {
   IhConnectModal: () => IhConnectModal,
   default: () => CalderaPlugin,
-  ihFolders: () => ihFolders
+  ihFolderTree: () => ihFolderTree
 });
 module.exports = __toCommonJS(main_exports);
 
@@ -2304,12 +2304,62 @@ var ihCodeOk = (t) => typeof t === "string" && /^ihp_[A-Za-z0-9_-]{20,80}$/.test
 function normFolder(f) {
   return String(f ?? "").trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
 }
-function inFolder(path, folder) {
+var IH_SENSITIVE_FOLDER = /^(?:\.raw|slack|meetings?)$|trading|quant|grid|crypto|tax|estate|trust|medical|private|journal/i;
+var segs = (p) => normFolder(p).split("/");
+var under = (path, folder) => {
   const f = normFolder(folder);
-  if (!f || !/\.md$/i.test(path)) return false;
+  return !f || path === f || path.startsWith(f + "/");
+};
+function topmost(list) {
+  const l = [...new Set(list.map(normFolder).filter(Boolean))].sort((a, b) => a.length - b.length || a.localeCompare(b)), out = [];
+  for (const f of l) if (!out.some((o) => under(f, o))) out.push(f);
+  return out.sort((a, b) => a.localeCompare(b));
+}
+function defaultExclusions(folders) {
+  return topmost(folders.filter((f) => segs(f).some((n) => IH_SENSITIVE_FOLDER.test(n))).map((f) => {
+    const s = segs(f), i = s.findIndex((n) => IH_SENSITIVE_FOLDER.test(n));
+    return s.slice(0, i + 1).join("/");
+  }));
+}
+function scopeOf(st) {
+  if (st?.scope && (st.scope.mode === "folders" || st.scope.mode === "vault")) return { mode: st.scope.mode, include: topmost(st.scope.include || []), exclude: st.scope.exclude ? topmost(st.scope.exclude) : void 0, skipPrivate: st.scope.skipPrivate !== false };
+  const old = normFolder(st?.folder);
+  return { mode: "folders", include: old ? [old] : [], skipPrivate: true };
+}
+function suggestedScope(st, folders) {
+  const s = scopeOf(st);
+  if (st?.scope || !scopeEmpty(s)) return s;
+  const wiki = folders.find((f) => !f.includes("/") && f.toLowerCase() === "wiki");
+  return { ...s, include: wiki ? [wiki] : [] };
+}
+var scopeEmpty = (s) => s.mode === "folders" && !s.include.length;
+var scopeRoot = (s) => s.mode === "folders" && s.include.length === 1 ? s.include[0] : "";
+function inScope(path, s) {
   const p = String(path).replace(/\\/g, "/");
-  if (p.split("/").some((seg) => seg === ".." || seg === ".")) return false;
-  return p.startsWith(f + "/");
+  if (!/\.md$/i.test(p) || p.split("/").some((seg) => seg === ".." || seg === ".")) return false;
+  if (s.mode === "folders") return s.include.some((f) => p.startsWith(normFolder(f) + "/"));
+  if (p.split("/").some((seg) => seg.startsWith("."))) return false;
+  return !(s.exclude || []).some((f) => p.startsWith(normFolder(f) + "/"));
+}
+function isPrivateNote(c) {
+  const fm = c?.frontmatter || {}, v = fm.private;
+  if (v === true || /^(?:true|yes)$/i.test(String(v ?? ""))) return true;
+  const tags = [...(c?.tags || []).map((t) => t.tag), ...[].concat(fm.tags ?? [], fm.tag ?? []).flatMap((x) => String(x ?? "").split(/[,\s]+/))];
+  return tags.some((t) => String(t).replace(/^#/, "").toLowerCase() === "private");
+}
+function countScope(files, s) {
+  if (scopeEmpty(s)) return 0;
+  let n = 0;
+  for (const f of files) if (inScope(f.path, s) && !(s.skipPrivate && f.priv)) n++;
+  return n;
+}
+function scopeLabel(s) {
+  if (s.mode === "vault") {
+    const n = (s.exclude || []).length;
+    return "Whole vault" + (n ? `, except ${n} folder${n === 1 ? "" : "s"}` : "");
+  }
+  if (!s.include.length) return "Nothing chosen (nothing syncs)";
+  return s.include[0] + (s.include.length > 1 ? ` and ${s.include.length - 1} more folder${s.include.length === 2 ? "" : "s"}` : "");
 }
 var RX = [
   ["private key", /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----/],
@@ -2539,14 +2589,20 @@ var IhSyncEngine = class {
       throw e;
     }
   }
-  /** Sync the chosen folder. full = re-send everything and tell Inbox Hero the complete list (it drops the rest).
+  /** The vault's notes in the scope, minus private ones. Paths are filtered before any note is read. */
+  scoped(scope) {
+    return this.vault.getMarkdownFiles().filter((f) => inScope(f.path, scope) && !(scope.skipPrivate && isPrivateNote(this.cacheOf(f.path))));
+  }
+  /** Sync the chosen folders. full = re-send everything and tell Inbox Hero the complete list (it drops the rest).
    *  only = just these changed paths (debounced file events). */
   async sync(full = false, only) {
-    const folder = normFolder(this.st.folder);
+    const scope = scopeOf(this.st);
     const res = { sent: 0, removed: 0, skipped: [], unchanged: 0 };
-    if (!folder) return res;
+    if (scopeEmpty(scope)) return res;
+    const folder = scopeRoot(scope);
+    this.st.folder = folder;
     const lim = await this.limits();
-    const files = this.vault.getMarkdownFiles().filter((f) => inFolder(f.path, folder)).sort((a, b) => a.path.localeCompare(b.path));
+    const files = this.scoped(scope).sort((a, b) => a.path.localeCompare(b.path));
     let sent = { ...this.st.sent || {} };
     if (lim.folder && normFolder(lim.folder) !== folder) {
       await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] });
@@ -2606,11 +2662,11 @@ var IhSyncEngine = class {
     return res;
   }
   /** Scan the folder without sending anything: what would sync and what the secret scanner would skip. */
-  async preview(folderIn) {
-    const folder = normFolder(folderIn ?? this.st.folder);
-    if (!folder) return { notes: 0, skipped: [] };
+  async preview(scopeIn) {
+    const scope = typeof scopeIn === "string" ? { mode: "folders", include: [normFolder(scopeIn)].filter(Boolean), skipPrivate: true } : scopeIn ?? scopeOf(this.st);
+    if (scopeEmpty(scope)) return { notes: 0, skipped: [] };
     const out = { notes: 0, skipped: [] };
-    for (const f of this.vault.getMarkdownFiles().filter((f2) => inFolder(f2.path, folder))) {
+    for (const f of this.scoped(scope)) {
       const p = await this.prepare(f, IH_LIMITS_DEFAULT);
       if (p.skip) out.skipped.push({ path: f.path, why: p.skip });
       else out.notes++;
@@ -6125,31 +6181,20 @@ var CalderaSettingTab = class extends import_obsidian3.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
   }
-  /** Inbox Hero connector: one folder of this vault, one way, private. Works without a Caldera account. */
+  /** Inbox Hero connector: the folders the member picks, one way, private. Works without a Caldera account. */
   ihSection(el, alone) {
     const st = this.plugin.settings.ihSync || {}, on = !!st.token;
     new import_obsidian3.Setting(el).setName("Inbox Hero connector").setHeading();
-    el.createEl("p", { cls: "setting-item-description", text: "Sync one folder of this vault to your Inbox Hero account so it can use your notes when it answers and drafts. Private and one way: only that folder is read, nothing in your vault is ever changed, nothing goes to Caldera, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
+    el.createEl("p", { cls: "setting-item-description", text: "Sync the folders you choose (or your whole vault, minus what you leave out) to your Inbox Hero account so it can use your notes when it answers and drafts. Private and one way: only what you choose is read, nothing in your vault is ever changed, nothing goes to Caldera, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
     if (!on) {
       new import_obsidian3.Setting(el).setName("Not connected").setDesc("Start in Inbox Hero: Settings > Knowledge > Connect your notes. Its Connect button opens Obsidian and connects this vault.").addButton((b) => b.setButtonText("Open Inbox Hero").onClick(() => window.open("https://joininboxhero.com/settings")));
       if (st.error) el.createEl("p", { cls: "setting-item-description", text: st.error });
       return;
     }
-    const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian3.TFolder && f.path && f.path !== "/" && !f.path.startsWith(".")).map((f) => f.path).sort((a, b) => a.localeCompare(b)).slice(0, 2e3);
-    new import_obsidian3.Setting(el).setName("Folder").setDesc("The one folder that syncs (its subfolders too). Changing it removes the old folder's notes from Inbox Hero.").addDropdown((d) => {
-      d.addOption("", "None (nothing syncs)");
-      for (const f of folders) d.addOption(f, f);
-      d.setValue(normFolder(st.folder));
-      d.onChange(async (v) => {
-        this.plugin.ihState().folder = v;
-        await this.plugin.saveSettings();
-        if (v) void this.plugin.ihSyncNow(true).then(() => this.display());
-        else this.display();
-      });
-    });
+    new import_obsidian3.Setting(el).setName("What syncs").setDesc(scopeLabel(scopeOf(st)) + ". Folders you take out are removed from Inbox Hero at the next sync.").addButton((b) => b.setButtonText("Choose folders").onClick(() => this.plugin.ihChooseFolders(() => this.display())));
     const last = st.lastSync ? new Date(st.lastSync).toLocaleString() : "not yet";
     el.createEl("p", { cls: "setting-item-description", text: `Last sync: ${last}. ${Object.keys(st.sent || {}).length} notes in Inbox Hero.` + (st.skipped?.length ? " " + skippedMessage(st.skipped) + "." : "") + (st.error ? " Last problem: " + st.error : "") });
-    new import_obsidian3.Setting(el).setName("Sync").setDesc("Changes sync a few seconds after you save. A full resync sends the whole folder again.").addButton((b) => b.setButtonText("Sync now").onClick(async () => {
+    new import_obsidian3.Setting(el).setName("Sync").setDesc("Changes sync a few seconds after you save. A full resync sends everything chosen again.").addButton((b) => b.setButtonText("Sync now").onClick(async () => {
       await this.plugin.ihSyncNow(false);
       this.display();
     })).addButton((b) => b.setButtonText("Full resync").onClick(async () => {
@@ -8706,8 +8751,18 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
     await this.saveSettings();
     new IhConnectModal(this.app, this).open();
   }
+  /** Settings > Inbox Hero connector > Choose folders. */
+  ihChooseFolders(done) {
+    const m = new IhConnectModal(this.app, this, false);
+    const c = m.onClose.bind(m);
+    m.onClose = () => {
+      c();
+      done?.();
+    };
+    m.open();
+  }
   async ihSyncNow(full, only, quiet = false) {
-    if (!this.ihConnected() || !normFolder(this.settings.ihSync?.folder)) return;
+    if (!this.ihConnected() || scopeEmpty(scopeOf(this.settings.ihSync))) return;
     if (this.ihBusy) {
       if (only) only.forEach((p) => this.ihQueue.add(p));
       else window.setTimeout(() => void this.ihSyncNow(full, void 0, quiet), 5e3);
@@ -8730,7 +8785,7 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
   ihWatch() {
     const hit = (path) => {
       const st = this.settings.ihSync;
-      if (!st?.token || !inFolder(path, st.folder || "")) return;
+      if (!st?.token || !inScope(path, scopeOf(st))) return;
       this.ihQueue.add(path);
       window.clearTimeout(this.ihTimer);
       this.ihTimer = window.setTimeout(() => {
@@ -10196,53 +10251,152 @@ var TopicsModal = class extends import_obsidian11.Modal {
   }
 };
 var IhConnectModal = class extends import_obsidian11.Modal {
-  constructor(app, plugin) {
+  constructor(app, plugin, first = true) {
     super(app);
     this.plugin = plugin;
+    this.first = first;
   }
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    this.modalEl.addClass("caldera-ihp-modal");
     const st = this.plugin.ihState();
+    const tree = ihFolderTree(this.app), all = [...tree.keys()].filter(Boolean);
+    const files = this.app.vault.getMarkdownFiles().map((f) => ({ path: f.path, priv: isPrivateNote(this.app.metadataCache.getFileCache(f)) }));
+    const start = suggestedScope(st, all);
+    let mode = start.mode, skipPrivate = start.skipPrivate;
+    const inc = new Set(start.include.filter((f) => tree.has(f))), exc = new Set(start.exclude ?? defaultExclusions(all));
+    const open3 = /* @__PURE__ */ new Set(), sel = () => mode === "folders" ? inc : exc;
     contentEl.createEl("h2", { text: "Inbox Hero connector" });
-    contentEl.createEl("p", { text: "Connected. Pick one folder to sync to your Inbox Hero account. Only that folder's notes are read, it's one way (nothing in your vault is ever changed), and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
-    let folder = normFolder(st.folder);
-    const out = contentEl.createEl("p", { cls: "setting-item-description" });
-    let go;
-    const show = async () => {
-      out.setText(folder ? "Checking the folder..." : "No folder chosen yet: nothing syncs.");
-      if (go) go.setDisabled(!folder);
-      if (!folder) return;
-      const p = await this.plugin.ihEngine().preview(folder);
-      if (normFolder(folder) !== folder) return;
-      out.setText(`${p.notes} note${p.notes === 1 ? "" : "s"} will sync.` + (p.skipped.length ? " " + skippedMessage(p.skipped) + "." : ""));
+    contentEl.createEl("p", { cls: "setting-item-description", text: (this.first ? "Connected. " : "") + "Choose what syncs to your Inbox Hero account. It's one way and read-only: nothing in your vault is ever changed, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
+    const modes = contentEl.createDiv({ cls: "caldera-ihp-modes", attr: { role: "radiogroup", "aria-label": "What syncs" } });
+    const radio = (m, label, hint) => {
+      const l = modes.createEl("label", { cls: "caldera-ihp-mode" });
+      const r = l.createEl("input", { type: "radio", attr: { name: "caldera-ihp-mode" } });
+      r.checked = mode === m;
+      const t = l.createDiv();
+      t.createEl("b", { text: label });
+      t.createEl("small", { text: hint });
+      r.onchange = () => {
+        mode = m;
+        paint();
+      };
     };
-    new import_obsidian11.Setting(contentEl).setName("Folder").setDesc("One folder (its subfolders too).").addDropdown((d) => {
-      d.addOption("", "Choose a folder");
-      for (const f of ihFolders(this.app)) d.addOption(f, f);
-      d.setValue(folder);
-      d.onChange((v) => {
-        folder = v;
-        void show();
-      });
-    });
+    radio("folders", "Only the folders I choose", "Tick folders below. A folder includes its subfolders.");
+    radio("vault", "Whole vault, except\u2026", "Everything, minus the folders ticked below. Raw dumps, Slack, meetings and folders that sound private, financial, legal or medical start ticked.");
+    const priv = contentEl.createEl("label", { cls: "caldera-ihp-check" });
+    const pc = priv.createEl("input", { type: "checkbox" });
+    pc.checked = skipPrivate;
+    priv.appendText(" Leave out notes marked private (private: true or #private)");
+    pc.onchange = () => {
+      skipPrivate = pc.checked;
+      count();
+    };
+    const out = contentEl.createEl("p", { cls: "caldera-ihp-count", attr: { "aria-live": "polite" } });
+    const head2 = contentEl.createDiv({ cls: "caldera-ihp-head" });
+    const q2 = head2.createEl("input", { type: "search", placeholder: `Search ${all.length.toLocaleString()} folders`, attr: { "aria-label": "Search folders" } });
+    const what = head2.createEl("span", { cls: "caldera-ihp-what" });
+    const box = contentEl.createDiv({ cls: "caldera-ihp-tree", attr: { role: "tree" } });
+    const picked = contentEl.createEl("p", { cls: "caldera-ihp-picked" });
+    let go;
+    const scope = () => ({ mode, include: topmost([...inc]), exclude: topmost([...exc]), skipPrivate });
+    const count = () => {
+      const s = scope(), n = countScope(files, s), cap = 5e3;
+      out.setText(scopeEmpty(s) ? "Nothing chosen yet: nothing syncs." : `${n.toLocaleString()} note${n === 1 ? "" : "s"} will sync` + (n > cap ? `. Inbox Hero takes up to ${cap.toLocaleString()}, so ${(n - cap).toLocaleString()} will be left out: leave out a few more folders.` : "."));
+      out.toggleClass("is-over", n > cap);
+      if (go) go.setDisabled(scopeEmpty(s));
+    };
+    const implied = (f) => {
+      const s = sel();
+      return [...s].some((x) => x !== f && f.startsWith(x + "/"));
+    };
+    const toggle = (f, on) => {
+      const s = sel();
+      if (on) {
+        for (const x of [...s]) if (x.startsWith(f + "/")) s.delete(x);
+        s.add(f);
+      } else s.delete(f);
+      paint();
+    };
+    const row = (parent, f, depth, full) => {
+      const n = tree.get(f), r = parent.createDiv({ cls: "caldera-ihp-row", attr: { role: "treeitem" } });
+      r.style.paddingLeft = (full ? 4 : 4 + depth * 16) + "px";
+      const kids = n.kids.length && !full;
+      const car = r.createEl("button", { cls: "caldera-ihp-caret clickable-icon", attr: { "aria-label": (open3.has(f) ? "Collapse " : "Expand ") + n.name, tabindex: kids ? "0" : "-1" } });
+      car.setText(kids ? open3.has(f) ? "\u25BE" : "\u25B8" : "");
+      if (!kids) car.addClass("is-leaf");
+      car.onclick = () => {
+        if (!kids) return;
+        open3.has(f) ? open3.delete(f) : open3.add(f);
+        paint();
+      };
+      const l = r.createEl("label");
+      const c = l.createEl("input", { type: "checkbox" });
+      const imp = implied(f);
+      c.checked = sel().has(f) || imp;
+      c.disabled = imp;
+      if (imp) l.title = mode === "folders" ? "Included with its parent folder" : "Left out with its parent folder";
+      c.onchange = () => toggle(f, c.checked);
+      l.appendText(" " + (full ? f : n.name));
+      l.createEl("small", { text: " " + n.notes.toLocaleString() });
+      if (kids && open3.has(f)) for (const k of n.kids) row(parent, k, depth + 1, false);
+    };
+    const paint = () => {
+      box.empty();
+      const term = q2.value.trim().toLowerCase();
+      what.setText(mode === "folders" ? `${inc.size} chosen` : `${exc.size} left out`);
+      const list = topmost([...sel()]);
+      picked.setText(list.length ? (mode === "folders" ? "Syncing: " : "Leaving out: ") + list.slice(0, 12).join(", ") + (list.length > 12 ? ` and ${list.length - 12} more` : "") : "");
+      box.toggleClass("is-exclude", mode === "vault");
+      if (term.length >= 2) {
+        const hits = all.filter((f) => f.toLowerCase().includes(term));
+        for (const f of hits.slice(0, 200)) row(box, f, 0, true);
+        if (!hits.length) box.createDiv({ cls: "caldera-ihp-empty", text: "No folder matches." });
+        else if (hits.length > 200) box.createDiv({ cls: "caldera-ihp-empty", text: `${hits.length - 200} more: type more of the name.` });
+      } else for (const k of tree.get("").kids) row(box, k, 0, false);
+      count();
+    };
+    q2.oninput = () => paint();
+    for (const f of sel()) {
+      const s = f.split("/");
+      for (let i = 1; i < s.length; i++) open3.add(s.slice(0, i).join("/"));
+    }
     new import_obsidian11.Setting(contentEl).addButton((b) => {
       go = b;
-      b.setButtonText("Start syncing").setCta().setDisabled(!folder).onClick(async () => {
-        st.folder = folder;
+      b.setButtonText(this.first ? "Start syncing" : "Save and sync").setCta().onClick(async () => {
+        const s = scope();
+        st.scope = s;
+        st.folder = scopeRoot(s);
         await this.plugin.saveSettings();
         this.close();
         void this.plugin.ihSyncNow(true);
       });
-    }).addButton((b) => b.setButtonText("Not now").onClick(() => this.close()));
-    void show();
+    }).addButton((b) => b.setButtonText(this.first ? "Not now" : "Cancel").onClick(() => this.close()));
+    paint();
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-function ihFolders(app) {
-  return app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian11.TFolder && f.path && f.path !== "/" && !f.path.startsWith(".")).map((f) => f.path).sort((a, b) => a.localeCompare(b)).slice(0, 2e3);
+function ihFolderTree(app) {
+  const m = /* @__PURE__ */ new Map();
+  m.set("", { name: "", kids: [], notes: 0 });
+  for (const f of app.vault.getAllLoadedFiles()) if (f instanceof import_obsidian11.TFolder && f.path && f.path !== "/" && !f.path.split("/").some((x) => x.startsWith("."))) m.set(f.path, { name: f.name, kids: [], notes: 0 });
+  for (const [p, n] of m) if (p) {
+    const up = p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
+    (m.get(up) || m.get("")).kids.push(p);
+    void n;
+  }
+  for (const n of m.values()) n.kids.sort((a, b) => a.localeCompare(b, void 0, { sensitivity: "base" }));
+  for (const f of app.vault.getMarkdownFiles()) {
+    const s = f.path.split("/");
+    for (let i = 0; i < s.length; i++) {
+      const k = s.slice(0, i).join("/");
+      const n = m.get(k);
+      if (n) n.notes++;
+    }
+  }
+  return m;
 }
 var WelcomeModal = class extends import_obsidian11.Modal {
   constructor(app, plugin, mode = "welcome") {

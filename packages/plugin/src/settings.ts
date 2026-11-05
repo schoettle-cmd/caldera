@@ -1,6 +1,6 @@
 import { githubUser } from "./auto";
 import { App, PluginSettingTab, Setting, Notice, TFile, TFolder } from "obsidian";
-import { normFolder, skippedMessage } from "./ihsync";
+import { scopeOf, scopeLabel, skippedMessage } from "./ihsync";
 import type CalderaPlugin from "./main";
 import { gardenEnabled, type Identity } from "@caldera/core";
 import { cleanLabel, listingLine, MAX_LABEL, MAX_LISTINGS, parseListingLine, type ListingKind, type ListingRef } from "./listings";
@@ -270,23 +270,22 @@ export class CalderaSettingTab extends PluginSettingTab {
     new Setting(this.containerEl).setName(name).setDesc(desc).addText(t => t.setValue(String(this.plugin.settings[key] ?? "")).onChange(async v => { (this.plugin.settings as any)[key] = clean(v.trim()); await this.plugin.saveSettings(); }));
   }
 
-  /** Inbox Hero connector: one folder of this vault, one way, private. Works without a Caldera account. */
+  /** Inbox Hero connector: the folders the member picks, one way, private. Works without a Caldera account. */
   private ihSection(el: HTMLElement, alone: boolean) {
     const st = this.plugin.settings.ihSync || {}, on = !!st.token;
     new Setting(el).setName("Inbox Hero connector").setHeading();
-    el.createEl("p", { cls: "setting-item-description", text: "Sync one folder of this vault to your Inbox Hero account so it can use your notes when it answers and drafts. Private and one way: only that folder is read, nothing in your vault is ever changed, nothing goes to Caldera, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
+    el.createEl("p", { cls: "setting-item-description", text: "Sync the folders you choose (or your whole vault, minus what you leave out) to your Inbox Hero account so it can use your notes when it answers and drafts. Private and one way: only what you choose is read, nothing in your vault is ever changed, nothing goes to Caldera, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
     if (!on) {
       new Setting(el).setName("Not connected").setDesc("Start in Inbox Hero: Settings > Knowledge > Connect your notes. Its Connect button opens Obsidian and connects this vault.")
         .addButton(b => b.setButtonText("Open Inbox Hero").onClick(() => window.open("https://joininboxhero.com/settings")));
       if (st.error) el.createEl("p", { cls: "setting-item-description", text: st.error });
       return;
     }
-    const folders = this.app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder && f.path && f.path !== "/" && !f.path.startsWith(".")).map(f => f.path).sort((a, b) => a.localeCompare(b)).slice(0, 2000);
-    new Setting(el).setName("Folder").setDesc("The one folder that syncs (its subfolders too). Changing it removes the old folder's notes from Inbox Hero.")
-      .addDropdown(d => { d.addOption("", "None (nothing syncs)"); for (const f of folders) d.addOption(f, f); d.setValue(normFolder(st.folder)); d.onChange(async v => { this.plugin.ihState().folder = v; await this.plugin.saveSettings(); if (v) void this.plugin.ihSyncNow(true).then(() => this.display()); else this.display(); }); });
+    new Setting(el).setName("What syncs").setDesc(scopeLabel(scopeOf(st)) + ". Folders you take out are removed from Inbox Hero at the next sync.")
+      .addButton(b => b.setButtonText("Choose folders").onClick(() => this.plugin.ihChooseFolders(() => this.display())));
     const last = st.lastSync ? new Date(st.lastSync).toLocaleString() : "not yet";
     el.createEl("p", { cls: "setting-item-description", text: `Last sync: ${last}. ${Object.keys(st.sent || {}).length} notes in Inbox Hero.` + (st.skipped?.length ? " " + skippedMessage(st.skipped) + "." : "") + (st.error ? " Last problem: " + st.error : "") });
-    new Setting(el).setName("Sync").setDesc("Changes sync a few seconds after you save. A full resync sends the whole folder again.")
+    new Setting(el).setName("Sync").setDesc("Changes sync a few seconds after you save. A full resync sends everything chosen again.")
       .addButton(b => b.setButtonText("Sync now").onClick(async () => { await this.plugin.ihSyncNow(false); this.display(); }))
       .addButton(b => b.setButtonText("Full resync").onClick(async () => { await this.plugin.ihSyncNow(true); this.display(); }));
     new Setting(el).setName("Disconnect").setDesc("Stops syncing, revokes this vault's access and asks Inbox Hero to delete every note it got from here. Your vault is not touched.")

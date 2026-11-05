@@ -1,4 +1,4 @@
-/* Caldera 0.28.29 */
+/* Caldera 0.28.30 */
 .caldera-panel h3 { margin-top: 0; }
 .caldera-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }
 .caldera-stat { background: var(--background-secondary); border-radius: 8px; padding: 8px; text-align: center; }
@@ -55,3 +55,29 @@ body.caldera-float-window .workspace-leaf-content, body.caldera-float-window .vi
 .caldera-topic-chip { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--background-modifier-border); background: var(--background-secondary); color: var(--text-normal); font-size: var(--font-ui-small); cursor: pointer; box-shadow: none; }
 .caldera-topic-chip.is-on { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
 .caldera-topic-n { opacity: .7; font-variant-numeric: tabular-nums; }
+/* Inbox Hero connector: folder picker (0.28.30) */
+.caldera-ihp-modal { width: min(620px, 96vw); }
+.caldera-ihp-modes { display: grid; gap: 6px; margin: 10px 0; }
+.caldera-ihp-mode { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--background-modifier-border); border-radius: 8px; cursor: pointer; }
+.caldera-ihp-mode:has(input:checked) { border-color: var(--interactive-accent); background: var(--background-secondary); }
+.caldera-ihp-mode input { margin-top: 3px; }
+.caldera-ihp-mode b { display: block; }
+.caldera-ihp-mode small { color: var(--text-muted); }
+.caldera-ihp-check { display: block; margin: 6px 2px 10px; }
+.caldera-ihp-head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.caldera-ihp-head input { flex: 1; min-width: 0; }
+.caldera-ihp-what { color: var(--text-muted); font-size: var(--font-ui-smaller); white-space: nowrap; }
+.caldera-ihp-tree { max-height: min(34vh, 320px); overflow: auto; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 4px 0; }
+.caldera-ihp-row { display: flex; align-items: center; gap: 2px; min-height: 30px; padding-right: 8px; }
+.caldera-ihp-row:hover { background: var(--background-modifier-hover); }
+.caldera-ihp-row label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caldera-ihp-row small { margin-left: auto; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.caldera-ihp-row input:disabled + * , .caldera-ihp-row input:disabled { opacity: .6; }
+.caldera-ihp-tree.is-exclude .caldera-ihp-row input:checked { accent-color: var(--text-error); }
+.caldera-ihp-caret { width: 24px; height: 24px; padding: 0; flex: none; color: var(--text-muted); }
+.caldera-ihp-caret.is-leaf { visibility: hidden; }
+.caldera-ihp-empty { padding: 8px 12px; color: var(--text-muted); }
+.caldera-ihp-count { font-weight: 600; margin: 4px 0 8px; }
+.caldera-ihp-picked { margin: 8px 0 0; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.caldera-ihp-count.is-over { color: var(--text-error); }
+@media (pointer: coarse) { .caldera-ihp-row { min-height: 44px; } .caldera-ihp-caret { width: 40px; height: 40px; } }
