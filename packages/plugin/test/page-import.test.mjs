@@ -2,7 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildSync } from "esbuild";
 import fs from "node:fs"; import os from "node:os"; import path from "node:path";
-const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pi-")), "pi.mjs");
+import { after as __afterAll } from "node:test";
+const __tmpDirs = [];
+const __mkdtemp = (p) => { const d = fs.mkdtempSync(p); __tmpDirs.push(d); return d; };
+__afterAll(() => { for (const d of __tmpDirs) fs.rmSync(d, { recursive: true, force: true }); });   // temp hubs are removed after the file's tests, even when one fails
+const out = path.join(__mkdtemp(path.join(os.tmpdir(), "pi-")), "pi.mjs");
 buildSync({ entryPoints: [new URL("../src/page-import.ts", import.meta.url).pathname], outfile: out, format: "esm", bundle: true });
 const { fillFromPage, isPageCode, photoPlan } = await import(out);
 const page = { name: "Olive", headline: "Builds", summary: "About", now: ["x"], links: [["a", "b"]], timeline: [["2020", "y"]], projects: [["p", "q"]] };

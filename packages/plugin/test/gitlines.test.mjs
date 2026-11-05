@@ -5,6 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import cp from "node:child_process";
 import { parseNumstat, findRepos, gitLines } from "./gitlines.build.mjs";
+import { after as __afterAll } from "node:test";
+const __tmpDirs = [];
+const __mkdtemp = (p) => { const d = fs.mkdtempSync(p); __tmpDirs.push(d); return d; };
+__afterAll(() => { for (const d of __tmpDirs) fs.rmSync(d, { recursive: true, force: true }); });   // temp hubs are removed after the file's tests, even when one fails
 
 test("numstat: lines per day; binary, lockfiles, build output and huge single-file changes don't count", () => {
   const out = "\x1e2026-10-24\x1fme@x.dev\n10\t2\tsrc/a.ts\n-\t-\timg.png\n500\t0\tpackage-lock.json\n9000\t0\tsrc/vendor.js\n3\t1\tdist/main.js\n\n\x1e2026-10-24\x1fme@x.dev\n5\t5\tsrc/{old => new}.ts\n\x1e2026-10-25\x1fme@x.dev\n1\t0\tREADME.md\n4\t0\tlib/x.py\n800\t0\tdata/dump.json\n300\t0\tnotes/log.txt";
@@ -12,7 +16,7 @@ test("numstat: lines per day; binary, lockfiles, build output and huge single-fi
 });
 
 test("git repos on this computer: only my commits, counted per local day; no repos = unknown (undefined)", async () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "caldera-gitlines-"));
+  const home = __mkdtemp(path.join(os.tmpdir(), "caldera-gitlines-"));
   const mods = { fs, path, os: { homedir: () => home }, cp };
   assert.equal(await gitLines(mods, 14, ["~/nothing-here"]), undefined, "no repos: unknown, not zero");
   const repo = path.join(home, "code", "proj"); fs.mkdirSync(repo, { recursive: true });
