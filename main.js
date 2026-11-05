@@ -1,4 +1,4 @@
-/* Caldera 0.28.28 */
+/* Caldera 0.28.29 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -6819,6 +6819,15 @@ function graphSvg(nodes, name) {
     const x = 130 + Math.cos(a) * r, y = 120 + Math.sin(a) * r * 0.85, size = 2.5 + 6.5 * Math.sqrt(nd.n / top);
     return { ...nd, x: x.toFixed(1), y: y.toFixed(1), ty: (y + size + 9).toFixed(1), r: size.toFixed(1), hot: nd.n >= top * 0.35, d: (-i * 0.3).toFixed(1) };
   });
+  const boxes = [];
+  for (const n of out) {
+    const cx = +n.x, cy = +n.y, rr = +n.r, half = n.t.length * 2.4 + 4;
+    const tries = [cy + rr + 9, cy - rr - 4, cy + rr + 19, cy - rr - 14, cy + rr + 29];
+    const hit = (ty2) => boxes.some((b) => cx - half < b.r && cx + half > b.l && ty2 - 9 - 5 < b.b && ty2 + 2 + 5 > b.t);
+    const ty = tries.find((t) => !hit(t)) ?? tries[0];
+    n.ty = ty.toFixed(1);
+    boxes.push({ l: cx - half, r: cx + half, t: ty - 9, b: ty + 2 });
+  }
   return `<svg viewBox="0 0 260 240" role="img" aria-label="Notes connected to ${esc4(name)}">${out.map((n) => `<line class="edge" x1="130" y1="120" x2="${n.x}" y2="${n.y}"></line>`).join("")}${out.map((n) => `<g class="float" style="animation-delay:${n.d}s"><circle class="node${n.hot ? " hot" : ""}" cx="${n.x}" cy="${n.y}" r="${n.r}"><title>${esc4(n.t)}: ${n.n}</title></circle><text x="${n.x}" y="${n.ty}" text-anchor="middle">${esc4(n.t)}</text></g>`).join("")}<circle class="center" cx="130" cy="120" r="9"></circle></svg>`;
 }
 var esc4 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
