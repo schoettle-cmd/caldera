@@ -313,7 +313,10 @@ export function navSidebar(p: ProfileData, sideOn: boolean, gardenOn: boolean, d
   // href is the hub's fallback page for anyone without scripts
   const hubBase = (p.hub || "https://caldera.social").replace(/\/$/, "");
   const friend = p.handle ? `<a class="tree-row toc-row page-row friend-row" href="${esc(hubBase)}/kudos/${encodeURIComponent(p.handle)}" data-caldera-friend="${esc(p.handle)}" target="_blank" rel="noopener" title="Send @${esc(p.handle)} a friend request">+ Follow @${esc(p.handle)}</a>` : "";
-  const tree = sideOn && p.tree?.length ? `<span class="label">Vault</span>${sidebarTree(p.tree.map(r => ({ ...r, current: (r.href === "#top" && onProfile) || (!!r.href && r.href === current) })), fix)}` : "";
+  // the profile note is already the first Pages row: the vault tree doesn't list it a second time (preflight 2026-11-05)
+  const profName = (p.name || "Profile").trim().toLowerCase();
+  const rows = (p.tree || []).filter(r => !(r.child && (r.href === "#top" || r.href === "index.html" || (r.name || "").trim().toLowerCase() === profName)));
+  const tree = sideOn && rows.length ? `<span class="label">Vault</span>${sidebarTree(rows.map(r => ({ ...r, current: (r.href === "#top" && onProfile) || (!!r.href && r.href === current) })), fix)}` : "";
   return `<nav class="sidebar tree" aria-label="Navigation"><div class="side-inner"><span class="label">Pages</span><div class="toc pages">${pageRows}${friend}</div>${toc}${tree}</div></nav>`;
 }
 
@@ -326,7 +329,7 @@ function sidebarTree(rows: NonNullable<ProfileData["tree"]>, fix: (h: string) =>
     const cls = `tree-row child${r.current ? " is-current" : ""}${r.href ? " is-link" : ""}`;
     if (!ok(r.href)) return `<div class="tree-row child${r.current ? " is-current" : ""}"><span>${esc(r.name)}</span></div>`;
     const ext = /^https?:\/\//.test(r.href!);
-    return `<a class="${cls}" href="${esc(fix(r.href!))}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc(r.name)}</span>${ext ? '<span class="ext" aria-hidden="true">&#8599;</span>' : ""}</a>`;
+    return `<a class="${cls}" href="${esc(fix(r.href!))}"${ext ? ' target="_blank" rel="noopener"' : ""}${r.current ? ' aria-current="page"' : ""}><span>${esc(r.name)}</span>${ext ? '<svg class="ext" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>' : ""}</a>`;
   };
   const gname = (r: (typeof rows)[number]) => ok(r.href) && !/^https?:/.test(r.href!) ? `<a class="g-name g-link" href="${esc(fix(r.href!))}">${esc(r.name)}</a>` : `<span class="g-name">${esc(r.name)}</span>`;
   for (let i = 0; i < rows.length; i++) {

@@ -88,7 +88,8 @@ test("navigation standard: profile, garden home and every note share one left na
     assert.ok(h.includes(`class="g-name g-link" href="${up}garden.html"`), k + " Garden group is clickable");
     assert.ok(h.includes('data-caldera-friend="mike"') && h.includes('/kudos/mike"'), k + " add-friend (inline on the hub, kudos page as fallback)");
   }
-  assert.ok(f["garden.html"].includes('href="index.html#top"') && f["n/gardens.html"].includes('href="../index.html#top"'));
+  assert.ok(f["garden.html"].includes('page-row" href="index.html"') && f["n/gardens.html"].includes('page-row" href="../index.html"'), "the Pages row links the profile from every page");
+  for (const k of ["index.html", "garden.html", "n/gardens.html"]) assert.ok(!f[k].includes("<span>Mike</span>"), k + ": the vault tree doesn't list the profile a second time (it is the first Pages row)");
   assert.ok(f["n/gardens.html"].includes('href="../n/gardens.html"') && f["n/gardens.html"].includes('aria-current="page"'));
   assert.ok(f["garden.html"].includes('page-row is-active" href="garden.html"'));
 });
