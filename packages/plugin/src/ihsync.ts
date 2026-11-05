@@ -48,6 +48,9 @@ export interface IhSyncState {
   lastSync?: number;
   skipped?: { path: string; why: string }[];   // last scan: notes left out (secrets or too big), names only
   error?: string;
+  errorAt?: number; lastNoticedError?: string;   // errors are shown, the same one at most hourly
+  overNoticed?: string; skippedNoticed?: string[];   // what the member was already told
+  maxNotes?: number;         // Inbox Hero's note limit, from the last /limits
 }
 
 // ---- folder scoping ---------------------------------------------------------------------------------------------------
@@ -307,11 +310,13 @@ export class IhSyncEngine {
     const scope = scopeOf(this.st); const res: SyncResult = { sent: 0, removed: 0, skipped: [], unchanged: 0 };
     if (scopeEmpty(scope)) return res;
     const folder = scopeRoot(scope); this.st.folder = folder;
-    const lim = await this.limits();
+    const lim = await this.limits(); this.st.maxNotes = lim.maxNotes;
     const files = this.scoped(scope).sort((a, b) => a.path.localeCompare(b.path));
-    let sent = { ...(this.st.sent || {}) };
+    // progress is kept as it goes (this.st.sent is the live map): a sync cut short by a limit, a network error or Obsidian
+    // closing resumes where it stopped instead of starting over
+    let sent = this.st.sent = { ...(this.st.sent || {}) };
     // a different folder than Inbox Hero has: drop the old folder's notes first, then send this folder in full
-    if (lim.folder && normFolder(lim.folder) !== folder) { await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] }); sent = {}; full = true; only = undefined; }
+    if (lim.folder && normFolder(lim.folder) !== folder) { await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] }); sent = this.st.sent = {}; full = true; only = undefined; }
     const keep: string[] = [], up: IhNote[] = [], gone: string[] = []; let bytes = 0;
     for (const f of files) {
       if (only && !only.has(f.path)) { if (sent[f.path]) keep.push(f.path); continue; }
@@ -332,7 +337,7 @@ export class IhSyncEngine {
     try { for (const b of batches(up, lim)) await this.upload(folder, b, res, sent); }
     catch (e: any) {
       if (!(e instanceof IhError && e.code === "folder_changed")) throw e;
-      await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] }); sent = {};   // contract: 409 -> /resync with the new folder, then send again
+      await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] }); sent = this.st.sent = {};   // contract: 409 -> /resync with the new folder, then send again
       for (const b of batches(up, lim)) await this.upload(folder, b, res, sent);
     }
     if (full && !only) { const j = await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: keep }); res.removed += Math.max(0, Number(j?.removed) || 0); }

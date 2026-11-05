@@ -1,4 +1,4 @@
-/* Caldera 0.28.30 */
+/* Caldera 0.28.31 */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2602,11 +2602,12 @@ var IhSyncEngine = class {
     const folder = scopeRoot(scope);
     this.st.folder = folder;
     const lim = await this.limits();
+    this.st.maxNotes = lim.maxNotes;
     const files = this.scoped(scope).sort((a, b) => a.path.localeCompare(b.path));
-    let sent = { ...this.st.sent || {} };
+    let sent = this.st.sent = { ...this.st.sent || {} };
     if (lim.folder && normFolder(lim.folder) !== folder) {
       await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] });
-      sent = {};
+      sent = this.st.sent = {};
       full = true;
       only = void 0;
     }
@@ -2648,7 +2649,7 @@ var IhSyncEngine = class {
     } catch (e) {
       if (!(e instanceof IhError && e.code === "folder_changed")) throw e;
       await this.call(IH_PATHS.resync, "POST", { vault: this.vaultName, folder, paths: [] });
-      sent = {};
+      sent = this.st.sent = {};
       for (const b of batches(up, lim)) await this.upload(folder, b, res, sent);
     }
     if (full && !only) {
@@ -8769,13 +8770,27 @@ var CalderaPlugin = class extends import_obsidian11.Plugin {
       return;
     }
     this.ihBusy = true;
+    const st = this.ihState();
+    const firstRun = !Object.keys(st.sent || {}).length;
+    if (firstRun && !only) new import_obsidian11.Notice("Inbox Hero: sending your notes. This can take a few minutes for a big folder.", 6e3);
     try {
       const r = await this.ihEngine().sync(full, only);
-      if (!quiet || r.skipped.length) new import_obsidian11.Notice(`Inbox Hero: ${r.sent} note${r.sent === 1 ? "" : "s"} sent${r.removed ? `, ${r.removed} removed` : ""}.${r.skipped.length ? " " + skippedMessage(r.skipped) + "." : ""}`, r.skipped.length ? 12e3 : 5e3);
+      const over = r.skipped.filter((s) => s.why === "over the limit").length, key = JSON.stringify(scopeOf(st)) + ":" + over;
+      const loud = !quiet || firstRun || over > 0 && st.overNoticed !== key;
+      if (over) st.overNoticed = key;
+      if (loud || r.skipped.some((s) => /^sensitive/.test(s.why) && !st.skippedNoticed?.includes(s.path))) new import_obsidian11.Notice(`Inbox Hero: ${r.sent} note${r.sent === 1 ? "" : "s"} sent${r.removed ? `, ${r.removed} removed` : ""}.${r.skipped.length ? " " + skippedMessage(r.skipped) + "." : ""}${over ? ` Inbox Hero takes up to ${(st.maxNotes || 1e4).toLocaleString()} notes: leave out a few folders (Settings, Caldera, Choose folders).` : ""}`, r.skipped.length ? 15e3 : 6e3);
+      st.skippedNoticed = r.skipped.filter((s) => /^sensitive/.test(s.why)).map((s) => s.path).slice(0, 500);
+      st.errorAt = void 0;
     } catch (e) {
-      this.ihState().error = e.message;
-      if (!quiet || /disconnected|isn't available/.test(e.message)) new import_obsidian11.Notice("Inbox Hero: " + e.message, 1e4);
+      st.error = e.message;
+      const again = st.error === st.lastNoticedError && Date.now() - (st.errorAt || 0) < 36e5;
+      if (!quiet || !again) {
+        new import_obsidian11.Notice("Inbox Hero sync stopped: " + e.message + (Object.keys(st.sent || {}).length ? " What was sent so far is kept; it carries on next time." : ""), 12e3);
+        st.lastNoticedError = st.error;
+        st.errorAt = Date.now();
+      }
       if (/slow down/.test(e.message)) window.setTimeout(() => void this.ihSyncNow(false, void 0, true), 12e4);
+      else window.setTimeout(() => void this.ihSyncNow(false, void 0, true), 10 * 6e4);
     } finally {
       this.ihBusy = false;
       await this.saveSettings();
@@ -10301,7 +10316,7 @@ var IhConnectModal = class extends import_obsidian11.Modal {
     let go;
     const scope = () => ({ mode, include: topmost([...inc]), exclude: topmost([...exc]), skipPrivate });
     const count = () => {
-      const s = scope(), n = countScope(files, s), cap = 5e3;
+      const s = scope(), n = countScope(files, s), cap = st.maxNotes || 1e4;
       out.setText(scopeEmpty(s) ? "Nothing chosen yet: nothing syncs." : `${n.toLocaleString()} note${n === 1 ? "" : "s"} will sync` + (n > cap ? `. Inbox Hero takes up to ${cap.toLocaleString()}, so ${(n - cap).toLocaleString()} will be left out: leave out a few more folders.` : "."));
       out.toggleClass("is-over", n > cap);
       if (go) go.setDisabled(scopeEmpty(s));

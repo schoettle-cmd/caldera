@@ -242,3 +242,15 @@ test("connector: several folders sync under the vault root, only in-scope non-pr
   await e.sync(true);
   assert.deepEqual([...ih.store.keys()].sort(), ["Work/People/Jordan.md", "Work/Plan.md", "Workshop/Other.md", "wiki/Ana.md"], "whole vault minus Personal and Caldera, minus private and secret notes");
 });
+
+test("connector: a sync cut short keeps what was sent, and the next one carries on", async () => {
+  const many = {}; for (let i = 0; i < 7; i++) many[`wiki/n${i}.md`] = "note " + i;
+  const { v } = fakeVault(many), ih = fakeIh({ maxBatchNotes: 3 }); let n = 0;
+  const req = async o => { if (/\/notes$/.test(new URL(o.url).pathname) && ++n === 2) return { status: 500, json: null }; return ih.req(o); };
+  const st = { api: IH_API_DEFAULT, scope: { mode: "folders", include: ["wiki"], skipPrivate: true } };
+  const e = new IhSyncEngine(st, v, () => null, req, "Mike"); await e.pair(CODE, "Mac");
+  await assert.rejects(e.sync(false), /answered 500/);
+  assert.equal(Object.keys(st.sent).length, 3, "the first batch is remembered");
+  const r = await e.sync(false);
+  assert.equal(r.sent, 4, "only the rest is sent next time"); assert.equal(Object.keys(st.sent).length, 7); assert.equal(st.maxNotes, 5000);
+});

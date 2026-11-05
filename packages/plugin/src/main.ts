@@ -163,11 +163,25 @@ export default class CalderaPlugin extends Plugin {
   async ihSyncNow(full: boolean, only?: Set<string>, quiet = false) {
     if (!this.ihConnected() || scopeEmpty(scopeOf(this.settings.ihSync))) return;
     if (this.ihBusy) { if (only) only.forEach(p => this.ihQueue.add(p)); else window.setTimeout(() => void this.ihSyncNow(full, undefined, quiet), 5_000); return; }
-    this.ihBusy = true;
+    this.ihBusy = true; const st = this.ihState();
+    // never silent (Mike 2026-11-05: "Your notes" said 0 notes with no clue why): the first sync says it started, a sync
+    // that leaves notes out over Inbox Hero's limit says so once per choice, and errors show (the same one at most hourly)
+    const firstRun = !Object.keys(st.sent || {}).length;
+    if (firstRun && !only) new Notice("Inbox Hero: sending your notes. This can take a few minutes for a big folder.", 6_000);
     try {
       const r = await this.ihEngine().sync(full, only);
-      if (!quiet || r.skipped.length) new Notice(`Inbox Hero: ${r.sent} note${r.sent === 1 ? "" : "s"} sent${r.removed ? `, ${r.removed} removed` : ""}.${r.skipped.length ? " " + skippedMessage(r.skipped) + "." : ""}`, r.skipped.length ? 12_000 : 5_000);
-    } catch (e: any) { this.ihState().error = e.message; if (!quiet || /disconnected|isn't available/.test(e.message)) new Notice("Inbox Hero: " + e.message, 10_000); if (/slow down/.test(e.message)) window.setTimeout(() => void this.ihSyncNow(false, undefined, true), 120_000); }
+      const over = r.skipped.filter(s => s.why === "over the limit").length, key = JSON.stringify(scopeOf(st)) + ":" + over;
+      const loud = !quiet || firstRun || (over > 0 && st.overNoticed !== key);
+      if (over) st.overNoticed = key;
+      if (loud || r.skipped.some(s => /^sensitive/.test(s.why) && !st.skippedNoticed?.includes(s.path))) new Notice(`Inbox Hero: ${r.sent} note${r.sent === 1 ? "" : "s"} sent${r.removed ? `, ${r.removed} removed` : ""}.${r.skipped.length ? " " + skippedMessage(r.skipped) + "." : ""}${over ? ` Inbox Hero takes up to ${(st.maxNotes || 10000).toLocaleString()} notes: leave out a few folders (Settings, Caldera, Choose folders).` : ""}`, r.skipped.length ? 15_000 : 6_000);
+      st.skippedNoticed = r.skipped.filter(s => /^sensitive/.test(s.why)).map(s => s.path).slice(0, 500);
+      st.errorAt = undefined;
+    } catch (e: any) {
+      st.error = e.message; const again = st.error === st.lastNoticedError && Date.now() - (st.errorAt || 0) < 3600_000;
+      if (!quiet || !again) { new Notice("Inbox Hero sync stopped: " + e.message + (Object.keys(st.sent || {}).length ? " What was sent so far is kept; it carries on next time." : ""), 12_000); st.lastNoticedError = st.error; st.errorAt = Date.now(); }
+      if (/slow down/.test(e.message)) window.setTimeout(() => void this.ihSyncNow(false, undefined, true), 120_000);
+      else window.setTimeout(() => void this.ihSyncNow(false, undefined, true), 10 * 60_000);   // network blips: try again in 10 minutes
+    }
     finally { this.ihBusy = false; await this.saveSettings(); }
   }
   /** File changes inside the folder sync after a quiet moment (debounced). */
@@ -1253,7 +1267,7 @@ export class IhConnectModal extends Modal {
     const picked = contentEl.createEl("p", { cls: "caldera-ihp-picked" });
     let go: any;
     const scope = (): IhScope => ({ mode, include: topmost([...inc]), exclude: topmost([...exc]), skipPrivate });
-    const count = () => { const s = scope(), n = countScope(files, s), cap = 5000;
+    const count = () => { const s = scope(), n = countScope(files, s), cap = st.maxNotes || 10000;
       out.setText(scopeEmpty(s) ? "Nothing chosen yet: nothing syncs." : `${n.toLocaleString()} note${n === 1 ? "" : "s"} will sync` + (n > cap ? `. Inbox Hero takes up to ${cap.toLocaleString()}, so ${(n - cap).toLocaleString()} will be left out: leave out a few more folders.` : "."));
       out.toggleClass("is-over", n > cap); if (go) go.setDisabled(scopeEmpty(s)); };
     const implied = (f: string) => { const s = sel(); return [...s].some(x => x !== f && f.startsWith(x + "/")); };
