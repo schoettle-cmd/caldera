@@ -1451,12 +1451,13 @@ function flyToStore(s){var q=iso(s.i,s.j),z=Math.max(cam.z,D.world?.9:1.05),shee
 var DIRKEY=null,DIRFROM=null,EXTSVG='<svg class="d-go" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',LOCSVG='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 // One panel, two shapes: beside the marker (or under the Stores button) on wide stages; a sheet at the stage's width just above the phone's tab bar at phone and folded sizes (fixed, because the stage can run past the fold).
 function placeDir(from){var sheet=innerWidth<=600||document.documentElement.classList.contains('ch-duof')||vw<420,b=st.getBoundingClientRect();card.classList.toggle('is-sheet',sheet);
-  if(sheet){var nav=document.getElementById('drRail'),bot=0;if(nav&&!st.classList.contains('c-full')&&getComputedStyle(nav).display!=='none'){var n=nav.getBoundingClientRect();if(n.width>n.height)bot=Math.max(0,innerHeight-n.top)}
+  var nav=document.getElementById('drRail'),bot=0;if(nav&&!st.classList.contains('c-full')&&getComputedStyle(nav).display!=='none'){var n=nav.getBoundingClientRect();if(n.width>n.height)bot=Math.max(0,innerHeight-n.top)}
+  if(sheet){
     card.style.setProperty('--c-sl',Math.max(0,b.left)+'px');card.style.setProperty('--c-sr',Math.max(0,document.documentElement.clientWidth-b.right)+'px');card.style.setProperty('--c-sb',bot+'px');return}
-  var tb=st.querySelector('.c-tools'),min=(tb&&!MINI?tb.getBoundingClientRect().bottom-b.top:0)+8,w=card.offsetWidth,gap=10,fr=from?from.getBoundingClientRect():null,mh=Math.max(160,vh-min-10),l=10,t=min;
+  var tb=st.querySelector('.c-tools'),min=(tb&&!MINI?tb.getBoundingClientRect().bottom-b.top:0)+8,w=card.offsetWidth,gap=10,fr=from?from.getBoundingClientRect():null,room=Math.min(vh,innerHeight-bot-b.top),mh=Math.max(160,room-min-10),l=10,t=min;
   if(from&&from.id==='t-stores')l=fr.right-b.left-w;else if(fr){var mx=fr.left-b.left;l=mx+fr.width+gap+w<=vw-10?mx+fr.width+gap:mx-gap-w}
   card.style.setProperty('--c-mh',mh+'px');var h=Math.min(card.offsetHeight,mh);if(fr&&from.id!=='t-stores')t=fr.top-b.top-16;
-  card.style.setProperty('--c-l',Math.max(10,Math.min(vw-w-10,l))+'px');card.style.setProperty('--c-t',Math.max(min,Math.min(vh-h-10,t))+'px')}
+  card.style.setProperty('--c-l',Math.max(10,Math.min(vw-w-10,l))+'px');card.style.setProperty('--c-t',Math.max(min,Math.min(room-h-10,t))+'px')}
 function storeDir(r0,key,focus,from){var keys=Array.isArray(key)?key:key?[key]:null,many=!!keys&&keys.length>1,all=null,cur=null;key=keys?keys[0]:null;
   if(keys){var GS=storeGroups();all=[];keys.forEach(function(k){if(GS[k])all=all.concat(GS[k].all)})}if(!all||!all.length)all=storeList(keys&&!many?key:null);
   all.forEach(function(s){if(s.r===r0)cur=s});DIRKEY=key;DIRFROM=from||null;sel=cur?cur.r:null;var person=key&&D.world&&!many;
