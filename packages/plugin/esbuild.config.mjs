@@ -20,3 +20,6 @@ await esbuild.build({ entryPoints: ["src/links.ts"], bundle: true, format: "esm"
 // suggest.ts talks to Obsidian only through getAllTags/requestUrl: tested against a tiny stand-in
 await esbuild.build({ entryPoints: ["src/suggest.ts"], bundle: true, format: "esm", platform: "node", packages: "external", alias: { obsidian: "./test/obsidian-stub.mjs" }, outfile: "test/suggest.build.mjs" });
 await esbuild.build({ entryPoints: ["src/gitlines.ts"], bundle: true, format: "esm", platform: "node", packages: "external", outfile: "test/gitlines.build.mjs" });
+// Inbox Hero headless sync (Node, run by launchd; headless/install.sh). Same engine as the plugin's connector.
+await esbuild.build({ entryPoints: ["headless/ih-sync.ts"], bundle: true, format: "esm", platform: "node", target: "node20", outfile: "headless/ih-sync.mjs", logLevel: "warning" });
+await esbuild.build({ entryPoints: ["headless/ih-sync.ts"], bundle: true, format: "esm", platform: "node", target: "node20", outfile: "test/ihheadless.build.mjs" });

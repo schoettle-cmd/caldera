@@ -12,3 +12,5 @@ packages/plugin/test/city.build.mjs
 packages/plugin/test/listings.build.mjs
 packages/plugin/test/gitlines.build.mjs
 packages/plugin/test/ihsync.build.mjs
+packages/plugin/test/ihheadless.build.mjs
+packages/plugin/headless/ih-sync.mjs
