@@ -245,7 +245,8 @@ export function upgradeCityScript(html: string): string {
   const b = html.indexOf("})();</script>", a); if (b < 0) return html;
   const old = html.slice(a + 8, b + 5);
   if (old === CITY_JS || !old.includes("function fitLabels(")) return html;
-  return html.slice(0, a + 8) + CITY_JS + html.slice(b + 5);
+  const out = html.slice(0, a + 8) + CITY_JS + html.slice(b + 5);
+  return out.includes(".c-sfk{") ? out : out.replace(/<\/head>/i, () => `<style>${STORE_CSS}</style></head>`);
 }
 
 /** Serve-time: apply a private-repos setting to an already published PUBLIC city.html (any plugin version). Rebuilds
@@ -361,6 +362,15 @@ export function citySnapshot(city: CityData, o: { name: string; href?: string })
 <span class="cp-bar"><span><b>${e(o.name)}'s city</b> <span class="cp-n">&middot; ${nb} building${nb === 1 ? "" : "s"}${city.privateMode === "anonymous" && repos.some(r => r.locked) ? " + private work" : ""} &middot; ${total.toLocaleString("en-US")} ${city.kind === "vault" ? `note${total === 1 ? "" : "s"} edited` : `commit${total === 1 ? "" : "s"}`} this year${busy ? ` &middot; ${busy} busy this week` : ""}</span></span><span class="cp-go">Explore the city &rarr;</span></span></a><script>(function(a){var d=new Date(),m=d.getHours()*60+d.getMinutes(),k=m<345?'':m<450?'dawn':m<1042?'day':m<1140?'dusk':m<1237?'evening':'';if(a&&k)a.classList.add('sky-'+k)})(document.currentScript&&document.currentScript.previousElementSibling)</script>`;
 }
 
+/** The store panel and markers. Published pages keep the CSS they were built with while the hub upgrades their script (upgradeCityScript), so the upgrade adds this block too. */
+const STORE_CSS = `.c-card.is-dir{left:var(--c-l,10px);top:var(--c-t,58px);width:min(340px,calc(100% - 20px));max-height:var(--c-mh,calc(100% - 110px));padding:12px 12px 8px;touch-action:pan-y;overscroll-behavior:contain;z-index:6}.c-card.is-dir .d-head{padding-right:40px;margin-bottom:8px;min-height:28px}.c-card.is-dir .d-head b{font-size:15px;color:#fff}.c-card.is-dir .x{top:0;right:0;width:44px;height:44px;font-size:20px}.c-card.is-dir .x:focus-visible{outline:2px solid #B9A6FF;outline-offset:-4px;border-radius:10px}
+.c-card.is-dir.is-sheet{position:fixed;left:var(--c-sl,0);right:var(--c-sr,0);bottom:var(--c-sb,0);top:auto;width:auto;max-height:min(62vh,420px);border-radius:14px 14px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.45);padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:65}
+.c-card .d-li{display:flex;align-items:center;gap:4px}
+.c-card .d-row{flex:1;min-width:0;display:flex;gap:10px;align-items:center;text-align:left;text-decoration:none;background:none;border:1px solid transparent;border-radius:8px;padding:6px;color:#E8E8EE;font:inherit;min-height:44px;box-sizing:border-box}
+.c-card a.d-row{cursor:pointer}.c-card a.d-row:hover{background:rgba(255,255,255,.06)}.c-card a.d-row:focus-visible,.c-card .d-loc:focus-visible{outline:2px solid #B9A6FF;outline-offset:1px}.c-card .d-row.is-on{background:rgba(139,108,246,.2);border-color:rgba(139,108,246,.55)}
+.c-card .d-go{flex:none;margin-left:auto;display:block;color:#B9A6FF}
+.c-card .d-loc{flex:none;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:none;border:1px solid transparent;color:#9A9AA6;cursor:pointer}.c-card .d-loc:hover{background:rgba(255,255,255,.06);color:#fff}
+.c-sfk{position:absolute;left:0;top:0;width:0;height:0;z-index:1}.c-sfk button{position:absolute;left:0;top:0;width:44px;height:44px;margin:0;padding:0;border:0;border-radius:10px;background:none;color:transparent;font-size:1px;overflow:hidden;pointer-events:none;-webkit-appearance:none;appearance:none}.c-sfk button:focus-visible{outline:3px solid #B9A6FF;outline-offset:1px}.c-stage.c-dig .c-sfk{display:none}html.c-mini .c-sfk{display:none}`;
 export const CITY_CSS = `
 .c-main{max-width:1100px;margin:0 auto;padding:28px 20px 64px}
 .c-crumbs{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px}.c-crumbs a{color:var(--text-muted)}.c-crumbs a.c-gh{color:var(--accent-text,#B9A6FF)}
@@ -417,13 +427,10 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 .c-card h3{margin:0 0 2px;font-size:15px;color:#fff}.c-card .k{color:#9A9AA6;font-size:12px}.c-card a{color:#B9A6FF}
 .c-card .row{display:flex;justify-content:space-between;gap:8px;margin-top:4px}.c-card .x{position:absolute;top:6px;right:8px;background:none;border:0;color:#9A9AA6;font-size:16px;cursor:pointer}
 .c-card .sp{display:flex;align-items:flex-end;gap:2px;height:28px;margin:8px 0 2px}.c-card .sp i{flex:1;background:#8B6CF6;border-radius:2px 2px 0 0;min-height:2px}
-.c-card.is-dir{top:58px;width:min(340px,calc(100% - 20px));max-height:calc(100% - 110px);padding:12px 12px 8px}.c-card.is-dir .d-head{padding-right:22px;margin-bottom:8px}.c-card.is-dir .d-head b{font-size:15px;color:#fff}
 .c-card .d-sel{padding:10px;margin:0 0 8px;border-radius:9px;background:rgba(139,108,246,.14);border:1px solid rgba(139,108,246,.45)}.c-card .d-visit{font-weight:600}
 .c-card .d-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
-.c-card .d-row{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:1px solid transparent;border-radius:8px;padding:6px;color:#E8E8EE;font:inherit;cursor:pointer;min-height:44px}
-.c-card .d-row:hover{background:rgba(255,255,255,.06)}.c-card .d-row:focus-visible{outline:2px solid #B9A6FF;outline-offset:1px}.c-card .d-row.is-on{background:rgba(139,108,246,.2);border-color:rgba(139,108,246,.55)}
+${STORE_CSS}
 .c-card .d-txt{display:flex;flex-direction:column;min-width:0}.c-card .d-name{font-weight:600;color:#fff;overflow-wrap:anywhere}.c-card .d-meta{font-size:12px;color:#9A9AA6;overflow-wrap:anywhere}
-@media (max-width:600px){.c-card.is-dir{left:0;right:0;top:auto;bottom:0;width:auto;max-height:62%;border-radius:14px 14px 0 0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}}
 .c-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 18px;font-size:var(--text-sm);color:var(--text-muted)}
 .c-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .c-table-wrap{overflow-x:auto}.c-table{width:100%;border-collapse:collapse;font-size:var(--text-sm);font-variant-numeric:tabular-nums}
@@ -552,7 +559,7 @@ function dormant(r){return r.pushed&&now-Date.parse(r.pushed)>60*DAY&&!r.week}
 var dpr=1,vw=0,vh=0,cam={x:0,y:0,z:1};
 function iso(i,j){return {x:(i-j)*TW/2,y:(i+j)*TH/2}}
 var FITZ=0;   // the zoom that fits the whole map: world labels loosen their budget as you zoom past it
-function fit(){var r=st.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,MINI?1.5:3);vw=r.width;vh=r.height;cv.width=vw*dpr;cv.height=vh*dpr;
+function fit(){COBT=0;var r=st.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,MINI?1.5:3);vw=r.width;vh=r.height;cv.width=vw*dpr;cv.height=vh*dpr;
   var spanX=(W+H)*TW/2+TW,spanY=(W+H)*TH/2+maxH+40;cam.z=Math.min(1.6,Math.max(D.world?.08:.3,Math.min(vw/spanX,vh/spanY)*.98));
   var c=iso(W/2,H/2);cam.x=vw/2-c.x*cam.z;cam.y=vh/2-c.y*cam.z+(maxH/2)*cam.z;
   if(under){var y0=iso(0,0).y-maxH*.6,y1=iso(W,H).y+DROP+DSPAN+20;cam.z=Math.min(1.4,Math.max(.25,Math.min(vw/spanX,vh/(y1-y0))*.96));cam.x=vw/2-c.x*cam.z;cam.y=vh/2-((y0+y1)/2)*cam.z}
@@ -1071,7 +1078,7 @@ function tronPrism(c,px,py,w,h,col,litp,seed,locked){var hw=TW/2*w,hh=TH/2*w,L=[
   // neon edges
   glowLine(c,[[px-hw,py],[px,py+hh],[px+hw,py]],col,1,6);glowLine(c,[[px,py+hh],[px,py+hh-h]],col,1.4,10);glowLine(c,[[px-hw,py],[px-hw,py-h]],col,.8,5);glowLine(c,[[px+hw,py],[px+hw,py-h]],col,.8,5);
   glowLine(c,Tp,col,1.2,10,true)}
-function tronObjects(){SIGNS=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[];
+function tronObjects(){SIGNS=[];CLAB=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[];
   for(var sum=0;sum<=W+H;sum++)for(var i=0;i<=W;i++){var j=sum-i;if(j<0||j>H)continue;var t=tiles[i+','+j],p=iso(i,j);
     if((t.t==='g'&&!water(i,j)&&rnd(i*17+j*29)<.22)||t.t==='p'){// data crystals
       var n=t.t==='p'?3:1;for(var q=0;q<n;q++){var cx0=p.x+(rnd(i*3+q)-.5)*24,cy0=p.y+(rnd(j*5+q)-.5)*10,s=.6+rnd(i+j+q)*.5,col=rnd(i*7+j+q)<.5?'#2BFFC0':CYAN;
@@ -1093,7 +1100,7 @@ function tronObjects(){SIGNS=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect
   if(SHOPLBL){pill(c,SHOPLBL.x,SHOPLBL.y,SHOPLBL.text,SHOPLBL.bg,'#fff','700 11px IBM Plex Sans,Arial,sans-serif');hits.push({shop:1,x0:SHOPLBL.x-80,x1:SHOPLBL.x+80,y0:SHOPLBL.y-12,y1:SHOPLBL.y+8});SHOPLBL=null}
   if(WORLD){worldLabels(tags);drawSigns();return}   // storefront signs go over every building and label
   if(labels){var fT='600 10.5px IBM Plex Mono,monospace',fB='700 10.5px IBM Plex Mono,monospace';fitLabels(c,tags,fT,function(b){return {x:b.x,y:b.y,text:b.d.name.toUpperCase()}},fB,
-    function(g){tronPill(c,g.x,g.y,g.text,g.col,fT);tagHit(c,g,fT)},function(b,q){tronPill(c,q.x,q.y,q.text,b.neon||CYAN,fB)})}
+    function(g){tronPill(c,g.x,g.y,g.text,g.col,fT);tagHit(c,g,fT);c.font=fT;CLAB.push([g.x,g.y,c.measureText(g.text).width+14])},function(b,q){tronPill(c,q.x,q.y,q.text,b.neon||CYAN,fB);c.font=fB;CLAB.push([q.x,q.y,c.measureText(q.text).width+14])})}
   drawSigns()}
 // labels never sit on top of each other: district names and the live counts are placed first, then the selected repo,
 // then repo names by size; a repo name that would overlap one already placed waits until you zoom in far enough to fit
@@ -1390,63 +1397,85 @@ function ltex(r){var m=r.meta||{},im=limg(m.icon),app=r.kind==='app',k=(im?m.ico
   else{g.fillStyle=LCOL[r.kind]||'#8A8A93';g.font='700 76px IBM Plex Sans,Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(String(r.name||'?').charAt(0).toUpperCase(),64,68)}
   if(im)LTEX[k]=t;else if(!m.icon||!/^https?:/.test(m.icon))LTEX[k]=t;return t}   // a letter tile for a loading icon isn't kept
 var SIGNS=[],SHITS=[],SHOVER=null;
-// Signs float above their building on a short mast, face the camera and never shrink below a readable size on screen
-// (icon + short name; icon only on the zoomed-out World map). Drawn after every building so a tower never hides one;
-// a sign that would cover another is raised above it. Day: a white card with a glow in the listing's colour; night: a
-// dark card with a neon edge and a stronger glow. They go on their own layer (L4), composited after everything else in
-// the frame (cranes, helicopters, agents, labels), and their tap targets are tested first: a click on a sign opens the
-// listing's store or website and never falls through to the building or crane under it.
-function drawSigns(){var z=cam.z,placed=[],items=[],c=c4;var tb=st.querySelector('.c-tools'),topY=((tb&&!MINI?tb.getBoundingClientRect().bottom-st.getBoundingClientRect().top:0)+8-cam.y)/z;SHITS=[];c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L4.width,L4.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
-  SIGNS.forEach(function(g){g.list.forEach(function(s,ix){items.push({g:g,s:s,ix:ix})})});
-  items.sort(function(a,b){return (b.g.base-a.g.base)||(a.ix-b.ix)});   // nearest first: they keep their natural spot
-  items.forEach(function(it){var g=it.g,r=it.s.r,LOD=g.LOD,k=D.world?.85:1,H=Math.max(26*k,(LOD?(vw<600?20:24):(vw<600?24:32))/z),u=H/26,is=18*u,pad=4*u,fs=11.5*u,txt='',W;
-    c.font='700 '+fs.toFixed(2)+'px IBM Plex Sans,Arial,sans-serif';
-    if(!LOD){txt=String(r.name||'');if(txt.length>24)txt=txt.slice(0,23)+'…';W=pad+is+5*u+c.measureText(txt).width+pad+2*u}else W=H;
-    var ax=g.x,roof=g.top-(g.lift||0),y1=roof-10*u-it.ix*(H+5*u),x0=ax-W/2,y0=y1-H,tries=0;
-    while(tries++<10){var hit=null;for(var q=0;q<placed.length;q++){var P2=placed[q];if(x0<P2.x1+3*u&&x0+W>P2.x0-3*u&&y0<P2.y1+3*u&&y1>P2.y0-3*u){hit=P2;break}}if(!hit)break;y1=hit.y0-5*u;y0=y1-H}
-    if(y0<topY&&y1+(topY-y0)<roof){y1+=topY-y0;y0=topY}   // never up under the toolbar, where it couldn't be tapped
-    placed.push({x0:x0,x1:x0+W,y0:y0,y1:y1,it:it,W:W,H:H,u:u,txt:txt,fs:fs,is:is,pad:pad,roof:roof})});
-  placed.slice().reverse().forEach(function(P2){var it=P2.it,g=it.g,r=it.s.r,u=P2.u,col=LCOL[r.kind]||'#8A8A93',dark=g.tron||sky==='night'||sky==='evening',ax=g.x,x0=P2.x0,y0=P2.y0,W=P2.W,H=P2.H,hov=SHOVER===r;if(hov){y0-=2*u}   // hover: the card lifts a little
-    if(!g.LOD){c.fillStyle='rgba(0,0,0,'+(dark?.32:.2)+')';c.beginPath();c.ellipse(ax,g.top+1,8*u,2.6*u,0,0,7);c.fill()}   // soft shadow on the roof
-    c.strokeStyle=g.tron?col:dark?'#8A90A0':'#5B606C';c.lineWidth=1.5*u;c.beginPath();c.moveTo(ax,g.top-1);c.lineTo(ax,P2.y1);c.stroke();   // mast
-    c.save();c.shadowColor=col;c.shadowBlur=(hov?30:dark?22:9)*dpr;c.fillStyle=dark?'#0E1220':'#FFFFFF';rrect(c,x0,y0,W,H,6*u);c.fill();c.restore();
-    c.fillStyle=dark?'#0E1220':'#FFFFFF';c.beginPath();c.moveTo(ax-4*u,y0+H-.5);c.lineTo(ax+4*u,y0+H-.5);c.lineTo(ax,y0+H+4*u);c.closePath();c.fill();   // pointer down to the mast
-    c.strokeStyle=hov?mix(col,1.25):col;c.lineWidth=(hov?2.8:dark?2:1.6)*u;rrect(c,x0,y0,W,H,6*u);c.stroke();
-    if(dark){c.save();c.globalAlpha=.55;c.strokeStyle=mix(col,1.5);c.lineWidth=.8*u;rrect(c,x0+1.6*u,y0+1.6*u,W-3.2*u,H-3.2*u,4.6*u);c.stroke();c.restore()}   // inner neon tube
-    var is=g.LOD?H-6*u:P2.is,ix=g.LOD?x0+3*u:x0+P2.pad;c.drawImage(ltex(r),ix,y0+(H-is)/2,is,is);
-    if(!g.LOD&&P2.txt){c.font='700 '+P2.fs.toFixed(2)+'px IBM Plex Sans,Arial,sans-serif';c.textAlign='left';c.textBaseline='middle';c.fillStyle=dark?'#FFFFFF':'#141824';
-      if(dark){c.save();c.shadowColor=col;c.shadowBlur=6*dpr}c.fillText(P2.txt,ix+is+5*u,y0+H/2+.5*u);if(dark)c.restore();c.textAlign='center';c.textBaseline='alphabetic'}
-    if(sel===r){c.save();c.strokeStyle=g.tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=14;rrect(c,x0-4*u,y0-4*u,W+8*u,H+8*u,8*u);c.stroke();c.restore()}
-    var m=44/z,cx0=x0+W/2,cy0=y0+H/2,hw=Math.max(W/2+4*u,m/2),hh=Math.max(H/2+4*u,m/2);   // the whole card, never under 44 px on screen
-    SHITS.push({r:r,d:g.d,sign:1,url:repoUrl(r),x0:cx0-hw,x1:cx0+hw,y0:cy0-hh,y1:cy0+hh,card:[x0,y0,x0+W,y0+H]})});
-  SIGNS=[]}
+// Store markers (Mike 2026-11-06: "we need a different system for the store front links"): one marker per person in the
+// World, per district in a city, showing the top store's icon and a "+N" count. A tap opens one panel (bottom sheet at
+// phone and folded sizes) with every store as a real link. Each marker takes a 44 px square on screen, so targets never
+// overlap: it stands above its place when that spot is free, otherwise on a free spot close by (clear of other markers,
+// name labels and the map's controls, with a short line back), and when there is none it joins the nearest marker, whose
+// count and panel then cover both; zooming in splits them again. Own layer (L4), composited last, in screen pixels, tested first.
+var SGR=null,SKEYS=null,SFK=null,SBTN={},COBS=[],COBT=0,CLAB=[];
+function storeGroups(){if(SGR)return SGR;SGR={};SKEYS=[];storeList(null).forEach(function(s){var k=(s.d&&(s.d.nb||s.d.name))||'?',G=SGR[k];if(!G){G=SGR[k]={key:k,all:[]};SKEYS.push(k)}G.all.push(s)});
+  SKEYS.forEach(function(k){var G=SGR[k],rank=function(s){var m=s.r.meta||{};return (m.icon?1e9:0)+(+m.ratings||0)};G.all.sort(function(a,b){return rank(b)-rank(a)||String(a.r.name).localeCompare(String(b.r.name),undefined,{sensitivity:'base'})});G.top=G.all[0].r;G.n=G.all.length;
+    var y=Infinity,ax=0;G.all.forEach(function(s){var q=iso(s.i,s.j),ty=q.y-bh(s.h||s.r);if(ty<y){y=ty;ax=q.x}});G.ax=ax;G.ay=y});
+  SKEYS.sort(function(a,b){return SGR[b].n-SGR[a].n||(a<b?-1:1)});return SGR}
+function controlRects(){var t=performance.now();if(t-COBT<300)return COBS;COBT=t;COBS=[];var b=st.getBoundingClientRect();st.querySelectorAll('.c-tools button,.c-live,.c-today,.c-hint,.c-heli,.w-topics').forEach(function(el){var r=el.getBoundingClientRect();if(!r.width||!r.height)return;COBS.push({x0:r.left-b.left,x1:r.right-b.left,y0:r.top-b.top,y1:r.bottom-b.top})});return COBS}
+var SOFF=(function(){var o=[[0,0]];[[46,8],[92,12]].forEach(function(q){for(var i=0;i<q[1];i++){var a=-Math.PI/2+(i%2?1:-1)*Math.ceil(i/2)*2*Math.PI/q[1];o.push([Math.round(Math.cos(a)*q[0]),Math.round(Math.sin(a)*q[0])])}});return o})();
+function drawSigns(){var c=c4,z=cam.z;SHITS=[];c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L4.width,L4.height);c.setTransform(dpr,0,0,dpr,0,0);SIGNS=[];
+  var GR=storeGroups(),S=vw<600?30:34,B=44,obs=[],me=D.world?worldMe():'',foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,dark=sky==='grid'||sky==='night'||sky==='evening',tron=sky==='grid',seen={},P=[];
+  if(!MINI)controlRects().forEach(function(q){obs.push(q)});
+  if(D.world&&WLAB)WLAB.forEach(function(q){obs.push(q)});
+  CLAB.forEach(function(l){var x=l[0]*z+cam.x,y=l[1]*z+cam.y;obs.push({x0:x-l[2]*z/2,x1:x+l[2]*z/2,y0:y-18*z,y1:y+4*z})});   // city labels are drawn in world units, so they scale with the zoom
+  var hitsAny=function(x0,y0){for(var q=0;q<obs.length;q++){var o=obs[q];if(x0<o.x1+2&&x0+B>o.x0-2&&y0<o.y1+2&&y0+B>o.y0-2)return true}return false};
+  var order=SKEYS.slice();if(me||foc)order.sort(function(a,b){return (b===foc?2:b===me?1:0)-(a===foc?2:a===me?1:0)});
+  order.forEach(function(k){var G=GR[k],n=D.world&&NBM[k],t=n?nbTop(n):null,ax=(t?t.x:G.ax)*z+cam.x,ay=(t?t.y:G.ay)*z+cam.y;
+    if(ax<-30||ax>vw+30||ay<-30||ay>vh+30)return;   // its place is off the stage
+    var fx=null,fy=null;for(var i=0;i<SOFF.length;i++){var x0=ax+SOFF[i][0]-B/2,y0=ay-44+SOFF[i][1]-B/2;if(x0<2||y0<2||x0+B>vw-2||y0+B>vh-2||hitsAny(x0,y0))continue;fx=x0;fy=y0;break}
+    if(fx==null){var best=null,bd=1e9;P.forEach(function(q){var d=Math.hypot(q.ax-ax,q.ay-ay);if(d<bd){bd=d;best=q}});if(best){best.keys.push(k);best.n+=G.n}return}
+    obs.push({x0:fx,x1:fx+B,y0:fy,y1:fy+B});seen[k]=1;P.push({k:k,G:G,ax:ax,ay:ay,fx:fx,fy:fy,keys:[k],n:G.n})});
+  c.strokeStyle=dark?'rgba(205,214,235,.85)':'rgba(40,46,62,.8)';c.lineWidth=1.5;c.beginPath();P.forEach(function(p){c.moveTo(p.ax,p.ay);c.lineTo(p.fx+B/2,p.fy+B/2)});c.stroke();   // the short lines back to each place, under every tile
+  P.forEach(function(p){var G=p.G,k=p.k,fx=p.fx,fy=p.fy,r=G.top,col=LCOL[r.kind]||'#8A8A93',hov=SHOVER===k,tx=fx+(B-S)/2,ty=fy+(B-S)/2-(hov?2:0),on=sel&&p.keys.some(function(q){return GR[q].all.some(function(s){return s.r===sel})});
+    c.save();c.shadowColor=col;c.shadowBlur=(hov?24:dark?16:8)*dpr;c.fillStyle=dark?'#0E1220':'#FFFFFF';rrect(c,tx,ty,S,S,8);c.fill();c.restore();
+    c.strokeStyle=hov?mix(col,1.25):col;c.lineWidth=hov?2.6:2;rrect(c,tx,ty,S,S,8);c.stroke();
+    var is=S-8;c.drawImage(ltex(r),tx+4,ty+4,is,is);
+    if(p.n>1){var bt='+'+Math.min(99,p.n-1);c.font='700 11px IBM Plex Sans,Arial,sans-serif';var bw=Math.max(18,c.measureText(bt).width+8),bh2=16,bx=Math.min(fx+B-bw,tx+S-bw+6),by=fy+(hov?-2:0);
+      c.fillStyle='#6D4AE8';c.strokeStyle=dark?'#0E1220':'#FFFFFF';c.lineWidth=1.5;rrect(c,bx,by,bw,bh2,8);c.fill();c.stroke();c.fillStyle='#FFFFFF';c.textAlign='center';c.textBaseline='middle';c.fillText(bt,bx+bw/2,by+bh2/2+.5);c.textBaseline='alphabetic'}
+    if(on){c.save();c.strokeStyle=tron?'#FFFFFF':'#C4B5FF';c.lineWidth=2.4;c.shadowColor='#8B6CF6';c.shadowBlur=14;rrect(c,tx-4,ty-4,S+8,S+8,11);c.stroke();c.restore()}
+    SHITS.push({r:r,d:G.all[0].d,sign:1,group:k,keys:p.keys,count:p.n,url:'',x0:fx,x1:fx+B,y0:fy,y1:fy+B,card:[tx,ty,tx+S,ty+S]})});
+  storeKeys(seen)}
+// the markers for the keyboard and screen readers: real buttons over the canvas (taps stay on the canvas so a drag can start on one)
+function storeKeys(seen){if(MINI)return;if(!SFK){SFK=document.createElement('div');SFK.className='c-sfk';SFK.setAttribute('role','group');SFK.setAttribute('aria-label','Store markers');st.appendChild(SFK)}
+  SHITS.forEach(function(h){var b=SBTN[h.group];if(!b){b=SBTN[h.group]=document.createElement('button');b.type='button';b.onclick=(function(g,el){return function(){var q=SHITS.filter(function(x){return x.group===g})[0];storeDir(q&&q.count===1?q.r:null,q?q.keys:[g],true,el)}})(h.group,b);SFK.appendChild(b)}
+    var lb=(h.keys.length>1?h.count+' stores near '+h.group:(h.group==='?'?'':h.group+': ')+h.count+(h.count===1?' store':' stores'));if(b._l!==lb){b._l=lb;b.textContent=lb}
+    var tr='translate('+Math.round(h.x0)+'px,'+Math.round(h.y0)+'px)';if(b._t!==tr){b._t=tr;b.style.transform=tr}if(b.hidden)b.hidden=false});
+  for(var k in SBTN)if(!seen[k]&&!SBTN[k].hidden&&document.activeElement!==SBTN[k])SBTN[k].hidden=true}
 // ---- the store directory: tapping any storefront (or "Stores" in the toolbar) lists every storefront in that city in one menu
 function storeList(key){var out=[];for(var k in tiles){var t=tiles[k];if(t.t!=='b'||!t.r||!(!key||(t.d&&(t.d.nb||t.d.name))===key))continue;var L=SFA.get(t.r);if(!L)continue;var a=k.split(',');
-    L.forEach(function(s){out.push({r:s.r,d:t.d,i:+a[0],j:+a[1]})})}
+    L.forEach(function(s){out.push({r:s.r,h:t.r,d:t.d,i:+a[0],j:+a[1]})})}
   out.sort(function(a,b){return String(a.r.name).localeCompare(String(b.r.name),undefined,{sensitivity:'base'})||placeOf(a).localeCompare(placeOf(b))});return out}
 function placeOf(s){if(!s.d)return '';if(D.world){var key=s.d.nb||s.d.name,m=WORLD&&WORLD.m&&WORLD.m[key]||{};return m.name||key}return s.d.name||''}
 function storeAddr(r){var m=r.meta||{},s=r.sites&&r.sites[0];return typeof s==='string'&&s.indexOf(m.host||'\u0000')===0?s:(m.host||'')}
 function storeKind(r){return r.kind==='app'?((r.meta||{}).store==='play'?'App · Google Play':'App · App Store'):'Website'+(storeAddr(r)?' · '+storeAddr(r):'')}
-function storeIcon(r,px){var m=r.meta||{},im=limg(m.icon),col=LCOL[r.kind]||'#8A8A93';return im?'<img src="'+e(m.icon)+'" alt="" width="'+px+'" height="'+px+'" style="width:'+px+'px;height:'+px+'px;border-radius:'+(r.kind==='app'?Math.round(px*.22):Math.round(px*.18))+'px;flex:none;object-fit:cover;background:#fff">'
+function storeIcon(r,px){var m=r.meta||{},col=LCOL[r.kind]||'#8A8A93';limg(m.icon);var im=m.icon&&LIMG[m.icon];return im?'<img src="'+e(m.icon)+'" alt="" width="'+px+'" height="'+px+'" style="width:'+px+'px;height:'+px+'px;border-radius:'+(r.kind==='app'?Math.round(px*.22):Math.round(px*.18))+'px;flex:none;object-fit:cover;background:#fff">'
   :'<span aria-hidden="true" style="width:'+px+'px;height:'+px+'px;flex:none;border-radius:'+Math.round(px*.22)+'px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;background:#fff;color:'+col+';box-shadow:0 0 0 2px '+col+'">'+e(String(r.name||'?').charAt(0).toUpperCase())+'</span>'}
 function flyToStore(s){var q=iso(s.i,s.j),z=Math.max(cam.z,D.world?.9:1.05),sheet=vw<600,ty=sheet?vh*.24:vh/2,tx=sheet?vw/2:Math.min(vw-60,(vw+Math.min(card.offsetWidth+20,vw*.5))/2);flyTo(tx-q.x*z,ty-(q.y-40)*z,z,reduce?1:450)}
-var DIRKEY=null;
-function storeDir(r0,key,focus){var all=storeList(key),cur=null;all.forEach(function(s){if(s.r===r0)cur=s});if(!cur&&all.length&&r0)cur=null;
-  DIRKEY=key;sel=cur?cur.r:null;
+var DIRKEY=null,DIRFROM=null,EXTSVG='<svg class="d-go" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',LOCSVG='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+// One panel, two shapes: beside the marker (or under the Stores button) on wide stages; a sheet at the stage's width just above the phone's tab bar at phone and folded sizes (fixed, because the stage can run past the fold).
+function placeDir(from){var sheet=innerWidth<=600||document.documentElement.classList.contains('ch-duof')||vw<420,b=st.getBoundingClientRect();card.classList.toggle('is-sheet',sheet);
+  if(sheet){var nav=document.getElementById('drRail'),bot=0;if(nav&&!st.classList.contains('c-full')&&getComputedStyle(nav).display!=='none'){var n=nav.getBoundingClientRect();if(n.width>n.height)bot=Math.max(0,innerHeight-n.top)}
+    card.style.setProperty('--c-sl',Math.max(0,b.left)+'px');card.style.setProperty('--c-sr',Math.max(0,document.documentElement.clientWidth-b.right)+'px');card.style.setProperty('--c-sb',bot+'px');return}
+  var tb=st.querySelector('.c-tools'),min=(tb&&!MINI?tb.getBoundingClientRect().bottom-b.top:0)+8,w=card.offsetWidth,gap=10,fr=from?from.getBoundingClientRect():null,mh=Math.max(160,vh-min-10),l=10,t=min;
+  if(from&&from.id==='t-stores')l=fr.right-b.left-w;else if(fr){var mx=fr.left-b.left;l=mx+fr.width+gap+w<=vw-10?mx+fr.width+gap:mx-gap-w}
+  card.style.setProperty('--c-mh',mh+'px');var h=Math.min(card.offsetHeight,mh);if(fr&&from.id!=='t-stores')t=fr.top-b.top-16;
+  card.style.setProperty('--c-l',Math.max(10,Math.min(vw-w-10,l))+'px');card.style.setProperty('--c-t',Math.max(min,Math.min(vh-h-10,t))+'px')}
+function storeDir(r0,key,focus,from){var keys=Array.isArray(key)?key:key?[key]:null,many=!!keys&&keys.length>1,all=null,cur=null;key=keys?keys[0]:null;
+  if(keys){var GS=storeGroups();all=[];keys.forEach(function(k){if(GS[k])all=all.concat(GS[k].all)})}if(!all||!all.length)all=storeList(keys&&!many?key:null);
+  all.forEach(function(s){if(s.r===r0)cur=s});DIRKEY=key;DIRFROM=from||null;sel=cur?cur.r:null;var person=key&&D.world&&!many;
+  var where=many?'near '+e(key):person?'from '+e(key):key?'in '+e(key):D.world?'in the world':'in this city',title='Stores '+where;
   function render(){var r=cur&&cur.r,m=r&&r.meta||{},u=r?repoUrl(r):'',app=r&&r.kind==='app';
     var top=r?'<div class="d-sel">'+'<div style="display:flex;gap:10px;align-items:center">'+storeIcon(r,44)+'<div style="min-width:0"><h3 style="margin:0">'+e(r.name)+'</h3><div class="k">'+e(storeKind(r))+(placeOf(cur)?' &middot; '+e(placeOf(cur))+(D.world?'':' district'):'')+'</div></div></div>'
       +(m.desc?'<p style="margin:8px 0 0">'+e(m.desc)+'</p>':'')
       +(m.genre?'<div class="row"><span>Category</span><b>'+e(m.genre)+'</b></div>':'')
-      +(+m.rating>0?'<div class="row"><span>Rating</span><b>&#9733; '+(+m.rating).toFixed(1)+(+m.ratings>0?' ('+(+m.ratings).toLocaleString('en-US')+')':'')+'</b></div>':'')
-      +(u?'<p style="margin:8px 0 0"><a class="d-visit" href="'+e(u)+'" target="_blank" rel="noopener">'+(app?(m.store==='play'?'Open on Google Play':'Open on the App Store'):'Visit '+e(storeAddr(r)||'the site'))+' &#8599;</a></p>':'')+'</div>':'';
-    card.innerHTML='<button class="x" aria-label="Close">&times;</button><div class="d-head"><b>Stores</b> <span class="k">'+all.length+' in '+(key&&D.world?e(placeOf(all[0]||{d:null})||'this city'):D.world?'the world':'this city')+'</span></div>'+top
-      +'<ul class="d-list" role="list">'+all.map(function(s,ix){var on=s===cur;return '<li><button type="button" class="d-row'+(on?' is-on':'')+'" data-ix="'+ix+'" aria-current="'+(on?'true':'false')+'">'+storeIcon(s.r,28)+'<span class="d-txt"><span class="d-name">'+e(s.r.name)+'</span><span class="d-meta">'+e(storeKind(s.r))+(placeOf(s)?' &middot; '+e(placeOf(s)):'')+'</span></span></button></li>'}).join('')+'</ul>';
-    card.querySelector('.x').onclick=function(){show(null)};
-    card.querySelectorAll('.d-row').forEach(function(b){b.onclick=function(){var s=all[+b.getAttribute('data-ix')];cur=s;sel=s.r;render();flyToStore(s);var nb=card.querySelector('.d-row[data-ix="'+b.getAttribute('data-ix')+'"]');if(nb)nb.focus();card.scrollTop=0}});
+      +(+m.rating>0?'<div class="row"><span>Rating</span><b>&#9733; '+(+m.rating).toFixed(1)+(+m.ratings>0?' ('+(+m.ratings).toLocaleString('en-US')+')':'')+'</b></div>':'')+'</div>':'';
+    card.innerHTML='<button class="x" type="button" aria-label="Close">&times;</button><div class="d-head"><b>Stores</b> <span class="k">'+all.length+' '+where+'</span></div>'+top
+      +'<ul class="d-list" role="list">'+all.map(function(s,ix){var on=s===cur,su=repoUrl(s.r),app2=s.r.kind==='app',lbl=su?'Open '+s.r.name+(app2?((s.r.meta||{}).store==='play'?' on Google Play':' on the App Store'):'')+' in a new tab':'',inner=storeIcon(s.r,28)+'<span class="d-txt"><span class="d-name">'+e(s.r.name)+'</span><span class="d-meta">'+e(storeKind(s.r))+(!person&&placeOf(s)?' &middot; '+e(placeOf(s)):'')+'</span></span>';
+        return '<li class="d-li">'+(su?'<a class="d-row'+(on?' is-on':'')+'" href="'+e(su)+'" target="_blank" rel="noopener" aria-label="'+e(lbl)+'">'+inner+EXTSVG+'</a>':'<div class="d-row'+(on?' is-on':'')+'">'+inner+'</div>')+(key?'':'<button type="button" class="d-loc" data-ix="'+ix+'" aria-label="Show '+e(s.r.name)+' on the map" title="Show on the map">'+LOCSVG+'</button>')+'</li>'}).join('')+'</ul>';
+    card.querySelector('.x').onclick=function(){closeDir()};
+    card.querySelectorAll('.d-loc').forEach(function(b){b.onclick=function(){var ix=b.getAttribute('data-ix'),s=all[+ix];cur=s;sel=s.r;render();flyToStore(s);var nb=card.querySelector('.d-loc[data-ix="'+ix+'"]');if(nb)nb.focus({preventScroll:true});card.scrollTop=0}});
     draw()}
-  card.classList.add('is-dir');card.setAttribute('role','dialog');card.setAttribute('aria-label','Stores');render();card.hidden=false;
-  if(focus){var f=card.querySelector('.d-row.is-on')||card.querySelector('.d-row');if(f)f.focus()}}
-function listingCard(h){var key=D.world&&h.d?(h.d.nb||h.d.name):null;storeDir(h.r,key,false)}
+  card.classList.add('is-dir');card.setAttribute('role','dialog');card.setAttribute('aria-label',title.replace(/&amp;/g,'&'));render();card.hidden=false;placeDir(DIRFROM);
+  if(focus){var f=card.querySelector('.d-row[href]')||card.querySelector('.x');if(f)f.focus({preventScroll:true})}}
+function closeDir(){var from=DIRFROM;show(null);DIRFROM=null;var b=from&&from.isConnected&&!from.hidden?from:document.getElementById('t-stores');if(b)b.focus({preventScroll:true})}
+function listingCard(h){var key=D.world&&h.d?(h.d.nb||h.d.name):null;storeDir(h.r,key,false,null)}
 var SHOPLBL=null;
 function drawShop(c,p,LOD){if(!SHOP)return;var x=p.x,y=p.y+4,night=sky==='night'||sky==='evening';
   if(SHOP.big){var q=iso(SHOP.i+1,SHOP.j+1);x=q.x;y=q.y+4;var n=Math.min(8,Math.max(4,TOOLS.length)),pal=[['#E85D75','#FFF4E8'],['#4FB89A','#FFF4E8'],['#7AA7FF','#FFF4E8'],['#E8C547','#FFF4E8'],['#8B6CF6','#FFF4E8'],['#F28C38','#FFF4E8']];
@@ -1515,7 +1544,7 @@ function pill(c,x,y,text,bg,fg,font){c.font=font;var tw=c.measureText(text).widt
   c.moveTo(x-w/2+r,y-h);c.arcTo(x+w/2,y-h,x+w/2,y,r);c.arcTo(x+w/2,y,x-w/2,y,r);c.lineTo(x+3,y);c.lineTo(x,y+4);c.lineTo(x-3,y);c.arcTo(x-w/2,y,x-w/2,y-h,r);c.arcTo(x-w/2,y-h,x+w/2,y-h,r);c.closePath();c.fill();c.restore();
   c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+.5);c.textBaseline='alphabetic'}
 var lamps=[],cranes=[],beacons=[];
-function drawObjects(){SIGNS=[];var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[];
+function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[];
   FOREMAN={};for(var sum=0;sum<=W+H;sum++)for(var i=0;i<=W;i++){var j=sum-i;if(j<0||j>H)continue;var t=tiles[i+','+j],p=iso(i,j),gp=gpop(i,j);if(gp<=0&&t.t!=='b')continue;if(gp<1&&t.t!=='b'){c.save();var gk=backOut(gp);c.translate(p.x,p.y);c.scale(gk,gk);c.translate(-p.x,-p.y)}
     var hf=t.t==='h'&&BUILDING?buildF(t,i,j):1;if(hf<.55){if(gp<1&&t.t!=='b')c.restore();continue}if(hf<1){c.save();var hk=backOut(Math.min(1,(hf-.55)/.45));c.translate(p.x,p.y);c.scale(hk,hk);c.translate(-p.x,-p.y)}
     if(t.t==='g'&&!water(i,j)&&rnd(i*17+j*29)<(i===0||j===0?.55:.8)){var s=.7+rnd(i+j*3)*.5;if(rnd(i*3+j)<.5)tree2(c,p.x+(rnd(i)-.5)*20,p.y+(rnd(j)-.5)*8,s);else pine(c,p.x+(rnd(j)-.5)*20,p.y+(rnd(i)-.5)*8,s)}
@@ -1543,7 +1572,7 @@ function drawObjects(){SIGNS=[];var LOD=WORLD&&cam.z<.5;var c=c2;c.setTransform(
   if(SHOPLBL){pill(c,SHOPLBL.x,SHOPLBL.y,SHOPLBL.text,SHOPLBL.bg,'#fff','700 11px IBM Plex Sans,Arial,sans-serif');hits.push({shop:1,x0:SHOPLBL.x-80,x1:SHOPLBL.x+80,y0:SHOPLBL.y-12,y1:SHOPLBL.y+8});SHOPLBL=null}
   if(WORLD){worldLabels(tags);drawSigns();return}   // storefront signs go over every building and label
   if(labels&&!INTRO){var fT='600 10.5px IBM Plex Sans,Arial,sans-serif',fB='700 11.5px IBM Plex Sans,Arial,sans-serif';fitLabels(c,tags,fT,function(b){return {x:b.x,y:b.y,text:b.d.name}},fB,
-    function(g){pill(c,g.x,g.y,g.text,'rgba(17,20,32,.86)','#F2F2F5',fT);tagHit(c,g,fT)},function(b,q){pill(c,q.x,q.y,q.text,'rgba(139,108,246,.95)','#fff',fB)})}
+    function(g){pill(c,g.x,g.y,g.text,'rgba(17,20,32,.86)','#F2F2F5',fT);tagHit(c,g,fT);c.font=fT;CLAB.push([g.x,g.y,c.measureText(g.text).width+14])},function(b,q){pill(c,q.x,q.y,q.text,'rgba(139,108,246,.95)','#fff',fB);c.font=fB;CLAB.push([q.x,q.y,c.measureText(q.text).width+14])})}
   drawSigns()}
 function drawSky(){var c=cx;c.setTransform(dpr,0,0,dpr,0,0);
   if(sky==='grid'){c.fillStyle='#010207';c.fillRect(0,0,vw,vh);var g0=c.createRadialGradient(vw/2,vh*.38,10,vw/2,vh*.38,Math.max(vw,vh)*.7);g0.addColorStop(0,'rgba(30,70,140,.45)');g0.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g0;c.fillRect(0,0,vw,vh);
@@ -1656,7 +1685,7 @@ function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=n
    +(D.world&&d.nb&&r.public&&!r.locked?giftHtml(d.nb,r.name):'');
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};giftWire(function(){show(h)});draw()}
 function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=null,bd=1e9;UP.forEach(function(p,ix){var d=Math.hypot(p.x-wx0,p.y-wy0);if(d<Math.max(p.r+3,7/cam.z)&&d<bd){bd=d;best=ix}});return best==null?null:{note:best}}
-  var sx=(px-cam.x)/cam.z,sy=(py-cam.y)/cam.z,sb=null,sd=1e18;for(var si=SHITS.length-1;si>=0;si--){var sh=SHITS[si],k=sh.card;if(sx>=sh.x0&&sx<=sh.x1&&sy>=sh.y0&&sy<=sh.y1){var inside=sx>=k[0]&&sx<=k[2]&&sy>=k[1]&&sy<=k[3],dd=inside?-1:Math.pow(sx-(k[0]+k[2])/2,2)+Math.pow(sy-(k[1]+k[3])/2,2);if(dd<sd){sd=dd;sb=sh;if(inside)break}}}if(sb)return sb   // signs sit on top of everything, so they win every tap; padded 44 px targets that overlap go to the nearest card
+  for(var si=SHITS.length-1;si>=0;si--){var sh=SHITS[si];if(px>=sh.x0&&px<=sh.x1&&py>=sh.y0&&py<=sh.y1)return sh}   // markers sit on top of everything and their 44 px squares never overlap (screen pixels)
   if(labels){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return th.shop?{shop:1}:th.block?{block:th.block}:{url:th.url}}}
   for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
 var ptr={},moved=false,pinch=0;
@@ -1667,12 +1696,14 @@ cv.addEventListener('pointermove',function(ev){var p=ptr[ev.pointerId];if(!p)ret
   p.x=ev.clientX;p.y=ev.clientY;draw()});
 function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
   if(h&&h.shop)return shopCard();
+  if(h&&h.group){if(MINI)return openRepo(repoUrl(h.r));return storeDir(h.count===1?h.r:null,h.keys,false,SBTN[h.group])}   // a store marker: the panel lists every store there (the pop-out has no room: the top store)
   if(h&&h.block)return worldFocus(h.block);
   if(h&&h.url)return openRepo(h.url);
   if(MINI&&h&&h.r)return openRepo(repoUrl(h.r));   // the pop-out has no room for cards: a public building opens its repo
   show(h)}}
 if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes in page coordinates, for automated checks
-  signs:function(){var b=st.getBoundingClientRect();return SHITS.map(function(h){var k=h.card;return {name:h.r.name,url:h.url,x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0+h.y1)/2*cam.z,w:(h.x1-h.x0)*cam.z,h:(h.y1-h.y0)*cam.z,card:[b.left+cam.x+k[0]*cam.z,b.top+cam.y+k[1]*cam.z,b.left+cam.x+k[2]*cam.z,b.top+cam.y+k[3]*cam.z]}})},
+  signs:function(){var b=st.getBoundingClientRect();return SHITS.map(function(h){var k=h.card;return {name:h.r.name,group:h.group,keys:h.keys,count:h.count,box:[b.left+h.x0,b.top+h.y0,b.left+h.x1,b.top+h.y1],x:b.left+(h.x0+h.x1)/2,y:b.top+(h.y0+h.y1)/2,w:h.x1-h.x0,h:h.y1-h.y0,card:[b.left+k[0],b.top+k[1],b.left+k[2],b.top+k[3]]}})},
+  signCounts:function(){storeGroups();return {groups:SKEYS.length,shown:SHITS.length,stores:storeList(null).length,counted:SHITS.reduce(function(a,h){return a+h.count},0)}},
   cranes:function(){var b=st.getBoundingClientRect();return cranes.map(function(k){return {x:b.left+cam.x+k.x*cam.z,y:b.top+cam.y+(k.y-30)*cam.z}})},
   buildings:function(){var b=st.getBoundingClientRect();return hits.filter(function(h){return h.r}).map(function(h){return {name:h.r.locked?'':h.r.name,locked:!!h.r.locked,url:repoUrl(h.r),x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0*.35+h.y1*.65)*cam.z}})},
   world:function(){return WLAB.map(function(l){return {text:l.text,pr:l.pr,x0:l.x0,x1:l.x1,y0:l.y0,y1:l.y1}})},
@@ -1691,7 +1722,7 @@ if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes i
 cv.addEventListener('dblclick',function(ev){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);if(h&&h.r&&!h.sign&&!MINI)openRepo(repoUrl(h.r))});
 cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return;var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
   cv.classList.toggle('c-link',!!(h&&(h.url||h.sign||h.block||(h.r&&repoUrl(h.r)))));
-  var hv=h&&h.sign?h.r:null;if(hv!==SHOVER){SHOVER=hv;cv.title=hv?(h.url?'Open '+hv.name+' \u2197':hv.name+': see the stores'):'';draw();if(reduce)frame()}
+  var hv=h&&h.sign?h.group:null;if(hv!==SHOVER){SHOVER=hv;cv.title=hv?(h.count>1?h.count+' stores':h.r.name):'';draw();if(reduce)frame()}
   if(WORLD&&!(h&&h.sign)){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
 cv.addEventListener('pointerleave',function(){if(SHOVER){SHOVER=null;cv.title='';draw()}if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
 // /world?focus=<handle> (the World link on a profile): fly straight to that person's neighborhood
@@ -1734,9 +1765,9 @@ var bp=document.getElementById('t-pop');if(bp){if(MINI)bp.hidden=true;bp.onclick
   var w=window.open(u,'caldera-city','popup,width=440,height=290');if(!w)location.href=u}}
 document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
-document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')){ev.preventDefault();show(null);var b=document.getElementById('t-stores');if(b)b.focus()}});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')){ev.preventDefault();closeDir()}});
 (function(){var n=storeList(null).length,tb=st.querySelector('.c-tools');if(!n||!tb||MINI)return;var b=document.createElement('button');b.id='t-stores';b.type='button';b.title='Every storefront in this '+(D.world?'world':'city');
-  b.innerHTML='&#x1F3EA;<span class="t-txt"> Stores ('+n+')</span>';b.setAttribute('aria-label','Stores ('+n+')');b.onclick=function(){if(!card.hidden&&card.classList.contains('is-dir')){show(null);return}storeDir(null,null,true)};
+  b.innerHTML='&#x1F3EA;<span class="t-txt"> Stores ('+n+')</span>';b.setAttribute('aria-label','Stores ('+n+')');b.onclick=function(){if(!card.hidden&&card.classList.contains('is-dir')&&!DIRKEY){closeDir();return}storeDir(null,null,true,b)};
   var ref=tb.querySelector('#t-reset');tb.insertBefore(b,ref||null)})();
 // ---- the canvas going black (2026-11-05, Mike on the Hades card: "often caldera does not load in this view"). iOS drops
 // canvas backing stores on background/resume, on re-layout (the Duo folding) and under memory pressure, and can lose

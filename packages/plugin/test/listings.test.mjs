@@ -192,8 +192,8 @@ test("store directory: one menu of every storefront, Stores button, valid script
     assert.equal(all(data).filter(r => r.kind).length, 3, `${mode}: all three storefronts are in the city data the directory lists`);
   }
   const page = renderCity({ name: "Ana" }, withListingsPublic(publicCity(p, [], "show"), p, items, "show"));
-  for (const k of ["function storeDir(", "function storeList(", "t-stores", "Stores (", "is-dir", "aria-label','Stores'", "ev.key==='Escape'"]) assert.ok(page.includes(k), k);
-  assert.ok(page.includes(".c-card.is-dir{left:0;right:0;top:auto;bottom:0"), "a bottom sheet on phones");
+  for (const k of ["function storeDir(", "function storeList(", "t-stores", "Stores (", "is-dir", "setAttribute('aria-label',title", "ev.key==='Escape'"]) assert.ok(page.includes(k), k);
+  assert.ok(page.includes(".c-card.is-dir.is-sheet{position:fixed"), "a bottom sheet on phones");
   const js = page.match(/<script>([\s\S]*?)<\/script><\/body>/)[1];
   assert.doesNotThrow(() => new Function(js), "the city script parses");
 });

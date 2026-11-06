@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { placeStorefronts, scrubSignHosts, cityData, publicCity, applyPrivateMode, CITY_JS } from "./city.build.mjs";
+import { placeStorefronts, scrubSignHosts, cityData, publicCity, applyPrivateMode, upgradeCityScript, CITY_JS, CITY_CSS } from "./city.build.mjs";
 import { parseListingLine, toListing, withListingsPublic, withListingsPrivate } from "./listings.build.mjs";
 
 const repo = (name, commits, extra = {}) => ({ name, project: "P", public: true, language: "TypeScript", commits, weeks: [], week: 0, today: 0, ...extra });
@@ -38,9 +38,9 @@ test("signs: padlocked buildings never carry a sign; a listing with nowhere to f
 
 test("signs: the renderer embeds the same placement and draws signs after every building, readable at any zoom", () => {
   assert.ok(CITY_JS.includes("function sfPlace(ds)"));
-  assert.ok(/fB\)\}\)\}\n  drawSigns\(\)\}/.test(CITY_JS), "signs are drawn last (after buildings and labels), so nothing hides one");
+  assert.ok(/\.width\+14\]\)\}\)\}\n  drawSigns\(\)\}/.test(CITY_JS), "signs are drawn last (after buildings and labels), so nothing hides one");
   assert.ok(CITY_JS.includes("SFA.get(t.r)"), "the store directory lists signs floating above buildings");
-  assert.ok(CITY_JS.includes("(vw<600?24:32))/z"), "a minimum on-screen size");
+  assert.ok(CITY_JS.includes("S=vw<600?30:34,B=44"), "a fixed size on screen at any zoom");
 });
 
 test("helicopters: tied to current viewers, capped, none when nobody is viewing", () => {
@@ -94,19 +94,19 @@ test("signs: drawn after cranes, helicopters, agents and labels (their own layer
   const signs = at("cx.drawImage(L4,0,0)");
   for (const k of ["drawLive()", "drawFx()", "drawAgents(cx", "drawHelis(cx", "cx.drawImage(L3,0,0)", "cx.drawImage(L2,0,0)"]) assert.ok(at(k) < signs, k + " comes before the signs");
   assert.ok(/cranes\.forEach/.test(CITY_JS.slice(CITY_JS.indexOf("function drawLive("), CITY_JS.indexOf("function drawLive(") + 4000)), "cranes are drawn in drawLive");
-  assert.ok(CITY_JS.includes("function drawSigns(){var z=cam.z,placed=[],items=[],c=c4;"), "signs paint onto L4, not the buildings layer");
+  assert.ok(CITY_JS.includes("function drawSigns(){var c=c4,"), "signs paint onto L4, not the buildings layer");
   assert.ok(!/\.c-heli\{[^}]*top:70px/.test(CITY_JS) && !CITY_JS.includes("left:50%;top:70px"), "the viewing pill no longer sits over the top sign");
 });
 
-test("signs: a click opens the listing's store or website, never the building or crane under it", () => {
+test("store markers: a tap opens the panel, never the building or crane under it", () => {
   const atFn = CITY_JS.slice(CITY_JS.indexOf("function at(px,py){"), CITY_JS.indexOf("var ptr={}"));
   const iSign = atFn.indexOf("SHITS"), iTag = atFn.indexOf("tagHits"), iAgent = atFn.indexOf("for(var aid in AG)"), iHits = atFn.indexOf("hits.length-1");
-  assert.ok(iSign > 0 && iSign < iTag && iSign < iAgent && iSign < iHits, "signs are hit-tested before labels, agents and buildings");
-  assert.ok(CITY_JS.includes("SHITS.push({r:r,d:g.d,sign:1,url:repoUrl(r),"), "a sign's target is its listing's URL");
+  assert.ok(iSign > 0 && iSign < iTag && iSign < iAgent && iSign < iHits, "markers are hit-tested before labels, agents and buildings");
+  assert.ok(CITY_JS.includes("sign:1,group:k,keys:p.keys,count:p.n,"), "a marker's target is its store panel");
+  assert.ok(CITY_JS.includes("if(h&&h.group){if(MINI)return openRepo(repoUrl(h.r));return storeDir("), "a tap opens the panel (the pop-out opens the top store)");
   assert.ok(/if\(h&&h\.url\)return openRepo\(h\.url\)/.test(CITY_JS), "a tap with a URL opens it in a new tab");
   assert.ok(CITY_JS.includes("window.open(u,'_blank','noopener')"));
-  assert.ok(CITY_JS.includes("var m=44/z"), "the whole card is a 44 px target");
-  assert.ok(CITY_JS.includes("h.url||h.sign||"), "pointer cursor over a sign");
+  assert.ok(CITY_JS.includes("h.url||h.sign||"), "pointer cursor over a marker");
   assert.ok(CITY_JS.includes("if(h&&h.r&&!h.sign&&!MINI)openRepo"), "a double click doesn't open a second tab");
 });
 
@@ -118,4 +118,28 @@ test("city canvas recovery (Mike 2026-11-05, black city on the Hades card): cont
   assert.ok(CITY_JS.includes("dpr=Math.min(window.devicePixelRatio||1,MINI?1.5:3)"), "mini frame DPR capped at 1.5");
   assert.ok(CITY_JS.includes("new IntersectionObserver(") && CITY_JS.includes("ONSCREEN&&!LOST&&"), "mini pauses off screen");
   assert.ok(CITY_JS.includes("m.type==='caldera-city-ping'"), "answers the parent's ping");
+});
+
+test("store markers (Mike 11-06): one per person with a count, off labels and controls, every store a real link", () => {
+  const fn = CITY_JS.slice(CITY_JS.indexOf("function drawSigns(){"), CITY_JS.indexOf("// the markers for the keyboard"));
+  assert.ok(CITY_JS.includes("G=SGR[k];if(!G){G=SGR[k]={key:k,all:[]}"), "stores are grouped per person");
+  assert.ok(fn.includes("WLAB.forEach") && fn.includes("CLAB.forEach") && fn.includes("controlRects()"), "markers avoid name labels and the map's controls");
+  assert.ok(fn.includes("hitsAny(x0,y0)") && fn.includes("B=44"), "44 px squares that never overlap");
+  assert.ok(fn.includes("best.keys.push(k);best.n+=G.n"), "no free spot: joins the nearest marker, the count stays true");
+  assert.ok(fn.includes("if(p.n>1)"), "the count shows for more than one store");
+  assert.ok(CITY_JS.includes('<a class="d-row'), "every store row is a real link");
+  assert.ok(CITY_JS.includes('target="_blank" rel="noopener" aria-label="'), "opens in a new tab and says where");
+  assert.ok(CITY_JS.includes("document.createElement('button')") && CITY_JS.includes("function storeKeys(seen)"), "markers are real buttons for the keyboard");
+  assert.ok(CITY_JS.includes("function closeDir()") && CITY_JS.includes("ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')"), "Escape closes and returns focus");
+  assert.ok(/\.c-card\.is-dir\.is-sheet\{position:fixed/.test(CITY_CSS), "a bottom sheet at phone and folded sizes");
+  assert.ok(/\.c-card \.d-loc\{flex:none;width:44px;height:44px/.test(CITY_CSS), "Show on the map is a 44 px target");
+});
+
+test("store markers: pages published with older CSS get the panel's CSS with the upgraded script", () => {
+  const head = "<script>(function(){\nvar D=JSON.parse(document.getElementById('city-data')";
+  const old = `<html><head><style>.c-card{}</style></head><body>${head}.textContent);function fitLabels(){}\n})();</script></body></html>`;
+  const up = upgradeCityScript(old);
+  assert.ok(up.includes("function storeKeys(seen)"), "new script");
+  assert.ok(up.includes(".c-sfk{") && up.indexOf(".c-sfk{") < up.indexOf("</head>"), "new CSS in the head");
+  assert.equal(upgradeCityScript(up), up, "stable on a second pass");
 });
