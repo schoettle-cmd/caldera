@@ -55,11 +55,10 @@ function growGround(c){if(!GROW)return;var dk=gDirt();
     poly(c,[Dd,C,[C[0],C[1]+h],[Dd[0],Dd[1]+h]],P.walkSide);poly(c,[C,B,[B[0],B[1]+h],[C[0],C[1]+h]],P.walkSide);poly(c,[A,B,C,Dd],P.walk);
     for(var li=0;li<S*S;li++){var ab=gXY(li),X2=b.x+ab[0],Y2=b.y+ab[1],cd=s.codes[li]||0,q=iso(X2,Y2);
       if(cd===0){poly(c,dia(X2,Y2,.9),P.park);gOutline(c,X2,Y2,.84,lapsed?'rgba(140,140,150,.45)':gRgba(col,.4),1,[4,3])}
-      else if(cd===1){poly(c,dia(X2,Y2,.9),P.park);poly(c,dia(X2,Y2,.9),gRgba(lapsed?'#8A8A93':col,.16));gOutline(c,X2,Y2,.84,lapsed?'rgba(150,150,160,.7)':col,1.2,[4,3]);if(!lapsed)dia(X2,Y2,.84).forEach(function(p2){gStake(c,p2[0],p2[1])})}
-      else if(cd===2){poly(c,dia(X2,Y2,.92),dk[0]);c.strokeStyle=dk[1];c.lineWidth=1.4;c.beginPath();for(var f=-1;f<=1;f++){c.moveTo(q.x-14+f*6,q.y-6+f*3);c.lineTo(q.x+8+f*6,q.y+5+f*3)}c.stroke()}
-      else if(cd===3){poly(c,dia(X2,Y2,.92),dk[0]);poly(c,dia(X2,Y2,.74),dk[2])}
-      else if(cd===4)poly(c,dia(X2,Y2,.9),P.grass2);
-      else if(cd===7){poly(c,dia(X2,Y2,.9),P.park);for(var r2=0;r2<3;r2++){var u=-.5+r2*.36;poly(c,[[q.x+(u-.12)*TW/2,q.y+(u+.12)*TH/2-6],[q.x+(u+.12)*TW/2,q.y+(u-.12)*TH/2-6],[q.x+(u+.12)*TW/2+12,q.y+(u-.12)*TH/2],[q.x+(u-.12)*TW/2+12,q.y+(u+.12)*TH/2]],sky==='night'?'#1B2D52':'#2E5FA8')}}
+      else if(cd===1){poly(c,dia(X2,Y2,.9),P.park);if(lapsed)gOutline(c,X2,Y2,.84,'rgba(150,150,160,.7)',1.2,[4,3])}   // zoned: lotHi draws the outline, stakes and board
+      else if(cd===2||cd===3)poly(c,dia(X2,Y2,.92),dk[0]);
+      else if(cd===4)poly(c,dia(X2,Y2,.92),P.grass2);
+      else if(cd===7)poly(c,dia(X2,Y2,.9),P.park);
       else poly(c,dia(X2,Y2,.9),P.plaza);
       if(hc>=3&&cd>=4){c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=.8;c.beginPath();c.moveTo(q.x-8,q.y);c.lineTo(q.x-2,q.y-2);c.lineTo(q.x+2,q.y+2);c.stroke();c.strokeStyle=sky==='night'?'#6B7436':'#B7BF62';c.beginPath();c.moveTo(q.x+9,q.y+3);c.lineTo(q.x+7,q.y-1);c.moveTo(q.x+9,q.y+3);c.lineTo(q.x+11,q.y-1);c.stroke()}
       if(GZONE&&gWin()){c.save();poly(c,dia(X2,Y2,.98));c.clip();c.fillStyle=gRgba(col,.14);c.fill();c.strokeStyle=gRgba(col,.5);c.lineWidth=1;c.beginPath();for(var hk=-6;hk<=6;hk++){c.moveTo(q.x-40,q.y+hk*5-20);c.lineTo(q.x+40,q.y+hk*5+20)}c.stroke();c.restore()}
@@ -67,22 +66,35 @@ function growGround(c){if(!GROW)return;var dk=gDirt();
     if(s.survey&&S+1<b.k)for(var o2=0;o2<=2*S+2;o2++){var e2=gXY((S+1)*(S+1)+o2);if(Math.max(e2[0],e2[1])!==S+1)continue;var X3=b.x+e2[0],Y3=b.y+e2[1];if(e2[0]>=b.k||e2[1]>=b.k)continue;
       gOutline(c,X3,Y3,.84,lapsed?'rgba(140,140,150,.35)':gRgba(col,.38),1,[3,4])}}}
 /** objects on lots, in the renderer's depth order */
+/** the variant of a lot (stable per lot) and its cast shadow footprint [w, h] for the ground's unioned shadow */
+function gVar(key,li){return (li*7+hash(key))%3}
+function gShadow(t){var g=GM[t.key];if(!g||!g.b)return null;var s=g.cs||(g.cs=gState(g));if(t.a>=s.side||t.b>=s.side)return null;var li=gLot(t.a,t.b),cd=s.codes[li]||0,v=gVar(t.key,li);
+  return cd===3?[.62,22]:cd===5?[.64,v===0?40:v===1?34:30]:cd===6?[.68,68]:cd===7&&v!==1?[v===0?.8:.6,v===0?14:11]:null}
+/** objects on lots, in the renderer's depth order: the high-detail tiers (lotHi, houseLotHi, midHi, towerHi, campusHi),
+ *  through the atlas at LOD 1 unless the lot is new in the window or hit in the Battle view */
 function growObject(c,t,i,j,p,LOD){var g=GM[t.key];if(!g||!g.b)return;var s=g.cs||(g.cs=gState(g)),S=s.side;if(t.a>=S||t.b>=S)return;
-  var li=gLot(t.a,t.b),cd=s.codes[li]||0,col=gLang(g),hc=gHc(g),dim=hc>=2,base=p.y+4,top=base,seed=hash(t.key)+li*7,isNew=gWin()&&s.fresh[li];
+  var li=gLot(t.a,t.b),cd=s.codes[li]||0,col=gLang(g),hc=gHc(g),dim=hc>=2,base=p.y+4,top=base,seed=hash(t.key)+li*7,isNew=gWin()&&s.fresh[li],v=gVar(t.key,li);
   if(dim)col=mix(col,.55,'#8A8E96');
-  var bd=typeof bDmg==='function'?bDmg(t.key,li):0;if(bd>0){bScorch(c,p.x,p.y+4,bd);if(bd>=.5&&cd>=4)cd=cd>4?cd-1:3}   // the Battle view: a hit lot drops a tier (a house to its frame) until it rebuilds
-  var litp=dim?0:Math.min(P.lit==null?1:P.lit,hc===1?.25:.75);
-  if(cd===3){var hgt=26,f=.45+.35*rnd(seed);prism(c,p.x,base,.62,hgt*f,col);top=base-hgt*f;if(!LOD)studs(c,p.x,top,.62,col);if(!LOD)scaffold(c,p.x,base,base-hgt,.62,0);if(hc===0)cranes.push({x:p.x+5,y:top,seed:seed})}
-  else if(cd===4){var cols=['#E8DCC8','#CFD8E6','#EAD2B8','#D2E0CC'];[[-11,-3],[9,-5],[-1,6]].forEach(function(o,k){houseAt(c,p.x+o[0],p.y+o[1],dim?mix(cols[(seed+k)%4],.6,'#8A8E96'):cols[(seed+k)%4],seed+k)});top=base-14}
-  else if(cd===5){var h5=30;prism(c,p.x,base,.62,h5,col);if(!LOD)facadeWindows(c,p.x,base,.62,h5,false,litp,seed,base,0);top=base-h5}
-  else if(cd===6){var tiers=[[.68,46],[.52,22]];for(var k2=0;k2<tiers.length;k2++){prism(c,p.x,top,tiers[k2][0],tiers[k2][1],col);if(!LOD)facadeWindows(c,p.x,top,tiers[k2][0],tiers[k2][1],true,litp,seed+k2*101,base,0);top-=tiers[k2][1]}if(!LOD&&!dim)roofProps(c,p.x,top,.52,{},seed)}
-  else if(cd===7){prism(c,p.x-6,base-2,.34,12,mix(col,.85,'#BFD8F0'));if(!LOD)facadeWindows(c,p.x-6,base-2,.34,12,true,litp,seed,base,0);top=base-14;if(li%3===0&&!LOD)gTurbine(c,p.x+12,base-4,dim)}
+  var bd=typeof bDmg==='function'?bDmg(t.key,li):0,dcd=cd;if(bd>0){scorchHi(c,p.x,p.y+4,bd);if(bd>=.5&&cd>=4)cd=cd>4?cd-1:3}   // the Battle view: a hit lot drops a tier (a house to its frame) until it rebuilds
+  var litp=dim?0:Math.min(P.lit==null?1:P.lit,hc===1?.25:.75),lq=Math.round(litp*8)/8,o={variant:v,col:col,seed:seed%12,litp:lq,dim:dim,stage:cd,crew:hc===0&&!gWin(),turbine:false},ex=null;
+  if(cd>=1&&cd<=3)o.seed=seed%3;   // sprite keys carry only what changes the picture, so lots across the world share sprites
+  var key=bd>0?null:cd===4?'gh|'+(seed%12)+'|'+(dim?1:0):cd<=3?'gl|'+cd+'|'+col+'|'+(o.crew?1:0)+'|'+o.seed:'g|'+cd+'|'+v+'|'+col+'|'+lq+'|'+(dim?1:0)+'|'+(seed%12),rel=0;
+  if(cd>=1&&cd<=3)hiDraw(c,key,92,70,46,40,p.x,p.y,function(cc){ex=lotHi(cc,0,0,o)});
+  else if(cd===4)hiDraw(c,key,72,54,33,37,p.x,p.y,function(cc){houseLotHi(cc,0,0,{seed:seed%12,n:3,dim:dim})});
+  else if(cd===5)hiDraw(c,key,92,100,46,64,p.x,p.y,function(cc){rel=midHi(cc,0,0,o)});
+  else if(cd===6)hiDraw(c,key,116,150,58,116,p.x,p.y,function(cc){rel=towerHi(cc,0,0,{variant:v,col:col,seed:seed%12,tiers:[[.68,46],[.52,22]],litp:lq,roof:!dim})});
+  else if(cd===7){hiDraw(c,key,92,70,46,44,p.x,p.y,function(cc){rel=campusHi(cc,0,0,o)});if(v===1&&LODN>0)turbineHi(c,p.x-20,p.y+8,dim)}
+  // where the top is (labels, hits, cranes) without drawing again when the sprite came from the atlas
+  top=cd===3?base-22:cd===4?base-14:cd===5?base-(v===0?40:v===1?34:30):cd===6?base-68:cd===7?base-(v===0?14:v===2?11:8):base;
+  if(cd===3&&hc===0&&LODN>0)cranes.push({x:p.x+6,y:base-22,seed:seed,col:col});
+  if(bd>0&&LODN>0&&dcd>=3){var hw0=TW/2*.64;if(bd>=.5){rubbleHi(c,p.x+TW*.2,base+TH*.22,col);if(cd>=4)tarpHi(c,p.x,top,cd===6?.52:.64)}
+    tapeHi(c,[[p.x-26,base+3],[p.x-6,base+15],[p.x+14,base+6]]);if(cd>=4)scaffoldHi(c,p.x,base,cd===4?.5:.64,base-top,1)}
   if(hc>=4&&cd>=5){c.fillStyle='rgba(60,45,30,.85)';var hw=TW/2*.62;for(var bk=0;bk<2;bk++){c.fillRect(p.x-hw*.8,base-10-bk*9,hw*.7,3);c.fillRect(p.x+hw*.1,base-8-bk*9,hw*.7,3)}}
   if(hc>=4&&li===0)gSign(c,p.x+14,base+2,'For lease');
   if(isNew&&cd>0&&!LOD){c.save();c.strokeStyle=GLOW;c.lineWidth=1.6/Math.max(cam.z,.4);c.shadowColor=GPURPLE;c.shadowBlur=10;var hw2=TW/2*.66,hh2=TH/2*.66;c.beginPath();c.moveTo(p.x-hw2,base);c.lineTo(p.x,base+hh2);c.lineTo(p.x+hw2,base);c.lineTo(p.x+hw2,Math.min(base,top+2));c.lineTo(p.x,Math.min(base,top+2)-hh2);c.lineTo(p.x-hw2,Math.min(base,top+2));c.closePath();c.stroke();c.restore()}
-  if(gWin()&&li===s.prog){var wc=g.v&&g.v.w?g.v.w.c:0;if(wc>0)gPile(c,p.x-20,base+6,col,Math.min(3,1+Math.floor(Math.log2(1+wc/5))))}
+  if(gWin()&&li===s.prog){var wc=g.v&&g.v.w?g.v.w.c:0;if(wc>0)pileHi(c,p.x-20,base+6,col,Math.min(3,1+Math.floor(Math.log2(1+wc/5))))}
   var rep=g.n&&g.n.rep;if(rep)hits.push({block:rep,x0:p.x-TW*.4,x1:p.x+TW*.4,y0:Math.min(top,base-10)-6,y1:p.y+TH*.45})}
-function gTurbine(c,x,y,dim){c.strokeStyle=dim?'#8A8E96':'#E8EEF4';c.lineWidth=1.3;c.beginPath();c.moveTo(x,y);c.lineTo(x,y-30);c.stroke();var a=(reduce||dim?0:T/600)%(Math.PI*2);c.lineWidth=1.6;c.beginPath();for(var k=0;k<3;k++){var b2=a+k*2.094;c.moveTo(x,y-30);c.lineTo(x+Math.cos(b2)*11,y-30+Math.sin(b2)*11)}c.stroke();c.fillStyle='#C9D2E6';c.fillRect(x-1.5,y-31.5,3,3)}
+function gTurbine(c,x,y,dim){return turbineHi(c,x,y,dim);c.strokeStyle=dim?'#8A8E96':'#E8EEF4';c.lineWidth=1.3;c.beginPath();c.moveTo(x,y);c.lineTo(x,y-30);c.stroke();var a=(reduce||dim?0:T/600)%(Math.PI*2);c.lineWidth=1.6;c.beginPath();for(var k=0;k<3;k++){var b2=a+k*2.094;c.moveTo(x,y-30);c.lineTo(x+Math.cos(b2)*11,y-30+Math.sin(b2)*11)}c.stroke();c.fillStyle='#C9D2E6';c.fillRect(x-1.5,y-31.5,3,3)}
 function gSign(c,x,y,text){c.fillStyle='#8B6A48';c.fillRect(x-.8,y-14,1.6,14);c.fillStyle=sky==='night'?'#D8D2C4':'#FFF8E8';c.fillRect(x-16,y-22,32,9);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=.6;c.strokeRect(x-16,y-22,32,9);c.fillStyle='#3A2E22';c.font='bold 5.5px IBM Plex Sans,Arial,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-17.3)}
 function gPile(c,x,y,col,rows){for(var r=0;r<rows;r++)for(var k=0;k<rows-r+1;k++){var bx=x-7+k*5+r*2.5,by=y-r*3.2;c.fillStyle=mix(col,.8);c.fillRect(bx,by-3,4.6,3);c.fillStyle=mix(col,1.15);c.fillRect(bx,by-3.8,4.6,1)}}
 /** under the buildings: the heat glow (warm with the window's points, blue frost when quiet) */
@@ -99,14 +111,14 @@ function growOver(){if(!GROW)return;var c=cx,tn=performance.now();c.setTransform
   if(gWin()){
     for(var k in GM){var g=GM[k],b=g.b,s=g.cs;if(!b||!s||!g.v)continue;var hc=gHc(g),col=gLang(g);
       // crews on the lot being built (paused after 14 quiet days)
-      if(hc===0){for(var li=0;li<s.side*s.side;li++){var cd=s.codes[li];if(cd<1||cd>3)continue;var ab=gXY(li),q=iso(b.x+ab[0],b.y+ab[1]);minifig(c,q.x-TW*.26,q.y+TH*.18,col,li);if(cd>=2)minifig(c,q.x+TW*.22,q.y+TH*.12,col,li+3);break}}
+      if(hc===0){for(var li=0;li<s.side*s.side;li++){var cd=s.codes[li];if(cd<1||cd>3)continue;var ab=gXY(li),q=iso(b.x+ab[0],b.y+ab[1]);figHi(c,q.x-TW*.26,q.y+TH*.18,col,li,1);if(cd>=2)figHi(c,q.x+TW*.22,q.y+TH*.12,col,li+3,2);break}}
       // commit drops: falling light in the member's colour, landing as bricks
       var wc=g.v.w?g.v.w.c:0;if(wc>0&&!reduce&&hc===0){var days=GV==='month'?30:GV==='week'?7:1,rate=Math.min(2.4,.12+.35*Math.log2(1+wc/days));
         if(GCUR!=null&&g.v.hist){var nb=g.v.hist.length,ix=Math.max(0,Math.min(nb-1,Math.floor((GCUR-GDATA.t0)/(days*864e5)*nb)));rate=g.v.hist[ix]>0?Math.min(3,.4+.5*Math.log2(1+g.v.hist[ix])):0}
         g.acc=(g.acc||0)+rate*Math.min(.1,(tn-(g.lt||tn))/1000);g.lt=tn;while(g.acc>=1&&GDROPS.length<160){g.acc-=1;var L2i=Math.floor(Math.random()*s.side*s.side),xy=gXY(L2i),qq=iso(b.x+xy[0],b.y+xy[1]);GDROPS.push({x:qq.x+(Math.random()-.5)*20,y:qq.y,col:col,born:tn})}}
       else g.lt=tn;
       (g.v.fx||[]).forEach(function(f){if(GCUR!=null&&f[1]>GCUR)return;var ctr=iso(b.x+s.side/2-.5,b.y+s.side/2-.5);
-        if(f[0]==='rel')gRibbon(c,ctr.x+18,ctr.y+10);else if(f[0]==='storm')gStorm(c,ctr.x,ctr.y-70,tn);else if(f[0]==='new')gTripod(c,ctr.x-22,ctr.y+8);else if(f[0]==='fire')gSmoke(c,ctr.x,ctr.y-20,tn);else if(f[0]==='par')gParade(c,g,tn,null)})}
+        if(f[0]==='rel')gRibbon(c,ctr.x+18,ctr.y+10);else if(f[0]==='storm')gStorm(c,ctr.x,ctr.y-70,tn);else if(f[0]==='new')gTripod(c,ctr.x-22,ctr.y+8);else if(f[0]==='fire')smokeHi(c,ctr.x,ctr.y-20,true);else if(f[0]==='par')gParade(c,g,tn,null)})}
     GDROPS=GDROPS.filter(function(d){return tn-d.born<900});c.save();c.globalCompositeOperation='lighter';
     GDROPS.forEach(function(d){var f=(tn-d.born)/900,y=d.y-95*(1-Math.min(1,f*1.4));if(f<.72){var gr=c.createLinearGradient(0,y-40,0,y);gr.addColorStop(0,gRgba(d.col,0));gr.addColorStop(1,gRgba(d.col,.95));c.strokeStyle=gr;c.lineWidth=2;c.beginPath();c.moveTo(d.x,y-40);c.lineTo(d.x,y);c.stroke();c.fillStyle='#fff';c.beginPath();c.arc(d.x,y,1.6,0,7);c.fill()}
       else{var a=1-(f-.72)/.28;c.strokeStyle=gRgba(d.col,a*.9);c.lineWidth=1.2;c.beginPath();c.ellipse(d.x,d.y,6+(1-a)*8,3+(1-a)*4,0,0,7);c.stroke()}});c.restore()}

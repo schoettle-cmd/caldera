@@ -24,10 +24,10 @@ function bCenter(key){var g=GM[key];if(!g||!g.b)return null;var S=(g.cs||gState(
 function bLotXY(key,li){var g=GM[key];if(!g||!g.b)return null;var ab=gXY(li);return iso(g.b.x+ab[0],g.b.y+ab[1])}
 function bSea(key){var c=bCenter(key);return c?{x:c.x-260,y:c.y-150}:null}
 /** under the building, on the object layer: scorch marks on a hit lot */
-function bScorch(c,x,y,d){var a=Math.min(.6,.25+.3*d);c.fillStyle='rgba(20,14,10,'+a+')';c.beginPath();c.ellipse(x+3,y+1,15,6.5,0,0,7);c.fill();c.fillStyle='rgba(20,14,10,'+(a*.6)+')';for(var k=0;k<4;k++){c.beginPath();c.ellipse(x+(rnd(x+k*3)-.5)*28,y+(rnd(y+k*5)-.5)*10,4.5,2.2,0,0,7);c.fill()}}
-function bSmoke(c,x,y,tn,heavy){for(var k=0;k<(heavy?5:3);k++){var f=((reduce?0:tn/1500)+k/5)%1;c.fillStyle='rgba(110,110,120,'+(.5*(1-f))+')';c.beginPath();c.arc(x+Math.sin(k+(reduce?0:tn/700))*5,y-f*34,3+f*7,0,7);c.fill()}
+function bScorch(c,x,y,d){return scorchHi(c,x,y,d);var a=Math.min(.6,.25+.3*d);c.fillStyle='rgba(20,14,10,'+a+')';c.beginPath();c.ellipse(x+3,y+1,15,6.5,0,0,7);c.fill();c.fillStyle='rgba(20,14,10,'+(a*.6)+')';for(var k=0;k<4;k++){c.beginPath();c.ellipse(x+(rnd(x+k*3)-.5)*28,y+(rnd(y+k*5)-.5)*10,4.5,2.2,0,0,7);c.fill()}}
+function bSmoke(c,x,y,tn,heavy){return smokeHi(c,x,y,heavy);for(var k=0;k<(heavy?5:3);k++){var f=((reduce?0:tn/1500)+k/5)%1;c.fillStyle='rgba(110,110,120,'+(.5*(1-f))+')';c.beginPath();c.arc(x+Math.sin(k+(reduce?0:tn/700))*5,y-f*34,3+f*7,0,7);c.fill()}
   if(heavy&&!reduce&&Math.floor(tn/350)%2){c.fillStyle='rgba(255,120,40,.85)';c.beginPath();c.arc(x-4,y+4,2.2,0,7);c.fill()}}
-function bTruck(c,x,y){c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(x+2,y+2,11,4.5,0,0,7);c.fill();c.fillStyle='#D83A3A';c.fillRect(x-8,y-7,16,7);c.fillStyle='#B22E2E';c.fillRect(x-12,y-5,5,5);c.strokeStyle='#C9CDD4';c.lineWidth=1;c.beginPath();c.moveTo(x-4,y-7);c.lineTo(x+12,y-17);c.stroke();c.fillStyle='#4FC3FF';c.fillRect(x-6,y-9,2,2);c.fillStyle='#14161C';[[-8,1],[0,1],[6,1]].forEach(function(w){c.beginPath();c.arc(x+w[0],y+w[1],1.6,0,7);c.fill()})}
+function bTruck(c,x,y){return truckHi(c,x,y);c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(x+2,y+2,11,4.5,0,0,7);c.fill();c.fillStyle='#D83A3A';c.fillRect(x-8,y-7,16,7);c.fillStyle='#B22E2E';c.fillRect(x-12,y-5,5,5);c.strokeStyle='#C9CDD4';c.lineWidth=1;c.beginPath();c.moveTo(x-4,y-7);c.lineTo(x+12,y-17);c.stroke();c.fillStyle='#4FC3FF';c.fillRect(x-6,y-9,2,2);c.fillStyle='#14161C';[[-8,1],[0,1],[6,1]].forEach(function(w){c.beginPath();c.arc(x+w[0],y+w[1],1.6,0,7);c.fill()})}
 function bRgba(hx,a){var n=parseInt(hx.slice(1),16);return 'rgba('+(n>>16)+','+(n>>8&255)+','+(n&255)+','+a+')'}
 function bBeam(c,a,b,col,f){var x=a.x+(b.x-a.x)*f,y=a.y+(b.y-a.y)*f;c.save();c.globalCompositeOperation='lighter';c.strokeStyle=bRgba(col,.35);c.lineWidth=6;c.beginPath();c.moveTo(a.x,a.y);c.lineTo(x,y);c.stroke();c.strokeStyle=col;c.lineWidth=1.6;c.stroke();c.strokeStyle='#fff';c.lineWidth=.6;c.stroke();
   if(f>=1){c.shadowColor=col;c.shadowBlur=14;c.fillStyle=bRgba(col,.9);c.beginPath();c.arc(b.x,b.y,5,0,7);c.fill()}c.restore()}
@@ -50,8 +50,9 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
         if(dt>=1&&s[3]>0)bSmoke(c,tgt.x,tgt.y,tn,true)}
       else{var ph=reduce?null:((tn/2600+ix*.137)%1);bArc(c,src,tgt,col,ph,.32)}});
     for(var sk in ships)if(ships[sk])bRaiderShip(c,ships[sk].x,ships[sk].y,tn)}
-  if(BL.damage)for(var hk in BHITS){var lots=BHITS[hk];for(var li in lots){var d=bDmg(hk,+li);if(d<=0)continue;var q=bLotXY(hk,+li);if(!q)continue;
-    if(d>=.5)bSmoke(c,q.x+4,q.y-26,tn,d>=1);else{bTruck(c,q.x-TW*.32,q.y+TH*.22);minifig(c,q.x+TW*.2,q.y+TH*.18,'#D83A3A',+li)}}}}
+  // smoke over badly hit lots (at most 6 columns in view, embers only at night), a fire truck and a crew where it's rebuilding
+  if(BL.damage){var nSm=0,vb=hView(TH*2);for(var hk in BHITS){var lots=BHITS[hk];for(var li in lots){var d=bDmg(hk,+li);if(d<=0)continue;var q=bLotXY(hk,+li);if(!q||q.x<vb[0]||q.x>vb[1]||q.y<vb[2]||q.y>vb[3]+60)continue;
+    if(d>=.5){if(nSm<6){nSm++;smokeHi(c,q.x+4,q.y-26,d>=1)}}else{truckHi(c,q.x-TW*.32,q.y+TH*.22);figHi(c,q.x+TW*.2,q.y+TH*.18,'#D83A3A',+li,0)}}}}}
 /** the world card's battle lines */
 function battleCard(key){if(!BON||!BDATA)return '';var m=(BDATA.members||{})[key];
   if(!m)return '<div class="c-grow"><div class="row"><span>Battles</span><b>Peaceful zone</b></div></div>';
