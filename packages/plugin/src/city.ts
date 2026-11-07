@@ -8,6 +8,7 @@
  * unnamed tower per district; projects that aren't on the public profile are left out entirely.
  */
 
+import { GROWTH_LAYOUT_JS, GROWTH_DRAW_JS } from "./citygrowth";
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;
@@ -425,7 +426,7 @@ html.c-mini .c-mininame i{width:6px;height:6px;border-radius:50%;background:#3DF
 .c-hint{position:absolute;left:10px;bottom:10px;font:12px var(--font-sans,sans-serif);color:rgba(232,232,238,.75);background:rgba(14,19,32,.6);padding:4px 8px;border-radius:6px;pointer-events:none}
 .c-card{position:absolute;left:10px;top:10px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,22,34,.94);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px 14px;color:#E8E8EE;font:13px/1.45 var(--font-sans,'IBM Plex Sans',sans-serif);box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .c-card h3{margin:0 0 2px;font-size:15px;color:#fff}.c-card .k{color:#9A9AA6;font-size:12px}.c-card a{color:#B9A6FF}
-.c-card .row{display:flex;justify-content:space-between;gap:8px;margin-top:4px}.c-card .x{position:absolute;top:6px;right:8px;background:none;border:0;color:#9A9AA6;font-size:16px;cursor:pointer}
+.c-card .row{display:flex;justify-content:space-between;gap:8px;margin-top:4px}.c-card .c-grow{margin-top:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:4px}.c-card .c-grow b{text-align:right}.c-card .x{position:absolute;top:6px;right:8px;background:none;border:0;color:#9A9AA6;font-size:16px;cursor:pointer}
 .c-card .sp{display:flex;align-items:flex-end;gap:2px;height:28px;margin:8px 0 2px}.c-card .sp i{flex:1;background:#8B6CF6;border-radius:2px 2px 0 0;min-height:2px}
 .c-card .d-sel{padding:10px;margin:0 0 8px;border-radius:9px;background:rgba(139,108,246,.14);border:1px solid rgba(139,108,246,.45)}.c-card .d-visit{font-weight:600}
 .c-card .d-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
@@ -490,7 +491,7 @@ function shade(hex,f){var n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255
 var now=Date.now(),DAY=864e5;
 // ---- layout: districts are square blocks packed in rows with 1-tile roads between them
 var blocks=[],tiles={},W=0,H=0,x=1,y=1,rowH=0;
-function placeDistrict(d,x,y,k,houses){
+function placeDistrict(d,x,y,k,houses){if(d.estate)return placeEstate(d,x,y,k);
   var b={d:d,x:x,y:y,k:k};blocks.push(b);
   var cells=[];for(var j=0;j<k;j++)for(var i=0;i<k;i++)cells.push([x+i,y+j]);
   cells.sort(function(a,c){return (a[0]+a[1])-(c[0]+c[1])});   // biggest towers at the back
@@ -509,7 +510,8 @@ if(D.world){
   // the world: each member is a neighborhood (their own districts packed together), neighborhoods sit on a loose grid
   // with wide grass margins and an avenue on every grid line, so nothing overlaps and one tall member can't wall off the rest
   D.districts.forEach(function(d){var key=d.nb||d.name;if(!NBM[key]){NBM[key]={key:key,ds:[]};NBS.push(NBM[key])}NBM[key].ds.push(d)});
-  NBS.forEach(function(n){var ar=0;n.ds.forEach(function(d){d._h=Math.min(d.notes||0,16);var need=d.repos.length+Math.ceil(d._h/4);d._k=Math.max(2,Math.ceil(Math.sqrt(need)));ar+=(d._k+1)*(d._k+1)});
+${GROWTH_LAYOUT_JS}
+  NBS.forEach(function(n){var ar=0;n.ds.forEach(function(d){d._h=Math.min(d.notes||0,16);var need=d.repos.length+Math.ceil(d._h/4);d._k=d.estate?d.K:Math.max(2,Math.ceil(Math.sqrt(need)));ar+=(d._k+1)*(d._k+1)});
     var mw=Math.max(3,Math.ceil(Math.sqrt(ar)*1.1)),lx=0,ly=0,rh=0,w=0,h=0;
     n.ds.forEach(function(d){if(d.apart&&(lx>0||ly>0)){if(lx>0){lx=0;ly+=rh+1;rh=0}ly+=2}else if(lx+d._k>mw&&lx>0){lx=0;ly+=rh+1;rh=0}d._lx=lx;d._ly=ly;lx+=d._k+1;rh=Math.max(rh,d._k);w=Math.max(w,lx-1);h=Math.max(h,ly+rh)});n.w=w;n.h=h});
   var GAP=5,cols=Math.max(1,Math.ceil(Math.sqrt(NBS.length*1.3))),rows=Math.max(1,Math.ceil(NBS.length/cols)),CWs=[],CHs=[],X0=[1],Y0=[1];
@@ -535,7 +537,7 @@ D.districts.forEach(function(d){
 });
 W=Math.max(W,maxW)+1;H+=1;
 }
-function near(i,j){for(var a=-1;a<=1;a++)for(var b=-1;b<=1;b++){var n=tiles[(i+a)+','+(j+b)];if(n&&(n.t==='b'||n.t==='h'||n.t==='p'))return true}return false}
+function near(i,j){for(var a=-1;a<=1;a++)for(var b=-1;b<=1;b++){var n=tiles[(i+a)+','+(j+b)];if(n&&(n.t==='b'||n.t==='h'||n.t==='p'||n.t==='L'))return true}return false}
 for(var j=0;j<=H;j++)for(var i=0;i<=W;i++){var key=i+','+j;if(!tiles[key])tiles[key]={t:(i===0||j===0||i===W||j===H)?'g':near(i,j)?'r':'g'}}
 // ---- free tools (window.CALDERA_TOOLS, set by the hub): a Workshop beside a road in the maker's city, or on the World
 // map one Market plaza (2x2) near the middle with a stall per tool. Click it for the list; nothing is hosted here.
@@ -1129,7 +1131,7 @@ function drawGround(){var c=c1;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L1.wi
   var A=corner(-.5,-.5),B=corner(W+.5,-.5),C=corner(W+.5,H+.5),Dd=corner(-.5,H+.5),th=22;
   poly(c,[Dd,C,[C[0],C[1]+th],[Dd[0],Dd[1]+th]],P.earth[0]);poly(c,[C,B,[B[0],B[1]+th],[C[0],C[1]+th]],P.earth[1]);
   poly(c,[A,B,C,Dd],P.grass);
-  for(var j=0;j<=H;j++)for(var i=0;i<=W;i++){var t=tiles[i+','+j];
+  for(var j=0;j<=H;j++)for(var i=0;i<=W;i++){var t=tiles[i+','+j];if(t.t==='L')continue;
     if(water(i,j)){var g=c.createLinearGradient(0,iso(i,j).y-TH/2,0,iso(i,j).y+TH/2);g.addColorStop(0,P.water[0]);g.addColorStop(1,P.water[1]);poly(c,dia(i,j,1.02),g);
       var q=iso(i,j);c.strokeStyle=sky==='night'?'rgba(140,170,230,.25)':'rgba(255,255,255,.35)';c.lineWidth=1;for(var w=0;w<2;w++){var ox=(rnd(i*13+j*7+w)-.5)*TW*.5,oy=(rnd(i*5+j*11+w)-.5)*TH*.4;c.beginPath();c.moveTo(q.x+ox-6,q.y+oy);c.quadraticCurveTo(q.x+ox,q.y+oy-2,q.x+ox+6,q.y+oy);c.stroke()}continue}
     if(t.t==='w'||t.t==='wp'){poly(c,dia(i,j,1.02),sky==='night'||sky==='evening'?'#6E6556':'#D9CBB0');poly(c,dia(i,j,.8),sky==='night'||sky==='evening'?'#7A7060':'#E6DAC2');continue}
@@ -1142,12 +1144,13 @@ function drawGround(){var c=c1;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L1.wi
       if(ri&&rj){c.fillStyle=sky==='night'?'rgba(255,255,255,.12)':'rgba(255,255,255,.5)';for(var z=-2;z<=2;z++){c.save();c.translate(q2.x,q2.y);c.transform(1,.5,-1,.5,0,0);c.fillRect(-10+z*4,-12,2,5);c.fillRect(-10+z*4,7,2,5);c.restore()}}}
   }
   // blocks: raised sidewalk slabs, then lots
-  blocks.forEach(function(b){var x0=b.x-.5-.08,y0=b.y-.5-.08,x1=b.x+b.k-.5+.08,y1=b.y+b.k-.5+.08,a=corner(x0,y0),bb=corner(x1,y0),cc=corner(x1,y1),dd=corner(x0,y1),h=3;
+  blocks.forEach(function(b){if(b.estate)return;var x0=b.x-.5-.08,y0=b.y-.5-.08,x1=b.x+b.k-.5+.08,y1=b.y+b.k-.5+.08,a=corner(x0,y0),bb=corner(x1,y0),cc=corner(x1,y1),dd=corner(x0,y1),h=3;
     poly(c,[dd,cc,[cc[0],cc[1]+h],[dd[0],dd[1]+h]],P.walkSide);poly(c,[cc,bb,[bb[0],bb[1]+h],[cc[0],cc[1]+h]],mix(P.walkSide.charAt(0)==='#'?P.walkSide:'#999999',.85));poly(c,[a,bb,cc,dd],P.walk)});
   for(var key in tiles){var t2=tiles[key];if(t2.t!=='b'&&t2.t!=='h'&&t2.t!=='p')continue;var ij=key.split(','),ii=+ij[0],jj=+ij[1];
     if(t2.t==='b')poly(c,dia(ii,jj,.9),P.plaza);
     else if(t2.t==='h'){poly(c,dia(ii,jj,.9),P.grass2);}
     else{poly(c,dia(ii,jj,.9),P.park);var q3=iso(ii,jj);c.strokeStyle=sky==='night'?'rgba(200,190,170,.18)':'rgba(240,232,210,.8)';c.lineWidth=2;c.beginPath();c.moveTo(q3.x-TW*.3,q3.y);c.quadraticCurveTo(q3.x,q3.y-4,q3.x+TW*.3,q3.y);c.stroke()}}
+  growGround(c);
   // soft building shadows, unioned into one path so overlaps don't double-darken (sun from the upper left)
   c.beginPath();for(var k2 in tiles){var t3=tiles[k2];if(t3.t!=='b')continue;var ij2=k2.split(','),pp=iso(+ij2[0],+ij2[1]),hgt=bh(t3.r),hw=TW/2*.78,hh=TH/2*.78,vx=hgt*.62,vy=hgt*.3;
     var pts=[[pp.x-hw,pp.y+4],[pp.x,pp.y+4-hh],[pp.x+vx,pp.y+4-hh+vy],[pp.x+hw+vx,pp.y+4+vy],[pp.x+vx,pp.y+4+hh+vy],[pp.x,pp.y+4+hh]];c.moveTo(pts[0][0],pts[0][1]);for(var m=1;m<pts.length;m++)c.lineTo(pts[m][0],pts[m][1]);c.closePath()}
@@ -1160,8 +1163,9 @@ function worldCard(b){var key=b.d.nb||b.d.name,m=WORLD.m[key]||{},nn=NBM[key],nr
   card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(m.name||key)+'</h3><div class="k">'+e(key)+(m.isNew?' &middot; new this week':'')+(m.groups&&m.groups.length?' &middot; '+m.groups.map(function(g){return e(g)}).join(', '):'')+'</div>'
     +(m.headline?'<p style="margin:6px 0 0">'+e(m.headline)+'</p>':'')
     +'<div class="row"><span>Buildings</span><b>'+nrep+'</b></div>'+(nn&&nn.ds.length>1?'<div class="row"><span>Districts</span><b>'+nn.ds.length+'</b></div>':'')+(m.friends?'<div class="row"><span>Friends</span><b>'+m.friends+'</b></div>':'')
-    +'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>'+giftHtml(key,'');
+    +growCard(key)+'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>'+giftHtml(key,'');
   card.hidden=false;card.querySelector('.x').onclick=function(){WFOCUS=null;show(null)};giftWire(function(){worldCard(b)})}
+${GROWTH_DRAW_JS}
 // ---- light-ups: one gift a day to celebrate someone's city (or one of its public repos). It shines on the world map for 24
 // hours as searchlights from the gifted building; every extra gift adds a beam, so friends rally to light each other up.
 var GC=window.CALDERA_GIFTS||null,GME=null,LIT={};
@@ -1329,7 +1333,7 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
   var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[],me=worldMe(),fr=worldFriends(),sc=worldScores(),phone=vw<600;
   NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y),k=n.key,pr=k===foc?0:k===WHOVER?.3:k===me?.6:fr[k]?.8:1;
     cand.push({pr:pr,sc:sc[k]||0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+(wm.isNew?(phone?' ✦':' ✦ new'):'')+(LIT[k]&&LIT[k].n?'  ✦ lit'+(LIT[k].n>1?' ×'+LIT[k].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':k===me?'rgba(109,74,232,.98)':'rgba(139,108,246,.96)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
-  if(z>=.55)blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
+  if(z>=.55)blocks.forEach(function(b){if(b.estate)return;var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
     Object.keys(per).forEach(function(k){if(!NBM[k])return;var hb=dockAt({d:k}),sp=S(hb.x,hb.y),q=per[k];
       cand.push({pr:1.9,sc:0,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
@@ -1551,6 +1555,7 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;var c=c2;c.setTr
     if(t.t==='g'&&!water(i,j)&&rnd(i*17+j*29)<(i===0||j===0?.55:.8)){var s=.7+rnd(i+j*3)*.5;if(rnd(i*3+j)<.5)tree2(c,p.x+(rnd(i)-.5)*20,p.y+(rnd(j)-.5)*8,s);else pine(c,p.x+(rnd(j)-.5)*20,p.y+(rnd(i)-.5)*8,s)}
     if(t.t==='r'&&(isRoad(i-1,j)||isRoad(i+1,j))&&(isRoad(i,j-1)||isRoad(i,j+1))&&(i+j)%2===0){var lp={x:p.x-TW*.32,y:p.y};lamp(c,lp.x,lp.y);lamps.push(lp)}
     if(t.t==='w')drawShop(c,p,LOD);
+    if(t.t==='L')growObject(c,t,i,j,p,LOD);
     if(t.t==='p'){tree2(c,p.x-10,p.y+1,.9);pine(c,p.x+11,p.y-2,.8);tree2(c,p.x+2,p.y+7,.6)}
     if(t.t==='h'){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],sd=hash(t.d.name);for(var q=0;q<t.n;q++)houseAt(c,p.x+spots[q][0],p.y+spots[q][1],['#E8DCC8','#CFD8E6','#EAD2B8','#D2E0CC'][(sd+q)%4],sd+q)}
     if(hf<1)c.restore();if(gp<1&&t.t!=='b')c.restore();
@@ -1655,7 +1660,7 @@ var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=t
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);drawObjects()}dirty=false}
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);growUnder();drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();growOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh);
   cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0);
   if(!SENT_READY&&!LOST){SENT_READY=true;postState('ready')}}   // storefront signs over everything: cranes, helicopters, agents, labels
