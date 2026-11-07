@@ -70,6 +70,7 @@ function growGround(c){if(!GROW)return;var dk=gDirt();
 function growObject(c,t,i,j,p,LOD){var g=GM[t.key];if(!g||!g.b)return;var s=g.cs||(g.cs=gState(g)),S=s.side;if(t.a>=S||t.b>=S)return;
   var li=gLot(t.a,t.b),cd=s.codes[li]||0,col=gLang(g),hc=gHc(g),dim=hc>=2,base=p.y+4,top=base,seed=hash(t.key)+li*7,isNew=gWin()&&s.fresh[li];
   if(dim)col=mix(col,.55,'#8A8E96');
+  var bd=typeof bDmg==='function'?bDmg(t.key,li):0;if(bd>0){bScorch(c,p.x,p.y+4,bd);if(bd>=.5&&cd>=4)cd=cd>4?cd-1:3}   // the Battle view: a hit lot drops a tier (a house to its frame) until it rebuilds
   var litp=dim?0:Math.min(P.lit==null?1:P.lit,hc===1?.25:.75);
   if(cd===3){var hgt=26,f=.45+.35*rnd(seed);prism(c,p.x,base,.62,hgt*f,col);top=base-hgt*f;if(!LOD)studs(c,p.x,top,.62,col);if(!LOD)scaffold(c,p.x,base,base-hgt,.62,0);if(hc===0)cranes.push({x:p.x+5,y:top,seed:seed})}
   else if(cd===4){var cols=['#E8DCC8','#CFD8E6','#EAD2B8','#D2E0CC'];[[-11,-3],[9,-5],[-1,6]].forEach(function(o,k){houseAt(c,p.x+o[0],p.y+o[1],dim?mix(cols[(seed+k)%4],.6,'#8A8E96'):cols[(seed+k)%4],seed+k)});top=base-14}

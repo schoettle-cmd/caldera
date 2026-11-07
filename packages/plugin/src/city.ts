@@ -9,6 +9,7 @@
  */
 
 import { GROWTH_LAYOUT_JS, GROWTH_DRAW_JS } from "./citygrowth";
+import { BATTLE_DRAW_JS } from "./citybattle";
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;
@@ -1163,9 +1164,10 @@ function worldCard(b){var key=b.d.nb||b.d.name,m=WORLD.m[key]||{},nn=NBM[key],nr
   card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(m.name||key)+'</h3><div class="k">'+e(key)+(m.isNew?' &middot; new this week':'')+(m.groups&&m.groups.length?' &middot; '+m.groups.map(function(g){return e(g)}).join(', '):'')+'</div>'
     +(m.headline?'<p style="margin:6px 0 0">'+e(m.headline)+'</p>':'')
     +'<div class="row"><span>Buildings</span><b>'+nrep+'</b></div>'+(nn&&nn.ds.length>1?'<div class="row"><span>Districts</span><b>'+nn.ds.length+'</b></div>':'')+(m.friends?'<div class="row"><span>Friends</span><b>'+m.friends+'</b></div>':'')
-    +growCard(key)+'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>'+giftHtml(key,'');
+    +growCard(key)+battleCard(key)+'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>'+giftHtml(key,'');
   card.hidden=false;card.querySelector('.x').onclick=function(){WFOCUS=null;show(null)};giftWire(function(){worldCard(b)})}
 ${GROWTH_DRAW_JS}
+${BATTLE_DRAW_JS}
 // ---- light-ups: one gift a day to celebrate someone's city (or one of its public repos). It shines on the world map for 24
 // hours as searchlights from the gifted building; every extra gift adds a beam, so friends rally to light each other up.
 var GC=window.CALDERA_GIFTS||null,GME=null,LIT={};
@@ -1660,7 +1662,7 @@ var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=t
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);drawObjects()}dirty=false}
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);growUnder();drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();growOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);growUnder();drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh);
   cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0);
   if(!SENT_READY&&!LOST){SENT_READY=true;postState('ready')}}   // storefront signs over everything: cranes, helicopters, agents, labels
