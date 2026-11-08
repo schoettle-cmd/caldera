@@ -26,12 +26,12 @@ function world(sky, clock, data) {
     function iso(i,j){return {x:(i-j)*TW/2,y:(i+j)*TH/2}}function water(){return false}var document={createElement:function(){return {width:0,height:0,getContext:function(){return mk()}}}};
     function gXY(i){var r=Math.floor(Math.sqrt(i)),o=i-r*r;return o<r?[r,o]:o===r?[r,r]:[o-r-1,r]}
     var DA={name:'a-d',repos:[]},DB={name:'b-d',repos:[]},RA1={name:'a1',commits:40},RA2={name:'a2',commits:20},RB1={name:'b1',commits:60},RB2={name:'b2',commits:30};
-    var GM={'@a':{b:{x:2,y:2,k:5},cs:{side:3,codes:[5,5,5,6,5,5,5,5,5]},lang:'#3178C6',n:{ds:[DA]}},'@b':{b:{x:12,y:2,k:5},cs:{side:3,codes:[5,5,6,5,5,5,5,5,5]},lang:'#E85D75',n:{ds:[DB]}}};
+    var GM={'@a':{b:{x:2,y:2,k:5},cs:{side:3,codes:[5,5,5,6,5,5,5,5,5]},lang:'#3178C6',n:{ds:[DA]}},'@b':{b:{x:12,y:2,k:5},cs:{side:3,codes:[5,5,6,5,5,5,5,5,5]},lang:'#E85D75',n:{ds:[DB]}},'@c':{cs:{side:1,codes:[5]},lang:'#888888',n:{ds:[]}}};
     var tiles={};for(var j=0;j<=H;j++)for(var i=0;i<=W;i++)tiles[i+','+j]={t:'g'};tiles['2,9']={t:'b',d:DA,r:RA1};tiles['4,9']={t:'b',d:DA,r:RA2};tiles['12,9']={t:'b',d:DB,r:RB1};tiles['14,9']={t:'b',d:DB,r:RB2};
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock);
+    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock);
 }
 const data = () => ({ at: "x", night: "2026-11-07", t0: at(2), next: at(2) + 864e5, members: { "@a": { sh: .2, beg: 0, ammo: 20, best: "cannon", shots: 6, hits: [], reb: 100 }, "@b": { sh: 0, beg: 0, ammo: 5, best: "catapult", shots: 2, hits: [], reb: 100 } },
   shots: [["@a", "@b", "cannon", 1, at(2, 1), 0, 0, 0], ["@a", "@b", "cannon", 1, at(2, 2), 1, 0, 0], ["@a", "@b", "cannon", 0, at(2, 3), -1, 1, 0], ["@a", "@b", "cannon", .5, at(2, 4), 0, 0, 0], ["@a", "@b", "cannon", 1, at(2, 5), 2, 0, 0], ["@a", "@b", "cannon", 1, at(2, 6), 1, 0, 0],
@@ -75,7 +75,7 @@ test("cinematic replay: one strike beat per city, most missiles first, raiders f
   // the camera: pre-roll at home, the pad filling the view at launch, following the lead missile, the hit, then the wide shot
   const b1 = R.beats[0], lead = b1.lead, at0 = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); return Wd.api.phase(); };
   at0(100); assert.deepEqual([Wd.camera.x, Wd.camera.z], [home.x, home.z], "pre-roll: the camera has not moved");
-  let ph = at0(b1.launch); assert.equal(Wd.camera.z, Wd.art.bPadZoom(900), "the pad fills the view"); assert.ok(Math.abs(Wd.camera.x - (450 - (lead.pad.x + Math.min(12, (lead.to.x - lead.pad.x) * .1)) * 2.6)) < 1, "centred on the pad"); assert.equal(ph.beat, 1); assert.equal(ph.beats, 3); assert.equal(ph.stage, "beat"); assert.equal(ph.label, "@a \u2192 @b \u00b7 6 missiles", "attacker, target, count"); assert.ok(R.beats.every((b) => b.shots.every((s) => s.a !== s.d)), "no self-hits");
+  let ph = at0(b1.launch); assert.equal(Wd.camera.z, Wd.art.bPadZoom(900), "the pad fills the view"); assert.ok(Math.abs(Wd.camera.x - (450 - (lead.pad.x + Math.min(12, (lead.to.x - lead.pad.x) * .1)) * 2.6)) < 1, "centred on the pad"); assert.equal(ph.beat, 1); assert.equal(ph.beats, 3); assert.equal(ph.stage, "beat"); assert.equal(ph.label, "@a \u2192 @b \u00b7 6 missiles", "attacker, target, count"); assert.ok(R.beats.every((b) => b.shots.every((s) => s.a !== s.d)), "no self-hits"); assert.ok(R.beats.every((b) => b.lead.f > 0 && b.lead.b), "the camera follows a missile that lands");
   const mid = at0(lead.rf + lead.fl / 2); const cx1 = (450 - Wd.camera.x) / Wd.camera.z; assert.ok(Math.abs(cx1 - (lead.from.x + lead.to.x) / 2) < Math.abs(lead.to.x - lead.from.x) * .35, "mid-flight the camera is between pad and target, with the missile"); assert.ok(Wd.camera.z < 2.6, "zoomed out a little on the way");
   at0(b1.end - 100); assert.ok(Math.abs((450 - Wd.camera.x) / Wd.camera.z - lead.to.x) < 1, "holding on the hit"); assert.equal(Wd.dmg(12, 9), 1, "the tower is hit"); assert.ok(Wd.ribbons() >= 6, "a smoke ribbon per missile");
   ph = at0(R.beats[1].t0 + 50); assert.equal(ph.beat, 2); assert.ok(ph.label.startsWith("@b \u2192 @a"));
@@ -107,6 +107,25 @@ test("cinematic replay: beats from 1 to 8 cities each stay under 4 s and the who
   const c = stubCtx(); W2.api.replay(); clock.p += R.beats[0].launch + 600; W2.bcam(); W2.over(); clock.p += 120; W2.over(); W2.art.bDrawRibbons(c, W2.now()); W2.art.bLaunchFxBig(0, 0, -1); assert.ok(c.__n.ops > 4, "ribbons stroke");
 });
 
+test("aim points: every shot lands on the roof of one of the defender's repo towers (tallest first, lot = tower index), never on grass, roads or the plot; a city with no towers gets no shots", () => {
+  for (const night of ["2026-11-07", "2026-11-08", "2026-11-09"]) for (let seed = 0; seed < 6; seed++) {
+    const d = data(); d.night = night; d.shots = []; const who = ["@a", "@b"]; for (let i = 0; i < 14; i++) { const a = who[(i + seed) % 2], df = who[(i + seed + 1) % 2]; d.shots.push([a, df, "cannon", i % 5 === 3 ? 0 : 1, at(2, i), (i * 7 + seed) % 5 - 1, 0, 0]); }
+    d.shots.push(["@a", "@c", "cannon", 1, at(2, 20), 0, 0, 0], ["@c", "@a", "cannon", 1, at(2, 21), 0, 0, 0], ["~raiders", "@b", "cannon", 1, at(2, 22), -1, 0, 0]);
+    const Wd = world("day", { t: at(16), p: 1 }, d); Wd.api.view(true); const P = Wd.plan(), B = Wd.art.bld();
+    assert.deepEqual(B["@a"].map((b) => b.r.name), ["a1", "a2"]); assert.deepEqual(B["@b"].map((b) => b.r.name), ["b1", "b2"], "tallest first");
+    assert.equal(P.n, 15, "the shot at @c (no towers) is dropped, @c's own pad does not exist: dropped too"); assert.equal(P.dropped, 2);
+    for (const s of P.shots) { assert.ok(s.b && s.to, "a target tower"); assert.ok(s.d.charAt(0) === "@" ? s.b.r && B[s.d].includes(s.b) : true, "one of the defender's own");
+      const top = s.b.p.y + 4 - s.b.h; assert.ok(Math.abs(s.to.x - s.b.p.x) <= 64 * .11 && Math.abs(s.to.y - top) <= 32 * .11, `inside the roof diamond (${s.to.x - s.b.p.x}, ${s.to.y - top})`);
+      assert.notEqual(s.a, s.d, "never itself"); if (s.a === "~raiders") assert.ok(s.from.y < s.to.y - 100 && s.pad === s.from, "raiders fire from the sea point"); }
+  }
+  // the impact plays on the building: fireball and chunks at the roof, the lost floors collapse into the stump, rubble piles up
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, lead = R.beats[0].lead;
+  for (let ms = lead.ri - 300; ms <= lead.ri + 60; ms += 30) { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); }
+  assert.ok(Wd.art.collapses() > 0, "a collapse transient after the hit"); assert.ok(Wd.bp() > 20, "fireball, chunks, dust");
+  const c = stubCtx(); Wd.art.bDrawCollapse(c, clock.p + 300); Wd.art.bRubblePiles(c, 0, 0, "#3178C6", 1); assert.ok(c.__n.ops > 10);
+  for (let ms = lead.ri + 60; ms <= R.beats[0].end + 900; ms += 100) { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); } assert.equal(Wd.art.collapses(), 0, "gone after 650 ms"); Wd.api.stop();
+});
+
 test("battle art: pad, stack, drop, launch center, countdown, ruin and particles draw with finite geometry by day and night at every LOD", () => {
   for (const sky of ["day", "night"]) { const W = world(sky, { t: at(15), p: 1 }, data()); W.api.view(true);
     for (const lod of [0, 1, 2]) { W.setLOD(lod); const c = stubCtx();
@@ -134,6 +153,7 @@ test("battle: wired into the renderer; no walkers, no houses, no crews in the Ba
   assert.ok(CITY_JS.includes("if(!BON)drawWalks()"), "no people on foot in the Battle view");
   assert.ok(CITY_JS.includes("if(t.t==='h'&&!BON)") && CITY_JS.includes("if(cd===4){if(!BON)"), "no little houses in the Battle view");
   assert.ok(CITY_JS.includes("hc===0&&!BON") && CITY_JS.includes("!gWin()&&!BON") && CITY_JS.includes("if(!BON)for(var k=0;k<7;k++)") && CITY_JS.includes("if(!BON)drawFx()"), "no growth crews, parades or effects walkers in the Battle view");
+  assert.ok(CITY_JS.includes("litp=0}") && CITY_JS.includes("bRubblePiles(c,p.x,base,col,bdm)"), "a hit tower goes dark and rubble piles up around it");
   assert.ok(CITY_JS.includes("bBld(t,i,j)") && CITY_JS.includes("ruinHi(c,p.x,top") && CITY_JS.includes("cranes.push({x:p.x+4,y:top,seed:seed,col:col})"), "hit towers lose floors, show a ruin and get a crane");
   new Function(CITY_JS);
 });
