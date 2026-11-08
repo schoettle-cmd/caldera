@@ -1306,7 +1306,8 @@ function drawShimmer(){if(!SHIM)return;var f=(performance.now()-SHIM.t0)/900;if(
   c3.setTransform(1,0,0,1,0,0);c3.globalCompositeOperation='source-over';c3.clearRect(0,0,w,h);c3.drawImage(L2,0,0);c3.globalCompositeOperation='source-atop';
   var x=(f*1.5-.25)*w,g=c3.createLinearGradient(x-w*.07,h*.1,x+w*.07,h*.3);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,250,225,.6)');g.addColorStop(1,'rgba(255,255,255,0)');
   c3.fillStyle=g;c3.fillRect(0,0,w,h);c3.globalCompositeOperation='source-over';cx.save();cx.setTransform(1,0,0,1,0,0);cx.globalCompositeOperation='lighter';cx.globalAlpha=.32*Math.sin(f*Math.PI);cx.drawImage(L3,0,0);cx.restore()}
-function flyTo(x1,y1,z1,ms,done){var z0=cam.z,x0=cam.x,y0=cam.y,t0=performance.now();(function anim(){var f=Math.min(1,(performance.now()-t0)/ms),k=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
+var FLYG=0;function flyStop(){FLYG++}   // a replay taking the camera cancels any flight in progress
+function flyTo(x1,y1,z1,ms,done){var z0=cam.z,x0=cam.x,y0=cam.y,t0=performance.now(),g=++FLYG;(function anim(){if(g!==FLYG)return;var f=Math.min(1,(performance.now()-t0)/ms),k=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
   cam.z=z0+(z1-z0)*k;cam.x=x0+(x1-x0)*k;cam.y=y0+(y1-y0)*k;draw();if(f<1)requestAnimationFrame(anim);else if(done)done()})()}
 var buildBar=null;function buildNote(html){if(!buildBar){buildBar=document.createElement('div');buildBar.setAttribute('role','status');
   buildBar.style.cssText='position:absolute;left:50%;'+(vw<600?'top:52px;width:calc(100% - 24px);justify-content:space-between;':'bottom:18px;')+'transform:translateX(-50%);z-index:6;display:flex;gap:10px;align-items:center;max-width:calc(100% - 24px);padding:9px 10px 9px 14px;border-radius:12px;background:rgba(10,12,22,.9);border:1px solid #8B6CF6;box-shadow:0 0 22px rgba(139,108,246,.45);color:#fff;font:600 12.5px/1.35 IBM Plex Sans,Arial,sans-serif';
@@ -1649,7 +1650,7 @@ function stepGlow(tn){var dt=Math.min(1000,tn-(glowAt||tn));glowAt=tn;var moving
   for(k in ks){var g=GL[k]||0,t=GT[k]||0;if(Math.abs(t-g)<.003){if(t)GL[k]=t;else delete GL[k];continue}GL[k]=g+(t-g)*Math.min(1,dt/2200);moving=true}
   if(moving&&tn-glowDraw>220){glowDraw=tn;dirty=true}}
 function glowOf(d){return d?(GL[d.name]||(d.nb&&GL[d.nb])||0):0}
-var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=true;stepGlow(T);if(L1.width!==cv.width||L1.height!==cv.height){L1.width=L2.width=L3.width=L4.width=cv.width;L1.height=L2.height=L3.height=L4.height=cv.height;dirty=true}
+var lastPT=0;function frame(){T=performance.now();bCam();if(BUILDING&&bActive())dirty=true;stepGlow(T);if(L1.width!==cv.width||L1.height!==cv.height){L1.width=L2.width=L3.width=L4.width=cv.width;L1.height=L2.height=L3.height=L4.height=cv.height;dirty=true}
   if(under){if(UL.width!==cv.width||UL.height!==cv.height){UL.width=cv.width;UL.height=cv.height;UDIRTY=true}
     if(dirty){if(sky==='grid'){tronGround();tronObjects()}else{drawGround();drawObjects()}dirty=false;UDIRTY=true}if(UDIRTY){drawUnder();UDIRTY=false}
     cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#03020A';cx.fillRect(0,0,cv.width,cv.height);
@@ -1697,7 +1698,8 @@ cv.addEventListener('pointermove',function(ev){var p=ptr[ev.pointerId];if(!p)ret
   if(ks.length===2){var o=ptr[ks[0]===String(ev.pointerId)?ks[1]:ks[0]];var dist=Math.hypot(ev.clientX-o.x,ev.clientY-o.y);if(pinch){var r=st.getBoundingClientRect();zoom(dist/pinch,(ev.clientX+o.x)/2-r.left,(ev.clientY+o.y)/2-r.top)}pinch=dist;moved=true}
   else{var dx=ev.clientX-p.x,dy=ev.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;cam.x+=dx;cam.y+=dy}
   p.x=ev.clientX;p.y=ev.clientY;draw()});
-function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
+function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){if(BON&&BREP){bSkip();return}   // a tap during a battle replay: next strike
+  var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
   if(h&&h.shop)return shopCard();
   if(h&&h.group){if(MINI)return openRepo(repoUrl(h.r));return storeDir(h.count===1?h.r:null,h.keys,false,SBTN[h.group])}   // a store marker: the panel lists every store there (the pop-out has no room: the top store)
   if(h&&h.block)return worldFocus(h.block);
