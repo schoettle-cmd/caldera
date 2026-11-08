@@ -1556,18 +1556,20 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
     if(t.t==='w')drawShop(c,p,LOD);
     if(t.t==='L'){growObject(c,t,i,j,p,LOD);nObj++}
     if(t.t==='p')hiDraw(c,'park|'+((i+j)%3),70,50,35,36,p.x,p.y,function(cc){treeHi(cc,-10,1,.9,i%3);pineHi(cc,11,-2,.8);treeHi(cc,2,7,.6,(i+j)%3+1);if(LODN>0)benchHi(cc,-20,8)});
-    if(t.t==='h'){var sd=(hash(t.d.name)+i*3+j*5)%24,hn0=Math.min(3,t.n);hiDraw(c,'hl|'+sd+'|'+hn0,72,54,33,37,p.x,p.y,function(cc){houseLotHi(cc,0,0,{seed:sd,n:hn0})});nObj++}
+    if(t.t==='h'&&!BON){var sd=(hash(t.d.name)+i*3+j*5)%24,hn0=Math.min(3,t.n);hiDraw(c,'hl|'+sd+'|'+hn0,72,54,33,37,p.x,p.y,function(cc){houseLotHi(cc,0,0,{seed:sd,n:hn0})});nObj++}
     if(hf<1)c.restore();if(gp<1&&t.t!=='b')c.restore();
-    if(t.t==='b'){var r=t.r,SL=SFA.get(r),h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;
+    if(t.t==='b'){var r=t.r,SL=SFA.get(r),h=bh(r),bdm=typeof bBld==='function'?bBld(t,i,j):0,dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;
       var col=r.kind?SHOPC[seed%SHOPC.length]:r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=r.kind?.6:dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
       var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));   // people on the site right now light up its building (the rest of the district a little)
+      if(bdm>0)h=Math.max(10,Math.round(h*(1-.5*bdm)));   // a hit tower has lost its top floors (citybattle.ts), back floor by floor as the cranes work
       var tiers=towerTiers(LODN===1&&bf>=1?Math.round(h/3)*3:h),base=p.y+4,top=base;nObj++;   // at LOD 1 heights snap to 3 px so towers share sprites
       if(bf<1){top=lego(c,p.x,base,tiers,h,col,glass,litp,seed,r,bf,i+','+j,t.d&&(t.d.nb||t.d.name),LOD);if(bf>0&&bf<.8&&!LOD)cranes.push({x:p.x+4,y:top,seed:seed})}
       else{var hs=0;tiers.forEach(function(q){hs+=q[1]});top=base-hs;   // the tower (variant by glass and seed), roof plant and yard; through the atlas at LOD 1
         var tv2=glass?(seed%3===2?2:0):(seed%3===2?2:1),lq=Math.round(litp*4)/4,pq=sg>0?Math.round(Math.min(.55,sg*.75)*4)/4:0,rk=roofKind(r,seed),sk=seed%2,tc=col,ttw=tiers[tiers.length-1][0],hb=Math.ceil(hs)+84;
-        hiDraw(c,'tw|'+tv2+'|'+Math.round(hs)+'|'+tc+'|'+lq+'|'+pq+'|'+rk+'|'+sk,116,hb,58,hb-34,p.x,p.y,function(cc){var tp=towerHi(cc,0,0,{variant:tv2,col:tc,seed:sk*131+7,tiers:tiers,litp:lq,people:pq,roof:false});if(LODN>0)roofProps(cc,0,tp,ttw,r,seed)})}
+        hiDraw(c,bdm>0?null:'tw|'+tv2+'|'+Math.round(hs)+'|'+tc+'|'+lq+'|'+pq+'|'+rk+'|'+sk,116,hb,58,hb-34,p.x,p.y,function(cc){var tp=towerHi(cc,0,0,{variant:tv2,col:tc,seed:sk*131+7,tiers:tiers,litp:lq,people:pq,roof:false});if(LODN>0)roofProps(cc,0,tp,ttw,r,seed)})}
+      if(bdm>0&&bf>=1){var rb0=bRebuild();scorchHi(c,p.x,base,bdm);ruinHi(c,p.x,top,tiers[tiers.length-1][0],col,bdm,rb0);if(rb0>0){scaffoldHi(c,p.x,base,tiers[0][0],base-top,1);cranes.push({x:p.x+4,y:top,seed:seed,col:col})}}
       if(r===tallest)beacons.push({x:p.x,y:top-26});
       if(r.week>0&&!dm&&bf>=1)cranes.push({x:p.x+4,y:top,seed:seed});
       if(SL&&bf>=1)SIGNS.push({c:c,x:p.x,base:base,top:top,list:SL,d:t.d,tron:false,LOD:LOD,lift:r.week>0&&!dm?30:r===tallest?28:4});   // above the crane or the beacon
@@ -1655,7 +1657,7 @@ var lastPT=0;function frame(){T=performance.now();if(BUILDING&&bActive())dirty=t
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){var rd0=performance.now();if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);var rd1=performance.now();drawObjects();if(window.CALDERA_LAST)CALDERA_LAST.groundMs=+(rd1-rd0).toFixed(1)}dirty=false;if(window.CALDERA_PERF&&CALDERA_PERF.push)CALDERA_PERF.push(performance.now()-rd0)}   // redraw timings for the perf check (off unless a page sets the array)
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);hiLive();growUnder();drawTopics();drawTraces();drawCars();drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);hiLive();growUnder();drawTopics();drawTraces();drawCars();if(!BON)drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();if(!BON)drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh);
   cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0);
   if(!SENT_READY&&!LOST){SENT_READY=true;postState('ready')}}   // storefront signs over everything: cranes, helicopters, agents, labels

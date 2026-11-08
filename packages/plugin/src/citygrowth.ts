@@ -76,11 +76,11 @@ function growObject(c,t,i,j,p,LOD){var g=GM[t.key];if(!g||!g.b)return;var s=g.cs
   var li=gLot(t.a,t.b),cd=s.codes[li]||0,col=gLang(g),hc=gHc(g),dim=hc>=2,base=p.y+4,top=base,seed=hash(t.key)+li*7,isNew=gWin()&&s.fresh[li],v=gVar(t.key,li);
   if(dim)col=mix(col,.55,'#8A8E96');
   var bd=typeof bDmg==='function'?bDmg(t.key,li):0,dcd=cd;if(bd>0){scorchHi(c,p.x,p.y+4,bd);if(bd>=.5&&cd>=4)cd=cd>4?cd-1:3}   // the Battle view: a hit lot drops a tier (a house to its frame) until it rebuilds
-  var litp=dim?0:Math.min(P.lit==null?1:P.lit,hc===1?.25:.75),lq=Math.round(litp*8)/8,o={variant:v,col:col,seed:seed%12,litp:lq,dim:dim,stage:cd,crew:hc===0&&!gWin(),turbine:false},ex=null;
+  var litp=dim?0:Math.min(P.lit==null?1:P.lit,hc===1?.25:.75),lq=Math.round(litp*8)/8,o={variant:v,col:col,seed:seed%12,litp:lq,dim:dim,stage:cd,crew:hc===0&&!gWin()&&!BON,turbine:false},ex=null;
   if(cd>=1&&cd<=3)o.seed=seed%3;   // sprite keys carry only what changes the picture, so lots across the world share sprites
   var key=bd>0?null:cd===4?'gh|'+(seed%12)+'|'+(dim?1:0):cd<=3?'gl|'+cd+'|'+col+'|'+(o.crew?1:0)+'|'+o.seed:'g|'+cd+'|'+v+'|'+col+'|'+lq+'|'+(dim?1:0)+'|'+(seed%12),rel=0;
   if(cd>=1&&cd<=3)hiDraw(c,key,92,70,46,40,p.x,p.y,function(cc){ex=lotHi(cc,0,0,o)});
-  else if(cd===4)hiDraw(c,key,72,54,33,37,p.x,p.y,function(cc){houseLotHi(cc,0,0,{seed:seed%12,n:3,dim:dim})});
+  else if(cd===4){if(!BON)hiDraw(c,key,72,54,33,37,p.x,p.y,function(cc){houseLotHi(cc,0,0,{seed:seed%12,n:3,dim:dim})})}   // the Battle view keeps only the code-built buildings
   else if(cd===5)hiDraw(c,key,92,100,46,64,p.x,p.y,function(cc){rel=midHi(cc,0,0,o)});
   else if(cd===6)hiDraw(c,key,116,150,58,116,p.x,p.y,function(cc){rel=towerHi(cc,0,0,{variant:v,col:col,seed:seed%12,tiers:[[.68,46],[.52,22]],litp:lq,roof:!dim})});
   else if(cd===7){hiDraw(c,key,92,70,46,44,p.x,p.y,function(cc){rel=campusHi(cc,0,0,o)});if(v===1&&LODN>0)turbineHi(c,p.x-20,p.y+8,dim)}
@@ -111,7 +111,7 @@ function growOver(){if(!GROW)return;var c=cx,tn=performance.now();c.setTransform
   if(gWin()){
     for(var k in GM){var g=GM[k],b=g.b,s=g.cs;if(!b||!s||!g.v)continue;var hc=gHc(g),col=gLang(g);
       // crews on the lot being built (paused after 14 quiet days)
-      if(hc===0){for(var li=0;li<s.side*s.side;li++){var cd=s.codes[li];if(cd<1||cd>3)continue;var ab=gXY(li),q=iso(b.x+ab[0],b.y+ab[1]);figHi(c,q.x-TW*.26,q.y+TH*.18,col,li,1);if(cd>=2)figHi(c,q.x+TW*.22,q.y+TH*.12,col,li+3,2);break}}
+      if(hc===0&&!BON){for(var li=0;li<s.side*s.side;li++){var cd=s.codes[li];if(cd<1||cd>3)continue;var ab=gXY(li),q=iso(b.x+ab[0],b.y+ab[1]);figHi(c,q.x-TW*.26,q.y+TH*.18,col,li,1);if(cd>=2)figHi(c,q.x+TW*.22,q.y+TH*.12,col,li+3,2);break}}
       // commit drops: falling light in the member's colour, landing as bricks
       var wc=g.v.w?g.v.w.c:0;if(wc>0&&!reduce&&hc===0){var days=GV==='month'?30:GV==='week'?7:1,rate=Math.min(2.4,.12+.35*Math.log2(1+wc/days));
         if(GCUR!=null&&g.v.hist){var nb=g.v.hist.length,ix=Math.max(0,Math.min(nb-1,Math.floor((GCUR-GDATA.t0)/(days*864e5)*nb)));rate=g.v.hist[ix]>0?Math.min(3,.4+.5*Math.log2(1+g.v.hist[ix])):0}
@@ -132,7 +132,7 @@ function gSmoke(c,x,y,tn){c.save();for(var k=0;k<5;k++){var f=((tn/1400)+k/5)%1;
 /** a parade marches around the plot's road ring, with a banner */
 function gParade(c,g,tn,banner){var b=g.b,s=g.cs;if(!b||!s)return;var S=s.side,path=[];for(var a=0;a<=S;a++)path.push([a,S]);for(var bb=S;bb>=0;bb--)path.push([S,bb]);
   var L=path.length,cols=['#E8457A','#F2D24A','#4FD1C5','#8B6CF6','#FF9A3D','#FFFFFF'];
-  for(var k=0;k<7;k++){var f=((tn/9000)+k*.035)%1,u=f*(L-1),ix=Math.floor(u),fr=u-ix,p0=path[ix],p1=path[Math.min(L-1,ix+1)],q=iso(b.x+p0[0]+(p1[0]-p0[0])*fr,b.y+p0[1]+(p1[1]-p0[1])*fr);minifig(c,q.x,q.y,cols[k%cols.length],k)}
+  if(!BON)for(var k=0;k<7;k++){var f=((tn/9000)+k*.035)%1,u=f*(L-1),ix=Math.floor(u),fr=u-ix,p0=path[ix],p1=path[Math.min(L-1,ix+1)],q=iso(b.x+p0[0]+(p1[0]-p0[0])*fr,b.y+p0[1]+(p1[1]-p0[1])*fr);minifig(c,q.x,q.y,cols[k%cols.length],k)}
   if(banner){var f0=((tn/9000))%1,u0=f0*(L-1),i0=Math.floor(u0),pp=path[i0],qb=iso(b.x+pp[0],b.y+pp[1]);c.save();c.setTransform(dpr,0,0,dpr,0,0);var sx=cam.x+qb.x*cam.z,sy=cam.y+(qb.y-34)*cam.z;pill(c,sx,sy,banner,'rgba(139,108,246,.95)','#fff','700 11px IBM Plex Sans,Arial,sans-serif');c.restore()}}
 // ---------------------------------------------------------------- the daily drop: a manifest of parametric animations
 function gPhaseOk(t){if(!t)return true;var h=new Date().getHours()+new Date().getMinutes()/60;if(t==='dawn')return true;if(t==='dusk')return true;var m=/^(\d\d):(\d\d)$/.exec(t);return !m||h>=+m[1]+(+m[2])/60}
