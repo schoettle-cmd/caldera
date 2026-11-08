@@ -190,7 +190,8 @@ function bBeats(shots,now0,reduce){var by={},keys=[];shots.forEach(function(s){i
   keys.sort(function(a,b){var ra=a.charAt(0)!=='@',rb=b.charAt(0)!=='@';if(ra!==rb)return ra?1:-1;var d=by[b].length-by[a].length;return d||(a<b?-1:a>b?1:0)});
   var t=now0+BRT.pre,beats=[];keys.forEach(function(k,i){var L=by[k],n=L.length,ap=reduce?400:BRT.approach+(i?0:350),step=n>1?Math.min(70,BRT.ripple/(n-1)):0,launch=t+ap,lastHit=launch;
     L.forEach(function(s,j){s.rf=launch+j*step;s.fl=Math.min(2000,bRepFlight(s.dist));s.ri=s.rf+s.fl;if(s.ri>lastHit)lastHit=s.ri});
-    var end=Math.min(t+BRT.beatMax+(i?0:350),lastHit+BRT.hold);beats.push({i:i,a:k,shots:L,n:n,t0:t,launch:launch,hit:lastHit,end:end,lead:L[0],raid:k.charAt(0)!=='@'});t=end});
+    var end=Math.min(t+BRT.beatMax+(i?0:350),lastHit+BRT.hold);var tg={};L.forEach(function(s){tg[s.d]=(tg[s.d]||0)+1});var d=Object.keys(tg).sort(function(p,q){return tg[q]-tg[p]});
+    beats.push({i:i,a:k,d:L[0].d,targets:d,shots:L,n:n,t0:t,launch:launch,hit:lastHit,end:end,lead:L[0],raid:k.charAt(0)!=='@'});t=end});
   var wide=t,hold=wide+BRT.wide,reb=Math.max(BRT.rebMin,BRT.total-(hold-now0)-BRT.tail),end=hold+reb;
   return {beats:beats,by:by,shots:shots,total:end+BRT.tail-now0,S:{D:now0,live:false,rep:true,drop:now0,dropStep:0,fall:0,load0:now0,load1:now0,loadDur:0,count:beats.length?beats[0].launch:now0,salvo:beats.length?beats[0].launch:now0,ripple:0,wide:wide,hold:hold,end:end}}}
 /** the beat at now (or null before the first / after the last) */
@@ -389,14 +390,14 @@ window.CALDERA_BATTLE_API={
   stop:function(){if(BREP)bReplayEnd(true)},
   skip:function(){return bSkip()},
   seek:function(ms){return bJump(Math.max(0,+ms||0))},
-  dbg:function(){if(!BREP)return null;var b=bBeatAt(BREP.R,bNow())||BREP.R.beats[0],pad=bPad(b.a);return {beats:BREP.R.beats.map(function(x){return {a:x.a,t0:x.t0,launch:x.launch,hit:x.hit,end:x.end,ri:x.lead.ri,dist:Math.round(x.lead.dist)}}),S:BREP.R.S,cam:[cam.x,cam.y,cam.z,vw,vh],from:b.lead.from,to:b.lead.to,pad:pad,g:GM[b.a]&&GM[b.a].b,frame:bRepCam(BREP.R,bNow(),BREP.home,vw,vh,reduce),keys:Object.keys(BREP.P.byA)}},
+  dbg:function(){if(!BREP)return null;var b=bBeatAt(BREP.R,bNow())||BREP.R.beats[0],pad=bPad(b.a);return {beats:BREP.R.beats.map(function(x){return {a:x.a,d:x.d,targets:x.targets,self:x.shots.some(function(q){return q.a===q.d}),t0:x.t0,launch:x.launch,hit:x.hit,end:x.end,ri:x.lead.ri,dist:Math.round(x.lead.dist)}}),S:BREP.R.S,cam:[cam.x,cam.y,cam.z,vw,vh],from:b.lead.from,to:b.lead.to,pad:pad,g:GM[b.a]&&GM[b.a].b,frame:bRepCam(BREP.R,bNow(),BREP.home,vw,vh,reduce),keys:Object.keys(BREP.P.byA)}},
   pause:function(on){return bPause(on)},
   fly:function(h){return window.CALDERA_GROWTH_API&&window.CALDERA_GROWTH_API.plot?window.CALDERA_GROWTH_API.plot(h,1.3):false},
   phase:function(){var P=bPlan(Date.now()),S=bS(),now=bNow(),seg=bSegment(S,now),landed=0,fired=0;P.shots.forEach(function(s){if(bLandOf(S,s)<=now)landed++;if(bFireOf(S,s)<=now)fired++});
     var until=seg==='rebuild'?S.end:seg==='salvo'||seg==='damage'?S.hold:S.salvo,o={seg:seg,until:BREP?Date.now()+(until-now):until,salvoAt:S.salvo,total:P.n,landed:landed,fired:fired,night:P.night,replay:!!BREP,rebuilt:bRebuild()};
     if(BREP){var R=BREP.R,b=bBeatAt(R,now),st=bRepStage(R,now),nb=null;if(!b&&st!=='wide'&&st!=='rebuild')for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}var cur=b||nb;
       o.stage=st;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'?'damage':st==='rebuild'?'rebuild':'idle';
-      o.label=cur?(cur.raid?'Raiders from the sea':cur.a)+' · '+cur.n+' missile'+(cur.n===1?'':'s'):st==='wide'?'Every strike landed':st==='rebuild'?'Cranes, '+Math.round(bRebuild()*100)+'% rebuilt':'';}
+      o.label=cur?(cur.raid?'Raiders':cur.a)+' → '+(cur.d.charAt(0)==='@'?cur.d:'the sea')+(cur.targets.length>1?' +'+(cur.targets.length-1):'')+' · '+cur.n+' missile'+(cur.n===1?'':'s'):st==='wide'?'Every strike landed':st==='rebuild'?'Cranes, '+Math.round(bRebuild()*100)+'% rebuilt':'';}
     return o},
   state:function(){return {on:BON,layers:BL,phase:this.phase(),cities:BDATA&&BDATA.members?Object.keys(BDATA.members).length:0}},
   dmg:function(i,j){return bBld(null,i,j)}};
