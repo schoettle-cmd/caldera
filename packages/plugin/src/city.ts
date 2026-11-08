@@ -11,7 +11,7 @@
 import { GROWTH_LAYOUT_JS, GROWTH_DRAW_JS } from "./citygrowth";
 import { BATTLE_DRAW_JS } from "./citybattle";
 import { HIFI_JS } from "./cityhifi";
-export { HIFI_JS };
+export { HIFI_JS, BATTLE_DRAW_JS };
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;

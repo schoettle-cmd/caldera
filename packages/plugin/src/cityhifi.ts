@@ -6,7 +6,7 @@
  *
  * Parts: prismHi/facadeHi/roofHi (buildings), trees, street furniture, lamps and their pools, AO, houses and house lots,
  * lots in the making (zoned, graded, framed), mid-rise, tower and campus (three variants each), crane, scaffold, crews,
- * cars, water ripples, the battle set (scorch, rubble, smoke, tarp, tape, truck), and the sprite atlas with its LOD rules.
+ * cars, water ripples, the battle damage set (scorch, rubble, smoke, tarp, tape), and the sprite atlas with its LOD rules.
  */
 export const HIFI_JS = String.raw`
 // ---- high-detail drawing set (cityhifi.ts)
@@ -249,7 +249,7 @@ function waterHi(c){if(sky==='grid'||LODN===0&&cam.z<.25)return;var n=hn(),tn=re
   for(var i=0;i<=W;i++)for(var j=0;j<=H;j++){if(!water(i,j))continue;var q=iso(i,j);if(q.x<v[0]||q.x>v[1]||q.y<v[2]||q.y>v[3])continue;
     for(var w=0;w<3;w++){var ph=tn*.9+w*2.1+i*.7+j*1.3,ox=(rnd(i*13+j*7+w)-.5)*TW*.6,oy=(rnd(i*5+j*11+w)-.5)*TH*.6+Math.sin(ph)*2,al=(n?.12:.3)*(.5+.5*Math.sin(ph*1.3));c.strokeStyle='rgba(255,255,255,'+al.toFixed(3)+')';c.beginPath();c.moveTo(q.x+ox-7,q.y+oy);c.quadraticCurveTo(q.x+ox,q.y+oy-1.5,q.x+ox+7,q.y+oy);c.stroke()}
     if(!n){var sp=Math.sin(tn*2+i*3+j)*.5+.5;c.fillStyle='rgba(255,255,255,'+(.25*sp).toFixed(3)+')';c.beginPath();c.arc(q.x+(rnd(i+j*3)-.5)*30,q.y+(rnd(i*3+j)-.5)*14,.9,0,7);c.fill()}}c.restore()}
-// ---- battle damage: scorch, rubble, smoke, tarp, tape, a fire truck (no people hurt, ever)
+// ---- battle damage: scorch, rubble, smoke, tarp, tape (no people hurt, ever; launchers, missiles and crews are in citybattle.ts)
 function scorchHi(c,x,y,d){var a=Math.min(.65,.3+.3*d),g=c.createRadialGradient(x+3,y+1,1,x+3,y+1,17);g.addColorStop(0,'rgba(20,14,10,'+a+')');g.addColorStop(.7,'rgba(20,14,10,'+(a*.55)+')');g.addColorStop(1,'rgba(20,14,10,0)');c.fillStyle=g;c.beginPath();c.ellipse(x+3,y+1,19,8.5,0,0,7);c.fill();
   c.strokeStyle='rgba(10,8,6,.5)';c.lineWidth=.45;c.beginPath();for(var k=0;k<6;k++){var an=k*1.05+rnd(k+x)*.6,r=6+rnd(k*3+y)*10;c.moveTo(x+3,y+1);c.lineTo(x+3+Math.cos(an)*r,y+1+Math.sin(an)*r*.5);c.lineTo(x+3+Math.cos(an+.3)*r*1.2,y+1+Math.sin(an+.3)*r*.6)}c.stroke()}
 function rubbleHi(c,x,y,col){var n=hn();c.fillStyle='rgba(120,110,100,'+(n?.1:.16)+')';c.beginPath();c.ellipse(x,y-1,16,7,0,0,7);c.fill();
@@ -262,11 +262,6 @@ function tarpHi(c,px,ty,w){var hw=TW/2*w,hh=TH/2*w,q=[tpt(px,ty,hw,hh,-.9,-.9),t
   c.strokeStyle='rgba(255,255,255,.3)';c.lineWidth=.5;c.beginPath();for(var k=1;k<4;k++){var f=k/4;c.moveTo(q[0][0]+(q[1][0]-q[0][0])*f,q[0][1]+(q[1][1]-q[0][1])*f);c.lineTo(q[3][0]+(q[2][0]-q[3][0])*f,q[3][1]+(q[2][1]-q[3][1])*f)}c.stroke();
   c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=.4;c.beginPath();c.moveTo(q[2][0],q[2][1]);c.lineTo(q[2][0]+2,q[2][1]+6);c.moveTo(q[3][0],q[3][1]);c.lineTo(q[3][0]-2,q[3][1]+6);c.stroke()}
 function tapeHi(c,pts){c.save();c.strokeStyle='#F2D24A';c.lineWidth=1.2;c.beginPath();c.moveTo(pts[0][0],pts[0][1]-5);for(var k=1;k<pts.length;k++)c.lineTo(pts[k][0],pts[k][1]-5);c.stroke();c.strokeStyle='#14161C';c.setLineDash([2,2]);c.stroke();c.setLineDash([]);c.strokeStyle='#8A8A93';c.lineWidth=.8;pts.forEach(function(p){hline(c,p[0],p[1],p[0],p[1]-6)});c.restore()}
-function truckHi(c,x,y){var n=hn();c.fillStyle='rgba(0,0,0,.25)';c.beginPath();c.ellipse(x+2,y+2,12,5,0,0,7);c.fill();
-  poly(c,[[x-10,y-2],[x+8,y-11],[x+8,y-4],[x-10,y+5]],n?'#8A2E2E':'#D83A3A');poly(c,[[x-10,y-2],[x-10,y-9],[x+8,y-18],[x+8,y-11]],n?'#B23A3A':'#F04848');poly(c,[[x+8,y-18],[x+13,y-15.5],[x+13,y-8.5],[x+8,y-11]],n?'#6E2424':'#B22E2E');
-  poly(c,[[x-9,y-8],[x-2,y-11.5],[x-2,y-7],[x-9,y-3.5]],n?'#1A2338':'#6F93C0');c.fillStyle='#F4F1EA';c.fillRect(x-1,y-6.5,8,.9);c.fillRect(x-1,y-4.8,8,.9);
-  c.strokeStyle='#C9CDD4';c.lineWidth=1;hline(c,x+2,y-12,x+16,y-22);c.fillStyle=Math.floor((reduce?0:T)/300)%2?'#4FC3FF':'#1A5FA8';c.fillRect(x-9,y-11,2.2,1.6);
-  c.fillStyle='#14161C';[[-7,3],[0,0],[6,-3]].forEach(function(w){c.beginPath();c.ellipse(x+w[0],y+w[1]+1.5,1.8,1.1,0,0,7);c.fill()})}
 // ---- view culling and the sprite atlas (BUILD-NOTE section 3 and 4)
 /** the world rectangle in view, with room below for tall things standing just off screen */
 function hView(below){return [-cam.x/cam.z-TW,(vw-cam.x)/cam.z+TW,-cam.y/cam.z-TH*1.5,(vh-cam.y)/cam.z+(below==null?TH:below)]}

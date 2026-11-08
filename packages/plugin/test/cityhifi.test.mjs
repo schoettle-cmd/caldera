@@ -26,7 +26,7 @@ function load(sky) {
     function poly(c,p,f){c.beginPath();c.moveTo(p[0][0],p[0][1]);for(var k=1;k<p.length;k++)c.lineTo(p[k][0],p[k][1]);c.closePath();if(f){c.fillStyle=f;c.fill()}}
     function iso(i,j){return {x:(i-j)*TW/2,y:(i+j)*TH/2}}function dia(i,j,s){var p=iso(i,j),hw=TW/2*s,hh=TH/2*s;return [[p.x,p.y-hh],[p.x+hw,p.y],[p.x,p.y+hh],[p.x-hw,p.y]]}
     function water(i,j){return i===W||j===H}var document={createElement:function(){return {width:0,height:0,getContext:function(){return mk()}}}};`;
-  return new Function("PAL", "mk", pre + HIFI_JS + "; return {prismHi,facadeHi,roofHi,treeHi,pineHi,lampHi,lampPoolHi,aoHi,houseHi,houseLotHi,lotHi,midHi,towerHi,campusHi,craneHi,scaffoldHi,figHi,carHi,waterHi,scorchHi,rubbleHi,smokeHi,tarpHi,tapeHi,truckHi,hiDraw,atlFrame,setLOD:function(v){LODN=v},atl:function(){return {n:ATL.size,b:ATLB,N:ATLN}}}")(PAL, stubCtx);
+  return new Function("PAL", "mk", pre + HIFI_JS + "; return {prismHi,facadeHi,roofHi,treeHi,pineHi,lampHi,lampPoolHi,aoHi,houseHi,houseLotHi,lotHi,midHi,towerHi,campusHi,craneHi,scaffoldHi,figHi,carHi,waterHi,scorchHi,rubbleHi,smokeHi,tarpHi,tapeHi,hiDraw,atlFrame,setLOD:function(v){LODN=v},atl:function(){return {n:ATL.size,b:ATLB,N:ATLN}}}")(PAL, stubCtx);
 }
 
 test("hifi: every tier draws three variants, day and night, at every level of detail, with finite geometry", () => {
@@ -40,7 +40,7 @@ test("hifi: every tier draws three variants, day and night, at every level of de
         assert.ok(c.__n.ops > 50, `${sky} lod ${lod} variant ${v} draws something`); }
       const c = stubCtx(); H.craneHi(c, { x: 0, y: 0, seed: 3, col: "#3178C6" }); H.scaffoldHi(c, 0, 0, .64, 30); H.scaffoldHi(c, 0, 0, .64, 30, 1);
       [0, 1, 2].forEach(m => H.figHi(c, 0, 0, "#E9A92C", 1, m)); H.carHi(c, 0, 0, .894, .447, "#E85D75", 1); H.waterHi(c);
-      H.scorchHi(c, 0, 0, 1); H.rubbleHi(c, 0, 0, "#3178C6"); H.smokeHi(c, 0, 0, true); H.tarpHi(c, 0, -30, .64); H.tapeHi(c, [[0, 0], [10, 5]]); H.truckHi(c, 0, 0);
+      H.scorchHi(c, 0, 0, 1); H.rubbleHi(c, 0, 0, "#3178C6"); H.smokeHi(c, 0, 0, true); H.tarpHi(c, 0, -30, .64); H.tapeHi(c, [[0, 0], [10, 5]]);
       H.treeHi(c, 0, 0, 1, 2); H.pineHi(c, 0, 0, 1); H.lampHi(c, 0, 0); H.lampPoolHi(c, 0, 0); H.aoHi(c, 0, 0, .78);
       H.roofHi(c, 0, -40, .64, [["hvac"], ["tank"], ["solar"], ["mast"], ["garden"], ["skylight"], ["helipad"], ["stack"], ["dish"], ["crown"]]);
     }
