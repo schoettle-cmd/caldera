@@ -13,9 +13,9 @@
  * and cranes with scaffolding rebuild them from 00:00 to 12:00, whole by noon. Replay (Mike 11-08: "zooms into the first
  * strike ... we follow the missiles tracing into the damage ... the camera resets to the next city ... trailing smoke behind
  * each one of the individual missiles") is cinematic on a virtual clock: one strike beat per launching city (most missiles
- * first, raiders from the sea last, each beat under 4 s: the camera eases to the pad, the pod fires, the camera follows the
+ * first, raiders from the sea last, each beat under 10 s: the camera eases to the pad, the pod fires, the camera follows the
  * lead missile into the hit and holds), then a wide shot with every smoke ribbon, the cranes in time-lapse, and the camera
- * flies home; 20 to 40 s in all. 'demo' replays a sample battle between the biggest cities. State is derived from the clock and the shot list: a page opened at 16:00 shows the stacks half loaded, at
+ * flies home; 35 to 100 s in all at 1x, about 60 s for the demo (2.5x slower than the first cut, Mike 11-08: "moves too fast"; 0.5x / 1x / 2x, pause, prev / next, and the viewer's own camera with Fit and Follow). 'demo' replays a sample battle between the biggest cities. State is derived from the clock and the shot list: a page opened at 16:00 shows the stacks half loaded, at
  * 21:00 the damage, at 09:00 the cranes three quarters done. Effects (puffs, flashes, debris) fire only for moments that pass
  * while the page is watching. Moving layer: pads, stacks, drops, launchers, missiles, particles, smoke, badges, countdown.
  * Cache (drawObjects): a hit tower is drawn shorter with a ruined cap and scorch, redrawn only when its damage step changes.
@@ -169,8 +169,10 @@ function bShieldFx(x,y,col){bEmit({k:'flash',x:x,y:y,r0:3,r1:18,life:.3});for(va
 // ---- the collapse: the lost floors slide down into the stump and fade while dust rolls out at the base (about 650 ms, on
 // the moving layer; the cached tower underneath is already drawn shorter). Rubble piles up around the footprint with damage.
 var BCOL=[];
-function bCollapseAdd(x,base,h0,h1,w,col,tn){if(h0<=h1)return;BCOL.push({x:x,base:base,h0:h0,h1:h1,w:w,col:col,t0:tn,dust:false})}
-function bDrawCollapse(c,tn){for(var i=BCOL.length-1;i>=0;i--){var k=BCOL[i],u=(tn-k.t0)/650;if(u>=1||u<0){if(u>=1)BCOL.splice(i,1);continue}var e=u*u,lost=k.h0-k.h1,top1=k.base-k.h1;
+// the effects clock: wall-clock ms, scaled by the replay speed and stopped while paused (the collapse of a hit tower takes 650 ms live and 1.4 s in the replay, so the floors are seen going)
+var BFXT=0,BCOLMS=650,BCOLREP=1400;
+function bCollapseAdd(x,base,h0,h1,w,col,tn,dur){if(h0<=h1)return;BCOL.push({x:x,base:base,h0:h0,h1:h1,w:w,col:col,t0:tn,dur:dur||BCOLMS,dust:false})}
+function bDrawCollapse(c,tn){for(var i=BCOL.length-1;i>=0;i--){var k=BCOL[i],u=(tn-k.t0)/k.dur;if(u>=1||u<0){if(u>=1)BCOL.splice(i,1);continue}var e=u*u,lost=k.h0-k.h1,top1=k.base-k.h1;
     if(!k.dust&&u>.4){k.dust=true;for(var d=0;d<7;d++)bEmit({k:'dust',x:k.x+(rnd(d*5+k.x)-.5)*TW*.8,y:k.base-2,vx:(rnd(d+.3)-.5)*44,vy:-6-rnd(d)*8,r0:3,r1:16+rnd(d*3)*10,al:.5,col:hn()?'110,104,96':'175,168,155',life:1.6+rnd(d)*.8})
       for(var s2=0;s2<5;s2++)bEmit({k:'debris',x:k.x+(rnd(s2*9+k.x)-.5)*TW*.5,y:top1,vx:(rnd(s2+.2)-.5)*80,vy:-20-rnd(s2)*40,g:k.base+rnd(s2*3)*8,rot:rnd(s2)*6,vr:(rnd(s2+.7)-.5)*10,s:1.2+rnd(s2*5)*2,col:hmul(k.col,.8),life:1.3})}
     c.save();c.globalAlpha=Math.max(0,1-Math.max(0,(u-.45)/.55));prismHi(c,k.x,top1+lost*.5*e,k.w,Math.max(.5,lost*(1-e*.85)),k.col,{parapet:false});c.restore()}}
@@ -193,15 +195,35 @@ function ruinHi(c,px,top,w,col,d,reb){var n=hn(),hw=TW/2*w,hh=TH/2*w,dk=n?'#1A1D
 // follows the lead missile down its arc into the hit and holds about a second. After the last beat: a wide shot with every
 // smoke ribbon still hanging, the cranes in time-lapse, then the map is handed back. Pure functions here (the page and the
 // renderer both use them); the renderer keeps the clock and the camera.
-var BRT={pre:500,approach:950,ripple:280,hold:900,beatMax:3850,wide:1600,tail:800,total:20000,rebMin:5500};
-function bRepFlight(d){return 1300+Math.min(700,(d||300)*.55)}
+// Pace (Mike 11-08: "animation sequence moves too fast on battle"): every beat timing is 2.5x what it was (a shot's flight was 1.3 to 2.0 s,
+// it is now 3.25 to 5.0 s), and the camera holds 450 ms on each hit (it was 900 ms on the last hit of a beat and nothing between). All
+// of these are ms at 1x; the replay clock runs at 0.5x, 1x or 2x of them (bRealMs).
+var BRT={pre:1250,approach:2375,first:875,ripple:700,step:175,hold:450,zoomIn:250,beatMax:9625,wide:3200,tail:1600,total:20000,rebMin:5500,flMin:3250,flCap:5000};
+function bRepFlight(d){return BRT.flMin+Math.min(1750,(d||300)*1.375)}
+// ---- replay speed: the clock runs at one of these times the 1x timings (pure helpers, tested)
+var BSPEEDS=[.5,1,2];
+function bSpeedOf(v){v=+v;return BSPEEDS.indexOf(v)>=0?v:1}
+function bSpeedNext(v){return BSPEEDS[(BSPEEDS.indexOf(bSpeedOf(v))+1)%BSPEEDS.length]}
+/** wall-clock ms that a 1x duration takes at a speed */
+function bRealMs(ms,sp){return ms/bSpeedOf(sp)}
+/** the replay's virtual clock: vt at the anchor (performance time pt), running at sp */
+function bVirt(vt,pt,sp,perf){return vt+(perf-pt)*bSpeedOf(sp)}
+// ---- the viewer's camera: zoom limits, pan limits, fit-all (pure helpers, tested). Never closer than BZMAX, never farther out than
+// the zoom that fits the whole battlefield, and the map can never be dragged out of view (its edge stops at the middle of the screen)
+var BZMAX=3,BCAMEASE=450;
+function bClampZoom(z,fitZ,maxZ){var mx=maxZ>0?maxZ:BZMAX,mn=Math.min(fitZ>0?fitZ:.3,mx);z=+z;if(!(z>0))z=mn;return Math.max(mn,Math.min(mx,z))}
+function bClampCam(c,vw,vh,bd){var z=c.z,wx=(vw/2-c.x)/z,wy=(vh/2-c.y)/z;wx=Math.max(bd.x0,Math.min(bd.x1,wx));wy=Math.max(bd.y0,Math.min(bd.y1,wy));return {x:vw/2-wx*z,y:vh/2-wy*z,z:z}}
+function bMapBounds(){var mh=typeof maxH==='number'?maxH:60;return {x0:iso(0,H).x-TW,x1:iso(W,0).x+TW,y0:iso(0,0).y-mh-TH,y1:iso(W,H).y+TH*2}}
+function bFitCam(){var z=typeof FITZ==='number'&&FITZ>0?FITZ:.3,c=iso(W/2,H/2),mh=typeof maxH==='number'?maxH:60;return {z:z,x:vw/2-c.x*z,y:vh/2-c.y*z+(mh/2)*z}}
+function bCamLim(){return {min:Math.min(typeof FITZ==='number'&&FITZ>0?FITZ:.3,BZMAX),max:BZMAX}}
+function bClampPan(){var c=bClampCam(cam,vw,vh,bMapBounds());cam.x=c.x;cam.y=c.y}
 /** beats from a shot list (each shot has a, d, from, to, dist): sets s.rf (fire), s.fl (flight), s.ri (impact) and returns
  *  {beats, S (a schedule for bHitDmg and bRebuild), total ms}. now0 = the virtual start (0 on the renderer's replay clock) */
 function bBeats(shots,now0,reduce){var by={},keys=[];shots.forEach(function(s){if(!by[s.a]){by[s.a]=[];keys.push(s.a)}by[s.a].push(s)});
   keys.sort(function(a,b){var ra=a.charAt(0)!=='@',rb=b.charAt(0)!=='@';if(ra!==rb)return ra?1:-1;var d=by[b].length-by[a].length;return d||(a<b?-1:a>b?1:0)});
-  var t=now0+BRT.pre,beats=[];keys.forEach(function(k,i){var L=by[k],n=L.length,ap=reduce?400:BRT.approach+(i?0:350),step=n>1?Math.min(70,BRT.ripple/(n-1)):0,launch=t+ap,lastHit=launch;
-    L.forEach(function(s,j){s.rf=launch+j*step;s.fl=Math.min(2000,bRepFlight(s.dist));s.ri=s.rf+s.fl;if(s.ri>lastHit)lastHit=s.ri});
-    var end=Math.min(t+BRT.beatMax+(i?0:350),lastHit+BRT.hold);var tg={};L.forEach(function(s){tg[s.d]=(tg[s.d]||0)+1});var d=Object.keys(tg).sort(function(p,q){return tg[q]-tg[p]});
+  var t=now0+BRT.pre,beats=[];keys.forEach(function(k,i){var L=by[k],n=L.length,ap=reduce?400:BRT.approach+(i?0:BRT.first),step=n>1?Math.min(BRT.step,BRT.ripple/(n-1)):0,launch=t+ap,lastHit=launch;
+    L.forEach(function(s,j){s.rf=launch+j*step;s.fl=Math.min(BRT.flCap,bRepFlight(s.dist));s.ri=s.rf+s.fl;if(s.ri>lastHit)lastHit=s.ri});
+    var end=Math.min(t+BRT.beatMax+(i?0:BRT.first),lastHit+BRT.hold);var tg={};L.forEach(function(s){tg[s.d]=(tg[s.d]||0)+1});var d=Object.keys(tg).sort(function(p,q){return tg[q]-tg[p]});
     var lead=L[0];for(var q=0;q<L.length;q++)if(L[q].f>0&&L[q].b){lead=L[q];break}   // the camera follows a missile that lands, not one a shield holds
     beats.push({i:i,a:k,d:lead.d,targets:d,shots:L,n:n,t0:t,launch:launch,hit:lastHit,end:end,lead:lead,raid:k.charAt(0)!=='@'});t=end});
   var wide=t,hold=wide+BRT.wide,reb=Math.max(BRT.rebMin,BRT.total-(hold-now0)-BRT.tail),end=hold+reb;
@@ -231,7 +253,7 @@ function bRepCam(R,now,home,vw,vh,reduce){var S=R.S,st=bRepStage(R,now);if(st===
   if(now<b.launch){if(reduce)return pad;return bCamMix(prev,pad,(now-b.t0)/(b.launch-b.t0))}
   var f=Math.min(1,(now-lead.rf)/lead.fl),hit=bHitFrame(b,vw);
   if(reduce)return f<.5?pad:hit;
-  if(f>=1){var u2=Math.min(1,(now-lead.ri)/400);return {x:hit.x,y:hit.y,z:bLerp(pad.z,hit.z,bEase(u2))}}
+  if(f>=1){var u2=Math.min(1,(now-lead.ri)/BRT.zoomIn);return {x:hit.x,y:hit.y,z:bLerp(pad.z,hit.z,bEase(u2))}}
   var tr=bTraj(lead.from.x,lead.from.y,lead.to.x,lead.to.y,Math.min(1,f+Math.min(.07,40/Math.max(1,lead.dist||300)))),zm=bFlightZoom(pad.z,lead.dist,vw),zz=bLerp(pad.z,zm,Math.sin(Math.PI*f)),k=bEase(Math.min(1,f/.25));
   return {x:bLerp(pad.x,tr.x,k)+bClampAbs((lead.to.x-lead.from.x)*.06,40)*Math.sin(Math.PI*f),y:bLerp(pad.y,bLerp(tr.gy,tr.y,.55)-8,k),z:zz}}   // the camera rides between the missile and its ground track, so the map stays under it
 // ---- smoke ribbons: one polyline per missile, kept for the whole replay. Points carry their time, so the ribbon widens,
@@ -267,9 +289,10 @@ export const BATTLE_LOGIC_JS = String.raw`
 // state." One daily salvo on the viewer's clock: supply drop at 12:00, loading through the afternoon, salvo at 20:00, the
 // damage holds to midnight, cranes rebuild from 00:00 to 12:00. Replay (Mike 11-08) is cinematic: one strike beat per city
 // (most missiles first, raiders last), the camera zooms to the pad, follows the missiles into the hit, resets to the next
-// city; then a wide shot with every smoke ribbon, the cranes in time-lapse, and the map is handed back. 20 to 40 s.
+// city; then a wide shot with every smoke ribbon, the cranes in time-lapse, and the map is handed back. 35 to 100 s at 1x.
 var BON=false,BDATA=window.CALDERA_BATTLE||null,BL={damage:true,attacks:true,shields:true},BPLAN=null,BREP=null,BLAST=0,BQ=-1,BBLD={},BBAT={},BHITB={},BSZ={orbital:1.3,beam:1.1,cannon:.95,catapult:.8};
-function bNow(){return BREP?(BREP.pauseAt!=null?BREP.pauseAt:performance.now())-BREP.t0:Date.now()}
+var BSPD=1;   // the speed the next replay starts at (the page remembers the viewer's choice and sets it)
+function bNow(){return BREP?(BREP.pauseAt!=null?BREP.vt:bVirt(BREP.vt,BREP.pt,BREP.sp,performance.now())):Date.now()}
 function bS(){return BREP?BREP.R.S:BPLAN?BPLAN.S:null}
 function bRedraw(){if(reduce)setTimeout(draw,0);else draw()}
 function bNoonOf(t){var d=new Date(t);d.setHours(12,0,0,0);return d.getTime()}
@@ -325,13 +348,13 @@ function bDemoShots(){bBuildings();var keys=Object.keys(BBLD).filter(function(k)
     for(var k=0;k<n;k++){var d=near[k%n<n-1||near.length<2?0:1],held=k===n-1&&n>2;raw.push([a,d,W[i%W.length],held?0:k%3===1?.5:1,0,held?-1:(k+i)%Math.max(1,BBLD[d].length),held?1:0,0])}});
   raw.push(['~raiders',keys[0],'cannon',1,0,0,0,0]);raw.push(['~raiders',keys[0],'cannon',.5,0,1%Math.max(1,BBLD[keys[0]].length),0,0]);return raw}
 /** start a replay: today's shots (or the demo), the beats on a virtual clock from 0, the camera saved to come back to */
-function bReplayStart(mode){if(BREP)bReplayEnd(false);var demo=mode==='demo',raw=demo?bDemoShots():(bPick(bPlan(Date.now()).dayNoon)||{shots:[]}).shots;
+function bReplayStart(mode,sp){if(BREP)bReplayEnd(false);var demo=mode==='demo',raw=demo?bDemoShots():(bPick(bPlan(Date.now()).dayNoon)||{shots:[]}).shots;
   if(!raw.length)return 0;bBuildings();var P=bShots(raw);if(!P.n)return 0;P.demo=demo;P.night=demo?'demo':BPLAN?BPLAN.night:'';P.live=false;
   var R=bBeats(P.shots,0,reduce),home={x:(vw/2-cam.x)/cam.z,y:(vh*.52-cam.y)/cam.z,z:cam.z};P.S=R.S;
   // on a phone the map takes the whole screen for the replay (Mike 11-08: "couldn't really see it"); back to the page at the end
   var full=vw<700&&typeof cssFull==='function'&&typeof st!=='undefined'&&!st.classList.contains('c-full');if(full)cssFull(true);
   if(typeof flyStop==='function')flyStop();if(typeof INTRO!=='undefined'&&INTRO&&typeof introFinish==='function')introFinish(true);if(typeof BUILDING!=='undefined'&&BUILDING&&typeof buildDone==='function')buildDone();
-  BREP={t0:performance.now(),pauseAt:null,P:P,R:R,home:home,demo:demo,full:full};BHITB=P.hit;BLAST=0;BQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();
+  if(sp!=null)BSPD=bSpeedOf(sp);BREP={vt:0,pt:performance.now(),sp:BSPD,pauseAt:null,P:P,R:R,home:home,demo:demo,full:full,follow:true,ease:null};BHITB=P.hit;BLAST=0;BQ=-1;BP.length=0;BCOL.length=0;BFXT=0;bRibbonsClear();
   if(reduce&&typeof frame==='function'){BREP.timer=setInterval(function(){if(!BREP){return}frame()},120)}
   draw();return P.n}
 /** the replay is over (or stopped): the map goes back to the live clock and the camera flies home */
@@ -340,22 +363,46 @@ function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.
   if(full&&typeof cssFull==='function'){cssFull(false);setTimeout(go,60)}else go()}
 /** skip to the next beat (a tap on the map, the Skip button); past the last beat: to the wide shot, then straight to the end */
 /** jump the virtual clock to a moment in ms: the flights jumped over leave their ribbons and hits, no burst of effects */
-function bJump(to){if(!BREP)return false;var now=bNow();if(to===now)return true;BREP.t0-=(to-now);var n2=bNow();
+function bJump(to){if(!BREP)return false;var now=bNow();if(to===now)return true;BREP.vt=to;BREP.pt=performance.now();var n2=bNow();
   BREP.P.shots.forEach(function(s){if(s.rf<n2&&(!s.tr||s.tr.pts.length<8||s.ri>now||to<now))bRibbonFill(s,n2,s.sz);else if(s.rf>=n2&&s.tr)s.tr.pts.length=0});BLAST=n2;BP.length=0;BCOL.length=0;bRedraw();return true}
+/** step back: to the start of this strike (or the one before it when this one began under 1.5 s ago), then the pre-roll */
+function bPrev(){if(!BREP)return false;var R=BREP.R,now=bNow(),to=0;R.beats.forEach(function(b){if(b.t0<now-1500)to=Math.max(to,b.t0)});return bJump(to)}
 function bSkip(){if(!BREP)return false;var R=BREP.R,now=bNow(),to=null,st=bRepStage(R,now);
   if(st==='pre'||st==='beat'){for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].end){to=R.beats[i].end;break}if(to==null)to=R.S.wide}else if(st==='wide')to=R.S.hold;else to=R.S.end;
   if(to==null||to<=now)return false;return bJump(to)}
-function bPause(on){if(!BREP)return false;var was=BREP.pauseAt!=null;on=on==null?!was:!!on;if(on&&!was)BREP.pauseAt=performance.now();else if(!on&&was){BREP.t0+=performance.now()-BREP.pauseAt;BREP.pauseAt=null}draw();return on}
+function bPause(on){if(!BREP)return false;var was=BREP.pauseAt!=null;on=on==null?!was:!!on;if(on&&!was){BREP.vt=bNow();BREP.pauseAt=performance.now()}else if(!on&&was){BREP.pt=performance.now();BREP.pauseAt=null}draw();return on}
+/** 0.5x, 1x or 2x (anything else is 1x), from now on: the virtual clock is re-anchored so the replay does not jump */
+function bSpeed(v){BSPD=bSpeedOf(v);if(BREP){var now=bNow();BREP.vt=now;BREP.pt=performance.now();BREP.sp=BSPD}return BSPD}
+// ---- the viewer's camera. Any pan or zoom hands the camera to the viewer (follow off); Follow gives it back with a short ease
+function bUserCam(){if(BREP&&BON&&BREP.follow){BREP.follow=false;BREP.ease=null}}
+function bFollow(on){if(!BREP)return false;on=on==null?true:!!on;if(typeof flyStop==='function')flyStop();if(on&&!BREP.follow){BREP.follow=true;BREP.ease=reduce?null:{t0:performance.now(),x:cam.x,y:cam.y,z:cam.z}}else if(!on){BREP.follow=false;BREP.ease=null}bRedraw();return BREP.follow}
+function bFitAll(){bUserCam();var f=bFitCam();if(typeof flyStop==='function')flyStop();if(reduce||typeof flyTo!=='function'){cam.x=f.x;cam.y=f.y;cam.z=f.z;dirty=true;bRedraw()}else flyTo(f.x,f.y,f.z,350)}
 /** the camera, every frame before anything is drawn (frame() calls it): where the beats want it, in css px */
-function bCam(){if(!BREP||!BON)return;var R=BREP.R,c=bRepCam(R,bNow(),BREP.home,vw,vh,reduce);if(!c)return;var x=vw/2-c.x*c.z,y=vh*.52-c.y*c.z;
-  if(Math.abs(x-cam.x)>.05||Math.abs(y-cam.y)>.05||Math.abs(c.z-cam.z)>1e-4){cam.x=x;cam.y=y;cam.z=c.z;dirty=true}}
+function bCam(){if(!BREP||!BON||!BREP.follow)return;var R=BREP.R,c=bRepCam(R,bNow(),BREP.home,vw,vh,reduce);if(!c)return;var x=vw/2-c.x*c.z,y=vh*.52-c.y*c.z,z=c.z,E=BREP.ease;
+  if(E){var u=(performance.now()-E.t0)/BCAMEASE;if(reduce||u>=1)BREP.ease=null;else{u=bEase(u);x=bLerp(E.x,x,u);y=bLerp(E.y,y,u);z=bLerp(E.z,z,u)}}   // Follow was just pressed: ease back to where the auto camera is
+  if(Math.abs(x-cam.x)>.05||Math.abs(y-cam.y)>.05||Math.abs(z-cam.z)>1e-4){cam.x=x;cam.y=y;cam.z=z;dirty=true}}
 /** the clock: the replay ends, the rebuild steps redraw the cache, events between the last frame and this one make their effects */
 function bClock(now){var S=bS();if(!S)return;if(BREP&&now>=S.end){bReplayEnd(true);return}
   var q=now<S.hold?-1:Math.floor(Math.min(1,(now-S.hold)/(S.end-S.hold))*6);if(q!==BQ){var first=BQ===-1&&q===-1;BQ=q;if(!first)bRedraw()}}
 function bBetween(t,a,b){return t>a&&t<=b}
 /** the floors a hit takes off its tower (the damage step before and after this impact), as a collapse on the moving layer */
 function bCollapseFor(s,iA,tn){var b=s.b,P=bPlan(Date.now()),S=bS(),L=(P.hit[s.d]||{})[b.idx]||[],d0=0,d1=0;L.forEach(function(q){var ia=bImpactOf(S,q);if(ia<=iA)d1+=q.f;if(ia<iA)d0+=q.f});d0=Math.min(1,Math.round(d0*6)/6);d1=Math.min(1,Math.round(d1*6)/6);if(d1<=d0)return;
-  var h=b.h,tiers=typeof towerTiers==='function'?towerTiers(h):[[.62,h]];bCollapseAdd(b.p.x,b.p.y+4,Math.max(10,Math.round(h*(1-.5*d0))),Math.max(10,Math.round(h*(1-.5*d1))),tiers[tiers.length-1][0],bCol(s.d),tn)}
+  var h=b.h,tiers=typeof towerTiers==='function'?towerTiers(h):[[.62,h]];bCollapseAdd(b.p.x,b.p.y+4,Math.max(10,Math.round(h*(1-.5*d0))),Math.max(10,Math.round(h*(1-.5*d1))),tiers[tiers.length-1][0],bCol(s.d),tn,BREP?BCOLREP:BCOLMS)}
+// ---- the damage tier readout (Mike 11-08: show the tier dropping): for 2.6 s after each impact, a pill over the tower with six pips
+// (the tower's six damage steps; the ones this hit takes go red and fade) and the numbers, or "Shield held"
+var BHLMS=2600;
+/** the damage steps (0..6) a tower had just before and just after this shot's impact */
+function bTiers(S,s){var P=BREP?BREP.P:BPLAN,L=P&&s.b&&P.hit[s.d]?P.hit[s.d][s.b.idx]||[]:[],ia=bImpactOf(S,s),d0=0,d1=0;L.forEach(function(q){var t=bImpactOf(S,q);if(t<=ia)d1+=q.f;if(t<ia)d0+=q.f});return [Math.min(6,Math.round(d0*6)),Math.min(6,Math.round(d1*6))]}
+/** the impacts that are still on show at now, one per tower (the latest), newest last: {s, age, hit, t0, t1} */
+function bHitsNow(P,S,now){var best={},out=[];P.shots.forEach(function(s){if(!s.to)return;var ia=bImpactOf(S,s),age=now-ia;if(age<0||age>=BHLMS)return;var hit=s.f>0&&!!s.b,key=s.d+'|'+(hit?s.b.idx:'sh'+Math.round(s.to.x));if(!best[key]||ia>best[key].ia)best[key]={s:s,ia:ia,age:age,hit:hit}});
+  for(var k in best){var o=best[k],t=o.hit?bTiers(S,o.s):[0,0];out.push({s:o.s,ia:o.ia,age:o.age,hit:o.hit,t0:t[0],t1:t[1]})}return out.sort(function(a,b){return a.ia-b.ia})}
+function bHitLabels(c,P,S,now){var L=bHitsNow(P,S,now);if(!L.length)return;L=L.slice(-6);c.save();c.font='600 10px IBM Plex Mono,Menlo,monospace';c.textBaseline='middle';c.textAlign='left';
+  L.forEach(function(o){var x=cam.x+o.s.to.x*cam.z,y=cam.y+(o.s.to.y-34)*cam.z;if(!isFinite(x)||!isFinite(y)||x<-80||x>vw+80||y<-30||y>vh+30)return;
+    var txt=o.hit?(6-o.t0)+' \u2192 '+(6-o.t1)+' of 6':'Shield held',tw=c.measureText(txt).width,pw=o.hit?6*8+5:0,w=8+pw+(pw?6:0)+tw+8,h=18,x0=Math.round(x-w/2),y0=Math.round(y-h/2),al=reduce?1:Math.min(1,o.age/150)*Math.min(1,(BHLMS-o.age)/500);
+    c.globalAlpha=al;c.fillStyle='rgba(15,16,22,.94)';c.strokeStyle=o.hit?'rgba(255,255,255,.28)':'rgba(61,242,255,.7)';c.lineWidth=1;c.beginPath();if(c.roundRect)c.roundRect(x0,y0,w,h,9);else c.rect(x0,y0,w,h);c.fill();c.stroke();
+    if(o.hit){for(var i=0;i<6;i++){var px=x0+8+i*8,left=i<6-o.t0?(i<6-o.t1?2:1):0;   // 2 whole, 1 lost by this hit, 0 lost earlier
+      c.fillStyle=left===2?'#4FD1C5':left===1?'rgba(255,90,70,'+(reduce?.9:Math.max(.15,1-o.age/1400)).toFixed(2)+')':'rgba(255,255,255,.16)';c.fillRect(px,y0+5,6,h-10)}}
+    c.fillStyle='#F2F2F5';c.fillText(txt,x0+8+pw+(pw?6:0),y0+h/2+.5)});c.restore()}
 /** over the map, every frame: shields, pads with their stacks and launch centers, drops, loading, the countdown, the salvo,
  *  impacts, smoke ribbons and columns, and the counts */
 function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,tn=performance.now(),P=bPlan(Date.now()),S=bS(),now=bNow();bClock(now);P=bPlan(Date.now());S=bS();now=bNow();var dt=battleOver.tp?Math.min(.05,(tn-battleOver.tp)/1000):0;battleOver.tp=tn;
@@ -384,15 +431,16 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
   if(rep)bDrawRibbons(c,now);
   // missiles in flight and their hits (also for raiders, who fire from the sea with no pad)
   P.shots.forEach(function(s){if(!s.from||!s.to)return;var fA=bFireOf(S,s),dur=bFlightOf(S,s),iA=fA+dur,sz=BSZ[s.w]||1;
-    if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.f>0&&s.b&&!reduce){bImpactFx(s.to.x,s.to.y+4,bCol(s.d),s.f*(rep?1.3:1),s.b.p.y+4);bCollapseFor(s,iA,tn)}else if(fx&&!reduce)bShieldFx(s.to.x,s.to.y,'#3DF2FF');if(s.f>0&&s.b)bRedraw()}
+    if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.f>0&&s.b&&!reduce){bImpactFx(s.to.x,s.to.y+4,bCol(s.d),s.f*(rep?1.3:1),s.b.p.y+4);bCollapseFor(s,iA,BFXT)}else if(fx&&!reduce)bShieldFx(s.to.x,s.to.y,'#3DF2FF');if(s.f>0&&s.b)bRedraw()}
     if(s.a.charAt(0)!=='@'&&fx&&bBetween(fA,last,now)){if(rep)bLaunchFxBig(s.from.x,s.from.y,-1);else bLaunchFx(s.from.x,s.from.y,-1)}
     if(now>=fA&&now<iA&&BL.attacks&&(inView(s.from)||inView(s.to)||rep)){var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-fA)/dur);missileHi(c,tr.x,tr.y,tr.a,sz,bCol(s.a),tr.boost);
       if(rep){if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz)}else if(Math.floor(tn/50)%2===0&&BP.length<BPMAX-30)bTrailFx(tr.x,tr.y,tr.a,sz)}});
-  if(dt>0&&!paused)bStep(dt);bDrawCollapse(c,paused?BCOL.length?BCOL[0].t0:tn:tn);bDrawParticles(c);
+  if(dt>0&&!paused){var spd=rep?BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);
   // smoke on badly hit buildings (at most 6 columns in view)
   if(BL.damage){var nSm=0;for(var hk in P.hit){var bl=BBLD[hk]||[];for(var bi in P.hit[hk]){var b=bl[+bi];if(!b||nSm>=6)continue;var d=bBld(null,b.i,b.j);if(d<.5)continue;var hh=typeof bh==='function'?bh(b.r):40,top=b.p.y+4-Math.max(10,Math.round(hh*(1-.5*d)));if(!inView(b.p))continue;nSm++;smokeHi(c,b.p.x+2,top-6,d>=1)}}}
   // the counts and the countdown, in screen space
   c.setTransform(dpr,0,0,dpr,0,0);badges.forEach(function(b){if(b[5])badgeHi(c,cam.x+b[0]*cam.z,cam.y+b[1]*cam.z,b[2],b[3],b[4])});
+  if(rep)bHitLabels(c,P,S,now);
   if(S.live&&now>=S.count&&now<S.salvo&&P.n>0)countdownHi(c,vw/2,vh*.42,(now-S.count)/(S.salvo-S.count))}
 /** the world card's battle lines */
 function battleCard(key){if(!BON||!BDATA)return '';var m=(BDATA.members||{})[key];
@@ -406,17 +454,25 @@ window.CALDERA_BATTLE_API={
   view:function(on,data){BON=!!on;if(data)BDATA=data;if(!on&&BREP)bReplayEnd(false);bIndex();if(!on){BP.length=0}draw()},
   layers:function(o){for(var k in o)if(k in BL)BL[k]=!!o[k];draw()},
   /** the cinematic replay of today's shots ('demo': a sample battle between the biggest cities). Returns the missile count */
-  replay:function(mode){return bReplayStart(mode)},
+  replay:function(mode,o){return bReplayStart(mode,o&&o.speed)},
   stop:function(){if(BREP)bReplayEnd(true)},
   skip:function(){return bSkip()},
+  next:function(){return bSkip()},
+  prev:function(){return bPrev()},
+  /** 0.5, 1 or 2: the replay clock's rate (kept for the next replay too). Returns the speed in force */
+  speed:function(v){return v==null?(BREP?BREP.sp:BSPD):bSpeed(v)},
+  /** the viewer's camera: follow(true|false) gives it back to the auto camera or takes it; fit() frames the whole battlefield */
+  follow:function(on){return bFollow(on)},
+  fit:function(){bFitAll();return true},
+  camera:function(){var l=bCamLim();return {follow:BREP?BREP.follow:false,x:cam.x,y:cam.y,z:cam.z,minZ:l.min,maxZ:l.max}},
   seek:function(ms){return bJump(Math.max(0,+ms||0))},
   dbg:function(){if(!BREP)return null;var ok=BREP.P.shots.every(function(s){return s.b&&s.to&&Math.abs(s.to.x-s.b.p.x)<=TW/2&&Math.abs(s.to.y-(s.b.p.y+4-s.b.h))<=TH/2||s.d.charAt(0)!=='@'});var b=bBeatAt(BREP.R,bNow())||BREP.R.beats[0],pad=bPad(b.a);return {onBuildings:ok,dropped:BREP.P.dropped,n:BREP.P.n,beats:BREP.R.beats.map(function(x){return {a:x.a,d:x.d,targets:x.targets,self:x.shots.some(function(q){return q.a===q.d}),t0:x.t0,launch:x.launch,hit:x.hit,end:x.end,ri:x.lead.ri,dist:Math.round(x.lead.dist)}}),S:BREP.R.S,cam:[cam.x,cam.y,cam.z,vw,vh],from:b.lead.from,to:b.lead.to,pad:pad,g:GM[b.a]&&GM[b.a].b,frame:bRepCam(BREP.R,bNow(),BREP.home,vw,vh,reduce),keys:Object.keys(BREP.P.byA)}},
   pause:function(on){return bPause(on)},
   fly:function(h){return window.CALDERA_GROWTH_API&&window.CALDERA_GROWTH_API.plot?window.CALDERA_GROWTH_API.plot(h,1.3):false},
   phase:function(){var P=bPlan(Date.now()),S=bS(),now=bNow(),seg=bSegment(S,now),landed=0,fired=0;P.shots.forEach(function(s){if(bLandOf(S,s)<=now)landed++;if(bFireOf(S,s)<=now)fired++});
-    var until=seg==='rebuild'?S.end:seg==='salvo'||seg==='damage'?S.hold:S.salvo,o={seg:seg,until:BREP?Date.now()+(until-now):until,salvoAt:S.salvo,total:P.n,landed:landed,fired:fired,night:P.night,replay:!!BREP,rebuilt:bRebuild()};
+    var until=seg==='rebuild'?S.end:seg==='salvo'||seg==='damage'?S.hold:S.salvo,o={seg:seg,until:BREP?Date.now()+bRealMs(until-now,BREP.sp):until,salvoAt:S.salvo,total:P.n,landed:landed,fired:fired,night:P.night,replay:!!BREP,rebuilt:bRebuild()};
     if(BREP){var R=BREP.R,b=bBeatAt(R,now),st=bRepStage(R,now),nb=null;if(!b&&st!=='wide'&&st!=='rebuild')for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}var cur=b||nb;
-      o.stage=st;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'?'damage':st==='rebuild'?'rebuild':'idle';
+      o.speed=BREP.sp;o.follow=BREP.follow;var hn2=bHitsNow(BREP.P,BREP.R.S,now),lh=hn2.length?hn2[hn2.length-1]:null;o.hit=lh?{d:lh.s.d,from:6-lh.t0,to:6-lh.t1,of:6,shield:!lh.hit}:null;o.stage=st;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'?'damage':st==='rebuild'?'rebuild':'idle';
       o.label=cur?(cur.raid?'Raiders':cur.a)+' → '+(cur.d.charAt(0)==='@'?cur.d:'the sea')+(cur.targets.length>1?' +'+(cur.targets.length-1):'')+' · '+cur.n+' missile'+(cur.n===1?'':'s'):st==='wide'?'Every strike landed':st==='rebuild'?'Cranes, '+Math.round(bRebuild()*100)+'% rebuilt':'';}
     return o},
   state:function(){return {on:BON,layers:BL,phase:this.phase(),cities:BDATA&&BDATA.members?Object.keys(BDATA.members).length:0}},

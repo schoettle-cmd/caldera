@@ -16,8 +16,8 @@ const PAL = { day: { light: 1, lamp: 0, lit: .45, glass: ["#C9E3F6", "#6D9FCF"],
 const at = (h, m = 0, s = 0) => { const d = new Date(); d.setHours(h, m, s, 0); return d.getTime(); };
 /** a world with two cities in the battles, each with two repo towers; @a fires six shots at @b's towers, @b two back; the
  *  hub resolved the night at 02:00 today. clock.t is the wall clock, clock.p the performance clock (for replays). */
-function world(sky, clock, data) {
-  const pre = `var TW=64,TH=32,P=PAL.${sky},sky='${sky}',night=${sky === "night"},T=1234,reduce=false,cam={x:300,y:200,z:1},dpr=2,vw=900,vh=600,palKey='${sky}',W=24,H=24,dirty=false,draws=0,cranes=[];
+function world(sky, clock, data, reduce = false) {
+  const pre = `var TW=64,TH=32,P=PAL.${sky},sky='${sky}',night=${sky === "night"},T=1234,reduce=${reduce},FITZ=.5,maxH=60,cam={x:300,y:200,z:1},dpr=2,vw=900,vh=600,palKey='${sky}',W=24,H=24,dirty=false,draws=0,cranes=[];
     var Date=FakeDate,performance={now:function(){return CLOCK.p}};function draw(){draws++;dirty=true}function e(s){return String(s)}var window={CALDERA_BATTLE:DATA,matchMedia:null};
     function rnd(s){var x=Math.sin(s)*10000;return x-Math.floor(x)}function hash(t){var h=0;t=String(t);for(var i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return Math.abs(h)}
     function rgb(h){var n=parseInt(h.slice(1),16);return [n>>16,n>>8&255,n&255]}function hex(c){return '#'+c.map(function(v){v=Math.max(0,Math.min(255,Math.round(v)));return (v<16?'0':'')+v.toString(16)}).join('')}
@@ -31,7 +31,7 @@ function world(sky, clock, data) {
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock);
+    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock);
 }
 const data = () => ({ at: "x", night: "2026-11-07", t0: at(2), next: at(2) + 864e5, members: { "@a": { sh: .2, beg: 0, ammo: 20, best: "cannon", shots: 6, hits: [], reb: 100 }, "@b": { sh: 0, beg: 0, ammo: 5, best: "catapult", shots: 2, hits: [], reb: 100 } },
   shots: [["@a", "@b", "cannon", 1, at(2, 1), 0, 0, 0], ["@a", "@b", "cannon", 1, at(2, 2), 1, 0, 0], ["@a", "@b", "cannon", 0, at(2, 3), -1, 1, 0], ["@a", "@b", "cannon", .5, at(2, 4), 0, 0, 0], ["@a", "@b", "cannon", 1, at(2, 5), 2, 0, 0], ["@a", "@b", "cannon", 1, at(2, 6), 1, 0, 0],
@@ -65,13 +65,13 @@ test("battle day: by night the cranes rebuild in six steps, the cache redraws pe
   const W3 = world("day", { t: at(13), p: 1 }, early); W3.api.view(true); assert.equal(W3.plan().n, 0, "a night already fired yesterday never fires twice");
 });
 
-test("cinematic replay: one strike beat per city, most missiles first, raiders from the sea last; each beat under 4 s, 20 to 40 s in all; the camera zooms to the pad, follows the lead missile into the hit, then the wide shot, the cranes, and the map is handed back", () => {
+test("cinematic replay: one strike beat per city, most missiles first, raiders from the sea last; each beat under 9.7 s (2.5x slower than before), 20 to 100 s in all; the camera zooms to the pad, follows the lead missile into the hit, then the wide shot, the cranes, and the map is handed back", () => {
   const clock = { t: at(16), p: 10000 }, d = data(); d.shots.push(["~raiders", "@a", "cannon", 1, at(2, 9), 0, 0, 0]);
   const Wd = world("day", clock, d); Wd.api.view(true); Wd.over(); const home = { x: Wd.camera.x, y: Wd.camera.y, z: Wd.camera.z };
   assert.equal(Wd.api.replay(), 9); const R = Wd.rep().R, S = Wd.S(); assert.equal(S.live, false);
   assert.deepEqual(R.beats.map((b) => b.a), ["@a", "@b", "~raiders"], "most missiles first, raiders last"); assert.deepEqual(R.beats.map((b) => b.n), [6, 2, 1]);
-  R.beats.forEach((b, i) => { assert.ok(b.end - b.t0 <= (i ? 3850 : 4200), `beat ${i} under 4 s (the first has the fly-in from the wide shot)`); assert.ok(b.launch > b.t0 && b.launch - b.t0 <= (i ? 950 : 1300)); b.shots.forEach((s) => { assert.ok(s.rf >= b.launch && s.ri <= b.end, "every missile of the beat lands inside it"); }); if (i) assert.equal(b.t0, R.beats[i - 1].end, "beats run back to back"); });
-  assert.ok(R.total >= 20000 && R.total <= 40000, `total ${R.total}`); assert.equal(S.end + 800, R.total, "the tail is the flight home");
+  R.beats.forEach((b, i) => { assert.ok(b.end - b.t0 <= (i ? 9625 : 10500), `beat ${i} under 9.7 s (the first has the fly-in from the wide shot)`); assert.ok(b.launch > b.t0 && b.launch - b.t0 <= (i ? 2375 : 3250) + 1e-6, `beat ${i}: launch-t0 ${b.launch - b.t0}`); b.shots.forEach((s) => { assert.ok(s.rf >= b.launch && s.ri <= b.end, "every missile of the beat lands inside it"); }); if (i) assert.equal(b.t0, R.beats[i - 1].end, "beats run back to back"); });
+  assert.ok(R.total >= 20000 && R.total <= 100000, `total ${R.total}`); assert.equal(S.end + 1600, R.total, "the tail is the flight home");
   // the camera: pre-roll at home, the pad filling the view at launch, following the lead missile, the hit, then the wide shot
   const b1 = R.beats[0], lead = b1.lead, at0 = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); return Wd.api.phase(); };
   at0(100); assert.deepEqual([Wd.camera.x, Wd.camera.z], [home.x, home.z], "pre-roll: the camera has not moved");
@@ -80,19 +80,19 @@ test("cinematic replay: one strike beat per city, most missiles first, raiders f
   at0(b1.end - 100); assert.ok(Math.abs((450 - Wd.camera.x) / Wd.camera.z - lead.to.x) < 1, "holding on the hit"); assert.equal(Wd.dmg(12, 9), 1, "the tower is hit"); assert.ok(Wd.ribbons() >= 6, "a smoke ribbon per missile");
   ph = at0(R.beats[1].t0 + 50); assert.equal(ph.beat, 2); assert.ok(ph.label.startsWith("@b \u2192 @a"));
   ph = at0(R.beats[2].launch); assert.equal(ph.label, "Raiders \u2192 @a \u00b7 1 missile"); assert.ok(R.beats[2].lead.pad === R.beats[2].lead.from && R.beats[2].lead.from.y < R.beats[2].lead.to.y - 100, "raiders launch from the sea point, not a pad");
-  ph = at0(S.wide + 1500); assert.equal(ph.stage, "wide"); assert.equal(Wd.camera.z, Wd.art.bWideFrame(R.shots, 900, 600).z, "the wide shot"); assert.equal(Wd.dmg(12, 9), 1, "every hit still showing"); assert.ok(Wd.ribbons() >= 9, "every ribbon kept");
+  ph = at0(S.wide + 3000); assert.equal(ph.stage, "wide"); assert.equal(Wd.camera.z, Wd.art.bWideFrame(R.shots, 900, 600).z, "the wide shot"); assert.equal(Wd.dmg(12, 9), 1, "every hit still showing"); assert.ok(Wd.ribbons() >= 9, "every ribbon kept");
   ph = at0(S.hold + (S.end - S.hold) / 2); assert.equal(ph.stage, "rebuild"); assert.ok(Wd.reb() > .45 && Wd.reb() < .55, "cranes half way"); assert.equal(ph.seg, "rebuild");
   ph = at0(S.end + 10); assert.equal(ph.replay, false, "the replay ended on its own"); assert.equal(Wd.dmg(12, 9), 0, "back to the original state"); assert.equal(Wd.ribbons(), 0); assert.equal(ph.seg, "loading", "the live afternoon again");
   Wd.api.replay(); Wd.api.stop(); assert.equal(Wd.api.phase().replay, false);
 });
 
-test("cinematic replay: beats from 1 to 8 cities each stay under 4 s and the whole replay inside 20 to 40 s; skip, pause and the demo", () => {
+test("cinematic replay: beats from 1 to 8 cities each stay under 9.7 s and the whole replay inside 20 to 100 s; skip, pause and the demo", () => {
   const Wd = world("day", { t: at(16), p: 1 }, data()); Wd.api.view(true);
   for (let n = 1; n <= 8; n++) { const shots = []; for (let i = 0; i < n; i++) for (let k = 0; k <= i; k++) shots.push({ a: "@c" + i, d: "@x", from: { x: 0, y: 0 }, to: { x: 300 + i * 40, y: -60 }, dist: 300 + i * 40 });
     const R = Wd.art.bBeats(shots, 0, false); assert.equal(R.beats.length, n); assert.deepEqual(R.beats.map((b) => b.n), R.beats.map((b) => b.n).slice().sort((p, q) => q - p), "descending by missiles");
-    R.beats.forEach((b) => assert.ok(b.end - b.t0 <= (b.i ? 3850 : 4200) && b.end - b.t0 > 3000)); assert.ok(R.total >= 20000 && R.total <= 40000, `${n} beats: ${R.total} ms`);
+    R.beats.forEach((b) => assert.ok(b.end - b.t0 <= (b.i ? 9625 : 10500) && b.end - b.t0 > 5500, `beat ${b.i} of ${n}: ${b.end - b.t0}`)); assert.ok(R.total >= 20000 && R.total <= 100000, `${n} beats: ${R.total} ms`);
     const Rr = Wd.art.bBeats(shots, 0, true); Rr.beats.forEach((b) => assert.ok(b.launch - b.t0 <= 400, "reduced motion: a cut, then the launch"));
-    const big = []; for (let i = 0; i < 8; i++) for (let k = 0; k < 14; k++) big.push({ a: "@d" + i, d: "@x", from: { x: 0, y: 0 }, to: { x: 5000, y: 0 }, dist: 5000 }); const Rb = Wd.art.bBeats(big, 0, false); assert.ok(Rb.total <= 40000, `eight long-arc volleys still inside 40 s: ${Rb.total}`); }
+    const big = []; for (let i = 0; i < 8; i++) for (let k = 0; k < 14; k++) big.push({ a: "@d" + i, d: "@x", from: { x: 0, y: 0 }, to: { x: 5000, y: 0 }, dist: 5000 }); const Rb = Wd.art.bBeats(big, 0, false); assert.ok(Rb.total <= 100000, `eight long-arc volleys still inside 100 s: ${Rb.total}`); }
   // skip: a tap jumps to the next beat and fills in the ribbons of the flights it skipped; pause freezes the virtual clock
   const clock = { t: at(16), p: 10000 }, W2 = world("day", clock, data()); W2.api.view(true); W2.over(); W2.api.replay(); const R = W2.rep().R;
   clock.p = 10000 + R.beats[0].launch + 200; W2.bcam(); W2.over(); assert.equal(W2.api.phase().beat, 1);
@@ -105,6 +105,92 @@ test("cinematic replay: beats from 1 to 8 cities each stay under 4 s and the who
   W2.api.stop(); assert.equal(W2.plan().n, 8, "today's plan is still today's"); assert.equal(W2.api.phase().demo, undefined);
   W2.api.replay(); W2.api.seek(R.beats[1].launch + 100); assert.equal(W2.api.phase().beat, 2, "seek lands in beat 2"); W2.api.seek(200); assert.equal(W2.api.phase().stage, "pre", "and back"); assert.equal(W2.ribbons() === 0 || W2.rep().P.shots.every((s) => !s.tr || !s.tr.pts.length), true, "seeking back clears the ribbons ahead"); W2.api.stop();
   const c = stubCtx(); W2.api.replay(); clock.p += R.beats[0].launch + 600; W2.bcam(); W2.over(); clock.p += 120; W2.over(); W2.art.bDrawRibbons(c, W2.now()); W2.art.bLaunchFxBig(0, 0, -1); assert.ok(c.__n.ops > 4, "ribbons stroke");
+});
+
+test("replay pace: 2.5x slower than before, a shot reads launch, flight, hit; the camera holds 350 to 500 ms on each hit; the clock runs at 0.5x, 1x or 2x and never jumps when the speed changes", () => {
+  const W0 = world("day", { t: at(16), p: 1 }, data()); W0.api.view(true); const A = W0.art;
+  // the speed math: only 0.5, 1 and 2 exist (anything else is 1x), the control cycles through them, timings scale per speed
+  assert.deepEqual(A.BSPEEDS, [0.5, 1, 2]); assert.deepEqual([0.5, 1, 2, 3, 0, -1, "2", "x", null, NaN].map(A.bSpeedOf), [0.5, 1, 2, 1, 1, 1, 2, 1, 1, 1]);
+  assert.deepEqual([0.5, 1, 2, 2].map(A.bSpeedNext), [1, 2, 0.5, 0.5], "0.5x -> 1x -> 2x -> 0.5x");
+  assert.equal(A.bRealMs(4000, 1), 4000); assert.equal(A.bRealMs(4000, 2), 2000, "twice as fast: half the time"); assert.equal(A.bRealMs(4000, 0.5), 8000, "half speed: twice the time"); assert.equal(A.bRealMs(4000, 7), 4000, "a bad speed is 1x");
+  assert.equal(A.bVirt(1000, 50, 1, 150), 1100); assert.equal(A.bVirt(1000, 50, 2, 150), 1200); assert.equal(A.bVirt(1000, 50, 0.5, 150), 1050);
+  // the pace itself: a flight is 3.25 to 5 s (it was 1.3 to 2 s), every other beat timing 2.5x, the hold on a hit 350 to 500 ms
+  const OLD = (d) => 1300 + Math.min(700, d * .55); for (const d of [100, 300, 800, 2000]) assert.ok(Math.abs(A.bRepFlight(d) / OLD(d) - 2.5) < 1e-9, `flight at ${d} px is 2.5x the old one`);
+  assert.equal(A.BRT.flMin, 3250); assert.equal(A.BRT.flCap, 5000); assert.ok(A.BRT.hold >= 350 && A.BRT.hold <= 500, `hold ${A.BRT.hold}`);
+  assert.equal(A.BRT.approach, 950 * 2.5); assert.equal(A.BRT.beatMax, 3850 * 2.5); assert.equal(A.BRT.pre, 500 * 2.5);
+  const shots = []; for (let i = 0; i < 3; i++) for (let k = 0; k < 4; k++) shots.push({ a: "@c" + i, d: "@x", from: { x: 0, y: 0 }, to: { x: 300 + 90 * i, y: -60 }, dist: 300 + 90 * i });
+  const R = A.bBeats(shots, 0, false); R.beats.forEach((b) => { b.shots.forEach((q) => { assert.ok(q.rf >= b.launch, "launch"); assert.ok(q.ri - q.rf >= 3250 && q.ri - q.rf <= 5000, "flight"); assert.ok(q.ri <= b.end, "hit"); }); assert.ok(Math.abs(b.end - b.hit - A.BRT.hold) < 1e-6, "the camera holds on the last hit for the hold, then moves on"); });
+  assert.equal(R.beats[0].shots[1].rf - R.beats[0].shots[0].rf, 175, "launches are 175 ms apart, one after another");
+  // the clock in a replay: 1x, 2x and 0.5x, a change of speed re-anchors (no jump), pause keeps it, seek keeps the speed
+  const clock = { t: at(16), p: 5000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); assert.equal(Wd.api.speed(), 1, "1x unless the page says otherwise"); Wd.api.replay(); const ph0 = () => Wd.api.phase();
+  clock.p += 1000; assert.equal(Math.round(ph0().t), 1000); assert.equal(ph0().speed, 1);
+  assert.equal(Wd.api.speed(2), 2); assert.equal(Math.round(ph0().t), 1000, "changing speed does not jump"); clock.p += 1000; assert.equal(Math.round(ph0().t), 3000, "2x: two virtual seconds per second");
+  assert.equal(Wd.api.speed(0.5), 0.5); assert.equal(Math.round(ph0().t), 3000); clock.p += 1000; assert.equal(Math.round(ph0().t), 3500, "0.5x");
+  assert.equal(Wd.api.speed(9), 1, "an unknown speed is 1x"); Wd.api.speed(2); Wd.api.pause(true); const tp = ph0().t; clock.p += 5000; assert.equal(ph0().t, tp, "paused at 2x"); Wd.api.speed(0.5); assert.equal(ph0().t, tp, "speed changes while paused keep the time"); Wd.api.pause(false); clock.p += 1000; assert.equal(Math.round(ph0().t - tp), 500, "play again at 0.5x");
+  Wd.api.speed(2); Wd.api.seek(1000); assert.equal(Math.round(ph0().t), 1000); clock.p += 500; assert.equal(Math.round(ph0().t), 2000, "seek keeps the speed"); assert.equal(Wd.api.prev(), true); assert.ok(ph0().t < 2000, "prev steps back");
+  assert.equal(ph0().until - Date.now() <= (ph0().dur - ph0().t) / 2 + 1, true, "time left is in wall-clock time at 2x");
+  Wd.api.stop(); assert.equal(Wd.api.replay("demo", { speed: 0.5 }) > 0, true); assert.equal(ph0().speed, 0.5, "a replay can start at the viewer's remembered speed"); Wd.api.stop(); Wd.api.replay(); assert.equal(ph0().speed, 0.5, "the speed is kept for the next replay"); Wd.api.stop();
+  // the effects clock (the collapse of a hit tower, the particles) follows the speed and stops while paused
+  const W2 = world("day", clock, data()); W2.api.view(true); W2.over(); W2.api.replay(); const f0 = () => W2.art.fx(); W2.api.speed(2); clock.p += 40; W2.over(); const a1 = f0(); clock.p += 40; W2.over(); assert.equal(Math.round(f0() - a1), 80, "2x: effects at double rate");
+  W2.api.speed(0.5); clock.p += 40; W2.over(); const a2 = f0(); clock.p += 40; W2.over(); assert.equal(Math.round(f0() - a2), 20, "0.5x"); W2.api.pause(true); const a3 = f0(); clock.p += 400; W2.over(); assert.equal(f0(), a3, "paused: effects stand still"); W2.api.stop();
+});
+
+test("damage tier readout: a pill with six pips over the hit tower shows the tier dropping for 2.6 s, or Shield held; phase() carries it for the controls", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, S = R.S, P = Wd.rep().P;
+  const shield = P.shots.find((s) => !(s.f > 0 && s.b)), hitShot = R.beats[0].lead, step = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); };
+  step(hitShot.ri - 50); assert.equal(Wd.api.phase().hit, null, "nothing before the hit");
+  step(hitShot.ri + 100); let h = Wd.api.phase().hit; assert.ok(h && h.d === "@b" && h.shield === false && h.of === 6, "a hit on @b"); assert.ok(h.from > h.to, `the tower drops from ${h.from} to ${h.to} of 6`); assert.ok(h.to >= 0 && h.from <= 6);
+  const now = hitShot.ri + 100, L = Wd.art.bHitsNow(P, S, now); assert.ok(L.length >= 1 && L.every((o) => o.age >= 0 && o.age < 2600)); assert.ok(L.some((o) => o.hit && o.t1 > o.t0));
+  const c = stubCtx(); Wd.art.bHitLabels(c, P, S, now); assert.ok(c.__n.ops > 4, "the pill draws, finite geometry");
+  step(hitShot.ri + 2700); assert.ok(Wd.art.bHitsNow(P, S, hitShot.ri + 2700).every((o) => o.s !== hitShot), "gone after 2.6 s");
+  if (shield) { const ia = shield.ri, L2 = Wd.art.bHitsNow(P, S, ia + 100).filter((o) => o.s === shield); assert.ok(L2.length === 1 && L2[0].hit === false, "the shield-held shot reads Shield held"); }
+  const R0 = world("day", { t: at(16), p: 1 }, data(), true); R0.api.view(true); R0.api.replay(); R0.over(); R0.art.bHitLabels(stubCtx(), R0.rep().P, R0.rep().R.S, R0.rep().R.beats[0].lead.ri + 10); Wd.api.stop();
+});
+
+test("viewer camera: zoom never goes past fit-all or beyond 3x, the map can't be dragged out of view, Fit all frames the battlefield", () => {
+  const Wd = world("day", { t: at(16), p: 1 }, data()); Wd.api.view(true); const A = Wd.art, fit = 0.5;
+  assert.equal(A.bClampZoom(0.01, fit, 3), fit, "no farther out than the whole battlefield"); assert.equal(A.bClampZoom(99, fit, 3), 3, "no closer than the maximum"); assert.equal(A.bClampZoom(1.2, fit, 3), 1.2); assert.equal(A.bClampZoom(fit, fit, 3), fit); assert.equal(A.bClampZoom(3, fit, 3), 3);
+  assert.equal(A.bClampZoom(NaN, fit, 3), fit); assert.equal(A.bClampZoom(-4, fit, 3), fit); assert.equal(A.bClampZoom(1, 0, 3), 1, "no fit zoom known: a sane floor"); assert.ok(A.bClampZoom(0.001, 0, 3) > 0); assert.equal(A.bClampZoom(5, 7, 3), 3, "a fit zoom above the maximum cannot trap the zoom");
+  let z = 1; for (let i = 0; i < 200; i++) { z = A.bClampZoom(z * 0.8, fit, 3); assert.ok(z >= fit); } assert.equal(z, fit, "zooming out for ever stops at fit-all"); for (let i = 0; i < 200; i++) { z = A.bClampZoom(z * 1.25, fit, 3); assert.ok(z <= 3); } assert.equal(z, 3, "zooming in for ever stops at the maximum");
+  const l = Wd.api.camera(); assert.equal(l.minZ, 0.5); assert.equal(l.maxZ, 3);
+  // pan: the world point under the middle of the screen is always inside the map
+  const bd = A.bMapBounds(), vw = 900, vh = 600; assert.ok(bd.x0 < bd.x1 && bd.y0 < bd.y1);
+  for (const c of [{ x: 1e6, y: 0, z: 1 }, { x: -1e6, y: 1e6, z: 2 }, { x: 0, y: -1e6, z: 0.5 }, { x: 300, y: 200, z: 1 }]) { const o = A.bClampCam(c, vw, vh, bd), cx = (vw / 2 - o.x) / o.z, cy = (vh / 2 - o.y) / o.z; assert.ok(cx >= bd.x0 - 1e-6 && cx <= bd.x1 + 1e-6 && cy >= bd.y0 - 1e-6 && cy <= bd.y1 + 1e-6, "map centre-line inside the map"); assert.equal(o.z, c.z, "pan never changes zoom"); }
+  const ok = { x: 300, y: 200, z: 1 }, same = A.bClampCam(ok, vw, vh, bd); assert.deepEqual(same, ok, "a camera that is already fine is left alone");
+  // fit all: the fit zoom, the map centred; it works while following (and hands the camera to the viewer)
+  const F = A.bFitCam(); assert.equal(F.z, 0.5); const c0 = (vw / 2 - F.x) / F.z; assert.ok(Math.abs(c0 - 0) < 1, "centred on the middle of the map (iso x of the centre tile is 0)");
+  Wd.over(); Wd.api.replay(); Wd.camera.x = 9999; Wd.camera.z = 2.2; assert.equal(Wd.api.fit(), true); assert.equal(Wd.camera.z, 0.5); assert.ok(Math.abs(Wd.camera.x - F.x) < 1e-6 && Math.abs(Wd.camera.y - F.y) < 1e-6); assert.equal(Wd.api.phase().follow, false); Wd.api.stop();
+  // the renderer applies them to every wheel, pinch and drag in the Battle view
+  assert.ok(CITY_JS.includes("var lim=BON?bCamLim():null,z=lim?bClampZoom(cam.z*f,lim.min,lim.max):"), "zoom() uses the clamp in the Battle view");
+  assert.ok(CITY_JS.includes("if(BON){bClampPan();if(moved)bUserCam()}"), "a drag is clamped and takes the camera");
+  assert.ok(CITY_JS.includes("if(BON){bClampPan();bUserCam()}draw()}"), "a zoom (wheel or pinch) is clamped and takes the camera");
+  assert.ok(CITY_JS.includes("ev.ctrlKey?0.01:0.0015"), "a trackpad pinch (ctrl+wheel) zooms at a usable rate"); assert.ok(/addEventListener\('pointerdown',function\(ev\)\{if\(BON\)flyStop\(\)/.test(CITY_JS), "touching the map stops a camera flight");
+});
+
+test("follow mode: the auto camera is the default, any pan or zoom turns it off, Follow turns it back on and eases back; reduced motion cuts", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, b1 = R.beats[0];
+  const at0 = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); }; assert.equal(Wd.api.phase().follow, true, "follow is the default"); assert.equal(Wd.api.camera().follow, true);
+  at0(b1.launch); const padZ = Wd.camera.z, padX = Wd.camera.x; assert.equal(padZ, Wd.art.bPadZoom(900));
+  // the viewer pans: follow goes off, and the auto camera leaves the camera where the viewer put it, however long the replay runs
+  Wd.camera.x += 321; Wd.camera.y -= 77; Wd.art.userCam(); assert.equal(Wd.api.phase().follow, false); const held = { x: Wd.camera.x, y: Wd.camera.y, z: Wd.camera.z };
+  for (const ms of [b1.launch + 500, b1.hit + 100, R.beats[1].launch, R.S.wide + 2000]) { at0(ms); assert.deepEqual({ x: Wd.camera.x, y: Wd.camera.y, z: Wd.camera.z }, held, `the auto camera stays off at ${Math.round(ms)}`); }
+  assert.equal(Wd.api.phase().follow, false, "still off"); Wd.art.userCam(); assert.equal(Wd.api.phase().follow, false, "a second gesture is harmless");
+  // Follow: on again, and the camera eases to where the auto camera is over 450 ms (it does not snap)
+  at0(b1.launch + 200); Wd.api.follow(true); Wd.bcam(); assert.equal(Wd.api.phase().follow, true); assert.equal(Wd.api.camera().follow, true);
+  const e0 = Wd.camera.x; assert.ok(Math.abs(e0 - held.x) < 1, "the first frame is where the viewer left it"); clock.p += 200; Wd.bcam(); const e1 = Wd.camera.x; clock.p += 400; Wd.bcam(); const e2 = Wd.camera.x; clock.p += 100; Wd.bcam(); const e3 = Wd.camera.x;
+  assert.ok(e1 !== e0, "it moves"); assert.ok(Math.abs(e3 - e2) < Math.abs(e0 - e2) || e3 === e2, "and settles on the auto camera"); Wd.bcam(); assert.ok(Math.abs(Wd.camera.x - e3) < 400);
+  // a real gesture in the renderer: pan, wheel and pinch all go through bUserCam; the tap that skips a strike does not
+  assert.ok(CITY_JS.includes("if(BON&&BREP){bSkip();return}"), "a tap still skips"); assert.ok((CITY_JS.match(/bUserCam\(\)/g) || []).length >= 2);
+  Wd.api.follow(false); assert.equal(Wd.api.phase().follow, false, "follow(false) takes the camera too"); Wd.api.stop(); assert.equal(Wd.api.follow(true), false, "no replay: nothing to follow"); assert.equal(Wd.api.camera().follow, false); Wd.art.userCam();
+  // a new replay starts with the auto camera again
+  Wd.api.replay(); assert.equal(Wd.api.phase().follow, true, "each replay starts following"); Wd.api.stop();
+  // reduced motion: no easing, an instant cut per event
+  const c2 = { t: at(16), p: 10000 }, Wr = world("day", c2, data(), true); Wr.api.view(true); Wr.over(); Wr.api.replay(); const Rr = Wr.rep().R, br = Rr.beats[0], step = (ms) => { c2.p = 10000 + ms; Wr.bcam(); Wr.over(); };
+  const pad = Wr.art.bPadFrame(br, 900), hit = Wr.art.bHitFrame(br, 900), px = 450 - pad.x * pad.z;
+  for (const ms of [br.t0 + 10, br.launch, br.lead.rf + br.lead.fl * 0.2, br.lead.rf + br.lead.fl * 0.45]) { step(ms); assert.ok(Math.abs(Wr.camera.x - px) < 0.5 && Math.abs(Wr.camera.z - pad.z) < 1e-6, "reduced motion: the pad, no tween"); }
+  for (const ms of [br.lead.rf + br.lead.fl * 0.6, br.lead.ri, br.lead.ri + 100]) { step(ms); assert.ok(Math.abs(Wr.camera.z - hit.z) < 1e-6 && Math.abs(Wr.camera.x - (450 - hit.x * hit.z)) < 0.5, "then a cut to the hit"); }
+  Wr.camera.x += 500; Wr.art.userCam(); const kept = Wr.camera.x; step(br.end + 100); assert.equal(Wr.camera.x, kept); Wr.api.follow(true); Wr.bcam(); assert.ok(Math.abs(Wr.camera.x - kept) > 1, "reduced motion: Follow cuts straight to the auto camera"); step(br.end + 200);
+  const target2 = Wr.art.bRepCam(Wr.rep().R, c2.p - 10000, Wr.rep().home, 900, 600, true); assert.ok(Math.abs(Wr.camera.x - (450 - target2.x * target2.z)) < 0.5 && Math.abs(Wr.camera.z - target2.z) < 1e-6, "on the auto camera at once"); Wr.api.stop();
 });
 
 test("aim points: every shot lands on the roof of one of the defender's repo towers (tallest first, lot = tower index), never on grass, roads or the plot; a city with no towers gets no shots", () => {
@@ -122,8 +208,8 @@ test("aim points: every shot lands on the roof of one of the defender's repo tow
   const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, lead = R.beats[0].lead;
   for (let ms = lead.ri - 300; ms <= lead.ri + 60; ms += 30) { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); }
   assert.ok(Wd.art.collapses() > 0, "a collapse transient after the hit"); assert.ok(Wd.bp() > 20, "fireball, chunks, dust");
-  const c = stubCtx(); Wd.art.bDrawCollapse(c, clock.p + 300); Wd.art.bRubblePiles(c, 0, 0, "#3178C6", 1); assert.ok(c.__n.ops > 10);
-  for (let ms = lead.ri + 60; ms <= R.beats[0].end + 900; ms += 100) { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); } assert.equal(Wd.art.collapses(), 0, "gone after 650 ms"); Wd.api.stop();
+  const c = stubCtx(); Wd.art.bDrawCollapse(c, Wd.art.fx() + 300); Wd.art.bRubblePiles(c, 0, 0, "#3178C6", 1); assert.ok(c.__n.ops > 10);
+  for (let k = 0; k < 40; k++) { clock.p += 100; Wd.bcam(); Wd.over(); } assert.equal(Wd.art.collapses(), 0, "gone after 1.4 s (a replay's collapse is slow enough to watch)"); Wd.api.stop();
 });
 
 test("battle art: pad, stack, drop, launch center, countdown, ruin and particles draw with finite geometry by day and night at every LOD", () => {
