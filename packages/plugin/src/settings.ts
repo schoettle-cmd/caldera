@@ -352,7 +352,7 @@ export class CalderaSettingTab extends PluginSettingTab {
 /** The live-traffic script, frozen at /t/1.js: snippets carry its integrity hash so a changed file never runs on your sites. */
 export const TRACK_SRI = "sha384-UCnwKWu6Be2g87+ZI1+h367D6yOXEuXFQL2U2Z7PuSoH3oSCsu/cmZMbj4s70JlC";
 export const trackTag = (hub: string, key: string) => `<script async src="${hub.replace(/\/$/, "")}/t/1.js" integrity="${TRACK_SRI}" crossorigin="anonymous" data-site="${key}"></script>`;
-export const AGENT_HOOK_SHA256 = "bfe8dbde26fdc5e8b2e33805cdd4cadb98020ecaf34fe3f7c2e491ed636aedae";
+export const AGENT_HOOK_SHA256 = "ed5b615f0c836dc5f3c3f3ae5efc6cc68ab98b99d9b3a1b7d2ea7af1ff943a06";
 
 /** A prompt the owner pastes into Claude Code: installs the Caldera agent hook (one small script, no dependencies). */
 export function agentSetupPrompt(hub: string, k: { key: string; secret: string }): string {
@@ -361,7 +361,7 @@ export function agentSetupPrompt(hub: string, k: { key: string; secret: string }
 1. Download ${hub}/agent-hook.mjs to ~/.caldera/agent-hook.mjs (create the folder). Read it first: it reads the hook event from stdin, works out the repo (git remote name) and a short task title, and posts only that to my Caldera hub, with a 1.5 second timeout. It never blocks or changes anything.
    Before using it, check its SHA-256 is ${AGENT_HOOK_SHA256} (shasum -a 256 ~/.caldera/agent-hook.mjs). If it doesn't match, delete it, stop and tell me.
 2. Write ~/.caldera/agent.json (chmod 600): {"hub": "${hub}", "key": "${k.key}", "secret": "${k.secret}", "machine": "<a short name for this computer>"}
-3. In ~/.claude/settings.json, add hooks (keep any existing ones) that run \`node ~/.caldera/agent-hook.mjs\` for UserPromptSubmit, PostToolUse, Stop, Notification and SessionEnd.
+3. In ~/.claude/settings.json, add hooks (keep any existing ones) that run \`node ~/.caldera/agent-hook.mjs\` for UserPromptSubmit, PreToolUse, PostToolUse, Stop, Notification and SessionEnd.
 4. Test it: echo '{"hook_event_name":"UserPromptSubmit","session_id":"caldera-test-1","cwd":"'$PWD'","prompt":"Testing the Caldera agent hook"}' | node ~/.caldera/agent-hook.mjs and confirm it exits quietly, then send SessionEnd for the same session to clear the test drone.
 
 Keep the key and secret out of any repo. If I'd rather not send task titles at all, add "tasks": false to agent.json (drones still fly, without words).`;
