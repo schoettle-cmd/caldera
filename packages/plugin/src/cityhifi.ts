@@ -8,6 +8,7 @@
  * lots in the making (zoned, graded, framed), mid-rise, tower and campus (three variants each), crane, scaffold, crews,
  * cars, water ripples, the battle damage set (scorch, rubble, smoke, tarp, tape), and the sprite atlas with its LOD rules.
  */
+import { PIX_JS } from "./citypix";
 export const HIFI_JS = String.raw`
 // ---- high-detail drawing set (cityhifi.ts)
 var NL={x:-.894,y:.447},NR={x:.894,y:.447},LODN=1;
@@ -116,10 +117,10 @@ function aoHi(c,px,py,w){var hw=TW/2*w,hh=TH/2*w,g=c.createRadialGradient(px,py,
 // ---- houses: 0 gable, 1 hip roof + porch, 2 flat roof + deck + solar
 var HROOF=['#B4554F','#8E5A3C','#5B6B8A','#A0503A'];
 function houseHi(c,px,py,variant,col,seed){var w=.3,hw=TW/2*w,hh=TH/2*w,h=variant===2?8:9,n=hn(),rc0=HROOF[seed%4],rc=n?hmul(rc0,.45):rc0;
-  prismHi(c,px,py,w,h,col,{parapet:variant===2});
-  if(LODN===0){if(variant!==2)poly(c,[[px-hw,py-h],[px,py-h-8],[px+hw,py-h],[px,py-h+hh]],rc);return}
+  if(LODN===0){prismHi(c,px,py,w,h,col,{parapet:variant===2});if(variant!==2)poly(c,[[px-hw,py-h],[px,py-h-8],[px+hw,py-h],[px,py-h+hh]],rc);return}
+  pxBlock(c,px,py,w,h,'siding',col,{litp:n&&rnd(seed+.3)<.85?.8:0,seed:seed,roof:variant===2?'pavers':'membrane',ao:false});
   var wincol=n&&rnd(seed+.3)<.85?'rgba(255,208,120,.95)':n?'rgba(20,28,44,.9)':null;
-  [[0,.2,.4],[0,.62,.82],[1,.3,.5]].forEach(function(wn,k){var side=wn[0],u0=wn[1],u1=wn[2],q=[fpt(px,py,hw,hh,side,u0,3),fpt(px,py,hw,hh,side,u1,3),fpt(px,py,hw,hh,side,u1,6.5),fpt(px,py,hw,hh,side,u0,6.5)];
+  [].forEach(function(wn,k){var side=wn[0],u0=wn[1],u1=wn[2],q=[fpt(px,py,hw,hh,side,u0,3),fpt(px,py,hw,hh,side,u1,3),fpt(px,py,hw,hh,side,u1,6.5),fpt(px,py,hw,hh,side,u0,6.5)];
     poly(c,[[q[0][0]-.4,q[0][1]+.4],[q[1][0]+.4,q[1][1]+.4],[q[2][0]+.4,q[2][1]-.4],[q[3][0]-.4,q[3][1]-.4]],'rgba(0,0,0,.4)');
     if(wincol&&(k!==1||rnd(seed+k+.7)<.6))poly(c,q,wincol);else{var wg=c.createLinearGradient(0,q[3][1],0,q[0][1]);wg.addColorStop(0,n?'#101827':'#A9CBE8');wg.addColorStop(1,n?'#1A2338':'#5B86B3');poly(c,q,wg)}
     c.strokeStyle='rgba(255,255,255,'+(n?.1:.4)+')';c.lineWidth=.4;var m0=fpt(px,py,hw,hh,side,(u0+u1)/2,3),m1=fpt(px,py,hw,hh,side,(u0+u1)/2,6.5);hline(c,m0[0],m0[1],m1[0],m1[1]);
@@ -172,33 +173,39 @@ function lotHi(c,x,y,o){var stage=o.stage,col=o.col,n=hn();
   return {x:x+6,y:y+4-hgt}}
 // ---- mid-rise (0 brick walk-up, 1 stucco + balconies + shops, 2 glass office); returns its top
 function midHi(c,x,y,o){var v=o.variant,col=o.col,seed=o.seed,base=y+4,litp=o.litp,n=hn(),h;
-  if(v===0){h=40;prismHi(c,x,base,.64,h,mix(col,.5,'#B0583C'),{floors:true,brick:true});facadeHi(c,x,base,.64,h,'escape',litp,seed,{});roofHi(c,x,base-h,.64,[['tank',.3,-.3],['hvac',-.45,.4],['mast',-.5,-.5,10]])}
-  else if(v===1){h=34;prismHi(c,x,base,.64,h,mix(col,.55,'#E6D8C4'),{floors:true});facadeHi(c,x,base,.64,h,'balcony',litp,seed,{awning:col,sign:col});roofHi(c,x,base-h,.64,[['hvac',.3,.3],['hvac',.5,-.1],['skylight',-.4,-.3]])}
-  else{h=30;prismHi(c,x,base,.66,h,mix(col,.75,'#7FA8D8'),{floors:true});facadeHi(c,x,base,.66,h,'glass',litp,seed,{people:n?.3:0});roofHi(c,x,base-h,.66,[['hvac',-.2,.35],['hvac',.25,.35],['solar',.2,-.45,2,4],['mast',-.55,-.5,8]])}
+  var px0=LODN>0;
+  if(v===0){h=40;if(px0)pxBlock(c,x,base,.64,h,'brick',mix(col,.5,'#B0583C'),{litp:litp,seed:seed,escape:true,ground:true,roof:'membrane'});else prismHi(c,x,base,.64,h,mix(col,.5,'#B0583C'),{});roofHi(c,x,base-h,.64,[['tank',.3,-.3],['hvac',-.45,.4],['mast',-.5,-.5,10]])}
+  else if(v===1){h=34;if(px0)pxBlock(c,x,base,.64,h,'stucco',mix(col,.55,'#E6D8C4'),{litp:litp,seed:seed,balcony:true,ground:true,awning:col,sign:col,roof:'pavers'});else prismHi(c,x,base,.64,h,mix(col,.55,'#E6D8C4'),{});roofHi(c,x,base-h,.64,[['hvac',.3,.3],['hvac',.5,-.1],['skylight',-.4,-.3]])}
+  else{h=30;if(px0)pxBlock(c,x,base,.66,h,'glass',mix(col,.75,'#7FA8D8'),{litp:litp,seed:seed,people:n?.3:0,ground:true,roof:'gravel'});else prismHi(c,x,base,.66,h,mix(col,.75,'#7FA8D8'),{});roofHi(c,x,base-h,.66,[['hvac',-.2,.35],['hvac',.25,.35],['solar',.2,-.45,2,4],['mast',-.55,-.5,8]])}
   if(LODN>0){treeHi(c,x-TW*.4,y+TH*.2,.55,seed);if(rnd(seed+9.5)<.5)benchHi(c,x+TW*.34,y+TH*.18)}return base-h}
 function towerTiers(h){return h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]]}
 /** a tower (0 curtain wall + crown, 1 stepped stone + tank, 2 slab + helipad + mast); o.tiers as today so height = commits.
  *  o.roof false leaves the roof to the caller (padlock, beacon); returns its top */
 function towerHi(c,x,y,o){var v=o.variant,col=o.col,seed=o.seed,base=y+4,top=base,tiers=o.tiers||towerTiers(o.h||96),litp=o.litp,n=hn(),pe=o.people||0;
   var tc=v===0?mix(col,.3,'#8EC0EE'):v===1?mix(col,.3,'#C9B9A0'):col;
-  tiers.forEach(function(t,k){prismHi(c,x,top,t[0],t[1],tc,{floors:true});facadeHi(c,x,top,t[0],t[1],v===0||(v===2&&k===0)?'glass':'punched',litp,seed+k*101,{people:pe,sign:k===0&&v===0?col:null,ground:k===0,awning:k===0&&v===1&&rnd(seed+.4)<.5?col:null});top-=t[1]});
+  var hs=0;tiers.forEach(function(t){hs+=t[1]});var dm=o.dmg&&o.dmg.d>0?{d:o.dmg.d,f:o.dmg.f||0,h:hs,seed:o.dmg.seed||seed,craters:pxCraters(hs,o.dmg.d,o.dmg.seed||seed,TW/2*tiers[0][0])}:null,stand=dm?Math.max(pxBreak(hs,dm.d),dm.f*hs):hs,v0=0,cut=false;
+  tiers.forEach(function(t,k){var mat=v===0||(v===2&&k===0)?'glass':v===1?'punched':'concrete';
+    if(cut)return;if(dm&&v0>=stand){cut=true;return}
+    if(LODN>0){var r=pxBlock(c,x,top,t[0],t[1],mat==='concrete'?'punched':mat,tc,{litp:litp,seed:seed+k*101,people:pe,sign:k===0&&v===0?col:null,ground:k===0,awning:k===0&&v===1&&rnd(seed+.4)<.5?col:null,v0:v0,mask:dm,roof:v===1?'pavers':v===2?'membrane':'gravel'});if(r.cut){cut=true;top=r.top;return}}
+    else prismHi(c,x,top,t[0],t[1],tc,{floors:false});
+    top-=t[1];v0+=t[1]});
+  if(dm&&cut)top=base-stand;
   var tw=tiers[tiers.length-1][0];
-  if(o.roof!==false){if(v===0)roofHi(c,x,top,tw,[['crown',0,0,hmul(tc,.9)]]);else if(v===1)roofHi(c,x,top,tw,[['tank',.25,-.25],['hvac',-.4,.4],['hvac',-.1,.45],['mast',.4,.4,12]]);else roofHi(c,x,top,tw,[['helipad'],['mast',-.7,-.7,26],['hvac',.7,.7]])}
-  if(v===1&&tiers.length>1&&LODN>0){var t0=tiers[0],hw0=TW/2*t0[0],hh0=TH/2*t0[0],ty0=base-t0[1],a=tpt(x,ty0,hw0,hh0,-.75,.8),b=tpt(x,ty0,hw0,hh0,.85,.75);hvacHi(c,a[0],a[1]);treeHi(c,b[0],b[1],.4,seed)}
+  if(o.roof!==false&&!cut){if(v===0)roofHi(c,x,top,tw,[['crown',0,0,hmul(tc,.9)]]);else if(v===1)roofHi(c,x,top,tw,[['tank',.25,-.25],['hvac',-.4,.4],['hvac',-.1,.45],['mast',.4,.4,12]]);else roofHi(c,x,top,tw,[['helipad'],['mast',-.7,-.7,26],['hvac',.7,.7]])}
+  if(v===1&&tiers.length>1&&LODN>0&&!cut){var t0=tiers[0],hw0=TW/2*t0[0],hh0=TH/2*t0[0],ty0=base-t0[1],a=tpt(x,ty0,hw0,hh0,-.75,.8),b=tpt(x,ty0,hw0,hh0,.85,.75);hvacHi(c,a[0],a[1]);treeHi(c,b[0],b[1],.4,seed)}
   if(LODN>0&&o.yard!==false){treeHi(c,x-TW*.42,y+TH*.22,.5,seed);hydrantHi(c,x+TW*.36,y+TH*.3)}return top}
 function turbineHi(c,x,y,dim){var n=hn();c.strokeStyle=dim?'#8A8E96':n?'#A3A8B3':'#E8EEF4';c.lineWidth=1.4;c.lineCap='round';hline(c,x,y,x,y-30);c.fillStyle='rgba(0,0,0,.18)';c.beginPath();c.ellipse(x+1,y+1,3,1.3,0,0,7);c.fill();var a=reduce||dim?0:T/900;c.lineWidth=1.5;c.beginPath();for(var k=0;k<3;k++){var b=a+k*2.094;c.moveTo(x,y-30);c.lineTo(x+Math.cos(b)*11,y-30+Math.sin(b)*11)}c.stroke();c.lineCap='butt';c.fillStyle=n?'#C9D2E6':'#F6F8FB';c.beginPath();c.arc(x,y-30,1.6,0,7);c.fill()}
 /** solar and AI campus: 0 server hall, 1 solar field (its turbine spins live), 2 glass pavilion with a green roof; returns its top */
 function campusHi(c,x,y,o){var v=o.variant,col=o.col,seed=o.seed,n=hn(),base=y+4;
-  if(v===0){var w=.8,h=14,hw=TW/2*w,hh=TH/2*w;prismHi(c,x,base,w,h,mix(col,.6,'#C9D2DC'),{parapet:true});if(LODN===0)return base-h;
-    c.strokeStyle='rgba(0,0,0,'+(n?.22:.14)+')';c.lineWidth=.6;c.beginPath();for(var lv=2.5;lv<h-2;lv+=1.8){var a=fpt(x,base,hw,hh,0,.04,lv),b=fpt(x,base,hw,hh,0,.96,lv),a2=fpt(x,base,hw,hh,1,.04,lv),d=fpt(x,base,hw,hh,1,.96,lv);c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.moveTo(a2[0],a2[1]);c.lineTo(d[0],d[1])}c.stroke();
-    poly(c,[fpt(x,base,hw,hh,0,.4,.5),fpt(x,base,hw,hh,0,.6,.5),fpt(x,base,hw,hh,0,.6,6),fpt(x,base,hw,hh,0,.4,6)],n?'rgba(255,220,160,.7)':'rgba(18,24,36,.85)');
+  if(v===0){var w=.8,h=14,hw=TW/2*w,hh=TH/2*w;if(LODN===0){prismHi(c,x,base,w,h,mix(col,.6,'#C9D2DC'),{parapet:true});return base-h}
+    pxBlock(c,x,base,w,h,'tech',mix(col,.6,'#C9D2DC'),{seed:seed,ground:true,roof:'membrane'});
     roofHi(c,x,base-h,w,[['stack',-.5,-.5],['stack',-.15,-.5],['stack',.2,-.5],['stack',.55,-.5],['hvac',.4,.5],['dish',-.55,.55],['solar',0,.15,2,4]]);
     if(n&&!o.dim){c.save();c.globalCompositeOperation='lighter';c.shadowColor='#3DF2FF';c.shadowBlur=8;c.strokeStyle='rgba(61,242,255,.85)';c.lineWidth=1;var e0=fpt(x,base,hw,hh,0,.03,h-1.5),e1=fpt(x,base,hw,hh,0,.97,h-1.5),e2=fpt(x,base,hw,hh,1,.97,h-1.5);c.beginPath();c.moveTo(e0[0],e0[1]);c.lineTo(e1[0],e1[1]);c.lineTo(e2[0],e2[1]);c.stroke();c.restore()}
     if(o.crew!==false)figHi(c,x-TW*.3,y+TH*.36,col,seed,0);return base-h}
   if(v===1){for(var r=0;r<3;r++){var ox=x-16+r*9,oy=y-8+r*4.5;solarHi(c,ox,oy,1,7);if(LODN>0){c.strokeStyle=n?'#6B7280':'#8A9099';c.lineWidth=.7;hline(c,ox-6,oy+1.5,ox-6,oy+4);hline(c,ox+4,oy-2.5,ox+4,oy+1)}}
     if(LODN>0){prismHi(c,x+16,y+6,.12,4,'#9AA1AD',{parapet:false});c.fillStyle=n?'#3DF2FF':'#2FB5D6';c.fillRect(x+14,y+2.5,1.2,1.2);fenceHi(c,x-28,y-2,x,y+13,9)}
     if(o.turbine!==false)turbineHi(c,x-20,y+8,o.dim);return base-8}
-  var w2=.6,h2=11,hw2=TW/2*w2,hh2=TH/2*w2;prismHi(c,x,base,w2,h2,mix(col,.8,'#BFD8F0'),{parapet:true});facadeHi(c,x,base,w2,h2,'glass',o.litp,seed,{people:n?.3:0});
+  var w2=.6,h2=11,hw2=TW/2*w2,hh2=TH/2*w2;if(LODN>0)pxBlock(c,x,base,w2,h2,'glass',mix(col,.8,'#BFD8F0'),{litp:o.litp,seed:seed,people:n?.3:0,ground:true,roof:'garden'});else prismHi(c,x,base,w2,h2,mix(col,.8,'#BFD8F0'),{parapet:true});
   poly(c,[tpt(x,base-h2,hw2,hh2,-.85,-.85),tpt(x,base-h2,hw2,hh2,.85,-.85),tpt(x,base-h2,hw2,hh2,.85,.85),tpt(x,base-h2,hw2,hh2,-.85,.85)],n?'#1F3A28':'#5DA14E');
   roofHi(c,x,base-h2,w2,[['skylight',-.3,-.3],['skylight',.3,.3],['dish',.6,-.6]]);
   if(LODN>0){for(var ev=0;ev<2;ev++){c.fillStyle=n?'#C9D2E6':'#F6F8FB';c.fillRect(x+16+ev*5,y+2+ev*2.5-5,1.4,5);c.fillStyle='#4FD1C5';c.fillRect(x+16+ev*5,y+2+ev*2.5-5,1.4,1)}
@@ -277,4 +284,4 @@ function atlGet(key,w,h,ax,ay,fn){var s=ATL.get(key);if(s){ATL.delete(key);ATL.s
 /** draw fn at (x,y): from the atlas at LOD 1, else straight vectors (fn draws around the origin) */
 function hiDraw(c,key,w,h,ax,ay,x,y,fn){var s=LODN===1&&key?atlGet(key+'|'+atlScale(),w,h,ax,ay,fn):null;
   if(s){c.drawImage(s.cv,x-ax,y-ay,w,h);return}ATLN.direct++;if(typeof window!=='undefined'&&window.CALDERA_PERF){var dk=String(key).split('|')[0];ATLN[dk]=(ATLN[dk]||0)+1}c.save();c.translate(x,y);fn(c);c.restore()}
-`;
+` + PIX_JS;
