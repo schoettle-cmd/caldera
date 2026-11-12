@@ -240,7 +240,7 @@ test("battle: wired into the renderer; no walkers, no houses, no crews in the Ba
   assert.ok(CITY_JS.includes("function frame(){T=performance.now();bCam();"), "the replay camera is set before the frame is drawn");
   assert.ok(CITY_JS.includes("function flyStop(){FLYG++}") && CITY_JS.includes("if(g!==FLYG)return;"), "a replay cancels a flight in progress");
   assert.ok(CITY_JS.includes("if(BON&&BREP){bSkip();return}"), "a tap on the map during a replay skips to the next strike");
-  assert.ok(CITY_JS.includes("if(!BON)drawWalks()"), "no people on foot in the Battle view");
+  assert.ok(CITY_JS.includes("if(!BON){drawWalks();drawLife()}"), "no people on foot in the Battle view");
   assert.ok(CITY_JS.includes("if(t.t==='h'&&!BON)") && CITY_JS.includes("if(cd===4){if(!BON)"), "no little houses in the Battle view");
   assert.ok(CITY_JS.includes("hc===0&&!BON") && CITY_JS.includes("!gWin()&&!BON") && CITY_JS.includes("if(!BON)for(var k=0;k<7;k++)") && CITY_JS.includes("if(!BON)drawFx()"), "no growth crews, parades or effects walkers in the Battle view");
   assert.ok(CITY_JS.includes("litp*=Math.max(0,1-bdh*.85)") && CITY_JS.includes("pxHeap(c,p.x,base,tiers[0][0],col,bdh,rb0,seed)"), "a hit tower goes dark and a heap of its own pixels piles up around it");

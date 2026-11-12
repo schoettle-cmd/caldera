@@ -12,7 +12,8 @@ import { GROWTH_LAYOUT_JS, GROWTH_DRAW_JS } from "./citygrowth";
 import { BATTLE_DRAW_JS } from "./citybattle";
 import { HIFI_JS } from "./cityhifi";
 import { AGENTS_JS } from "./cityagents";
-export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS };
+import { LIFE_JS } from "./citylife";
+export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS, LIFE_JS };
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;
@@ -409,6 +410,7 @@ html.c-mini .c-toasts{left:6px;top:6px}html.c-mini .c-toast{font-size:10.5px;pad
 /* mini: the pop-out window (city.html#mini, the watch page, or a picture-in-picture window): just the city, filling the window */
 .c-mininame{display:none}
 html.c-mini,html.c-mini body{height:100%;overflow:hidden;background:#010207}
+[data-theme="light"] .c-stage{border-color:rgba(20,30,50,.16);box-shadow:0 1px 10px rgba(20,30,50,.10)}
 html.c-mini .c-stage{position:fixed;inset:0;z-index:2147483000;height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}
 html.c-mini .c-hint,html.c-mini #t-pop,html.c-mini #t-full{display:none}
 html.c-mini .c-tools{top:6px;right:6px;opacity:0;transition:opacity .2s}html.c-mini .c-stage:hover .c-tools{opacity:1}html.c-mini .c-tools .t-txt{display:none}
@@ -583,7 +585,7 @@ function spawn(b,col,fast){var ex=exits(b);if(!ex.length||vis.length>160)return;
   var v={i:s[0],j:s[1],ti:s[0],tj:s[1],t:1,col:col,b:b,born:performance.now(),life:14000+Math.random()*9000,sp:fast?.06:.045};step(v);vis.push(v)}
 function pulse(b,col,big){var p=iso(b.x+b.k/2-.5,b.y+b.k/2-.5);pulses.push({x:p.x,y:p.y,col:col,born:performance.now(),big:big})}
 function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT=data.lit;if(data&&data.districts&&typeof data.districts==='object'){var gt={},gs={};for(var gk in data.districts){var gd=data.districts[gk]||{},gv=+gd.glow;if(gv>0)gt[gk]=Math.min(1,gv);if(gd.sites&&typeof gd.sites==='object'){var sm={},sn=0;for(var sk in gd.sites){var sv=+gd.sites[sk];if(sv>0&&sn<24){sm[String(sk).slice(0,40)]=Math.min(1,sv);sn++}}if(sn)gs[gk]=sm}}GT=gt;GS=gs}if(D.world&&data&&typeof data.members==='number'&&typeof worldGrew==='function')worldGrew(data.members);if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
-  if(!LV.on&&Object.keys(LV.d).length){LV.on=true;cars.length=0}   // live data replaces the ambient traffic: from now on every car is a real visitor
+  if(!LV.on&&Object.keys(LV.d).length){LV.on=true}lifeRetarget();lifeCars();   // live data replaces the ambient traffic: from now on every car is a real visitor
   if(LV.on)reconcile();
   if(Array.isArray(data.agents))agentsIn(data.agents);
   if(Array.isArray(data.events)){var first=!LV.seen,fresh=data.events.filter(function(ev){return ev&&ev.ts>LV.seen&&(ev.k!=='view'||ev.n)}).reverse();
@@ -705,6 +707,7 @@ function drawTraces(){if(!TRACES.length||sky==='grid')return;var c=cx;c.setTrans
     for(var i=0;i<n;i++){var f=(i+.5)/n,side=i%2?1:-1,x=a.x+(b.x-a.x)*f-uy*side*1.3,y=a.y+(b.y-a.y)*f+ux*side*.65,al=(.1+.5*t.a)*(day?1:.85)*(.75+.25*rnd(t.seed+i*3.1+s));
       c.fillStyle='rgba('+col+','+al.toFixed(3)+')';c.beginPath();c.ellipse(x,y,1.15,.6,Math.atan2(uy,ux),0,7);c.fill();
       if(k==='rain'||k==='storm'){c.fillStyle='rgba(200,225,255,'+(al*.5).toFixed(3)+')';c.fillRect(x-.3,y-.4,.6,.3)}}}})}
+${LIFE_JS}
 // ---- weather: the viewer's real local weather (hub lookup, or Obsidian passing it in), or what they pick
 var WX=null,WXMODES=['auto','clear','rain','snow','fog'],WXMODE='auto',WXN={auto:'Auto',clear:'Clear',partly:'Partly cloudy',overcast:'Overcast',drizzle:'Drizzle',rain:'Rain',storm:'Storm',snow:'Snow',fog:'Fog'};
 try{var wv=localStorage.getItem('caldera-weather');if(wv&&WXMODES.indexOf(wv)>=0)WXMODE=wv}catch(err){}
@@ -1072,7 +1075,7 @@ function hex(c){return '#'+c.map(function(v){v=Math.max(0,Math.min(255,Math.roun
 function mix(h,f,toward){var c=rgb(h);if(toward){var t=rgb(toward);return hex(c.map(function(v,i){return v+(t[i]-v)*f}))}
   if(f>=1)return hex(c.map(function(v){return v+(255-v)*(f-1)}));return hex(c.map(function(v){return v*f}))}
 function lit(hex,f){return mix(hex,f*P.light+(f>=1?0:0))}
-var tallest=null,second=null;(function(){var all=[];D.districts.forEach(function(d){d.repos.forEach(function(r){all.push(r)})});all.sort(function(a,b){return bh(b)-bh(a)});tallest=all[0];second=all[1]})();
+var tallest=null,second=null,TALLS=[];(function(){var all=[];D.districts.forEach(function(d){d.repos.forEach(function(r){all.push(r)})});all.sort(function(a,b){return bh(b)-bh(a)});tallest=all[0];second=all[1];TALLS=all.slice(0,3).filter(function(r){return r&&bh(r)>=70})})();   // the three tallest towers (70 px or more) carry red aviation lights; the tallest always
 // ---- layers: ground (L1) and objects (L2) are cached; cars, cranes and lights animate on top
 var L1=document.createElement('canvas'),L2=document.createElement('canvas'),L3=document.createElement('canvas'),L4=document.createElement('canvas'),c1=L1.getContext('2d'),c2=L2.getContext('2d'),c3=L3.getContext('2d'),c4=L4.getContext('2d'),dirty=true,hits=[],sel=null,T=0;
 function isRoad(i,j){var t=tiles[i+','+j];return t&&t.t==='r'}
@@ -1520,7 +1523,7 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
         hiDraw(c,bdm>0?null:'tw|'+tv2+'|'+Math.round(hs)+'|'+tc+'|'+lq+'|'+pq+'|'+rk+'|'+sk,116,hb,58,hb-34,p.x,p.y,function(cc){var tp=towerHi(cc,0,0,{variant:tv2,col:tc,seed:sk*131+7,tiers:tiers,litp:lq,people:pq,roof:false,dmg:bdm>0?{d:bdh,f:rb0,seed:seed}:null});if(LODN>0&&!(bdm>0))roofProps(cc,0,tp,ttw,r,seed)});
         if(bdm>0)top=base-Math.max(pxBreak(hs,bdh),rb0*hs)}
       if(bdm>0&&bf>=1){scorchHi(c,p.x,base,bdh);pxHeap(c,p.x,base,tiers[0][0],col,bdh,rb0,seed);if(rb0>0&&rb0<1){var yb0=rb0*hs,sb0=Math.max(0,yb0-14);scaffoldHi(c,p.x,base-sb0,tiers[0][0],yb0-sb0+3,1);cranes.push({x:p.x+4,y:top,seed:seed,col:col})}}
-      if(r===tallest)beacons.push({x:p.x,y:top-26});
+      if(r===tallest||(LODN>0&&TALLS.indexOf(r)>=0))beacons.push({x:p.x,y:top-26});
       if(r.week>0&&!dm&&bf>=1)cranes.push({x:p.x+4,y:top,seed:seed});
       if(SL&&bf>=1)SIGNS.push({c:c,x:p.x,base:base,top:top,list:SL,d:t.d,tron:false,LOD:LOD,lift:r.week>0&&!dm?30:r===tallest?28:4});   // above the crane or the beacon
       if(sel===r){c.save();c.strokeStyle='#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;var hw=TW/2*.78,hh=TH/2*.78;c.beginPath();c.moveTo(p.x-hw,base);c.lineTo(p.x,base+hh);c.lineTo(p.x+hw,base);c.lineTo(p.x+hw,top+ (base-top>0?0:0));c.lineTo(p.x,top-TH/2*.46);c.lineTo(p.x-hw,top);c.closePath();c.stroke();c.restore()}
@@ -1607,12 +1610,12 @@ var lastPT=0;function frame(){T=performance.now();bCam();if(BUILDING&&bActive())
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){var rd0=performance.now();if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);var rd1=performance.now();drawObjects();if(window.CALDERA_LAST)CALDERA_LAST.groundMs=+(rd1-rd0).toFixed(1)}dirty=false;if(window.CALDERA_PERF&&CALDERA_PERF.push)CALDERA_PERF.push(performance.now()-rd0)}   // redraw timings for the perf check (off unless a page sets the array)
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);hiLive();growUnder();drawTopics();drawTraces();drawCars();if(!BON)drawWalks();drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();if(!BON)drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);hiLive();growUnder();drawTopics();drawTraces();drawCars();if(!BON){drawWalks();drawLife()}drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();if(!BON)drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh);
   cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0);
   if(!SENT_READY&&!LOST){SENT_READY=true;postState('ready')}}   // storefront signs over everything: cranes, helicopters, agents, labels
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
-var last=0,FPS_MS=MINI?50:30,ONSCREEN=true;function tick(ts){if(!document.hidden&&ONSCREEN&&!LOST&&ts-last>FPS_MS){last=ts;cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
+var last=0,FPS_MS=MINI?50:30,ONSCREEN=true;function tick(ts){if(!document.hidden&&ONSCREEN&&!LOST&&ts-last>FPS_MS){last=ts;stepLife(performance.now());cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
   if(LV.on){var tg=performance.now();cars=cars.filter(function(c){return !c.gone||tg-c.gone<1500})}
   if(vis.length){var tn=performance.now();vis=vis.filter(function(v){return tn-v.born<v.life});vis.forEach(function(v){v.t+=v.sp;if(v.t>=1)step(v);var p=carPos(v);(v.trail=v.trail||[]).push([p.x,p.y-1]);if(v.trail.length>26)v.trail.shift()})}frame()}requestAnimationFrame(tick)}
 // ---- interaction

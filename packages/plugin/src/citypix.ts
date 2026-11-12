@@ -26,6 +26,12 @@ function pxTex(key,w,h,fill){var s=PXT.get(key);if(s){PXT.delete(key);PXT.set(ke
   var ok=false;try{var id=c&&c.createImageData?c.createImageData(w,h):null;if(id&&id.data){id.data.set(buf);c.putImageData(id,0,0);ok=true}}catch(err){}
   s={cv:cv,w:w,h:h,b:b,ok:ok};PXT.set(key,s);PXTB+=b;PXTN.made++;return s}
 function pxClear(){PXT=new Map();PXTB=0}
+/** a pixel sprite from rows of palette indices (0-9a-z into pal, "." clear); cached by name; drawn by pxBlit at 1 texel = 1/PXS world px */
+function pxSprite(name,rows,pal){var h=rows.length,w=0,i;for(i=0;i<h;i++)w=Math.max(w,rows[i].length);return pxTex("spr|"+name,w,h,function(buf){var cols=pal.map(function(c){return rgb(c)});
+  for(var y=0;y<h;y++)for(var x=0;x<rows[y].length;x++){var ch=rows[y].charAt(x);if(ch==="."||ch===" ")continue;var k=parseInt(ch,36),c=cols[k];if(!c)continue;var o=(y*w+x)*4;buf[o]=c[0];buf[o+1]=c[1];buf[o+2]=c[2];buf[o+3]=255}})}
+/** blit a sprite with its bottom centre at (x,y) in world px; flip mirrors it; sc scales (1 = PXS texels per world px); frame picks a sprite from a list */
+function pxBlit(c,s,x,y,flip,sc){if(!s||!s.ok)return false;sc=(sc||1)/PXS;var w=s.w*sc,h=s.h*sc;c.save();c.imageSmoothingEnabled=false;
+  if(flip){c.translate(x,y);c.scale(-1,1);c.drawImage(s.cv,-w/2,-h,w,h)}else c.drawImage(s.cv,x-w/2,y-h,w,h);c.restore();return true}
 function cmul(c,f){return [c[0]*f,c[1]*f,c[2]*f]}
 function cmix(a,b,f){return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f]}
 function pxN(s,x,y){var v=Math.sin(s*12.9898+x*78.233+y*37.719)*43758.5453;return v-Math.floor(v)}
