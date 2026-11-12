@@ -11,7 +11,8 @@
 import { GROWTH_LAYOUT_JS, GROWTH_DRAW_JS } from "./citygrowth";
 import { BATTLE_DRAW_JS } from "./citybattle";
 import { HIFI_JS } from "./cityhifi";
-export { HIFI_JS, BATTLE_DRAW_JS };
+import { AGENTS_JS } from "./cityagents";
+export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS };
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;
@@ -794,60 +795,7 @@ function fetchWx(){if(!EX||!EX.weather||document.hidden)return;fetch(EX.weather,
 if(EX){if(EX.weather){setTimeout(fetchWx,300);setInterval(fetchWx,15*60000)}if(EX.owner)setTimeout(function(){ownerSetup(EX.owner)},50)}
 window.addEventListener('message',function(ev){var m=ev.data;if(ev.source!==parent||!m||m.caldera!=='extras'||!m.data)return;if(m.data.weather&&m.data.weather.c){WX=m.data.weather;applyWeather()}if(m.data.owner)ownerSetup(m.data.owner)});
 
-// ---- agents: a drone over the building each AI agent is working in. Working = beam into the roof, thinking = circling,
-// waiting for you = parked on the sky base, blinking amber. The sky base is a small deck hovering over the city's front
-// corner (in the world: each neighborhood's front corner, where nothing stands in front of it), tethered to the ground by
-// a thread of light; idle agents park on it as small drones and working ones lift off it to fly to their building. Public pages only get district + state, never what it's doing.
-var AG={},AGC={working:'#3DF2FF',thinking:'#B58CFF',waiting:'#FFB020',idle:'#6F7C8F',done:'#6F7C8F'},BREPO={},BDIST={};
-for(var bk in tiles){var tb=tiles[bk];if(tb.t!=='b')continue;var bij=bk.split(','),bo={i:+bij[0],j:+bij[1],r:tb.r};if(tb.r.name)BREPO[tb.r.name.toLowerCase()]=bo;(BDIST[tb.d.name]=BDIST[tb.d.name]||[]).push(bo)}
-if(D.world)NBS.forEach(function(n){BDIST[n.key]=[];n.ds.forEach(function(d){BDIST[n.key]=BDIST[n.key].concat(BDIST[d.name]||[])})});   // a member's drones only ever fly to their own buildings
-var HQI=1.3,HQJ=H-1.3,HQP=iso(HQI,HQJ),HQS=.36;   // Agent HQ: a parking grid on the island's west corner, laid out along the streets
-function hqAt(a){var n=D.world&&a&&NBM[a.d];return n?{i:n.ox+n.w+.15,j:n.oy+n.h+.15}:{i:W-.55,j:H-.55}}
-var LIFT=46,DOCKMAX=24;   // how high the sky base hovers (px), and how many drones it shows parked before it reads "+n"
-function dockAt(a){var hq=hqAt(a);return iso(hq.i,hq.j)}   // the ground point under the sky base
-function deckOf(n){return Math.min(36,13+Math.sqrt(Math.min(n,DOCKMAX))*5)}   // deck radius grows with the drones parked on it
-function bob(tn){return Math.sin(tn/1600)*1.6}
-function hqDims(n){var cols=Math.max(1,Math.ceil(Math.sqrt(n)));return {cols:cols,rows:Math.max(1,Math.ceil(n/cols))}}
-function agentsIn(list){var tn=performance.now(),seen={};list.slice(0,80).forEach(function(a){if(!a||!a.id)return;seen[a.id]=1;var g=AG[a.id];
-    if(!g){var h0=dockAt(a);g=AG[a.id]={x:h0.x,y:h0.y-40,born:tn,seed:hash(String(a.id))}}g.a=a;g.gone=0});
-  for(var id in AG)if(!seen[id]&&!AG[id].gone)AG[id].gone=tn;if(D.world)dirty=true}
-function agentSpot(g,tn,slot,nslot){var a=g.a,b=null;
-  if(a.state==='working'||a.state==='thinking'){b=(a.repo&&BREPO[String(a.repo).toLowerCase()])||null;if(!b&&a.d&&BDIST[a.d]){var l=BDIST[a.d];b=l[g.seed%l.length]}}
-  if(!b){var dk=dockAt(a),n=Math.min(nslot,DOCKMAX),r=deckOf(nslot)*.8,ang=slot*2.39996,rad=r*Math.sqrt((Math.min(slot,DOCKMAX-1)+.5)/n);
-    return {x:dk.x+Math.cos(ang)*rad,y:dk.y-LIFT+bob(tn)+Math.sin(ang)*rad*.5-3,roof:null,hq:true,hidden:slot>=DOCKMAX}}
-  var p=iso(b.i,b.j),h=bh(b.r),y=p.y-h-24;
-  if(a.state==='thinking')return {x:p.x+Math.cos(tn/900+g.seed)*14,y:y+Math.sin(tn/900+g.seed)*7,roof:null};
-  return {x:p.x+Math.sin(tn/1300+g.seed)*3,y:y+Math.sin(tn/500+g.seed)*2,roof:p.y-h}}
-function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var parked=ids.filter(function(id){var s=AG[id].a.state;return !(s==='working'||s==='thinking')}),k=0;
-  // the sky base: one per city (in the world, per neighborhood); its label goes through the world label pass
-  var groups={};ids.forEach(function(id){var key=D.world?(AG[id].a.d||''):'';(groups[key]=groups[key]||[]).push(id)});
-  Object.keys(groups).forEach(function(key){var gp=groups[key].filter(function(id){return parked.indexOf(id)>=0});if(!gp.length&&D.world)return;
-    var g0=dockAt(AG[groups[key][0]].a),r=deckOf(gp.length),cx0=g0.x,cy0=g0.y-LIFT+bob(tn);
-    c.save();c.lineCap='round';
-    c.fillStyle='rgba(61,242,255,.10)';c.beginPath();c.ellipse(g0.x,g0.y,r*.55,r*.27,0,0,7);c.fill();   // its light on the ground
-    c.setLineDash([2,4]);c.strokeStyle='rgba(143,180,232,.45)';c.lineWidth=1;c.beginPath();c.moveTo(g0.x,g0.y);c.lineTo(cx0,cy0+7);c.stroke();c.setLineDash([]);   // tether
-    var ug=c.createRadialGradient(cx0,cy0+8,0,cx0,cy0+8,r*1.1);ug.addColorStop(0,'rgba(61,242,255,.28)');ug.addColorStop(1,'rgba(61,242,255,0)');c.fillStyle=ug;c.beginPath();c.ellipse(cx0,cy0+8,r*1.1,r*.6,0,0,7);c.fill();   // underglow
-    c.fillStyle='#1B2233';c.beginPath();c.ellipse(cx0,cy0+4,r,r*.5,0,0,7);c.fill();c.fillRect(cx0-r,cy0,r*2,4);   // deck edge (the slab's thickness)
-    var dg=c.createLinearGradient(cx0,cy0-r*.5,cx0,cy0+r*.5);dg.addColorStop(0,'#3A4560');dg.addColorStop(1,'#283147');c.fillStyle=dg;c.strokeStyle='rgba(143,180,232,.85)';c.lineWidth=1.2;c.beginPath();c.ellipse(cx0,cy0,r,r*.5,0,0,7);c.fill();c.stroke();   // deck
-    c.strokeStyle='rgba(143,180,232,.25)';c.beginPath();c.ellipse(cx0,cy0,r*.62,r*.31,0,0,7);c.stroke();   // landing ring
-    c.globalCompositeOperation='lighter';for(var li=0;li<10;li++){var la=li/10*6.283,on=(Math.floor(tn/400)+li)%2===0,lx=cx0+Math.cos(la)*r,ly=cy0+Math.sin(la)*r*.5;c.fillStyle=on?'rgba(61,242,255,.95)':'rgba(61,242,255,.25)';c.beginPath();c.arc(lx,ly,1.3,0,7);c.fill()}   // rim lights
-    c.restore();
-    if(D.world||!labels)return;
-    var nw=gp.filter(function(id){return AG[id].a.state==='waiting'}).length,ni=gp.length-nw;tronPill(c,g0.x,g0.y+16,'SKY BASE'+(ni?' · '+ni+' parked':'')+(nw?' · '+nw+' waiting on you':'')+(gp.length>DOCKMAX?' · +'+(gp.length-DOCKMAX)+' more':''),'#9FC3FF','600 9px ui-monospace,monospace')});
-  var slotOf={};Object.keys(groups).forEach(function(key){groups[key].filter(function(id){return parked.indexOf(id)>=0}).forEach(function(id,ix,arr){slotOf[id]=[ix,arr.length]})});
-  ids.forEach(function(id){var g=AG[id],a=g.a,sp=agentSpot(g,tn,slotOf[id]?slotOf[id][0]:0,slotOf[id]?slotOf[id][1]:1);
-    g.x+=(sp.x-g.x)*.05;g.y+=(sp.y-g.y)*.05;var f=g.gone?Math.max(0,1-(tn-g.gone)/1500):Math.min(1,(tn-g.born)/600);if(f<=0){delete AG[id];return}
-    var col=AGC[a.state]||AGC.working,blink=a.state==='waiting'?(.55+.45*Math.abs(Math.sin(tn/380))):(a.state==='idle'||a.state==='done')?.45:1;
-    c.save();c.globalAlpha=f;c.globalCompositeOperation='lighter';
-    if(sp.roof!=null&&Math.abs(g.x-sp.x)<6){var gb=c.createLinearGradient(0,g.y,0,sp.roof);gb.addColorStop(0,col);gb.addColorStop(1,'rgba(61,242,255,0)');c.fillStyle=gb;c.globalAlpha=f*(.55+.25*Math.sin(tn/160));c.beginPath();c.moveTo(g.x-2,g.y);c.lineTo(g.x+2,g.y);c.lineTo(g.x+9,sp.roof);c.lineTo(g.x-9,sp.roof);c.closePath();c.fill();c.globalAlpha=f}
-    if(sp.hq){if(!sp.hidden){var pc=a.state==='waiting'?'#FFB020':'#8FB4E8';c.globalAlpha=f*(a.state==='waiting'?blink:.95);c.strokeStyle=pc;c.lineWidth=1.1;c.shadowColor=pc;c.shadowBlur=a.state==='waiting'?10:3;
-      c.beginPath();c.ellipse(g.x,g.y,5,2.2,0,0,7);c.stroke();c.shadowBlur=0;c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(g.x,g.y-3.2);c.lineTo(g.x+2.6,g.y);c.lineTo(g.x,g.y+1.8);c.lineTo(g.x-2.6,g.y);c.closePath();c.fill()}
-      c.restore();g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;return}
-    var sc=1,gl=c.createRadialGradient(g.x,g.y,0,g.x,g.y,22*sc);gl.addColorStop(0,col);gl.addColorStop(1,'rgba(0,0,0,0)');c.globalAlpha=f*.6*blink;c.fillStyle=gl;c.beginPath();c.arc(g.x,g.y,22*sc,0,7);c.fill();c.globalAlpha=f*blink;
-    c.strokeStyle=col;c.lineWidth=1.4;c.shadowColor=col;c.shadowBlur=8;c.setLineDash([4,3]);c.lineDashOffset=-tn/40;c.beginPath();c.ellipse(g.x,g.y,11*sc,5.5*sc,0,0,7);c.stroke();c.setLineDash([]);
-    c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(g.x,g.y-6*sc);c.lineTo(g.x+5*sc,g.y);c.lineTo(g.x,g.y+3.5*sc);c.lineTo(g.x-5*sc,g.y);c.closePath();c.fill();c.restore();
-    g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;
-    if(labels&&a.label&&!sp.hq&&(cam.z>.55||ids.length<=8))tronPill(c,g.x,g.y-15,a.label,col,'600 9px ui-monospace,monospace')})}
+${AGENTS_JS}
 // ---- visitor helicopters: the people looking at this member's profile right now. One helicopter per current viewer
 // (at most 3 in the air): it flies in when they arrive, circles slowly, and flies off when they leave (the hub counts a
 // viewer for 90 s after their last page view or heartbeat). Nobody else viewing, no helicopters. In the world, the same
@@ -997,8 +945,8 @@ function reconcile(){var tn=performance.now(),total=0;blocks.forEach(function(b)
   for(var n=mine.length;n<want;n++){var ex=exits(b);if(!ex.length)break;var s0=ex[Math.floor(Math.random()*ex.length)],c={i:s0[0],j:s0[1],ti:s0[0],tj:s0[1],t:1,b:b,born:tn,col:['#F2F2F5','#E85D75','#4FB89A','#E8C547','#7AA7FF'][Math.floor(Math.random()*5)]};step(c);cars.push(c)}
   mine.slice(want).forEach(function(c){c.gone=tn})})}
 function fa(c,tn){return c.gone?Math.max(0,1-(tn-c.gone)/1500):c.born?Math.min(1,(tn-c.born)/800):1}
-function agentLine(){var n={},ids=Object.keys(AG).filter(function(id){return !AG[id].gone});if(!ids.length)return '';ids.forEach(function(id){var s=AG[id].a.state;n[s]=(n[s]||0)+1});
-  return '<div class="q"><span style="color:#fff">AI agents</span> '+['working','thinking','waiting','idle'].filter(function(s){return n[s]}).map(function(s){return '<span style="color:'+AGC[s]+'">'+n[s]+' '+(s==='waiting'?'waiting on you':s)+'</span>'}).join(' &middot; ')+'</div>'}
+function agentLine(){var n={},ids=Object.keys(AG).filter(function(id){return !AG[id].gone});if(!ids.length)return '';if(AGSUM.n!==Object.keys(AG).length)agentLayout(performance.now());ids.forEach(function(id){var s=AG[id].a.state;n[s]=(n[s]||0)+1});
+  return '<div class="q"><span style="color:#fff">AI agents</span> '+['working','thinking','waiting','idle'].filter(function(s){return n[s]}).map(function(s){return '<span style="color:'+AGC[s]+'">'+n[s]+' '+(s==='waiting'?'waiting on you':s)+'</span>'}).join(' &middot; ')+(AGSUM.hold?' &middot; <span style="color:#3DF2FF">'+AGSUM.hold+' in the air (repo not in this city)</span>':'')+(AGSUM.hidden?' &middot; +'+AGSUM.hidden+' more parked':'')+'</div>'}
 var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');liveEl.className='c-live'+(st.clientWidth<600?' c-min':'');liveEl.setAttribute('aria-live','polite');st.appendChild(liveEl);if(typeof todayLine==='function')setTimeout(todayLine,0);
     liveEl.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('.h'))liveEl.classList.toggle('c-min')})}
   var ks=Object.keys(LV.d).filter(function(k){return byName[k]});
