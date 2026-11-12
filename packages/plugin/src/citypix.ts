@@ -65,7 +65,7 @@ function pxFace(p,o){var w=p.w,h=p.h,side=o.side,sf=side?.74:1,L=o.L,n=o.n,base=
     if(mat==='siding'&&v%2===0)c=cmul(c,.9);if(mat==='tech'&&v%3===0)c=cmul(c,.82);if(mat==='stucco')c=cmul(c,1+(pxN(seed+5,x,v)-.5)*.03);
     p.set(x,v,c)}
   // 2. floors: ledge (light over dark) on punched/brick/stucco, spandrel band on glass; cornice at the very top
-  for(var r=0;r<=rows;r++){var fv=F0+r*FH;if(fv>=h-2)break;for(var x1=0;x1<w;x1++){if(mat==='glass'){for(var b=0;b<3;b++)p.set(x1,fv+b,cmul(base,.78))}else if(mat!=='tech'&&mat!=='siding'){p.set(x1,fv,cmul(base,1.16));p.mul(x1,fv-1,.8)}}}
+  for(var r=0;r<=rows;r++){var fv=F0+r*FH;if(fv>=h-2)break;for(var x1=0;x1<w;x1++){if(mat==='glass'){p.set(x1,fv,cmul(base,.84));p.set(x1,fv+1,cmul(base,.9));p.set(x1,fv+2,cmul(base,1.06))}else if(mat!=='tech'&&mat!=='siding'){p.set(x1,fv,cmul(base,1.16));p.mul(x1,fv-1,.8)}}}
   if(mat!=='siding'){for(var xc=0;xc<w;xc++){p.set(xc,h-1,cmul(base,1.22));p.set(xc,h-2,cmul(base,.72));p.set(xc,h-3,cmul(base,1.1))}}
   // 3. windows
   if(mat==='glass'){var mull=6;for(var r2=0;r2<rows;r2++){var fv2=F0+r2*FH;for(var x2=0;x2<w;x2++){var k=Math.floor(x2/mull),on=litNow(r2,k),pane;
@@ -135,12 +135,12 @@ function pxBlock(c,px,py,w,h,mat,col,o){o=o||{};var hw=TW/2*w,hh=TH/2*w,L=P.ligh
   c.restore();
   if(o.ao!==false&&LODN>0){var g=c.createLinearGradient(0,py-Math.min(h,10),0,py+hh);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,'+(n?.35:.22)+')');poly(c,[[px-hw,py],[px,py+hh],[px+hw,py],[px+hw,py-Math.min(h,10)],[px,py+hh-Math.min(h,10)],[px-hw,py-Math.min(h,10)]],g)}
   return {hw:hw,hh:hh,top:ty,cut:cut,hTop:hTop}}
-/** the texel-sized squares a building's lost part is made of: sampled across the removed volume, in its own colours.
- *  Returns [{x,y,col,g}] in world px (g = where it lands), at most max of them */
-function pxShards(px,py,w,h,col,d,seed,max){var hw=TW/2*w,hh=TH/2*w,hb=pxBreak(h,d),n=hn(),L=P.light,out=[],cr=rgb(col),pal=[hex(cmul(cr,L)),hex(cmul(cr,L*.8)),hex(cmul(cr,L*.6)),n?'#F5D28A':'#C9E3F6','#8A8A93','#3A3D47',hex(cmul(cr,L*1.1))];
-  var lost=Math.max(3,h-hb),N=Math.min(max,Math.round(lost*hw*.5));for(var k=0;k<N;k++){var s=seed+k*1.618,side=rnd(s)<.5?0:1,u=rnd(s+1.1),v=hb+rnd(s+2.2)*lost,q=fpt(px,py,hw,hh,side,u,v);
-    if(rnd(s+3.3)<.18){var tq=tpt(px,py-h,hw,hh,rnd(s+4)*2-1,rnd(s+5)*2-1);q=tq}
-    out.push({x:q[0],y:q[1],col:pal[Math.floor(rnd(s+6.6)*pal.length)],g:py+(rnd(s+7.7)-.5)*hh*1.6,side:side,u:u})}return out}
+/** the texel-sized squares a building's lost part is made of: sampled across the faces between heights v0 and v1 (world px
+ *  from the ground) and across the top at v1, in the building's own colours. Returns [{x,y,col,g,side,u,v}], at most max */
+function pxShards(px,py,w,v0,v1,col,seed,max){var hw=TW/2*w,hh=TH/2*w,n=hn(),L=P.light,out=[],cr=rgb(col),pal=[hex(cmul(cr,L)),hex(cmul(cr,L*.8)),hex(cmul(cr,L*.6)),n?'#F5D28A':'#C9E3F6','#8A8A93','#3A3D47',hex(cmul(cr,L*1.1)),hex(cmul([200,190,170],L))];
+  var lost=Math.max(2,v1-v0),N=Math.max(0,Math.min(max,Math.round(lost*hw*.6)));for(var k=0;k<N;k++){var s=seed+k*1.618,side=rnd(s)<.5?0:1,u=rnd(s+1.1),v=v0+rnd(s+2.2)*lost,q=fpt(px,py,hw,hh,side,u,v);
+    if(rnd(s+3.3)<.2){q=tpt(px,py-v1,hw,hh,rnd(s+4)*2-1,rnd(s+5)*2-1);v=v1}
+    out.push({x:q[0],y:q[1],col:pal[Math.floor(rnd(s+6.6)*pal.length)],g:py+(rnd(s+7.7)-.5)*hh*1.7,side:side,u:u,v:v})}return out}
 /** the rubble heap at a hit building's foot: a deterministic mound of texel squares in the building's colours (cached layer).
  *  d = damage, f = rebuild progress (the heap is carted away as the floors come back) */
 function pxHeap(c,px,py,w,col,d,f,seed){if(d<=0||f>=1)return;var hw=TW/2*w,hh=TH/2*w,L=P.light,cr=rgb(col),keep=1-f,N=Math.round((60+d*220)*keep),n=hn(),

@@ -139,13 +139,20 @@ function bTraj(ax,ay,bx,by,f,hs){var d=Math.hypot(bx-ax,by-ay),H=Math.min(260,70
   var p=function(u){return [ax+(bx-ax)*u,ay+(by-ay)*u-H*4*u*(1-u)]},P=p(s),Q=p(s2);return {x:P[0],y:P[1],gy:ay+(by-ay)*s,a:Math.atan2(Q[1]-P[1],Q[0]-P[0]),boost:f<.35?1:Math.max(0,1-(f-.35)/.25)}}
 function bFlightDur(d){return 2500+Math.min(1500,d*3.5)}
 // ---- particles (one pool, capped: smoke, debris, sparks, dust, flashes, rings)
-var BP=[],BPMAX=260;
+// the particle pool: smoke, dust, debris, sparks, flashes, fire, rings, and the voxels a hit building breaks into ('vox', pixel
+// squares in the building's colours with gravity and a bounce) and the ones that fly back in while the cranes work ('build').
+// Caps: 2400 on a desktop, 800 on a phone; one hit adds at most 600 voxels walked in, 220 at street zoom, 80 on the world map
+var BP=[],BPMAX=260;function bPoolMax(){return vw<700?800:2400}function bVoxMax(){return LODN>=2?600:LODN===1?220:80}
 function bEmit(p){if(!isFinite(p.x)||!isFinite(p.y))return;if(BP.length>=BPMAX)BP.shift();p.age=0;BP.push(p)}
 function bStep(dt){for(var i=BP.length-1;i>=0;i--){var p=BP[i];p.age+=dt;if(p.age>=p.life){BP.splice(i,1);continue}
-  if(p.k==='debris'||p.k==='spark'){p.vy+=(p.k==='spark'?90:240)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y>p.g){p.y=p.g;p.vy=-p.vy*.35;p.vx*=.6;if(Math.abs(p.vy)<8)p.vy=0}p.rot+=p.vr*dt}
+  if(p.k==='vox'){p.vy+=260*dt;p.vx*=(1-.6*dt);p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y>p.g){p.y=p.g;p.vy=-p.vy*.3;p.vx*=.5;if(Math.abs(p.vy)<10){p.vy=0;p.vx=0;p.down=true}}}
+  else if(p.k==='build'){var u=Math.min(1,p.age/p.life),e=u*u*(3-2*u);p.x=p.x0+(p.x1-p.x0)*e;p.y=p.y0+(p.y1-p.y0)*e-Math.sin(u*Math.PI)*p.arc}
+  else if(p.k==='debris'||p.k==='spark'){p.vy+=(p.k==='spark'?90:240)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y>p.g){p.y=p.g;p.vy=-p.vy*.35;p.vx*=.6;if(Math.abs(p.vy)<8)p.vy=0}p.rot+=p.vr*dt}
   else{p.x+=(p.vx||0)*dt;p.y+=(p.vy||0)*dt;if(p.k==='smoke'){p.vx*=(1-.8*dt);p.vy-=14*dt}}}}
 function bDrawParticles(c){BP.forEach(function(p){var f=p.age/p.life;
   if(p.k==='smoke'||p.k==='dust'){var r=p.r0+(p.r1-p.r0)*f,al=p.al*(1-f)*(f<.15?f/.15:1),g=c.createRadialGradient(p.x,p.y,r*.15,p.x,p.y,r);g.addColorStop(0,'rgba('+p.col+','+al.toFixed(3)+')');g.addColorStop(1,'rgba('+p.col+',0)');c.fillStyle=g;c.beginPath();c.arc(p.x,p.y,r,0,7);c.fill()}
+  else if(p.k==='vox'){var av=f>.72?(1-f)/.28:1;if(av<1)c.globalAlpha=av;c.fillStyle=p.col;c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);if(p.s>1&&!p.down){c.fillStyle='rgba(255,255,255,.28)';c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s*.4)}if(av<1)c.globalAlpha=1}
+  else if(p.k==='build'){c.fillStyle=p.col;c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);if(f>.85){c.fillStyle='rgba(255,255,255,'+((f-.85)/.15*.8).toFixed(2)+')';c.fillRect(p.x-p.s,p.y-p.s,p.s*2,p.s*2)}}
   else if(p.k==='debris'){c.save();c.translate(p.x,p.y);c.rotate(p.rot);c.fillStyle=p.col;c.globalAlpha=f>.8?(1-f)/.2:1;c.fillRect(-p.s,-p.s*.6,p.s*2,p.s*1.2);c.fillStyle='rgba(255,255,255,.25)';c.fillRect(-p.s,-p.s*.6,p.s*2,p.s*.35);c.restore()}
   else if(p.k==='spark'){c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,'+Math.round(200-120*f)+',80,'+(1-f).toFixed(3)+')';c.lineWidth=.8;hline(c,p.x,p.y,p.x-p.vx*.03,p.y-p.vy*.03);c.restore()}
   else if(p.k==='flash'){c.save();c.globalCompositeOperation='lighter';var rr=p.r0+(p.r1-p.r0)*Math.sqrt(f),g2=c.createRadialGradient(p.x,p.y,0,p.x,p.y,rr);g2.addColorStop(0,'rgba(255,255,240,'+(.95*(1-f)).toFixed(3)+')');g2.addColorStop(.4,'rgba(255,190,90,'+(.7*(1-f)).toFixed(3)+')');g2.addColorStop(1,'rgba(255,120,40,0)');c.fillStyle=g2;c.beginPath();c.arc(p.x,p.y,rr,0,7);c.fill();c.restore()}
@@ -324,6 +331,8 @@ function bLoadOf(S,s,n){return S.live?bLoadAt(S,s.k,n):S.D-1}
 function bImpactAt(S,s){return bImpactOf(S,s)}
 /** damage on one GitHub building (0..1, in sixths): full from each hit's impact until the hold ends, then down to nothing */
 function bBld(t,i,j){if(!BON||!BL.damage)return 0;var P=BREP?BREP.P:BPLAN;if(!P)return 0;var e=BBAT[i+','+j];if(!e)return 0;var o=P.hit[e.key];if(!o||!o[e.idx])return 0;var S=bS(),now=bNow(),s=0;o[e.idx].forEach(function(h){s+=bHitDmg(S,h.f,bImpactOf(S,h),now)});return Math.min(1,Math.round(s*6)/6)}
+/** the damage a building took this night, in sixths, as it stood when the hold ended (the break line is drawn from this while the cranes work, the build line rises through it) */
+function bBldHeld(i,j){if(!BON||!BL.damage)return 0;var P=BREP?BREP.P:BPLAN;if(!P)return 0;var e=BBAT[i+','+j];if(!e)return 0;var o=P.hit[e.key];if(!o||!o[e.idx])return 0;var S=bS(),now=bNow(),s=0;o[e.idx].forEach(function(h){if(now>=bImpactOf(S,h))s+=h.f});return Math.min(1,Math.round(s*6)/6)}
 /** rebuild progress 0..1 (0 while the damage holds) */
 function bRebuild(){var S=bS();if(!S)return 0;var now=bNow();return now<S.hold?0:Math.min(1,(now-S.hold)/(S.end-S.hold))}
 function bCenter(key){var g=GM[key];if(!g||!g.b)return null;var S=(g.cs||gState(g)).side;return iso(g.b.x+S/2-.5,g.b.y+S/2-.5)}
@@ -386,6 +395,14 @@ function bClock(now){var S=bS();if(!S)return;if(BREP&&now>=S.end){bReplayEnd(tru
   var q=now<S.hold?-1:Math.floor(Math.min(1,(now-S.hold)/(S.end-S.hold))*6);if(q!==BQ){var first=BQ===-1&&q===-1;BQ=q;if(!first)bRedraw()}}
 function bBetween(t,a,b){return t>a&&t<=b}
 /** the floors a hit takes off its tower (the damage step before and after this impact), as a collapse on the moving layer */
+/** the shatter (Mike 11-11: "buildings should break apart into masses of small pixels"): the floors this hit takes, between the
+ *  break lines before and after it, burst into voxels in the building's own colours thrown outward from the impact and up,
+ *  that fall, bounce on the ground around the footprint and settle (the cached heap then holds the rubble). Capped per LOD */
+function bShatterFor(s,iA){var b=s.b,P=bPlan(Date.now()),S=bS(),L=(P.hit[s.d]||{})[b.idx]||[],d0=0,d1=0;L.forEach(function(q){var ia=bImpactOf(S,q);if(ia<=iA)d1+=q.f;if(ia<iA)d0+=q.f});d0=Math.min(1,Math.round(d0*6)/6);d1=Math.min(1,Math.round(d1*6)/6);if(d1<=d0)return 0;
+  var h=b.h,tiers=typeof towerTiers==='function'?towerTiers(h):[[.78,h]],w=tiers[0][0],base=b.p.y+4,lo=pxBreak(h,d1),hi=pxBreak(h,d0),col=bCol(s.d),st=Math.min(1.6,.6+s.f),max=bVoxMax();
+  var sh=pxShards(b.p.x,base,w,lo,hi,col,hash(s.d)+s.ix*7,max),cx0=s.to.x,cy0=s.to.y;
+  sh.forEach(function(q,k){var dx=q.x-cx0,dy=q.y-cy0,dd=Math.max(4,Math.hypot(dx,dy)),sp=(50+rnd(k*3.1+q.x)*120)*st,up=-(60+rnd(k*1.7+q.y)*150)*st;
+    bEmit({k:'vox',x:q.x,y:q.y,vx:dx/dd*sp+(rnd(k+.4)-.5)*30,vy:dy/dd*sp*.4+up,g:q.g,s:.9+rnd(k*5.3)*1.3,col:q.col,life:2.6+rnd(k*2.9)*1.6})});return sh.length}
 function bCollapseFor(s,iA,tn){var b=s.b,P=bPlan(Date.now()),S=bS(),L=(P.hit[s.d]||{})[b.idx]||[],d0=0,d1=0;L.forEach(function(q){var ia=bImpactOf(S,q);if(ia<=iA)d1+=q.f;if(ia<iA)d0+=q.f});d0=Math.min(1,Math.round(d0*6)/6);d1=Math.min(1,Math.round(d1*6)/6);if(d1<=d0)return;
   var h=b.h,tiers=typeof towerTiers==='function'?towerTiers(h):[[.62,h]];bCollapseAdd(b.p.x,b.p.y+4,Math.max(10,Math.round(h*(1-.5*d0))),Math.max(10,Math.round(h*(1-.5*d1))),tiers[tiers.length-1][0],bCol(s.d),tn,BREP?BCOLREP:BCOLMS)}
 // ---- the damage tier readout (Mike 11-08: show the tier dropping): for 2.6 s after each impact, a pill over the tower with six pips
@@ -407,7 +424,7 @@ function bHitLabels(c,P,S,now){var L=bHitsNow(P,S,now);if(!L.length)return;L=L.s
  *  impacts, smoke ribbons and columns, and the counts */
 function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,tn=performance.now(),P=bPlan(Date.now()),S=bS(),now=bNow();bClock(now);P=bPlan(Date.now());S=bS();now=bNow();var dt=battleOver.tp?Math.min(.05,(tn-battleOver.tp)/1000):0;battleOver.tp=tn;
   if(BREP){if(typeof INTRO!=='undefined'&&INTRO&&typeof introFinish==='function')introFinish(true);if(typeof BUILDING!=='undefined'&&BUILDING&&typeof buildDone==='function')buildDone()}   // the city intro and new-land builds never run over a replay
-  var rep=!!BREP,paused=rep&&BREP.pauseAt!=null,fx=BLAST>0&&now-BLAST<5000,last=BLAST;BLAST=now;BPMAX=vw<700?160:260;
+  var rep=!!BREP,paused=rep&&BREP.pauseAt!=null,fx=BLAST>0&&now-BLAST<5000,last=BLAST;BLAST=now;BPMAX=bPoolMax();
   c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);var M=BDATA.members||{},vb=hView(TH*3),inView=function(p){return p&&p.x>vb[0]-60&&p.x<vb[1]+60&&p.y>vb[2]-200&&p.y<vb[3]+80};
   if(BL.shields)for(var k in M){var ctr=bCenter(k),g=GM[k];if(!ctr||!g||!inView(ctr))continue;var sd=(g.cs||gState(g)).side,sh=M[k].sh||0;if(sh<=0)continue;bShieldDome(c,ctr.x,ctr.y+8,sd*TW*.42+20,M[k].beg?'#FFFFFF':'#3DF2FF',M[k].beg?.12:.08+.22*sh)}
   var badges=[],aAng=Math.atan2(BIY,BIX),padKeys={};for(var mk in M)padKeys[mk]=1;for(var ak in P.byA)if(ak.charAt(0)==='@')padKeys[ak]=1;
@@ -431,13 +448,17 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
   if(rep)bDrawRibbons(c,now);
   // missiles in flight and their hits (also for raiders, who fire from the sea with no pad)
   P.shots.forEach(function(s){if(!s.from||!s.to)return;var fA=bFireOf(S,s),dur=bFlightOf(S,s),iA=fA+dur,sz=BSZ[s.w]||1;
-    if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.f>0&&s.b&&!reduce){bImpactFx(s.to.x,s.to.y+4,bCol(s.d),s.f*(rep?1.3:1),s.b.p.y+4);bCollapseFor(s,iA,BFXT)}else if(fx&&!reduce)bShieldFx(s.to.x,s.to.y,'#3DF2FF');if(s.f>0&&s.b)bRedraw()}
+    if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.f>0&&s.b&&!reduce){bImpactFx(s.to.x,s.to.y+4,bCol(s.d),s.f*(rep?1.3:1),s.b.p.y+4);bShatterFor(s,iA)}else if(fx&&!reduce)bShieldFx(s.to.x,s.to.y,'#3DF2FF');if(s.f>0&&s.b)bRedraw()}
     if(s.a.charAt(0)!=='@'&&fx&&bBetween(fA,last,now)){if(rep)bLaunchFxBig(s.from.x,s.from.y,-1);else bLaunchFx(s.from.x,s.from.y,-1)}
     if(now>=fA&&now<iA&&BL.attacks&&(inView(s.from)||inView(s.to)||rep)){var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-fA)/dur);missileHi(c,tr.x,tr.y,tr.a,sz,bCol(s.a),tr.boost);
       if(rep){if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz)}else if(Math.floor(tn/50)%2===0&&BP.length<BPMAX-30)bTrailFx(tr.x,tr.y,tr.a,sz)}});
   if(dt>0&&!paused){var spd=rep?BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);
   // smoke on badly hit buildings (at most 6 columns in view)
-  if(BL.damage){var nSm=0;for(var hk in P.hit){var bl=BBLD[hk]||[];for(var bi in P.hit[hk]){var b=bl[+bi];if(!b||nSm>=6)continue;var d=bBld(null,b.i,b.j);if(d<.5)continue;var hh=typeof bh==='function'?bh(b.r):40,top=b.p.y+4-Math.max(10,Math.round(hh*(1-.5*d)));if(!inView(b.p))continue;nSm++;smokeHi(c,b.p.x+2,top-6,d>=1)}}}
+  if(BL.damage){var nSm=0;for(var hk in P.hit){var bl=BBLD[hk]||[];for(var bi in P.hit[hk]){var b=bl[+bi];if(!b||nSm>=6)continue;var d=bBld(null,b.i,b.j);if(d<.5)continue;var hh=typeof bh==='function'?bh(b.r):40,rb=bRebuild(),top=b.p.y+4-Math.max(pxBreak(hh,bBldHeld(b.i,b.j)),rb*hh);if(!inView(b.p))continue;nSm++;if(rb<=0)smokeHi(c,b.p.x+2,top-6,d>=1)}}
+    // the rebuild, pixel by pixel: while the cranes work, voxels in the building's colours fly in from the hook and land on the build line
+    if(BL.damage&&!reduce&&dt>0){var rb2=bRebuild();if(rb2>0&&rb2<1){var nB=0;for(var hk2 in P.hit){var bl2=BBLD[hk2]||[];for(var bi2 in P.hit[hk2]){var b2=bl2[+bi2];if(!b2||nB>=8||!inView(b2.p))continue;var dh=bBldHeld(b2.i,b2.j);if(dh<=0)continue;nB++;
+      if(rnd(Math.floor(tn/140)+b2.i*3+b2.j)<.5){var h2=typeof bh==='function'?bh(b2.r):40,tiers2=typeof towerTiers==='function'?towerTiers(h2):[[.78,h2]],w2=tiers2[0][0],hw2=TW/2*w2,hh2=TH/2*w2,base2=b2.p.y+4,yb=rb2*h2,side=rnd(tn+b2.i)<.5?0:1,u=.05+rnd(tn*.7+b2.j)*.9,q=fpt(b2.p.x,base2,hw2,hh2,side,u,yb+(rnd(tn+u)-.5)*2),cr2=rgb(bCol(hk2)),L2=P.light;
+        bEmit({k:'build',x0:b2.p.x+4+(rnd(tn*.3)-.5)*20,y0:base2-h2-40,x1:q[0],y1:q[1],x:0,y:0,arc:8+rnd(tn)*10,s:.8+rnd(tn*1.3)*.8,col:hex([cr2[0]*L2,cr2[1]*L2,cr2[2]*L2]),life:.8+rnd(tn*.9)*.4})}}}}}}
   // the counts and the countdown, in screen space
   c.setTransform(dpr,0,0,dpr,0,0);badges.forEach(function(b){if(b[5])badgeHi(c,cam.x+b[0]*cam.z,cam.y+b[1]*cam.z,b[2],b[3],b[4])});
   if(rep)bHitLabels(c,P,S,now);

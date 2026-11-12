@@ -1564,13 +1564,14 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=r.kind?.6:dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
       var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));   // people on the site right now light up its building (the rest of the district a little)
-      if(bdm>0){h=Math.max(10,Math.round(h*(1-.5*bdm)));litp=0}   // a hit tower has lost its top floors and its lights (citybattle.ts), back floor by floor as the cranes work
+      var rb0=bdm>0?bRebuild():0,bdh=bdm>0?Math.max(bdm,bBldHeld(i,j)):0;if(bdm>0)litp*=Math.max(0,1-bdh*.85);   // a hit tower keeps its height in the data; its texture loses the top floors and most lights (citypix.ts), back pixel by pixel as the cranes work
       var tiers=towerTiers(LODN===1&&bf>=1?Math.round(h/3)*3:h),base=p.y+4,top=base;nObj++;   // at LOD 1 heights snap to 3 px so towers share sprites
       if(bf<1){top=lego(c,p.x,base,tiers,h,col,glass,litp,seed,r,bf,i+','+j,t.d&&(t.d.nb||t.d.name),LOD);if(bf>0&&bf<.8&&!LOD)cranes.push({x:p.x+4,y:top,seed:seed})}
       else{var hs=0;tiers.forEach(function(q){hs+=q[1]});top=base-hs;   // the tower (variant by glass and seed), roof plant and yard; through the atlas at LOD 1
         var tv2=glass?(seed%3===2?2:0):(seed%3===2?2:1),lq=Math.round(litp*4)/4,pq=sg>0?Math.round(Math.min(.55,sg*.75)*4)/4:0,rk=roofKind(r,seed),sk=seed%2,tc=col,ttw=tiers[tiers.length-1][0],hb=Math.ceil(hs)+84;
-        hiDraw(c,bdm>0?null:'tw|'+tv2+'|'+Math.round(hs)+'|'+tc+'|'+lq+'|'+pq+'|'+rk+'|'+sk,116,hb,58,hb-34,p.x,p.y,function(cc){var tp=towerHi(cc,0,0,{variant:tv2,col:tc,seed:sk*131+7,tiers:tiers,litp:lq,people:pq,roof:false});if(LODN>0)roofProps(cc,0,tp,ttw,r,seed)})}
-      if(bdm>0&&bf>=1){var rb0=bRebuild();scorchHi(c,p.x,base,bdm);bRubblePiles(c,p.x,base,col,bdm);ruinHi(c,p.x,top,tiers[tiers.length-1][0],col,bdm,rb0);if(rb0>0){scaffoldHi(c,p.x,base,tiers[0][0],base-top,1);cranes.push({x:p.x+4,y:top,seed:seed,col:col})}}
+        hiDraw(c,bdm>0?null:'tw|'+tv2+'|'+Math.round(hs)+'|'+tc+'|'+lq+'|'+pq+'|'+rk+'|'+sk,116,hb,58,hb-34,p.x,p.y,function(cc){var tp=towerHi(cc,0,0,{variant:tv2,col:tc,seed:sk*131+7,tiers:tiers,litp:lq,people:pq,roof:false,dmg:bdm>0?{d:bdh,f:rb0,seed:seed}:null});if(LODN>0&&!(bdm>0))roofProps(cc,0,tp,ttw,r,seed)});
+        if(bdm>0)top=base-Math.max(pxBreak(hs,bdh),rb0*hs)}
+      if(bdm>0&&bf>=1){scorchHi(c,p.x,base,bdh);pxHeap(c,p.x,base,tiers[0][0],col,bdh,rb0,seed);if(rb0>0&&rb0<1){var yb0=rb0*hs,sb0=Math.max(0,yb0-14);scaffoldHi(c,p.x,base-sb0,tiers[0][0],yb0-sb0+3,1);cranes.push({x:p.x+4,y:top,seed:seed,col:col})}}
       if(r===tallest)beacons.push({x:p.x,y:top-26});
       if(r.week>0&&!dm&&bf>=1)cranes.push({x:p.x+4,y:top,seed:seed});
       if(SL&&bf>=1)SIGNS.push({c:c,x:p.x,base:base,top:top,list:SL,d:t.d,tron:false,LOD:LOD,lift:r.week>0&&!dm?30:r===tallest?28:4});   // above the crane or the beacon

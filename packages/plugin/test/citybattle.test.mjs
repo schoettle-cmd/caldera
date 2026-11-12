@@ -30,7 +30,7 @@ function world(sky, clock, data, reduce = false) {
     var tiles={};for(var j=0;j<=H;j++)for(var i=0;i<=W;i++)tiles[i+','+j]={t:'g'};tiles['2,9']={t:'b',d:DA,r:RA1};tiles['4,9']={t:'b',d:DA,r:RA2};tiles['12,9']={t:'b',d:DB,r:RB1};tiles['14,9']={t:'b',d:DB,r:RB2};
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();`;
   const F = class extends Date { static now() { return clock.t; } };
-  return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
+  return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
     art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock);
 }
 const data = () => ({ at: "x", night: "2026-11-07", t0: at(2), next: at(2) + 864e5, members: { "@a": { sh: .2, beg: 0, ammo: 20, best: "cannon", shots: 6, hits: [], reb: 100 }, "@b": { sh: 0, beg: 0, ammo: 5, best: "catapult", shots: 2, hits: [], reb: 100 } },
@@ -207,9 +207,11 @@ test("aim points: every shot lands on the roof of one of the defender's repo tow
   // the impact plays on the building: fireball and chunks at the roof, the lost floors collapse into the stump, rubble piles up
   const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, lead = R.beats[0].lead;
   for (let ms = lead.ri - 300; ms <= lead.ri + 60; ms += 30) { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); }
-  assert.ok(Wd.art.collapses() > 0, "a collapse transient after the hit"); assert.ok(Wd.bp() > 20, "fireball, chunks, dust");
-  const c = stubCtx(); Wd.art.bDrawCollapse(c, Wd.art.fx() + 300); Wd.art.bRubblePiles(c, 0, 0, "#3178C6", 1); assert.ok(c.__n.ops > 10);
-  for (let k = 0; k < 40; k++) { clock.p += 100; Wd.bcam(); Wd.over(); } assert.equal(Wd.art.collapses(), 0, "gone after 1.4 s (a replay's collapse is slow enough to watch)"); Wd.api.stop();
+  // Mike 11-11: the lost floors shatter into masses of pixels in the tower's colours (capped per LOD), fall, bounce and settle, then fade
+  assert.ok(Wd.vox() >= 50 && Wd.vox() <= 600, "the hit floors burst into voxels: " + Wd.vox()); assert.ok(Wd.bp() > 70, "fireball, chunks, dust and voxels");
+  const c = stubCtx(); Wd.art.bDrawParticles(c); Wd.art.bRubblePiles(c, 0, 0, "#3178C6", 1); assert.ok(c.__n.ops > 60, "every voxel is drawn");
+  for (let k = 0; k < 20; k++) { clock.p += 100; Wd.bcam(); Wd.over(); } assert.ok(Wd.voxDown() > 0, "voxels have landed around the footprint after 2 s");
+  Wd.api.stop(); for (let k = 0; k < 90; k++) { clock.p += 50; Wd.over(); } assert.equal(Wd.vox(), 0, "all gone within 4.5 s of no new hits (the cached heap holds the rubble)");
 });
 
 test("battle art: pad, stack, drop, launch center, countdown, ruin and particles draw with finite geometry by day and night at every LOD", () => {
@@ -239,7 +241,7 @@ test("battle: wired into the renderer; no walkers, no houses, no crews in the Ba
   assert.ok(CITY_JS.includes("if(!BON)drawWalks()"), "no people on foot in the Battle view");
   assert.ok(CITY_JS.includes("if(t.t==='h'&&!BON)") && CITY_JS.includes("if(cd===4){if(!BON)"), "no little houses in the Battle view");
   assert.ok(CITY_JS.includes("hc===0&&!BON") && CITY_JS.includes("!gWin()&&!BON") && CITY_JS.includes("if(!BON)for(var k=0;k<7;k++)") && CITY_JS.includes("if(!BON)drawFx()"), "no growth crews, parades or effects walkers in the Battle view");
-  assert.ok(CITY_JS.includes("litp=0}") && CITY_JS.includes("bRubblePiles(c,p.x,base,col,bdm)"), "a hit tower goes dark and rubble piles up around it");
-  assert.ok(CITY_JS.includes("bBld(t,i,j)") && CITY_JS.includes("ruinHi(c,p.x,top") && CITY_JS.includes("cranes.push({x:p.x+4,y:top,seed:seed,col:col})"), "hit towers lose floors, show a ruin and get a crane");
+  assert.ok(CITY_JS.includes("litp*=Math.max(0,1-bdh*.85)") && CITY_JS.includes("pxHeap(c,p.x,base,tiers[0][0],col,bdh,rb0,seed)"), "a hit tower goes dark and a heap of its own pixels piles up around it");
+  assert.ok(CITY_JS.includes("bBld(t,i,j)") && CITY_JS.includes("dmg:bdm>0?{d:bdh,f:rb0,seed:seed}:null") && CITY_JS.includes("cranes.push({x:p.x+4,y:top,seed:seed,col:col})"), "hit towers lose floors through the pixel mask and get a crane while the build line rises");
   new Function(CITY_JS);
 });
