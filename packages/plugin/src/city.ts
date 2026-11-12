@@ -13,7 +13,8 @@ import { BATTLE_DRAW_JS } from "./citybattle";
 import { HIFI_JS } from "./cityhifi";
 import { AGENTS_JS } from "./cityagents";
 import { LIFE_JS } from "./citylife";
-export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS, LIFE_JS };
+import { LEGEND_JS } from "./citylegend";
+export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS, LIFE_JS, LEGEND_JS };
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;
@@ -575,7 +576,7 @@ function fit(){COBT=0;var r=st.getBoundingClientRect();dpr=Math.min(window.devic
 // ---- cars wander the roads
 var roads=[];for(var k in tiles)if(tiles[k].t==='r'){var p=k.split(',');roads.push([+p[0],+p[1]])}
 var traffic=D.districts.reduce(function(s,d){return s+d.repos.reduce(function(a,r){return a+r.week},0)},0);
-var cars=[];for(var c=0;c<Math.min(70,4+Math.round(traffic/6))&&roads.length;c++){var s=roads[Math.floor(rnd(c+1)*roads.length)];cars.push({i:s[0],j:s[1],ti:s[0],tj:s[1],t:1,col:['#F2F2F5','#E85D75','#4FB89A','#E8C547','#7AA7FF'][c%5]})}
+var cars=[];for(var c=0;c<Math.min(70,4+Math.round(traffic/6))&&roads.length;c++){var s=roads[Math.floor(rnd(c+1)*roads.length)];cars.push({kind:'car',i:s[0],j:s[1],ti:s[0],tj:s[1],t:1,col:['#D9483B','#3F7FD9','#ECEFF3','#F2C14E','#2B2B2B'][c%5]})}
 // ---- live traffic on the owner's own sites (polled from the hub, or posted in by Obsidian): every visitor rides out of
 // their district as a light (white), signups pulse pink, purchases fire a gold beam. Public pages get activity levels only.
 var LV={d:{},seen:'',mode:''},vis=[],pulses=[],VCOL='#FFFFFF',SCOL='#FF4FD8',BCOL='#FFD23F';
@@ -585,8 +586,7 @@ function spawn(b,col,fast){var ex=exits(b);if(!ex.length||vis.length>160)return;
   var v={i:s[0],j:s[1],ti:s[0],tj:s[1],t:1,col:col,b:b,born:performance.now(),life:14000+Math.random()*9000,sp:fast?.06:.045};step(v);vis.push(v)}
 function pulse(b,col,big){var p=iso(b.x+b.k/2-.5,b.y+b.k/2-.5);pulses.push({x:p.x,y:p.y,col:col,born:performance.now(),big:big})}
 function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT=data.lit;if(data&&data.districts&&typeof data.districts==='object'){var gt={},gs={};for(var gk in data.districts){var gd=data.districts[gk]||{},gv=+gd.glow;if(gv>0)gt[gk]=Math.min(1,gv);if(gd.sites&&typeof gd.sites==='object'){var sm={},sn=0;for(var sk in gd.sites){var sv=+gd.sites[sk];if(sv>0&&sn<24){sm[String(sk).slice(0,40)]=Math.min(1,sv);sn++}}if(sn)gs[gk]=sm}}GT=gt;GS=gs}if(D.world&&data&&typeof data.members==='number'&&typeof worldGrew==='function')worldGrew(data.members);if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
-  if(!LV.on&&Object.keys(LV.d).length){LV.on=true}lifeRetarget();lifeCars();   // live data replaces the ambient traffic: from now on every car is a real visitor
-  if(LV.on)reconcile();
+  if(!LV.on&&Object.keys(LV.d).length){LV.on=true}lifeRetarget();lifeCars();legendUpdate();   // the population and the traffic follow the numbers (citylife.ts); the legend states them
   if(Array.isArray(data.agents))agentsIn(data.agents);
   if(Array.isArray(data.events)){var first=!LV.seen,fresh=data.events.filter(function(ev){return ev&&ev.ts>LV.seen&&(ev.k!=='view'||ev.n)}).reverse();
     var nv=0,nc=0;if(!first)fresh.slice(-40).forEach(function(ev){if(ev.k==='kudos')return void setTimeout(function(){kudosBurst(ev)},(nc++)*900);var b=byName[ev.d]||byName.Private;if(!b)return;
@@ -691,7 +691,7 @@ function drawWalks(){if(INTRO)return;if(!WALKS.length)return;var c=cx,tn=perform
     if(w.ghost)a=.42*Math.min(1,w.d/8)*(f>.7?Math.max(0,1-(f-.7)/.3):1);else a=f>.86?Math.max(0,1-(f-.86)/.14):1;   // arrivals fade into the doorway, ghosts fade at the district edge
     if(a<=0)return;var wf=Math.floor(w.d/2.4)%4;c.save();c.globalAlpha=a;
     c.fillStyle=shade;c.beginPath();c.ellipse(p.x+1,p.y+.6,2.4*PS,1*PS,0,0,7);c.fill();
-    walkerFig(c,p.x,p.y,w.ghost?GHOSTCOL:(w.col||live),PS,wf,p.ux,p.uy);c.restore()})}
+    if(!pxBlit(c,lifeSpr(w.id%6,wf%2),p.x,p.y,p.ux<0,LS))walkerFig(c,p.x,p.y,w.ghost?GHOSTCOL:(w.col||live),PS,wf,p.ux,p.uy);c.restore()})}
 // worn paths: footprints between the street and each busy building's door, brighter with more visitors today (log
 // scale), newer visits counting more; they reset at the viewer's local midnight
 function buildTraces(){TRACES=[];if(!TODAY)return;var mid=new Date();mid.setHours(0,0,0,0);var m0=mid.getTime(),Q15=9e5,wmax=0,W={};
@@ -799,6 +799,7 @@ if(EX){if(EX.weather){setTimeout(fetchWx,300);setInterval(fetchWx,15*60000)}if(E
 window.addEventListener('message',function(ev){var m=ev.data;if(ev.source!==parent||!m||m.caldera!=='extras'||!m.data)return;if(m.data.weather&&m.data.weather.c){WX=m.data.weather;applyWeather()}if(m.data.owner)ownerSetup(m.data.owner)});
 
 ${AGENTS_JS}
+${LEGEND_JS}
 // ---- visitor helicopters: the people looking at this member's profile right now. One helicopter per current viewer
 // (at most 3 in the air): it flies in when they arrive, circles slowly, and flies off when they leave (the hub counts a
 // viewer for 90 s after their last page view or heartbeat). Nobody else viewing, no helicopters. In the world, the same
@@ -942,16 +943,11 @@ function noteCard(ix){var n=U.nodes[ix];usel=ix;UDIRTY=true;var open='';
   card.hidden=false;card.querySelector('.x').onclick=function(){usel=null;UDIRTY=true;card.hidden=true};upulseFrom(ix)}
 window.addEventListener('message',function(ev){var m=ev.data;if(ev.source===parent&&m&&m.caldera==='note'&&U&&typeof m.p==='string'){var ix=U.byPath[m.p];if(ix!=null){U.nodes[ix].m=0;upulseFrom(ix)}}});
 // one car per person on the site right now (private: exact count from the last 5 minutes; public: a coarse level)
-function reconcile(){var tn=performance.now(),total=0;blocks.forEach(function(b){var x=LV.d[D.world?(b.rep?b.d.nb:''):b.d.name],want=!x?0:LV.mode==='private'?Math.min(30,+x.now||0):([0,2,4,7,11][+x.level||0]||0);
-  if(total+want>120)want=Math.max(0,120-total);total+=want;
-  var mine=cars.filter(function(c){return c.b===b&&!c.gone});
-  for(var n=mine.length;n<want;n++){var ex=exits(b);if(!ex.length)break;var s0=ex[Math.floor(Math.random()*ex.length)],c={i:s0[0],j:s0[1],ti:s0[0],tj:s0[1],t:1,b:b,born:tn,col:['#F2F2F5','#E85D75','#4FB89A','#E8C547','#7AA7FF'][Math.floor(Math.random()*5)]};step(c);cars.push(c)}
-  mine.slice(want).forEach(function(c){c.gone=tn})})}
 function fa(c,tn){return c.gone?Math.max(0,1-(tn-c.gone)/1500):c.born?Math.min(1,(tn-c.born)/800):1}
 function agentLine(){var n={},ids=Object.keys(AG).filter(function(id){return !AG[id].gone});if(!ids.length)return '';if(AGSUM.n!==Object.keys(AG).length)agentLayout(performance.now());ids.forEach(function(id){var s=AG[id].a.state;n[s]=(n[s]||0)+1});
   return '<div class="q"><span style="color:#fff">AI agents</span> '+['working','thinking','waiting','idle'].filter(function(s){return n[s]}).map(function(s){return '<span style="color:'+AGC[s]+'">'+n[s]+' '+(s==='waiting'?'waiting on you':s)+'</span>'}).join(' &middot; ')+(AGSUM.hold?' &middot; <span style="color:#3DF2FF">'+AGSUM.hold+' in the air (repo not in this city)</span>':'')+(AGSUM.hidden?' &middot; +'+AGSUM.hidden+' more parked':'')+'</div>'}
 var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');liveEl.className='c-live'+(st.clientWidth<600?' c-min':'');liveEl.setAttribute('aria-live','polite');st.appendChild(liveEl);if(typeof todayLine==='function')setTimeout(todayLine,0);
-    liveEl.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('.h'))liveEl.classList.toggle('c-min')})}
+    liveEl.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('.lgd-open'))return legendToggle(true);if(ev.target.closest&&ev.target.closest('.h'))liveEl.classList.toggle('c-min')})}
   var ks=Object.keys(LV.d).filter(function(k){return byName[k]});
   if(LV.mode==='private'){ks.sort(function(a,b){return (LV.d[b].now-LV.d[a].now)||(LV.d[b].views-LV.d[a].views)});var tot=ks.reduce(function(s,k){return s+(+LV.d[k].now||0)},0);
     // busy districts get a row (at most 5); the rest share one quiet line so the panel never needs to scroll
@@ -960,9 +956,9 @@ var liveEl=null;function hud(){if(!liveEl){liveEl=document.createElement('div');
      +(ks.length?'':'<div class="s m">No visits yet. Paste a district\'s snippet from Caldera settings &gt; Live traffic on your city into that site.</div>')
      +busy.map(function(k){var x=LV.d[k];return '<div class="r"><span>'+e(k)+'</span><b>'+(+x.now||0)+' now</b></div><div class="s m">'+(+x.views||0).toLocaleString('en-US')+' views'+(x.signups?' &middot; '+x.signups+' signups':'')+(x.buys?' &middot; '+x.buys+' sales':'')+' in 24h</div>'}).join('')
      +agentLine()+(quiet.length?'<div class="q m">Quiet now: '+quiet.map(function(k){return e(k)+' '+(+LV.d[k].views||0)}).join(' &middot; ')+' views in 24h</div>':'')
-     +'<div class="lg m" style="margin-top:4px">Each car is someone on that site now.<br><i style="background:'+SCOL+'"></i>signup<i style="background:'+BCOL+'"></i>sale</div>'}
+     +'<div class="lg m" style="margin-top:4px">Walkers are people on your sites now, cars are views, vans sales, scooters signups. <span class="lgd-open" role="button" tabindex="0">What am I looking at?</span></div>'}
   else{var any=ks.some(function(k){return LV.d[k].level>0});ks.sort(function(a,b){return LV.d[b].level-LV.d[a].level});
-    liveEl.innerHTML='<div class="h"><i class="dot"></i>LIVE &middot; '+(any?'people on these sites right now':'quiet right now')+'</div>'+agentLine()
+    liveEl.innerHTML='<div class="h"><i class="dot"></i>LIVE &middot; '+(any?'people on these sites right now':'quiet right now')+'</div>'+agentLine()+'<div class="s m"><span class="lgd-open" role="button" tabindex="0">What am I looking at?</span></div>'
      +ks.filter(function(k){return LV.d[k].level>0}).map(function(k){return '<div class="r"><span>'+e(k)+'</span><b><i class="bar" style="width:'+(LV.d[k].level*14)+'px"></i></b></div>'}).join('')}}
 var CL=window.CALDERA_LIVE;function poll(){if(document.hidden)return;fetch(CL.url+(LV.at?(CL.url.indexOf('?')<0?'?':'&')+'since='+encodeURIComponent(LV.at):''),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(onLive).catch(function(){})}
 if(CL&&typeof CL.url==='string'){setTimeout(poll,600);setInterval(poll,10000)}
@@ -1037,7 +1033,7 @@ function tronPrism(c,px,py,w,h,col,litp,seed,locked){var hw=TW/2*w,hh=TH/2*w,L=[
   // neon edges
   glowLine(c,[[px-hw,py],[px,py+hh],[px+hw,py]],col,1,6);glowLine(c,[[px,py+hh],[px,py+hh-h]],col,1.4,10);glowLine(c,[[px-hw,py],[px-hw,py-h]],col,.8,5);glowLine(c,[[px+hw,py],[px+hw,py-h]],col,.8,5);
   glowLine(c,Tp,col,1.2,10,true)}
-function tronObjects(){SIGNS=[];CLAB=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[];
+function tronObjects(){SIGNS=[];CLAB=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];STEAM=[];CREWS=[];var tags=[];
   for(var sum=0;sum<=W+H;sum++)for(var i=0;i<=W;i++){var j=sum-i;if(j<0||j>H)continue;var t=tiles[i+','+j],p=iso(i,j);
     if((t.t==='g'&&!water(i,j)&&rnd(i*17+j*29)<.22)||t.t==='p'){// data crystals
       var n=t.t==='p'?3:1;for(var q=0;q<n;q++){var cx0=p.x+(rnd(i*3+q)-.5)*24,cy0=p.y+(rnd(j*5+q)-.5)*10,s=.6+rnd(i+j+q)*.5,col=rnd(i*7+j+q)<.5?'#2BFFC0':CYAN;
@@ -1496,7 +1492,7 @@ function pill(c,x,y,text,bg,fg,font){c.font=font;var tw=c.measureText(text).widt
   c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+.5);c.textBaseline='alphabetic'}
 var lamps=[],cranes=[],beacons=[];
 // level of detail (BUILD-NOTE 4): 0 below zoom .5 on the World (shapes only), 1 up to 1.1 (sprites from the atlas), 2 walked in (vectors)
-function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z<1.1?1:2;atlFrame();var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.lineJoin='round';hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];var tags=[],vv=hView(maxH+60),nObj=0;
+function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z<1.1?1:2;atlFrame();var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.lineJoin='round';hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];STEAM=[];CREWS=[];var tags=[],vv=hView(maxH+60),nObj=0;
   FOREMAN={};for(var sum=0;sum<=W+H;sum++)for(var i=0;i<=W;i++){var j=sum-i;if(j<0||j>H)continue;var t=tiles[i+','+j],p=iso(i,j);
     if((p.x<vv[0]||p.x>vv[1]||p.y<vv[2]||p.y>vv[3])&&!(t.t==='b'&&SFA.get(t.r)))continue;   // off screen: nothing to draw (signs still place themselves)
     var gp=gpop(i,j);if(gp<=0&&t.t!=='b')continue;if(gp<1&&t.t!=='b'){c.save();var gk=backOut(gp);c.translate(p.x,p.y);c.scale(gk,gk);c.translate(-p.x,-p.y)}
@@ -1525,6 +1521,7 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
       if(bdm>0&&bf>=1){scorchHi(c,p.x,base,bdh);pxHeap(c,p.x,base,tiers[0][0],col,bdh,rb0,seed);if(rb0>0&&rb0<1){var yb0=rb0*hs,sb0=Math.max(0,yb0-14);scaffoldHi(c,p.x,base-sb0,tiers[0][0],yb0-sb0+3,1);cranes.push({x:p.x+4,y:top,seed:seed,col:col})}}
       if(r===tallest||(LODN>0&&TALLS.indexOf(r)>=0))beacons.push({x:p.x,y:top-26});
       if(r.week>0&&!dm&&bf>=1)cranes.push({x:p.x+4,y:top,seed:seed});
+      if(LODN>0&&bf>=1&&!(bdm>0)&&!dm&&!r.kind&&(r.week>0||r.today>0))STEAM.push({x:p.x,y:top,w:ttw,n:r.today>0?2:1,seed:seed});if(LODN>0&&bf>=1&&!(bdm>0)&&!dm&&r.week>0&&r.today>0)CREWS.push({x:p.x+4,y:top,seed:seed});   // vents steam for commits this week (two with commits today), a crew works the crane on commits today
       if(SL&&bf>=1)SIGNS.push({c:c,x:p.x,base:base,top:top,list:SL,d:t.d,tron:false,LOD:LOD,lift:r.week>0&&!dm?30:r===tallest?28:4});   // above the crane or the beacon
       if(sel===r){c.save();c.strokeStyle='#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;var hw=TW/2*.78,hh=TH/2*.78;c.beginPath();c.moveTo(p.x-hw,base);c.lineTo(p.x,base+hh);c.lineTo(p.x+hw,base);c.lineTo(p.x+hw,top+ (base-top>0?0:0));c.lineTo(p.x,top-TH/2*.46);c.lineTo(p.x-hw,top);c.closePath();c.stroke();c.restore()}
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
@@ -1554,7 +1551,7 @@ function drawVis(){if(INTRO)return;if(!vis.length)return;var c=cx,tn=performance
     if(tr.length>1){c.strokeStyle=v.col;c.globalAlpha=.3*a;c.lineWidth=4;c.beginPath();c.moveTo(tr[0][0],tr[0][1]);for(var m=1;m<tr.length;m++)c.lineTo(tr[m][0],tr[m][1]);c.stroke();c.globalAlpha=.9*a;c.lineWidth=1.2;c.stroke()}
     var p=carPos(v);c.globalAlpha=a;var g=c.createRadialGradient(p.x,p.y-1,0,p.x,p.y-1,7);g.addColorStop(0,v.col);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.beginPath();c.arc(p.x,p.y-1,7,0,7);c.fill();c.fillStyle='#FFFFFF';c.beginPath();c.arc(p.x,p.y-1,1.6,0,7);c.fill()});
   c.restore()}
-function drawCars(){if(INTRO)return;if(sky==='grid')return drawCycles();var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
+function drawCarsVec(){if(INTRO)return;if(sky==='grid')return drawCycles();var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
   var tn=performance.now(),v=hView(TH),sc=LODN===0?1.25:1;cars.forEach(function(car){var a=iso(car.i,car.j),b=iso(car.ti,car.tj),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,nx=-uy,ny=ux*.5;
     var px=a.x+dx*car.t+nx*4,py=a.y+dy*car.t+ny*4;if(px<v[0]||px>v[1]||py<v[2]||py>v[3])return;c.globalAlpha=fa(car,tn);carHi(c,px,py,ux,uy,car.col,sc)});c.globalAlpha=1}
 /** the live ground: water ripples, and the lamps' warm pools once they are on (only what is in view) */
@@ -1610,13 +1607,12 @@ var lastPT=0;function frame(){T=performance.now();bCam();if(BUILDING&&bActive())
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
   if(dirty){var rd0=performance.now();if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);var rd1=performance.now();drawObjects();if(window.CALDERA_LAST)CALDERA_LAST.groundMs=+(rd1-rd0).toFixed(1)}dirty=false;if(window.CALDERA_PERF&&CALDERA_PERF.push)CALDERA_PERF.push(performance.now()-rd0)}   // redraw timings for the perf check (off unless a page sets the array)
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
-  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);hiLive();growUnder();drawTopics();drawTraces();drawCars();if(!BON){drawWalks();drawLife()}drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();if(!BON)drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
+  drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);hiLive();growUnder();drawTopics();drawTraces();drawVehicles();if(!BON){drawWalks();drawLife()}drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();if(!BON)drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);if(!BON){drawSteam(cx,performance.now());drawCrews(cx,performance.now())}drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}
   cx.setTransform(dpr,0,0,dpr,0,0);var v=cx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.35,vw/2,vh/2,Math.max(vw,vh)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,'+(sky==='day'?.12:sky==='grid'?.5:.3)+')');cx.fillStyle=v;cx.fillRect(0,0,vw,vh);
   cx.setTransform(1,0,0,1,0,0);cx.drawImage(L4,0,0);
   if(!SENT_READY&&!LOST){SENT_READY=true;postState('ready')}}   // storefront signs over everything: cranes, helicopters, agents, labels
 function draw(){dirty=true;UDIRTY=true;if(reduce)frame()}
-var last=0,FPS_MS=MINI?50:30,ONSCREEN=true;function tick(ts){if(!document.hidden&&ONSCREEN&&!LOST&&ts-last>FPS_MS){last=ts;stepLife(performance.now());cars.forEach(function(c){c.t+=sky==='grid'?0.035:0.02;if(c.t>=1)step(c);var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()});
-  if(LV.on){var tg=performance.now();cars=cars.filter(function(c){return !c.gone||tg-c.gone<1500})}
+var last=0,FPS_MS=MINI?50:30,ONSCREEN=true;function tick(ts){if(!document.hidden&&ONSCREEN&&!LOST&&ts-last>FPS_MS){last=ts;stepLife(performance.now());var tg=performance.now();cars=cars.filter(function(c){return !c.gone||tg-c.gone<1500});
   if(vis.length){var tn=performance.now();vis=vis.filter(function(v){return tn-v.born<v.life});vis.forEach(function(v){v.t+=v.sp;if(v.t>=1)step(v);var p=carPos(v);(v.trail=v.trail||[]).push([p.x,p.y-1]);if(v.trail.length>26)v.trail.shift()})}frame()}requestAnimationFrame(tick)}
 // ---- interaction
 function ago(iso){if(!iso)return '';var d=Math.round((now-Date.parse(iso))/DAY);return d<=0?'today':d===1?'yesterday':d+' days ago'}
@@ -1659,11 +1655,14 @@ function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.
   if(MINI&&h&&h.r)return openRepo(repoUrl(h.r));   // the pop-out has no room for cards: a public building opens its repo
   show(h)}}
 if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes in page coordinates, for automated checks
+  life:function(){var c=lifeCounts();c.peds=LIFE.peds.filter(function(p){return !p.gone}).length;c.vehicles={};cars.forEach(function(v){if(v.gone)return;var k=v.kind||'car';c.vehicles[k]=(c.vehicles[k]||0)+1});c.legend=LEG.on;return c},
   signs:function(){var b=st.getBoundingClientRect();return SHITS.map(function(h){var k=h.card;return {name:h.r.name,group:h.group,keys:h.keys,count:h.count,box:[b.left+h.x0,b.top+h.y0,b.left+h.x1,b.top+h.y1],x:b.left+(h.x0+h.x1)/2,y:b.top+(h.y0+h.y1)/2,w:h.x1-h.x0,h:h.y1-h.y0,card:[b.left+k[0],b.top+k[1],b.left+k[2],b.top+k[3]]}})},
   signCounts:function(){storeGroups();return {groups:SKEYS.length,shown:SHITS.length,stores:storeList(null).length,counted:SHITS.reduce(function(a,h){return a+h.count},0)}},
+  pos:function(){var b=st.getBoundingClientRect(),S=function(x,y){return [Math.round(b.left+cam.x+x*cam.z),Math.round(b.top+cam.y+y*cam.z)]};return {z:cam.z,nbs:Object.keys(NBM),steam:STEAM.map(function(k){return S(k.x,k.y)}),crews:CREWS.map(function(k){return S(k.x,k.y)}),agents:(function(){var lay=agentLayout(performance.now());return Object.keys(AG).map(function(k){var g=AG[k],sp=lay.spots[k];return {id:k,st:g.a&&g.a.state,b:g.b&&g.b.r?g.b.r.name:null,sp:sp?[sp.mode,Math.round(sp.x),Math.round(sp.y)]:null,at:S(g.x,g.y)}})})(),peds:LIFE.peds.filter(function(p){return !p.gone}).slice(0,6).map(function(p){return [p.k].concat(S(p.x,p.y))})}},   // where the living-city elements are, for the harness
   cranes:function(){var b=st.getBoundingClientRect();return cranes.map(function(k){return {x:b.left+cam.x+k.x*cam.z,y:b.top+cam.y+(k.y-30)*cam.z}})},
   buildings:function(){var b=st.getBoundingClientRect();return hits.filter(function(h){return h.r}).map(function(h){return {name:h.r.locked?'':h.r.name,locked:!!h.r.locked,url:repoUrl(h.r),x:b.left+cam.x+(h.x0+h.x1)/2*cam.z,y:b.top+cam.y+(h.y0*.35+h.y1*.65)*cam.z}})},
   world:function(){return WLAB.map(function(l){return {text:l.text,pr:l.pr,x0:l.x0,x1:l.x1,y0:l.y0,y1:l.y1}})},
+  look:function(name,z,oy){var h=null;hits.forEach(function(q){if(q.r&&q.r.name===name)h=q});if(!h)return false;cam.z=z;cam.x=vw/2-(h.x0+h.x1)/2*z;cam.y=vh/2-(h.y0*.35+h.y1*.65+(oy||0))*z;dirty=true;draw();return true},   // centre a building for the harness
   zoomTo:function(k,z){var n=NBM[k];if(!n)return false;var c=iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5);cam.z=z;cam.x=vw/2-c.x*z;cam.y=vh/2-c.y*z;draw();return true},
   rays:function(on){RAYS=on;return RAYS},
   wlabels:function(){var b=st.getBoundingClientRect();return (WLAB||[]).map(function(q){return {text:q.text,pr:q.pr,x0:b.left+q.x0,x1:b.left+q.x1,y0:b.top+q.y0,y1:b.top+q.y1}})},   // world labels as placed (screen rects)
@@ -1750,6 +1749,6 @@ window.addEventListener('message',function(e){var m=e.data;if(m&&m.type==='calde
 if(MINI){setInterval(function(){if(!document.hidden&&ONSCREEN)healthCheck()},5000);
   if(window.IntersectionObserver)new IntersectionObserver(function(es){var on=es[0]&&es[0].isIntersecting;if(on&&!ONSCREEN){ONSCREEN=true;rebuildLayers();fit();setTimeout(healthCheck,300)}else ONSCREEN=on}).observe(cv)}
 window.addEventListener('resize',function(){fit();draw()});
-fit();
+fit();lifeRetarget();lifeCars();legendInit();
 if(reduce)frame();else{cityIntro();requestAnimationFrame(tick)}
 })();`;

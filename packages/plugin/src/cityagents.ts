@@ -58,6 +58,10 @@ var DR_MICRO={a:['rrr..rrr','.KKKKKK.','.KSSSSK.','.KDDDDK.','R......G','.......
 var DR_PARK=['LLL..LLL','.KLLLLK.','.KSSSSK.','..KDDK..','........'],DR_SPOT=['..SSS..','.SsWsS.','..SSS..'];
 function drMap(liv){var m={},k;for(k in DR_HULL)m[k]=DR_HULL[k];var L=DR_LIV[liv]||DR_LIV.working;for(k in L)m[k]=L[k];return m}
 function drSprite(liv,rot,micro){var key='dr|'+liv+'|'+rot+(micro?'|m':'');if(micro)return pxGlyph(key,DR_MICRO[rot==='still'?'still':'a'],drMap(liv));return pxGlyph(key,DR_ROT[rot].concat(DR_BODY),drMap(liv))}
+/** the floors an agent lights at night (LIVING-CITY-DESIGN.md (b) lit windows): working = top 3 cool white, thinking = two patterns alternating every 2 s, waiting = the top floor amber in step with the strobe; null by day or for quiet agents */
+function agentFloors(state,tn,strobe){if(state==='working')return {rows:[0,1,2],col:'#D6E8FF',a:.95};if(state==='thinking')return {rows:Math.floor(tn/2000)%2?[1]:[0,2],col:'#D6E8FF',a:.85};if(state==='waiting')return strobe?{rows:[0],col:'#FFB020',a:.9}:null;return null}
+function drawFloors(c,b,fl,f){var p=iso(b.i,b.j),h=bh(b.r),tiers=towerTiers(h),w=tiers[tiers.length-1][0],hw=TW/2*w,hh=TH/2*w,top=p.y+4-h,px=p.x;if(h<20)return;c.save();c.fillStyle=fl.col;c.globalAlpha=f*fl.a*.6;
+  fl.rows.forEach(function(r){var y0=top+2+r*7,y1=y0+4;if(y1>p.y)return;c.beginPath();c.moveTo(px-hw,y0);c.lineTo(px,y0+hh);c.lineTo(px,y1+hh);c.lineTo(px-hw,y1);c.closePath();c.fill();c.beginPath();c.moveTo(px,y0+hh);c.lineTo(px+hw,y0);c.lineTo(px+hw,y1);c.lineTo(px,y1+hh);c.closePath();c.fill()});c.restore()}
 function drStrobe(tn){var t=tn%500;return t<150||(t>=200&&t<300)}   // waiting: on 150, off 50, on 100, off 200 (a double flash at 2 Hz)
 /** a pixel pill: 9 px mono, 1 px border in the element colour, a 4x4 colour square, no radius (used for drones and the sky base) */
 function pxPill(c,x,y,text,col){c.font='600 9px ui-monospace,monospace';var tw=c.measureText(text).width,w=Math.ceil(tw)+18,h=13,x0=Math.round(x-w/2),y0=Math.round(y-h);
@@ -91,7 +95,8 @@ function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var lay=
   var pills=[];ids.slice().sort(function(p,q){return (AG[p].y||0)-(AG[q].y||0)}).forEach(function(id){var g=AG[id],a=g.a,sp=lay.spots[id];if(!sp)return;
     var px0=g.x,py0=g.y;g.x+=(sp.x-g.x)*.05;g.y+=(sp.y-g.y)*.05;var f=g.gone?Math.max(0,1-(tn-g.gone)/1500):Math.min(1,(tn-g.born)/600);if(f<=0){delete AG[id];return}
     var st=a.state,col=AGC[st]||AGC.working,liv=st==='waiting'&&!strobe?'waitoff':(DR_LIV[st]?st:'working'),air=st==='working'||st==='thinking'||st==='waiting',sx=g.x,sy=g.y;
-    c.globalAlpha=f*(st==='idle'?.75:1);
+    c.globalAlpha=f*(st==='idle'?.75:1)*(typeof lifeHl==='function'?lifeHl('drones'):1);
+    if(sp.mode==='fly'&&g.b&&!micro&&typeof P==='object'&&P.lamp>0){var fl=agentFloors(st,tn,strobe);if(fl)drawFloors(c,g.b,fl,f)}   // night: the agent lights its building's top floors
     if(sp.mode==='dock'){if(!sp.hidden){var pl=st==='waiting'?(strobe?'#FFB020':'#A66A00'):'#434C5A';pxBlit(c,pxGlyph('park|'+pl,DR_PARK,{L:'#8F9BB0',K:'#0E1420',S:pl,D:'#2E3646'}),sx,sy+1.5)}
       g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;return}
     // the work beam: a 2-texel core and dithered edges from the camera down to the roof, with a work spot and sparks

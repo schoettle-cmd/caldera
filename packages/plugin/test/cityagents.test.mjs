@@ -21,7 +21,7 @@ function city(world = false) {
     var DP={name:'P'},DQ={name:'Q'},tiles={};for(var j=0;j<=H;j++)for(var i=0;i<=W;i++)tiles[i+','+j]={t:'g'};
     tiles['2,9']={t:'b',d:DP,r:{name:'p1',commits:40}};tiles['4,9']={t:'b',d:DP,r:{name:'p2',commits:20}};tiles['6,9']={t:'b',d:DP,r:{name:'p3',commits:30}};tiles['12,9']={t:'b',d:DQ,r:{name:'q1',commits:60}};`;
   const clock = { p: 1000 };
-  const w = new Function("CLOCK", pre + AGENTS_JS + `; return {agentsIn:agentsIn,layout:agentLayout,draw:drawAgents,AG:function(){return AG},sum:function(){return AGSUM},pills:PILLS,setLabels:function(v){labels=v}}`)(clock);
+  const w = new Function("CLOCK", pre + AGENTS_JS + `; return {agentsIn:agentsIn,layout:agentLayout,draw:drawAgents,floors:agentFloors,AG:function(){return AG},sum:function(){return AGSUM},pills:PILLS,setLabels:function(v){labels=v}}`)(clock);
   return { ...w, clock };
 }
 const agent = (id, state, extra = {}) => ({ id, state, label: "Claude · tron", ...extra });
@@ -68,4 +68,14 @@ test("agents: the page keeps up to 200 agents and the HUD line knows about the o
   const c = city(), list = []; for (let i = 0; i < 230; i++) list.push(agent("a" + i, "working", { repo: "p3" }));
   c.agentsIn(list); assert.equal(Object.keys(c.AG()).length, 200); const lay = c.layout(1000); assert.equal(visible(lay).length, 200, "200 on one roof, all visible");
   assert.ok(CITY_JS.includes("function agentLayout") && CITY_JS.includes("AGSUM.hold"), "city.ts embeds the module and the HUD reads the hold count");
+});
+
+test("agents: at night an agent lights its building's top floors (working cool white x3, thinking two alternating patterns, waiting the top floor amber with the strobe), nothing by day or when quiet", () => {
+  const w = city(), F = w.floors;
+  assert.deepEqual(F("working", 0, true), { rows: [0, 1, 2], col: "#D6E8FF", a: .95 });
+  assert.deepEqual(F("thinking", 0, true).rows, [0, 2]); assert.deepEqual(F("thinking", 2000, true).rows, [1]); assert.deepEqual(F("thinking", 4000, true).rows, [0, 2], "two patterns, every 2 s");
+  assert.deepEqual(F("waiting", 0, true), { rows: [0], col: "#FFB020", a: .9 }); assert.equal(F("waiting", 0, false), null, "off with the strobe");
+  assert.equal(F("idle", 0, true), null); assert.equal(F("done", 0, true), null);
+  assert.ok(AGENTS_JS.includes("P.lamp>0){var fl=agentFloors(st,tn,strobe)"), "drawn only while the lamps are on (dusk to dawn)");
+  w.agentsIn([agent("a", "working", { repo: "p1" })]); w.draw(stubCtx(), 1000);   // no P in the stub: the floors are skipped, nothing throws
 });
