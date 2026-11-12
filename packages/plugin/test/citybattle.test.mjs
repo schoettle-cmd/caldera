@@ -16,9 +16,9 @@ const PAL = { day: { light: 1, lamp: 0, lit: .45, glass: ["#C9E3F6", "#6D9FCF"],
 const at = (h, m = 0, s = 0) => { const d = new Date(); d.setHours(h, m, s, 0); return d.getTime(); };
 /** a world with two cities in the battles, each with two repo towers; @a fires six shots at @b's towers, @b two back; the
  *  hub resolved the night at 02:00 today. clock.t is the wall clock, clock.p the performance clock (for replays). */
-function world(sky, clock, data, reduce = false) {
+function world(sky, clock, data, reduce = false, store = memStore()) {
   const pre = `var TW=64,TH=32,P=PAL.${sky},sky='${sky}',night=${sky === "night"},T=1234,reduce=${reduce},FITZ=.5,maxH=60,cam={x:300,y:200,z:1},dpr=2,vw=900,vh=600,palKey='${sky}',W=24,H=24,dirty=false,draws=0,cranes=[];
-    var Date=FakeDate,performance={now:function(){return CLOCK.p}};function draw(){draws++;dirty=true}function e(s){return String(s)}var window={CALDERA_BATTLE:DATA,matchMedia:null};
+    var Date=FakeDate,performance={now:function(){return CLOCK.p}};function draw(){draws++;dirty=true}function e(s){return String(s)}var window={CALDERA_BATTLE:DATA,matchMedia:null,localStorage:STORE};
     function rnd(s){var x=Math.sin(s)*10000;return x-Math.floor(x)}function hash(t){var h=0;t=String(t);for(var i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return Math.abs(h)}
     function rgb(h){var n=parseInt(h.slice(1),16);return [n>>16,n>>8&255,n&255]}function hex(c){return '#'+c.map(function(v){v=Math.max(0,Math.min(255,Math.round(v)));return (v<16?'0':'')+v.toString(16)}).join('')}
     function mix(h,f,t){var c=rgb(h);if(t){var q=rgb(t);return hex(c.map(function(v,i){return v+(q[i]-v)*f}))}return hex(c.map(function(v){return f>=1?v+(255-v)*(f-1):v*f}))}
@@ -30,9 +30,11 @@ function world(sky, clock, data, reduce = false) {
     var tiles={};for(var j=0;j<=H;j++)for(var i=0;i<=W;i++)tiles[i+','+j]={t:'g'};tiles['2,9']={t:'b',d:DA,r:RA1};tiles['4,9']={t:'b',d:DA,r:RA2};tiles['12,9']={t:'b',d:DB,r:RB1};tiles['14,9']={t:'b',d:DB,r:RB2};
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();`;
   const F = class extends Date { static now() { return clock.t; } };
-  return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock);
+  return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", "STORE", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,stateLoad:bStateLoad,sync:function(){bStateSync(bPlan(Date.now()),Date.now())},rebOf:bRebuildOf,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
+    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock, store);
 }
+/** a localStorage stand-in (a broken one throws on every call) */
+function memStore(broken = false) { const m = new Map(); return { getItem: k => { if (broken) throw new Error("quota"); return m.has(k) ? m.get(k) : null }, setItem: (k, v) => { if (broken) throw new Error("quota"); m.set(k, String(v)) }, removeItem: k => m.delete(k), get size() { return m.size }, raw: k => m.get(k) }; }
 const data = () => ({ at: "x", night: "2026-11-07", t0: at(2), next: at(2) + 864e5, members: { "@a": { sh: .2, beg: 0, ammo: 20, best: "cannon", shots: 6, hits: [], reb: 100 }, "@b": { sh: 0, beg: 0, ammo: 5, best: "catapult", shots: 2, hits: [], reb: 100 } },
   shots: [["@a", "@b", "cannon", 1, at(2, 1), 0, 0, 0], ["@a", "@b", "cannon", 1, at(2, 2), 1, 0, 0], ["@a", "@b", "cannon", 0, at(2, 3), -1, 1, 0], ["@a", "@b", "cannon", .5, at(2, 4), 0, 0, 0], ["@a", "@b", "cannon", 1, at(2, 5), 2, 0, 0], ["@a", "@b", "cannon", 1, at(2, 6), 1, 0, 0],
     ["@b", "@a", "catapult", 1, at(2, 7), 3, 0, 0], ["@b", "~raiders", "catapult", .4, at(2, 8), -1, 0, 0]],
@@ -244,4 +246,30 @@ test("battle: wired into the renderer; no walkers, no houses, no crews in the Ba
   assert.ok(CITY_JS.includes("litp*=Math.max(0,1-bdh*.85)") && CITY_JS.includes("pxHeap(c,p.x,base,tiers[0][0],col,bdh,rb0,seed)"), "a hit tower goes dark and a heap of its own pixels piles up around it");
   assert.ok(CITY_JS.includes("bBld(t,i,j)") && CITY_JS.includes("dmg:bdm>0?{d:bdh,f:rb0,seed:seed}:null") && CITY_JS.includes("cranes.push({x:p.x+4,y:top,seed:seed,col:col})"), "hit towers lose floors through the pixel mask and get a crane while the build line rises");
   new Function(CITY_JS);
+});
+
+test("saved battle state: v1 round-trips, the pre-11-11 shape migrates, corrupt and unknown records load fresh, nothing throws", () => {
+  const W = world("day", { t: at(9), p: 1000 }, data());
+  assert.deepEqual(W.stateLoad(null), { v: 1, night: "", at: 0, bld: {} });
+  assert.deepEqual(W.stateLoad("{not json"), { v: 1, night: "", at: 0, bld: {} });
+  assert.deepEqual(W.stateLoad({ v: 7, night: "x", bld: { a: { d: 1, f: 1 } } }), { v: 1, night: "", at: 0, bld: {} }, "an unknown version is not trusted");
+  const v1 = { v: 1, night: "2026-11-06", at: 5, bld: { "@a|0": { d: .5, f: .25 }, "@b|1": { d: 1, f: 0 }, junk: null, zero: { d: 0, f: .5 }, over: { d: 3, f: 9 } } };
+  assert.deepEqual(W.stateLoad(JSON.stringify(v1)), { v: 1, night: "2026-11-06", at: 5, bld: { "@a|0": { d: .5, f: .25 }, "@b|1": { d: 1, f: 0 }, over: { d: 1, f: 1 } } }, "v1: clamped, junk dropped");
+  // the old save (the shape the first battle build wrote): one rebuild fraction for the whole night and damage per key
+  assert.deepEqual(W.stateLoad({ night: "2026-11-05", reb: .5, dmg: { "@a|0": .5, "@a|1": 0 } }), { v: 1, night: "2026-11-05", at: 0, bld: { "@a|0": { d: .5, f: .5 } } }, "an old save still loads");
+});
+
+test("saved battle state: the morning rebuild writes caldera.battle.state, a reload picks up the saved progress (never backwards), a new night starts fresh, a broken store is harmless", () => {
+  const store = memStore(), clock = { t: at(9), p: 1000 }, W = world("night", clock, data(), false, store); W.api.view(true); W.over();
+  const saved = JSON.parse(store.raw("caldera.battle.state")); assert.equal(saved.v, 1); assert.equal(saved.night, "2026-11-06"); assert.ok(saved.bld["@a|0"], "a's hit tower is on record: " + JSON.stringify(saved.bld));
+  assert.ok(Math.abs(saved.bld["@a|0"].f - .75) < .01 && saved.bld["@a|0"].d === 1, "75% rebuilt at 09:00, full damage held");
+  // the same page reloads with the clock an hour earlier (a timezone change, a wrong clock): the tower keeps its 75%, the schedule says 66%
+  const clock2 = { t: at(8), p: 1000 }, W2 = world("night", clock2, data(), false, store); W2.api.view(true); W2.over();
+  assert.ok(Math.abs(W2.reb() - 2 / 3) < .01, "the schedule alone would say 66%"); assert.ok(Math.abs(W2.rebOf(2, 9) - .75) < .01, "the saved record wins: never backwards");
+  assert.equal(W2.rebOf(12, 9), W2.reb(), "a tower without a record follows the schedule");
+  // a different night in the store: ignored, replaced by tonight's record on the next write
+  store.setItem("caldera.battle.state", JSON.stringify({ v: 1, night: "2026-10-01", at: 1, bld: { "@a|0": { d: 1, f: 1 } } }));
+  const W3 = world("night", { t: at(8), p: 1000 }, data(), false, store); W3.api.view(true); W3.over(); assert.ok(Math.abs(W3.rebOf(2, 9) - 2 / 3) < .01, "another night's record does not apply");
+  assert.equal(JSON.parse(store.raw("caldera.battle.state")).night, "2026-11-06", "tonight's record replaced it");
+  const W4 = world("night", { t: at(8), p: 1000 }, data(), false, memStore(true)); W4.api.view(true); W4.over(); assert.ok(Math.abs(W4.rebOf(2, 9) - 2 / 3) < .01, "a store that throws leaves the schedule in charge");
 });

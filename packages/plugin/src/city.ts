@@ -1564,7 +1564,7 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=r.kind?.6:dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
       var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));   // people on the site right now light up its building (the rest of the district a little)
-      var rb0=bdm>0?bRebuild():0,bdh=bdm>0?Math.max(bdm,bBldHeld(i,j)):0;if(bdm>0)litp*=Math.max(0,1-bdh*.85);   // a hit tower keeps its height in the data; its texture loses the top floors and most lights (citypix.ts), back pixel by pixel as the cranes work
+      var rb0=bdm>0?bRebuildOf(i,j):0,bdh=bdm>0?Math.max(bdm,bBldHeld(i,j)):0;if(bdm>0)litp*=Math.max(0,1-bdh*.85);   // a hit tower keeps its height in the data; its texture loses the top floors and most lights (citypix.ts), back pixel by pixel as the cranes work
       var tiers=towerTiers(LODN===1&&bf>=1?Math.round(h/3)*3:h),base=p.y+4,top=base;nObj++;   // at LOD 1 heights snap to 3 px so towers share sprites
       if(bf<1){top=lego(c,p.x,base,tiers,h,col,glass,litp,seed,r,bf,i+','+j,t.d&&(t.d.nb||t.d.name),LOD);if(bf>0&&bf<.8&&!LOD)cranes.push({x:p.x+4,y:top,seed:seed})}
       else{var hs=0;tiers.forEach(function(q){hs+=q[1]});top=base-hs;   // the tower (variant by glass and seed), roof plant and yard; through the atlas at LOD 1

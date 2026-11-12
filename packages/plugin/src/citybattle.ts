@@ -333,6 +333,29 @@ function bImpactAt(S,s){return bImpactOf(S,s)}
 function bBld(t,i,j){if(!BON||!BL.damage)return 0;var P=BREP?BREP.P:BPLAN;if(!P)return 0;var e=BBAT[i+','+j];if(!e)return 0;var o=P.hit[e.key];if(!o||!o[e.idx])return 0;var S=bS(),now=bNow(),s=0;o[e.idx].forEach(function(h){s+=bHitDmg(S,h.f,bImpactOf(S,h),now)});return Math.min(1,Math.round(s*6)/6)}
 /** the damage a building took this night, in sixths, as it stood when the hold ended (the break line is drawn from this while the cranes work, the build line rises through it) */
 function bBldHeld(i,j){if(!BON||!BL.damage)return 0;var P=BREP?BREP.P:BPLAN;if(!P)return 0;var e=BBAT[i+','+j];if(!e)return 0;var o=P.hit[e.key];if(!o||!o[e.idx])return 0;var S=bS(),now=bNow(),s=0;o[e.idx].forEach(function(h){if(now>=bImpactOf(S,h))s+=h.f});return Math.min(1,Math.round(s*6)/6)}
+// ---- the saved battle state (Mike 11-11: "slowly rebuild over time, state saved safely"). localStorage caldera.battle.state, versioned:
+// v1 {v:1, night, at, bld:{"<member>|<tower index>":{d, f}}} with d the damage the tower took that night (sixths) and f how far its
+// rebuild has got (0..1). A reload or restart picks up from here: a tower's rebuild never goes backwards (the clock schedule and the
+// saved fraction, whichever is further), and a new night starts a fresh record. bStateLoad is pure and takes anything the key may
+// hold: a v1 record, the pre-11-11 shape {night, reb, dmg:{key:sixths}} (migrated), an unknown version or corrupt JSON (a fresh record).
+var BSTATE_KEY='caldera.battle.state',BSTATE=null,BSAVED=0;
+function bStateFresh(night){return {v:1,night:night||'',at:0,bld:{}}}
+function bStateLoad(raw){var o=null;try{o=typeof raw==='string'?JSON.parse(raw):raw}catch(err){o=null}
+  if(!o||typeof o!=='object')return bStateFresh('');
+  var bld={},k,e;
+  if(o.v===1){if(o.bld&&typeof o.bld==='object')for(k in o.bld){e=o.bld[k];if(e&&typeof e==='object'&&+e.d>0)bld[k]={d:Math.min(1,+e.d),f:Math.max(0,Math.min(1,+e.f||0))}}return {v:1,night:String(o.night||''),at:+o.at||0,bld:bld}}
+  if(o.v==null&&o.dmg&&typeof o.dmg==='object'){var f0=Math.max(0,Math.min(1,+o.reb||0));for(k in o.dmg){var d0=+o.dmg[k];if(d0>0)bld[k]={d:Math.min(1,d0),f:f0}}return {v:1,night:String(o.night||''),at:+o.at||0,bld:bld}}
+  return bStateFresh('')}
+function bStore(){try{return window.localStorage||localStorage}catch(err){return null}}
+function bStateRead(){var st=bStore(),raw=null;try{raw=st?st.getItem(BSTATE_KEY):null}catch(err){}BSTATE=bStateLoad(raw);return BSTATE}
+function bStateWrite(now){var st=bStore();if(!st||!BSTATE)return false;BSTATE.at=now;try{st.setItem(BSTATE_KEY,JSON.stringify(BSTATE));BSAVED=now;return true}catch(err){return false}}
+/** records tonight's damage and rebuild progress for every hit tower (live days only), writing when something changed or every 30 s */
+function bStateSync(P,now){if(!P||!P.live||!P.night||!BL.damage)return;if(!BSTATE)bStateRead();if(BSTATE.night!==P.night)BSTATE=bStateFresh(P.night);
+  var f=bRebuild(),changed=false;for(var key in P.hit){var bl=BBLD[key]||[];for(var bi in P.hit[key]){var b=bl[+bi];if(!b)continue;var d=bBldHeld(b.i,b.j);if(d<=0)continue;var id=key+'|'+bi,e=BSTATE.bld[id],nf=Math.max(e?e.f:0,f);
+    if(!e||e.d!==d||e.f!==nf){BSTATE.bld[id]={d:d,f:nf};changed=true}}}
+  if(changed||now-BSAVED>3e4)bStateWrite(now)}
+/** a tower's rebuild progress: the schedule's, or further if the saved record says so (never backwards within a night) */
+function bRebuildOf(i,j){var f=bRebuild(),e=BBAT[i+','+j],P=BREP?BREP.P:BPLAN;if(BREP||!e||!BSTATE||!P||BSTATE.night!==P.night)return f;var r=BSTATE.bld[e.key+'|'+e.idx];return r&&r.f>f?Math.min(1,r.f):f}
 /** rebuild progress 0..1 (0 while the damage holds) */
 function bRebuild(){var S=bS();if(!S)return 0;var now=bNow();return now<S.hold?0:Math.min(1,(now-S.hold)/(S.end-S.hold))}
 function bCenter(key){var g=GM[key];if(!g||!g.b)return null;var S=(g.cs||gState(g)).side;return iso(g.b.x+S/2-.5,g.b.y+S/2-.5)}
@@ -424,7 +447,7 @@ function bHitLabels(c,P,S,now){var L=bHitsNow(P,S,now);if(!L.length)return;L=L.s
  *  impacts, smoke ribbons and columns, and the counts */
 function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,tn=performance.now(),P=bPlan(Date.now()),S=bS(),now=bNow();bClock(now);P=bPlan(Date.now());S=bS();now=bNow();var dt=battleOver.tp?Math.min(.05,(tn-battleOver.tp)/1000):0;battleOver.tp=tn;
   if(BREP){if(typeof INTRO!=='undefined'&&INTRO&&typeof introFinish==='function')introFinish(true);if(typeof BUILDING!=='undefined'&&BUILDING&&typeof buildDone==='function')buildDone()}   // the city intro and new-land builds never run over a replay
-  var rep=!!BREP,paused=rep&&BREP.pauseAt!=null,fx=BLAST>0&&now-BLAST<5000,last=BLAST;BLAST=now;BPMAX=bPoolMax();
+  var rep=!!BREP,paused=rep&&BREP.pauseAt!=null,fx=BLAST>0&&now-BLAST<5000,last=BLAST;BLAST=now;BPMAX=bPoolMax();if(!rep&&(now-BSAVED>2000||BSAVED===0))bStateSync(P,now);
   c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);var M=BDATA.members||{},vb=hView(TH*3),inView=function(p){return p&&p.x>vb[0]-60&&p.x<vb[1]+60&&p.y>vb[2]-200&&p.y<vb[3]+80};
   if(BL.shields)for(var k in M){var ctr=bCenter(k),g=GM[k];if(!ctr||!g||!inView(ctr))continue;var sd=(g.cs||gState(g)).side,sh=M[k].sh||0;if(sh<=0)continue;bShieldDome(c,ctr.x,ctr.y+8,sd*TW*.42+20,M[k].beg?'#FFFFFF':'#3DF2FF',M[k].beg?.12:.08+.22*sh)}
   var badges=[],aAng=Math.atan2(BIY,BIX),padKeys={};for(var mk in M)padKeys[mk]=1;for(var ak in P.byA)if(ak.charAt(0)==='@')padKeys[ak]=1;
@@ -454,10 +477,10 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
       if(rep){if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz)}else if(Math.floor(tn/50)%2===0&&BP.length<BPMAX-30)bTrailFx(tr.x,tr.y,tr.a,sz)}});
   if(dt>0&&!paused){var spd=rep?BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);
   // smoke on badly hit buildings (at most 6 columns in view)
-  if(BL.damage){var nSm=0;for(var hk in P.hit){var bl=BBLD[hk]||[];for(var bi in P.hit[hk]){var b=bl[+bi];if(!b||nSm>=6)continue;var d=bBld(null,b.i,b.j);if(d<.5)continue;var hh=typeof bh==='function'?bh(b.r):40,rb=bRebuild(),top=b.p.y+4-Math.max(pxBreak(hh,bBldHeld(b.i,b.j)),rb*hh);if(!inView(b.p))continue;nSm++;if(rb<=0)smokeHi(c,b.p.x+2,top-6,d>=1)}}
+  if(BL.damage){var nSm=0;for(var hk in P.hit){var bl=BBLD[hk]||[];for(var bi in P.hit[hk]){var b=bl[+bi];if(!b||nSm>=6)continue;var d=bBld(null,b.i,b.j);if(d<.5)continue;var hh=typeof bh==='function'?bh(b.r):40,rb=bRebuildOf(b.i,b.j),top=b.p.y+4-Math.max(pxBreak(hh,bBldHeld(b.i,b.j)),rb*hh);if(!inView(b.p))continue;nSm++;if(rb<=0)smokeHi(c,b.p.x+2,top-6,d>=1)}}
     // the rebuild, pixel by pixel: while the cranes work, voxels in the building's colours fly in from the hook and land on the build line
-    if(BL.damage&&!reduce&&dt>0){var rb2=bRebuild();if(rb2>0&&rb2<1){var nB=0;for(var hk2 in P.hit){var bl2=BBLD[hk2]||[];for(var bi2 in P.hit[hk2]){var b2=bl2[+bi2];if(!b2||nB>=8||!inView(b2.p))continue;var dh=bBldHeld(b2.i,b2.j);if(dh<=0)continue;nB++;
-      if(rnd(Math.floor(tn/140)+b2.i*3+b2.j)<.5){var h2=typeof bh==='function'?bh(b2.r):40,tiers2=typeof towerTiers==='function'?towerTiers(h2):[[.78,h2]],w2=tiers2[0][0],hw2=TW/2*w2,hh2=TH/2*w2,base2=b2.p.y+4,yb=rb2*h2,side=rnd(tn+b2.i)<.5?0:1,u=.05+rnd(tn*.7+b2.j)*.9,q=fpt(b2.p.x,base2,hw2,hh2,side,u,yb+(rnd(tn+u)-.5)*2),cr2=rgb(bCol(hk2)),L2=P.light;
+    if(BL.damage&&!reduce&&dt>0){var rb2=bRebuild();if(rb2>0&&rb2<1){var nB=0;for(var hk2 in P.hit){var bl2=BBLD[hk2]||[];for(var bi2 in P.hit[hk2]){var b2=bl2[+bi2];if(!b2||nB>=8||!inView(b2.p))continue;var dh=bBldHeld(b2.i,b2.j);if(dh<=0)continue;nB++;var rbB=bRebuildOf(b2.i,b2.j);if(rbB>=1)continue;
+      if(rnd(Math.floor(tn/140)+b2.i*3+b2.j)<.5){var h2=typeof bh==='function'?bh(b2.r):40,tiers2=typeof towerTiers==='function'?towerTiers(h2):[[.78,h2]],w2=tiers2[0][0],hw2=TW/2*w2,hh2=TH/2*w2,base2=b2.p.y+4,yb=rbB*h2,side=rnd(tn+b2.i)<.5?0:1,u=.05+rnd(tn*.7+b2.j)*.9,q=fpt(b2.p.x,base2,hw2,hh2,side,u,yb+(rnd(tn+u)-.5)*2),cr2=rgb(bCol(hk2)),L2=P.light;
         bEmit({k:'build',x0:b2.p.x+4+(rnd(tn*.3)-.5)*20,y0:base2-h2-40,x1:q[0],y1:q[1],x:0,y:0,arc:8+rnd(tn)*10,s:.8+rnd(tn*1.3)*.8,col:hex([cr2[0]*L2,cr2[1]*L2,cr2[2]*L2]),life:.8+rnd(tn*.9)*.4})}}}}}}
   // the counts and the countdown, in screen space
   c.setTransform(dpr,0,0,dpr,0,0);badges.forEach(function(b){if(b[5])badgeHi(c,cam.x+b[0]*cam.z,cam.y+b[1]*cam.z,b[2],b[3],b[4])});
@@ -497,7 +520,10 @@ window.CALDERA_BATTLE_API={
       o.label=cur?(cur.raid?'Raiders':cur.a)+' → '+(cur.d.charAt(0)==='@'?cur.d:'the sea')+(cur.targets.length>1?' +'+(cur.targets.length-1):'')+' · '+cur.n+' missile'+(cur.n===1?'':'s'):st==='wide'?'Every strike landed':st==='rebuild'?'Cranes, '+Math.round(bRebuild()*100)+'% rebuilt':'';}
     return o},
   state:function(){return {on:BON,layers:BL,phase:this.phase(),cities:BDATA&&BDATA.members?Object.keys(BDATA.members).length:0}},
-  dmg:function(i,j){return bBld(null,i,j)}};
+  dmg:function(i,j){return bBld(null,i,j)},
+  /** the saved record (caldera.battle.state v1) and a tower's rebuild progress with it */
+  saved:function(){return BSTATE||bStateRead()},rebuilt:function(i,j){return bRebuildOf(i,j)}};
+bStateRead();
 `;
 
 export const BATTLE_DRAW_JS = BATTLE_ART_JS + BATTLE_LOGIC_JS;
