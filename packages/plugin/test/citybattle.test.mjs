@@ -344,3 +344,29 @@ test("11-13 pure city: city.ts keys one flag (PURE) on html.w-replay; labels, ra
   // no MutationObserver (old browsers, the Obsidian test harness): still loads
   assert.doesNotThrow(() => run(doc, undefined, true, () => {}));
 });
+
+// ---------------------------------------------------------------- 11-15: a shield cuts a hit, it never cancels it (Mike 11-14)
+/** @a fires at @b, a beginner (99% dome): a cruise missile on the roof, a rocket into the street, a shell; the hub's x carries
+ *  the share the shield took (sh), what the shot would have done (pot) and what the shield held (held); one shot on an open city */
+const data15 = () => ({ at: "x", night: "2026-11-15", t0: at(2), next: at(2) + 864e5, members: { "@a": { sh: .56, beg: 0, ammo: 70, best: "cruise", shots: 3, hits: [], reb: 100 }, "@b": { sh: .99, beg: 1, ammo: 0, best: "shell", shots: 1, hits: [], reb: 100 } },
+  shots: [["@a", "@b", "cruise", .01, at(2, 1), 0, 0, 0, X({ u: 180000, fi: .004, fu: 72000, sp: 1, sh: .99, pot: 18e6, held: 17.82e6, raw: 1 })], ["@a", "@b", "rocket", .0004, at(2, 2), 1, 0, 0, X({ u: 7200, fi: .00006, fu: 1080, m: 22, sh: .99, pot: 720000, held: 712800 })],
+    ["@a", "@b", "shell", .00001, at(2, 3), 1, 0, 0, X({ u: 180, fi: .000002, fu: 36, sh: .99, pot: 18000, held: 17820 })], ["@b", "@a", "rocket", .02, at(2, 4), 0, 0, 0, X({ u: 360000, fi: .003, fu: 54000, sp: 1, sh: 0 })]], prev: null });
+
+test("11-15: every shielded shot lands: a step off its tower, a dome flash then a smaller impact, fire and smoke scaled to what got through; the replay bar reads the shield's cut; the pure city stays pure", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data15()); Wd.api.view(true); const P = Wd.plan();
+  assert.equal(P.n, 4); assert.ok(P.shots.every((s) => s.f > 0 && s.b && s.usd > 0), "every missile lands on a building and costs dollars");
+  const [cr, rk, sl, open] = P.shots;
+  assert.ok(Math.abs(cr.cut - (.4 + .6 * Math.sqrt(.01))) < 1e-9 && open.cut === 1, "through the 99% dome a hit looks about half size; an open hit full size");
+  assert.ok(cr.burn > 0 && cr.burn < open.burn && Math.abs(cr.burn - cr.cut) < 1e-9, "a spreading fire through the dome burns smaller than one on an open city");
+  assert.ok(rk.to.miss, "a shielded near miss still comes down in the street beside the tower");
+  clock.t = at(20, 0, 10); Wd.over();
+  assert.ok(Wd.dmg(12, 9) >= 1 / 24, "the dome-cut cruise hit takes a visible step off b1"); assert.ok(Wd.dmg(14, 9) >= 1 / 24, "so does a $180 shell through the dome");
+  // the replay: the bar reads the cut, never 'shield held'
+  Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, step = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); };
+  const lead = R.beats.find((b) => b.a === "@a").lead; step(lead.ri - 50); const p0 = Wd.bp(); step(lead.ri + 100);
+  const h = Wd.api.phase().hit; assert.ok(h && h.d === "@b" && h.shield === false && h.sh === .99 && h.usd > 0, JSON.stringify(h));
+  // the impact under the dome: a shield flash plus a smaller impact than the same weapon on an open city
+  assert.ok(Wd.bp() > p0, "the dome flash and the impact emit particles: " + p0 + " -> " + Wd.bp());
+  // the pure city: no words on the map while the replay plays
+  Wd.setPure(true); Wd.text(); step(lead.ri + 200); assert.equal(Wd.text(), 0, "no text in the pure city"); Wd.setPure(false); Wd.api.stop();
+});

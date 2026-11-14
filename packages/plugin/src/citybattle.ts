@@ -304,6 +304,11 @@ var BON=false,BDATA=window.CALDERA_BATTLE||null,BL={damage:true,attacks:true,shi
 // (the hub's physics: u = blast dollars, fu = fire dollars, fi = the tower share the fire takes, sp = the fire spread, m = miss in
 // metres, sh = shield, pot = dollars a full shield held off). f is the share of the tower the blast took. Rows without x are nights
 // from before the change: f is in facades, scored at $5M each, and they burn for show only.
+// ---- 11-15 (Mike 11-14: "every missile strike needs to create damage"): a shield cuts a hit, it never cancels it. The hub's
+// x.sh is the share the shield took off; the rest lands. A shielded hit flashes on the dome (the interception, above the
+// roof), then lands smaller: the impact, the flames and the smoke are scaled by bCut, from what got through (1 - sh).
+/** how big a hit looks next to an unshielded one: 1 with no shield, about .46 through the 99% beginner dome, .8 through 56% */
+function bCut(s){var sh=s&&!s.blocked?+s.sh||0:0;return sh>0?.4+.6*Math.sqrt(Math.max(0,1-Math.min(1,sh))):1}
 function bUsd(n){n=Math.round(n||0);var f=function(v,u){return '$'+(v>=100?Math.round(v):Math.round(v*10)/10)+u};return n>=1e9?f(n/1e9,'B'):n>=1e6?f(n/1e6,'M'):n>=1e3?f(n/1e3,'k'):'$'+n}
 /** the fire's time constant: one hour on the live day, 2.6 s on the replay clock */
 function bTau(S){return S&&S.live?36e5:2600}
@@ -332,7 +337,7 @@ function bBuildings(){BBLD={};BBAT={};if(typeof GM==='undefined'||typeof tiles==
   for(var kk in BBLD){BBLD[kk].sort(function(a,b){return (b.h-a.h)||(a.j-b.j)||(a.i-b.i)});BBLD[kk].forEach(function(b,ix){b.idx=ix;BBAT[b.i+','+b.j]={key:kk,idx:ix}})}}
 /** the shot objects of a shot list, numbered per attacker (k), each with its launch point, target tower and flight length.
  *  A shot at a city with no repo towers has nowhere to land (Mike 11-08: never green space): it is dropped, not counted */
-function bShots(raw){var byA={},shots=[],hit={},dropped=0;raw.forEach(function(s,ix){var a=s[0],o={ix:ix,a:a,d:s[1],w:s[2],f:s[3],lot:s[5],blocked:s[6],x:s[8]||null};o.usd=o.x?(o.x.u||0)+(o.x.fu||0):Math.round(o.f*5e6);o.fi=o.x?o.x.fi||0:0;o.pot=o.x&&o.x.pot||0;o.sh=o.x?o.x.sh||0:0;o.burn=o.blocked||!(o.f>0)?0:o.x?(o.x.sp?1:.45):(rnd(ix*5.7+3.1)<.35?1:.45);var pad=bPad(a),from=pad?bPadLauncher(pad.x,pad.y):a.charAt(0)!=='@'?bSea(o.d):null,tg=bTargetOf(o);if(!from||!tg){dropped++;return}   // only raiders fire from the sea; a member without a pad has no launch point
+function bShots(raw){var byA={},shots=[],hit={},dropped=0;raw.forEach(function(s,ix){var a=s[0],o={ix:ix,a:a,d:s[1],w:s[2],f:s[3],lot:s[5],blocked:s[6],x:s[8]||null};o.usd=o.x?(o.x.u||0)+(o.x.fu||0):Math.round(o.f*5e6);o.fi=o.x?o.x.fi||0:0;o.pot=o.x&&o.x.pot||0;o.sh=o.x?o.x.sh||0:0;o.cut=bCut(o);o.burn=o.blocked||!(o.f>0)?0:(o.x?(o.x.sp?1:.45):(rnd(ix*5.7+3.1)<.35?1:.45))*o.cut;var pad=bPad(a),from=pad?bPadLauncher(pad.x,pad.y):a.charAt(0)!=='@'?bSea(o.d):null,tg=bTargetOf(o);if(!from||!tg){dropped++;return}   // only raiders fire from the sea; a member without a pad has no launch point
     if(!byA[a])byA[a]=[];o.k=byA[a].length;byA[a].push(o);shots.push(o);o.from={x:from.x+8,y:from.y-24};o.pad=pad?{x:pad.x,y:pad.y}:o.from;o.to=tg;o.dist=Math.hypot(tg.x-o.from.x,tg.y-o.from.y);o.sz=BSZ[o.w]||1;
     if(o.f>0&&o.b){if(!hit[o.d])hit[o.d]={};if(!hit[o.d][o.b.idx])hit[o.d][o.b.idx]=[];hit[o.d][o.b.idx].push(o)}});
   return {shots:shots,byA:byA,hit:hit,n:shots.length,dropped:dropped}}
@@ -451,7 +456,8 @@ function bShatterFor(s,iA){var b=s.b,P=bPlan(Date.now()),S=bS(),L=(P.hit[s.d]||{
 function bCollapseFor(s,iA,tn){var b=s.b,P=bPlan(Date.now()),S=bS(),L=(P.hit[s.d]||{})[b.idx]||[],d0=0,d1=0;L.forEach(function(q){var ia=bImpactOf(S,q);if(ia<=iA)d1+=q.f;if(ia<iA)d0+=q.f});d0=bQ(d0);d1=bQ(d1);if(d1<=d0)return;
   var h=b.h,tiers=typeof towerTiers==='function'?towerTiers(h):[[.62,h]];bCollapseAdd(b.p.x,b.p.y+4,Math.max(10,Math.round(h*(1-.5*d0))),Math.max(10,Math.round(h*(1-.5*d1))),tiers[tiers.length-1][0],bCol(s.d),tn,BREP?BCOLREP:BCOLMS)}
 // ---- the damage tier readout (Mike 11-08: show the tier dropping): for 2.6 s after each impact, a pill over the tower with six pips
-// (the tower's six damage steps; the ones this hit takes go red and fade) and the numbers, or "Shield held"
+// (the tower's six damage steps; the ones this hit takes go red and fade) and the numbers, with the shield's share when one
+// cut it (cyan edge); "Shield held" only on nights from before 11-15
 var BHLMS=2600;
 /** the damage steps (0..6) a tower had just before and just after this shot's impact */
 function bTiers(S,s){var P=BREP?BREP.P:BPLAN,L=P&&s.b&&P.hit[s.d]?P.hit[s.d][s.b.idx]||[]:[],ia=bImpactOf(S,s),d0=0,d1=0;L.forEach(function(q){var t=bImpactOf(S,q);if(t<=ia)d1+=q.f;if(t<ia)d0+=q.f});return [Math.min(1,d0),Math.min(1,d1)]}
@@ -460,8 +466,8 @@ function bHitsNow(P,S,now){var best={},out=[];P.shots.forEach(function(s){if(!s.
   for(var k in best){var o=best[k],t=o.hit?bTiers(S,o.s):[0,0];out.push({s:o.s,ia:o.ia,age:o.age,hit:o.hit,t0:t[0],t1:t[1]})}return out.sort(function(a,b){return a.ia-b.ia})}
 function bHitLabels(c,P,S,now){var L=bHitsNow(P,S,now);if(!L.length)return;L=L.slice(-6);c.save();c.font='600 10px IBM Plex Mono,Menlo,monospace';c.textBaseline='middle';c.textAlign='left';
   L.forEach(function(o){var x=cam.x+o.s.to.x*cam.z,y=cam.y+(o.s.to.y-34)*cam.z;if(!isFinite(x)||!isFinite(y)||x<-80||x>vw+80||y<-30||y>vh+30)return;
-    var txt=o.hit?'-'+bUsd(o.s.usd)+(o.s.burn>=1?' +fire':''):'Shield held'+(o.s.pot?' '+bUsd(o.s.pot):''),tw=c.measureText(txt).width,pw=o.hit?42:0,w=8+pw+(pw?6:0)+tw+8,h=18,x0=Math.round(x-w/2),y0=Math.round(y-h/2),al=reduce?1:Math.min(1,o.age/150)*Math.min(1,(BHLMS-o.age)/500);
-    c.globalAlpha=al;c.fillStyle='rgba(15,16,22,.94)';c.strokeStyle=o.hit?'rgba(255,255,255,.28)':'rgba(61,242,255,.7)';c.lineWidth=1;c.beginPath();if(c.roundRect)c.roundRect(x0,y0,w,h,9);else c.rect(x0,y0,w,h);c.fill();c.stroke();
+    var landed=o.s.f>0&&!o.s.blocked,cut=landed&&o.s.sh>0,txt=landed?'-'+bUsd(o.s.usd)+((o.s.x?o.s.x.sp:o.s.burn>=1)?' +fire':'')+(cut?' \u00b7 shield '+Math.round(o.s.sh*100)+'%':''):'Shield held'+(o.s.pot?' '+bUsd(o.s.pot):''),tw=c.measureText(txt).width,pw=o.hit?42:0,w=8+pw+(pw?6:0)+tw+8,h=18,x0=Math.round(x-w/2),y0=Math.round(y-h/2),al=reduce?1:Math.min(1,o.age/150)*Math.min(1,(BHLMS-o.age)/500);
+    c.globalAlpha=al;c.fillStyle='rgba(15,16,22,.94)';c.strokeStyle=landed&&!cut?'rgba(255,255,255,.28)':'rgba(61,242,255,.7)';c.lineWidth=1;c.beginPath();if(c.roundRect)c.roundRect(x0,y0,w,h,9);else c.rect(x0,y0,w,h);c.fill();c.stroke();
     if(o.hit){var bw=40,w1=Math.round(bw*(1-o.t1)),w0=Math.max(w1+2,Math.round(bw*(1-o.t0)));   // the tower still standing (teal), what this hit took (red, fading), what was gone before
       c.fillStyle='rgba(255,255,255,.16)';c.fillRect(x0+8,y0+6,bw,h-12);c.fillStyle='#4FD1C5';c.fillRect(x0+8,y0+6,w1,h-12);c.fillStyle='rgba(255,90,70,'+(reduce?.9:Math.max(.25,1-o.age/1800)).toFixed(2)+')';c.fillRect(x0+8+w1,y0+6,Math.min(bw,w0)-w1,h-12)}
     c.fillStyle='#F2F2F5';c.fillText(txt,x0+8+pw+(pw?6:0),y0+h/2+.5)});c.restore()}
@@ -493,7 +499,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
   if(rep)bDrawRibbons(c,now);
   // missiles in flight and their hits (also for raiders, who fire from the sea with no pad)
   P.shots.forEach(function(s){if(!s.from||!s.to)return;var fA=bFireOf(S,s),dur=bFlightOf(S,s),iA=fA+dur,sz=BSZ[s.w]||1;
-    if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.f>0&&s.b&&!reduce){bImpactFx(s.to.x,s.to.y+(s.to.miss?0:4),bCol(s.d),(BWS[s.w]||.6)*(rep?1.3:1),s.b.p.y+4);bShatterFor(s,iA);if(s.sh>0)bShieldFx(s.to.x,s.to.y-14,'#3DF2FF')}else if(fx&&!reduce)bShieldFx(s.to.x,s.to.y,'#3DF2FF');if(!(s.f>0)||s.sh>0)BDOME[s.d]=tn;if(s.f>0&&s.b)bRedraw()}
+    if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.f>0&&s.b&&!reduce){if(s.sh>0)bShieldFx(s.to.x,s.to.y-26,'#3DF2FF');bImpactFx(s.to.x,s.to.y+(s.to.miss?0:4),bCol(s.d),(BWS[s.w]||.6)*(rep?1.3:1)*(s.cut||1),s.b.p.y+4);bShatterFor(s,iA)}else if(fx&&!reduce)bShieldFx(s.to.x,s.to.y,'#3DF2FF');if(!(s.f>0)||s.sh>0)BDOME[s.d]=tn;if(s.f>0&&s.b)bRedraw()}
     if(s.a.charAt(0)!=='@'&&fx&&bBetween(fA,last,now)){if(rep)bLaunchFxBig(s.from.x,s.from.y,-1);else bLaunchFx(s.from.x,s.from.y,-1)}
     if(now>=fA&&now<iA&&BL.attacks&&(inView(s.from)||inView(s.to)||rep)){var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-fA)/dur);missileHi(c,tr.x,tr.y,tr.a,sz,bCol(s.a),tr.boost);
       if(rep){if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz)}else if(Math.floor(tn/50)%2===0&&BP.length<BPMAX-30)bTrailFx(tr.x,tr.y,tr.a,sz)}});
@@ -503,7 +509,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
   if(BL.damage){var nSm=0,fq=0,tau=bTau(S),wind=bWind(P),ra=1-bRebuild();
     if(ra>0)P.shots.forEach(function(s){if(!s.to||!s.to.miss||!(s.f>0)||now<bImpactOf(S,s)||!inView(s.to))return;var r=(1.8+2.6*(BWS[s.w]||.6));c.fillStyle='rgba(18,13,10,'+(.6*ra).toFixed(2)+')';c.beginPath();c.ellipse(s.to.x,s.to.y,r*1.6,r*.8,0,0,7);c.fill();c.strokeStyle='rgba(120,105,90,'+(.45*ra).toFixed(2)+')';c.lineWidth=.6;c.stroke()});
     for(var hk in P.hit){var bl=BBLD[hk]||[];for(var bi in P.hit[hk]){var b=bl[+bi];if(!b)continue;var d=bBld(null,b.i,b.j);fq+=Math.round(d*24);if(d<=0||nSm>=10||!inView(b.p))continue;
-      var fl=0,sm=0;P.hit[hk][bi].forEach(function(q){var ag=now-bImpactOf(S,q);if(ag<0)return;fl=Math.max(fl,q.burn*Math.exp(-ag/tau));sm=Math.max(sm,(.4+.6*q.burn)*Math.exp(-ag/(2.5*tau)))});
+      var fl=0,sm=0;P.hit[hk][bi].forEach(function(q){var ag=now-bImpactOf(S,q);if(ag<0)return;fl=Math.max(fl,q.burn*Math.exp(-ag/tau));sm=Math.max(sm,(.4*(q.cut||1)+.6*q.burn)*Math.exp(-ag/(2.5*tau)))});
       var hh=b.h,rb=bRebuildOf(b.i,b.j),top=b.p.y+4-Math.max(pxBreak(hh,bBldHeld(b.i,b.j)),rb*hh);
       if(now>=S.hold){fl=0;sm=Math.max(sm,.24)*Math.max(0,1-rb*2.5)}else sm=Math.max(sm,.14);
       nSm++;if(sm>.03)bPlumeHi(c,b.p.x+2,top-4,Math.min(1,sm),wind,b.i*7+b.j);if(fl>.04)bFlameHi(c,b.p.x+1,top+1,Math.min(1,fl),b.i*3+b.j)}}
@@ -547,7 +553,7 @@ window.CALDERA_BATTLE_API={
   phase:function(){var P=bPlan(Date.now()),S=bS(),now=bNow(),seg=bSegment(S,now),landed=0,fired=0;P.shots.forEach(function(s){if(bLandOf(S,s)<=now)landed++;if(bFireOf(S,s)<=now)fired++});
     var until=seg==='rebuild'?S.end:seg==='salvo'||seg==='damage'?S.hold:S.salvo,o={seg:seg,until:BREP?Date.now()+bRealMs(until-now,BREP.sp):until,salvoAt:S.salvo,total:P.n,landed:landed,fired:fired,night:P.night,replay:!!BREP,rebuilt:bRebuild()};
     if(BREP){var R=BREP.R,b=bBeatAt(R,now),st=bRepStage(R,now),nb=null;if(!b&&st!=='wide'&&st!=='rebuild')for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}var cur=b||nb;
-      o.speed=BREP.sp;o.follow=BREP.follow;var hn2=bHitsNow(BREP.P,BREP.R.S,now),lh=hn2.length?hn2[hn2.length-1]:null;o.hit=lh?{d:lh.s.d,a:lh.s.a,w:lh.s.w,from:Math.round((1-lh.t0)*1e4)/100,to:Math.round((1-lh.t1)*1e4)/100,of:100,shield:!lh.hit,usd:lh.hit?lh.s.usd:0,pot:lh.s.pot||0,fire:lh.s.burn>=1,ix:lh.s.ix}:null;o.stage=st;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'?'damage':st==='rebuild'?'rebuild':'idle';
+      o.speed=BREP.sp;o.follow=BREP.follow;var hn2=bHitsNow(BREP.P,BREP.R.S,now),lh=hn2.length?hn2[hn2.length-1]:null;o.hit=lh?{d:lh.s.d,a:lh.s.a,w:lh.s.w,from:Math.round((1-lh.t0)*1e4)/100,to:Math.round((1-lh.t1)*1e4)/100,of:100,shield:!!lh.s.blocked||!(lh.s.f>0),sh:lh.s.blocked?0:lh.s.sh||0,usd:lh.s.f>0?lh.s.usd:0,pot:lh.s.pot||0,fire:!!(lh.s.x?lh.s.x.sp:lh.s.burn>=1)&&lh.s.f>0,ix:lh.s.ix}:null;o.stage=st;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'?'damage':st==='rebuild'?'rebuild':'idle';
       o.label=cur?(cur.raid?'Raiders':cur.a)+' → '+(cur.d.charAt(0)==='@'?cur.d:'the sea')+(cur.targets.length>1?' +'+(cur.targets.length-1):'')+' · '+cur.n+' missile'+(cur.n===1?'':'s'):st==='wide'?'Every strike landed':st==='rebuild'?'Cranes, '+Math.round(bRebuild()*100)+'% rebuilt':'';}
     return o},
   state:function(){return {on:BON,layers:BL,phase:this.phase(),cities:BDATA&&BDATA.members?Object.keys(BDATA.members).length:0}},
