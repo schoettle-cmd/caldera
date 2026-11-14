@@ -205,7 +205,7 @@ function bNukeFx(x,top,gy,R){var lite=vw<700?.6:1;bEmit({k:'flash',x:x,y:top,r0:
   bMushroom(x,gy,lite<1?50:100,1.35)}
 /** a fallen item's cubes as one more sixth of it derezzes (u0 to u1): the floors it loses go into cubes that drift up and out
  *  from ground zero, glow cyan, flicker and vanish. Budget: the pool's share over every item and step of the fall */
-function bRezFx(it,u0,u1,F){var col=bCol(F.key),ph=vw<700,tot=LODN<1?160:ph?800:2500,mx=ph?180:420;if(F.area==null){F.area=0;F.items.forEach(function(x){F.area+=x.h})}   // spec: 2500 cubes for the city on a desktop, 800 on a phone, 160 on the world map
+function bRezFx(it,u0,u1,F){var col=bCol(F.key),ph=vw<700,tot=LODN<1?160:ph?640:2000,mx=ph?180:420;if(F.area==null){F.area=0;F.items.forEach(function(x){F.area+=x.h})}   // spec: 2000 cubes for the city on a desktop, 640 on a phone, 160 on the world map
   var share=Math.max(it.t==='b'?14:6,Math.min(mx,Math.round(tot*it.h/Math.max(1,F.area)))),per=Math.max(1,Math.round(share/(it.t==='b'?6:1))),cs=LODN<1?5:ph?2.5:2,cr=LODN<1?2:ph?2:1.5,sh=[];
   if(it.t==='b'){var h=it.b.h,tiers=typeof towerTiers==='function'?towerTiers(h):[[.78,h]];sh=pxShards(it.p.x,it.p.y+4,tiers[0][0],h*(1-u1),h*(1-u0)+1,col,hash(F.key)+it.b.idx*13+Math.round(u1*6),per)}
   else{if(!(u0<.5&&u1>=.5)&&it.t==='l')return;var hh=it.h*(it.t==='s'?.6:1);for(var k=0;k<per;k++){var s=it.p.x*.37+it.p.y+k*1.618;sh.push({x:it.p.x+(rnd(s)-.5)*TW*.7,y:it.p.y+4-rnd(s+1)*hh,col:k%3?col:hmul(col,.7)})}}
