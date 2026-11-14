@@ -67,7 +67,7 @@ function drStrobe(tn){var t=tn%500;return t<150||(t>=200&&t<300)}   // waiting: 
 function pxPill(c,x,y,text,col){if(typeof PURE!=='undefined'&&PURE)return;c.font='600 9px ui-monospace,monospace';var tw=c.measureText(text).width,w=Math.ceil(tw)+18,h=13,x0=Math.round(x-w/2),y0=Math.round(y-h);
   c.fillStyle=col;c.fillRect(x0,y0,w,h);c.fillStyle='rgba(14,20,32,.92)';c.fillRect(x0+1,y0+1,w-2,h-2);c.fillStyle=col;c.fillRect(x0+5,y0+4,4,4);c.fillStyle='#E6ECF5';c.textAlign='left';c.textBaseline='middle';c.fillText(text,x0+13,y0+h/2+.5);c.textAlign='start';c.textBaseline='alphabetic'}
 function agentAge(a){var s=+a.ago;if(!(s>=0))return '';return s<60?Math.round(s)+'s':s<3600?Math.round(s/60)+'m':Math.round(s/3600)+'h'}
-function agentPillText(ids){var ORD={working:0,thinking:1,waiting:2,idle:3,done:4},best=ids.slice().sort(function(p,q){return (ORD[AG[p].a.state]||0)-(ORD[AG[q].a.state]||0)})[0],a=AG[best].a,st=a.state==='waiting'?'waiting on you':a.state;
+function agentPillText(ids){ids=ids.filter(function(i){return AG[i]});if(!ids.length)return '';var ORD={working:0,thinking:1,waiting:2,idle:3,done:4},best=ids.slice().sort(function(p,q){return (ORD[AG[p].a.state]||0)-(ORD[AG[q].a.state]||0)})[0],a=AG[best].a,st=a.state==='waiting'?'waiting on you':a.state;
   var t=(a.label||'agent')+' · '+st+(a.repo?' · '+a.repo:a.d?' · '+a.d:'');if(ids.length>1)return t+' ×'+ids.length;return t+(agentAge(a)?' '+agentAge(a):'')}
 // the sky base: a pixel helipad on a lattice mast; the deck is one cached texel image per size, the lights are drawn over it
 function deckTex(hw){var W=Math.round(hw*PXS)*2,Hh=W/2,key='deck|'+W;return pxTex(key,W,Hh+8,function(buf,w,h){var slab=rgb('#4F5A70'),lite=rgb('#5E6A82'),edge=rgb('#1B2233'),out=rgb('#0E1420'),hy=rgb('#FFD24A');
@@ -110,5 +110,5 @@ function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var lay=
     if(st==='thinking'&&!reduce&&!micro){var ta=tn/143;c.fillStyle=col;for(var di=0;di<3;di++){var an=ta+di*.55,dsz=di===2?1:.5;c.globalAlpha=f*(.9-di*.2);c.fillRect(sx+Math.cos(an)*5.5-dsz/2,sy+Math.sin(an)*2.5-dsz/2,dsz,dsz)}c.globalAlpha=f}   // thought dots on an 11x5 texel orbit
     g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;
     if(labels&&sp.mode!=='dock'&&(cam.z>.55||ids.length<=8)&&(sp.pill||sp.mode==='hold'&&false)){var pk=g.b?g.b.i+','+g.b.j:id;pills.push({x:sx,y:sy-9,ids:g.b?lay.groups&&Object.keys(AG).filter(function(o){return AG[o].b===g.b&&!AG[o].gone}):[id],col:col})}});
-  c.globalAlpha=1;pills.forEach(function(p){pxPill(c,p.x,p.y,agentPillText(p.ids),p.col)});c.restore()}
+  c.globalAlpha=1;pills.forEach(function(p){var t=agentPillText(p.ids);if(t)pxPill(c,p.x,p.y,t,p.col)});c.restore()}
 `;
