@@ -50,15 +50,21 @@ function pxPainter(buf,w,h){return {w:w,h:h,
 // ---- the damage mask. d = damage 0..1 (sixths), f = rebuild 0..1; heights in world px from the ground of the whole building
 /** the break height: how much of a building stands after damage d (its top floors are gone) */
 function pxBreak(h,d){return d<=0?h:Math.max(8,h*(1-.58*d))}
+/** what still stands of a damaged building: the break, or less while it derezzes (r 0..1, the fallen city: citybattle.ts bRaze) */
+function pxStand(m){return Math.min(pxBreak(m.h,m.d),m.h*(1-(m.r||0)))}
 /** the hit points on the faces below the break: deterministic by seed and damage step (more craters as damage grows) */
-function pxCraters(h,d,seed,hw){var out=[],n=d>0?Math.max(1,Math.round(d*6)):0;   // any damage leaves at least one crater (11-13: every hit shows)
-  for(var k=0;k<n;k++){var side=k%2,u=.2+rnd(seed*1.7+k*3.3)*.6,hb=pxBreak(h,d),v=6+rnd(seed*.9+k*5.1)*Math.max(4,hb-14),r=2.2+rnd(seed+k*7.7)*2.6+d*1.5;out.push({side:side,u:u,v:v,r:Math.min(r,hw*.45)})}return out}
+function pxCraters(h,d,seed,hw,nh){var out=[],n=d>0?Math.max(1,Math.round(d*6),Math.min(8,nh||0)):0;   // any damage leaves at least one crater (11-13: every hit shows), and one per hit (11-14)
+  for(var k=0;k<n;k++){var side=k%2,u=.2+rnd(seed*1.7+k*3.3)*.6,hb=pxBreak(h,d),v=6+rnd(seed*.9+k*5.1)*Math.max(4,hb-14),r=Math.min(2.5+rnd(seed+k*7.7)*3+d*4,hw*.45),ck=[];
+    for(var c=0,nc=2+Math.round(r/3);c<nc;c++){var a=rnd(seed+k*2.1+c*1.3)*6.283,L=r*(2+rnd(seed+k+c*4.4)*1.5),px0=Math.cos(a)*r*.9,py0=Math.sin(a)*r*.9,pts=[[px0,py0]];for(var g=1;g<=3;g++){var a2=a+(rnd(seed+c*3+g*1.7+k)-.5)*1.1;pts.push([pts[g-1][0]+Math.cos(a2)*L/3,pts[g-1][1]+Math.sin(a2)*L/3])}ck.push(pts)}   // 11-14 cracks running out from the rim (Fable spec: 2 to 7 by size)
+    out.push({side:side,u:u,v:v,r:r,ck:ck})}return out}
 /** the mask of one face: tells whether a texel at (x texels, vt world px from the ground) is still there, and how it looks */
-function pxMask(m,side,hwTex){if(!m||!(m.d>0))return null;var hb=pxBreak(m.h,m.d),yb=(m.f||0)*m.h,cr=[];(m.craters||[]).forEach(function(q){if(q.side===side)cr.push(q)});
+function pxMask(m,side,hwTex){if(!m||!(m.d>0))return null;var hb=pxStand(m),yb=(m.f||0)*m.h,cr=[];(m.craters||[]).forEach(function(q){if(q.side===side)cr.push(q)});
   return {hb:hb,yb:yb,cr:cr,seed:m.seed||0,
     top:function(x){var s=this.seed,t=hb+(rnd(s+x*.731)-.5)*3+(rnd(s+(x>>2)*1.9)-.5)*7+(rnd(s+(x>>4)*.7)-.5)*6;if(rnd(s+(x>>1)*1.37)<.09)t+=3+rnd(s+(x>>1)*2.2)*6;return t},   // jagged in steps, with stubs of standing wall two texels wide
     build:function(x){return yb<=0?0:yb+(rnd(this.seed+x*.53)-.5)*1.5+(x%3===0?.5:0)},   // the ragged build line, pixel by pixel
     crater:function(x,vt){var u=x/hwTex;for(var k=0;k<cr.length;k++){var q=cr[k],du=(u-q.u)*hwTex/PXS,dv=vt-q.v,e=(du*du)/(q.r*q.r)+(dv*dv)/(q.r*q.r*1.4);if(e<1)return {q:q,e:e}}return null},
+    crack:function(x,vt){var u=x/hwTex,lim=.7/PXS;for(var k=0;k<cr.length;k++){var q=cr[k];if(!q.ck)continue;var du=(u-q.u)*hwTex/PXS,dv=vt-q.v;if(Math.abs(du)>q.r*5.5||Math.abs(dv)>q.r*5.5)continue;
+      for(var c=0;c<q.ck.length;c++){var P0=q.ck[c];for(var g=1;g<P0.length;g++){var ax=P0[g-1][0],ay=P0[g-1][1],bx=P0[g][0],by=P0[g][1],vx=bx-ax,vy=by-ay,l2=vx*vx+vy*vy||1,t=Math.max(0,Math.min(1,((du-ax)*vx+(dv-ay)*vy)/l2)),ex=ax+vx*t-du,ey=ay+vy*t-dv;if(ex*ex+ey*ey<lim*lim*(1.6-t*.6))return true}}}return false},
     rim:function(x,vt){var u=x/hwTex,best=9;for(var k=0;k<cr.length;k++){var q=cr[k],du=(u-q.u)*hwTex/PXS,dv=vt-q.v,e=(du*du)/(q.r*q.r)+(dv*dv)/(q.r*q.r*1.4);if(e<best)best=e}return best}}}
 // ---- the face shader: material, windows, lobby, weathering, then damage. o: side, mat, col [r,g,b], L (P.light), n, litp, seed,
 // people, ground, sign, awning, escape, balcony, v0 (height of this block's base above the ground), mask
@@ -114,9 +120,9 @@ function pxFace(p,o){var w=p.w,h=p.h,side=o.side,sf=side?.74:1,L=o.L,n=o.n,base=
       if(vt>tb){p.cut(xd,vd2);continue}
       var crt=mask.crater(xd,vt);if(crt){var slab=((vt*PXS)|0)%FH<2&&rnd(seed+xd*.3+vd2*.7)<.75,bar=xd%5===2&&rnd(seed+xd*1.1+(vd2>>2))<.45;
         if(slab)p.set(xd,vd2,cmul([72,68,64],L+.2));else if(bar&&crt.e>.35)p.set(xd,vd2,cmul([70,52,44],L+.3));else p.cut(xd,vd2);continue}
-      var rim=mask.rim(xd,vt);if(rim<1.5)p.tint(xd,vd2,soot,.75*(1.5-rim)/.5);
+      var rim=mask.rim(xd,vt);if(rim<1.5)p.tint(xd,vd2,soot,.75*(1.5-rim)/.5);if(rim<30&&mask.crack(xd,vt))p.tint(xd,vd2,[14,12,12],.85);
       if(tb-vt<2.5)p.tint(xd,vd2,soot,.7);else if(tb-vt<5&&rnd(seed+xd+vd2)<.5)p.tint(xd,vd2,soot,.35);
-      if(mask.cr.length&&rnd(seed+xd*.37)<.5){for(var kq=0;kq<mask.cr.length;kq++){var q=mask.cr[kq],cu=q.u*hwT,below=q.v-vt;if(below>0&&below<q.r*4&&Math.abs(xd-cu)<q.r*PXS*(.4+below/(q.r*4)))p.tint(xd,vd2,soot,.5*(1-below/(q.r*4)))}}}}}}
+      if(mask.cr.length&&rnd(seed+xd*.37)<.5){for(var kq=0;kq<mask.cr.length;kq++){var q=mask.cr[kq],cu=q.u*hwT,below=q.v-vt,above=vt-q.v;if(below>0&&below<q.r*4&&Math.abs(xd-cu)<q.r*PXS*(.4+below/(q.r*4)))p.tint(xd,vd2,soot,.5*(1-below/(q.r*4)));else if(above>q.r*.8&&above<q.r*4.5&&Math.abs(xd-cu)<q.r*PXS*(1-above/(q.r*5)))p.tint(xd,vd2,soot,.55*(1-above/(q.r*4.5)))}}}}}}
 /** the roof surface (a square texture mapped onto the top diamond): parapet rim, gravel, pavers or a membrane with seams; rubble on a cut */
 function pxTop(p,o){var S=p.w,L=o.L,base=cmul(o.col,L*1.18),kind=o.kind||'gravel',seed=o.seed||0,n=o.n;
   for(var t=0;t<S;t++)for(var s=0;s<S;s++){var c;
@@ -132,11 +138,11 @@ function pxTop(p,o){var S=p.w,L=o.L,base=cmul(o.col,L*1.18),kind=o.kind||'gravel
 var PXMAT={glass:1,punched:1,brick:1,stucco:1,tech:1,siding:1,concrete:1};
 function pxBlock(c,px,py,w,h,mat,col,o){o=o||{};var hw=TW/2*w,hh=TH/2*w,L=P.light,n=hn(),cr=rgb(col),wT=Math.max(2,Math.round(hw*PXS)),hT=Math.max(2,Math.round(h*PXS)),seed=o.seed||0,v0=o.v0||0,m=o.mask||null;
   if(h<=0)return {hw:hw,hh:hh,top:py};
-  var mk=m?'|m'+m.d+'/'+(Math.round((m.f||0)*m.h*2)/2)+'/'+m.seed+'/'+Math.round(m.h):'',litq=Math.round((o.litp||0)*8)/8,
+  var mk=m?'|m'+m.d+'/'+(Math.round((m.f||0)*m.h*2)/2)+'/'+m.seed+'/'+Math.round(m.h)+'/'+(m.r||0)+'/'+(m.n||0):'',litq=Math.round((o.litp||0)*8)/8,
     kb=mat+'|'+col+'|'+wT+'|'+hT+'|'+litq+'|'+seed+'|'+(o.people||0)+'|'+(o.sign||'')+'|'+(o.awning||'')+'|'+(o.escape?1:0)+(o.balcony?1:0)+(o.ground?1:0)+'|'+palKey+'|'+v0+mk;
   var faces=[0,1].map(function(side){return pxTex('f'+side+'|'+kb,wT,hT,function(buf,W2,H2){pxFace(pxPainter(buf,W2,H2),{side:side,mat:mat,col:cr,L:L,n:n,litp:o.litp,seed:seed+side*3,people:o.people,ground:o.ground,sign:o.sign?rgb(o.sign):null,awning:o.awning?rgb(o.awning):null,escape:o.escape,balcony:o.balcony,v0:v0,mask:pxMask(m,side,W2)})})});
   // where the block ends: whole, or cut by the break (rubble on the cut) or the build line (a fresh slab)
-  var cut=null,hTop=h;if(m&&m.d>0){var hb=pxBreak(m.h,m.d),yb=(m.f||0)*m.h,top=Math.max(hb,yb);if(top<v0+h){hTop=Math.max(1,top-v0);cut=yb>hb?'fresh':'rubble'}}
+  var cut=null,hTop=h;if(m&&m.d>0){var hb=pxStand(m),yb=(m.f||0)*m.h,top=Math.max(hb,yb);if(top<v0+h){hTop=Math.max(1,top-v0);cut=yb>hb?'fresh':'rubble'}}
   var S=Math.max(4,Math.round(hw*PXS*.9)),topTex=pxTex('t|'+col+'|'+S+'|'+(o.roof||'gravel')+'|'+seed+'|'+palKey+'|'+(cut||''),S,S,function(buf,W3){pxTop(pxPainter(buf,W3,W3),{col:cr,L:L,n:n,kind:o.roof,seed:seed,cut:cut})});
   c.save();c.imageSmoothingEnabled=false;
   c.save();c.transform(1,hh/hw,0,1,px-hw,py-h);c.drawImage(faces[0].cv,0,0,hw,h);c.restore();
@@ -148,7 +154,7 @@ function pxBlock(c,px,py,w,h,mat,col,o){o=o||{};var hw=TW/2*w,hh=TH/2*w,L=P.ligh
 /** the texel-sized squares a building's lost part is made of: sampled across the faces between heights v0 and v1 (world px
  *  from the ground) and across the top at v1, in the building's own colours. Returns [{x,y,col,g,side,u,v}], at most max */
 function pxShards(px,py,w,v0,v1,col,seed,max){var hw=TW/2*w,hh=TH/2*w,n=hn(),L=P.light,out=[],cr=rgb(col),pal=[hex(cmul(cr,L)),hex(cmul(cr,L*.8)),hex(cmul(cr,L*.6)),n?'#F5D28A':'#C9E3F6','#8A8A93','#3A3D47',hex(cmul(cr,L*1.1)),hex(cmul([200,190,170],L))];
-  var lost=Math.max(2,v1-v0),N=Math.max(0,Math.min(max,Math.round(lost*hw*.6)));for(var k=0;k<N;k++){var s=seed+k*1.618,side=rnd(s)<.5?0:1,u=rnd(s+1.1),v=v0+rnd(s+2.2)*lost,q=fpt(px,py,hw,hh,side,u,v);
+  var lost=Math.max(2,v1-v0),N=Math.max(0,Math.min(max,Math.round(Math.max(lost*hw*.6,max*.6))));for(var k=0;k<N;k++){var s=seed+k*1.618,side=rnd(s)<.5?0:1,u=rnd(s+1.1),v=v0+rnd(s+2.2)*lost,q=fpt(px,py,hw,hh,side,u,v);
     if(rnd(s+3.3)<.2){q=tpt(px,py-v1,hw,hh,rnd(s+4)*2-1,rnd(s+5)*2-1);v=v1}
     out.push({x:q[0],y:q[1],col:pal[Math.floor(rnd(s+6.6)*pal.length)],g:py+(rnd(s+7.7)-.5)*hh*1.7,side:side,u:u,v:v})}return out}
 /** the rubble heap at a hit building's foot: a deterministic mound of texel squares in the building's colours (cached layer).

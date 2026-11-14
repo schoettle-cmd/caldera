@@ -183,7 +183,7 @@ function towerTiers(h){return h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[
  *  o.roof false leaves the roof to the caller (padlock, beacon); returns its top */
 function towerHi(c,x,y,o){var v=o.variant,col=o.col,seed=o.seed,base=y+4,top=base,tiers=o.tiers||towerTiers(o.h||96),litp=o.litp,n=hn(),pe=o.people||0;
   var tc=v===0?mix(col,.3,'#8EC0EE'):v===1?mix(col,.3,'#C9B9A0'):col;
-  var hs=0;tiers.forEach(function(t){hs+=t[1]});var dm=o.dmg&&o.dmg.d>0?{d:o.dmg.d,f:o.dmg.f||0,h:hs,seed:o.dmg.seed||seed,craters:pxCraters(hs,o.dmg.d,o.dmg.seed||seed,TW/2*tiers[0][0])}:null,stand=dm?Math.max(pxBreak(hs,dm.d),dm.f*hs):hs,v0=0,cut=false;
+  var hs=0;tiers.forEach(function(t){hs+=t[1]});var dm=o.dmg&&o.dmg.d>0?{d:o.dmg.d,f:o.dmg.f||0,r:o.dmg.r||0,n:o.dmg.n||0,h:hs,seed:o.dmg.seed||seed,craters:pxCraters(hs,o.dmg.d,o.dmg.seed||seed,TW/2*tiers[0][0],o.dmg.n||0)}:null,stand=dm?Math.max(pxStand(dm),dm.f*hs):hs,v0=0,cut=false;
   tiers.forEach(function(t,k){var mat=v===0||(v===2&&k===0)?'glass':v===1?'punched':'concrete';
     if(cut)return;if(dm&&v0>=stand){cut=true;return}
     if(LODN>0){var r=pxBlock(c,x,top,t[0],t[1],mat==='concrete'?'punched':mat,tc,{litp:litp,seed:seed+k*101,people:pe,sign:k===0&&v===0?col:null,ground:k===0,awning:k===0&&v===1&&rnd(seed+.4)<.5?col:null,v0:v0,mask:dm,roof:v===1?'pavers':v===2?'membrane':'gravel'});if(r.cut){cut=true;top=r.top;return}}

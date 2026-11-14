@@ -16,7 +16,7 @@ const PAL = { day: { light: 1, lamp: 0, lit: .45, glass: ["#C9E3F6", "#6D9FCF"],
 const at = (h, m = 0, s = 0) => { const d = new Date(); d.setHours(h, m, s, 0); return d.getTime(); };
 /** a world with two cities in the battles, each with two repo towers; @a fires six shots at @b's towers, @b two back; the
  *  hub resolved the night at 02:00 today. clock.t is the wall clock, clock.p the performance clock (for replays). */
-function world(sky, clock, data, reduce = false, store = memStore()) {
+function world(sky, clock, data, reduce = false, store = memStore(), b2h = 30) {
   const pre = `var TW=64,TH=32,P=PAL.${sky},sky='${sky}',night=${sky === "night"},T=1234,reduce=${reduce},FITZ=.5,maxH=60,cam={x:300,y:200,z:1},dpr=2,vw=900,vh=600,palKey='${sky}',W=24,H=24,dirty=false,draws=0,cranes=[];
     var Date=FakeDate,performance={now:function(){return CLOCK.p}};function draw(){draws++;dirty=true}function e(s){return String(s)}var window={CALDERA_BATTLE:DATA,matchMedia:null,localStorage:STORE};
     function rnd(s){var x=Math.sin(s)*10000;return x-Math.floor(x)}function hash(t){var h=0;t=String(t);for(var i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return Math.abs(h)}
@@ -25,13 +25,13 @@ function world(sky, clock, data, reduce = false, store = memStore()) {
     function poly(c,p,f){c.beginPath();c.moveTo(p[0][0],p[0][1]);for(var k=1;k<p.length;k++)c.lineTo(p[k][0],p[k][1]);c.closePath();if(f){c.fillStyle=f;c.fill()}}
     function iso(i,j){return {x:(i-j)*TW/2,y:(i+j)*TH/2}}function water(){return false}var document={createElement:function(){return {width:0,height:0,getContext:function(){return mk()}}}};
     function gXY(i){var r=Math.floor(Math.sqrt(i)),o=i-r*r;return o<r?[r,o]:o===r?[r,r]:[o-r-1,r]}
-    var DA={name:'a-d',repos:[]},DB={name:'b-d',repos:[]},RA1={name:'a1',commits:40},RA2={name:'a2',commits:20},RB1={name:'b1',commits:60},RB2={name:'b2',commits:30};
+    var DA={name:'a-d',repos:[]},DB={name:'b-d',repos:[]},RA1={name:'a1',commits:40},RA2={name:'a2',commits:20},RB1={name:'b1',commits:${Math.max(60, b2h * 2)}},RB2={name:'b2',commits:${b2h}};
     var GM={'@a':{b:{x:2,y:2,k:5},cs:{side:3,codes:[5,5,5,6,5,5,5,5,5]},lang:'#3178C6',n:{ds:[DA]}},'@b':{b:{x:12,y:2,k:5},cs:{side:3,codes:[5,5,6,5,5,5,5,5,5]},lang:'#E85D75',n:{ds:[DB]}},'@c':{cs:{side:1,codes:[5]},lang:'#888888',n:{ds:[]}}};
     var tiles={};for(var j=0;j<=H;j++)for(var i=0;i<=W;i++)tiles[i+','+j]={t:'g'};tiles['2,9']={t:'b',d:DA,r:RA1};tiles['4,9']={t:'b',d:DA,r:RA2};tiles['12,9']={t:'b',d:DB,r:RB1};tiles['14,9']={t:'b',d:DB,r:RB2};
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();var PURE=false;`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", "STORE", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,stateLoad:bStateLoad,sync:function(){bStateSync(bPlan(Date.now()),Date.now())},rebOf:bRebuildOf,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam},setLOD:function(v){LODN=v},card:battleCard,setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
+    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
 }
 /** a localStorage stand-in (a broken one throws on every call) */
 function memStore(broken = false) { const m = new Map(); return { getItem: k => { if (broken) throw new Error("quota"); return m.has(k) ? m.get(k) : null }, setItem: (k, v) => { if (broken) throw new Error("quota"); m.set(k, String(v)) }, removeItem: k => m.delete(k), get size() { return m.size }, raw: k => m.get(k) }; }
@@ -101,6 +101,7 @@ test("cinematic replay: beats from 1 to 8 cities each stay under 9.7 s and the w
   assert.equal(W2.api.skip(), true); let ph = W2.api.phase(); assert.equal(ph.beat, 2); assert.ok(Math.abs(ph.t - R.beats[1].t0) < 1, "at the start of beat 2"); assert.ok(W2.ribbons() >= 6, "the skipped flights left their ribbons"); assert.equal(W2.dmg(12, 9), 1, "and their hits");
   assert.equal(W2.api.pause(), true); const t1 = W2.api.phase().t; clock.p += 3000; W2.bcam(); W2.over(); assert.equal(W2.api.phase().t, t1, "paused: the clock stands still"); assert.equal(W2.api.phase().paused, true);
   assert.equal(W2.api.pause(), false); clock.p += 500; assert.ok(Math.abs(W2.api.phase().t - (t1 + 500)) < 1, "resumed where it was");
+  W2.api.skip(); ph = W2.api.phase(); assert.equal(ph.stage, "fall", "after the last strike: the fall"); assert.equal(ph.label, "@b falls", "the city that took the most falls"); assert.equal(ph.seg, "damage");
   W2.api.skip(); assert.equal(W2.api.phase().stage, "wide"); W2.api.skip(); assert.equal(W2.api.phase().stage, "rebuild"); W2.api.skip(); clock.p += 1; W2.bcam(); W2.over(); assert.equal(W2.api.phase().replay, false, "skipping the cranes ends the replay");
   // the demo: a sample battle between the biggest cities on the map, raiders last, labelled demo; the live plan is untouched
   assert.equal(W2.api.replay("demo"), 11); ph = W2.api.phase(); assert.equal(ph.demo, true); assert.equal(ph.beats, 3); assert.deepEqual(W2.rep().R.beats.map((b) => b.a), ["@a", "@b", "~raiders"]); assert.equal(W2.rep().R.beats[0].n, 5);
@@ -210,7 +211,7 @@ test("aim points: every shot lands on the roof of one of the defender's repo tow
   const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, lead = R.beats[0].lead;
   for (let ms = lead.ri - 300; ms <= lead.ri + 60; ms += 30) { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); }
   // Mike 11-11: the lost floors shatter into masses of pixels in the tower's colours (capped per LOD), fall, bounce and settle, then fade
-  assert.ok(Wd.vox() >= 50 && Wd.vox() <= 600, "the hit floors burst into voxels: " + Wd.vox()); assert.ok(Wd.bp() > 70, "fireball, chunks, dust and voxels");
+  assert.ok(Wd.vox() >= 40 && Wd.vox() <= 600, "the hit floors burst into voxels (11-14 spec: M 120 walked in, x.4 at street zoom): " + Wd.vox()); assert.ok(Wd.bp() > 70, "fireball, chunks, dust and voxels");
   const c = stubCtx(); Wd.art.bDrawParticles(c); Wd.art.bRubblePiles(c, 0, 0, "#3178C6", 1); assert.ok(c.__n.ops > 60, "every voxel is drawn");
   for (let k = 0; k < 20; k++) { clock.p += 100; Wd.bcam(); Wd.over(); } assert.ok(Wd.voxDown() > 0, "voxels have landed around the footprint after 2 s");
   Wd.api.stop(); for (let k = 0; k < 90; k++) { clock.p += 50; Wd.over(); } assert.equal(Wd.vox(), 0, "all gone within 4.5 s of no new hits (the cached heap holds the rubble)");
@@ -243,8 +244,8 @@ test("battle: wired into the renderer; no walkers, no houses, no crews in the Ba
   assert.ok(CITY_JS.includes("if(!BON){drawWalks();drawLife()}"), "no people on foot in the Battle view");
   assert.ok(CITY_JS.includes("if(t.t==='h'&&!BON)") && CITY_JS.includes("if(cd===4){if(!BON)"), "no little houses in the Battle view");
   assert.ok(CITY_JS.includes("hc===0&&!BON") && CITY_JS.includes("!gWin()&&!BON") && CITY_JS.includes("if(!BON)for(var k=0;k<7;k++)") && CITY_JS.includes("if(!BON)drawFx()"), "no growth crews, parades or effects walkers in the Battle view");
-  assert.ok(CITY_JS.includes("litp*=Math.max(0,1-bdh*.85)") && CITY_JS.includes("pxHeap(c,p.x,base,tiers[0][0],col,bdh,rb0,seed)"), "a hit tower goes dark and a heap of its own pixels piles up around it");
-  assert.ok(CITY_JS.includes("bBld(t,i,j)") && CITY_JS.includes("dmg:bdm>0?{d:bdh,f:rb0,seed:seed}:null") && CITY_JS.includes("cranes.push({x:p.x+4,y:top,seed:seed,col:col})"), "hit towers lose floors through the pixel mask and get a crane while the build line rises");
+  assert.ok(CITY_JS.includes("litp*=Math.max(0,1-Math.max(bdh,rz)*.85)") && CITY_JS.includes("pxHeap(c,p.x,base,tiers[0][0],col,Math.max(bdh,rz),rb0,seed)"), "a hit tower goes dark and a heap of its own pixels piles up around it");
+  assert.ok(CITY_JS.includes("bBld(t,i,j)") && CITY_JS.includes("dmg:bdm>0?{d:bdh,f:rb0,seed:seed,r:rz,n:nh}:null") && CITY_JS.includes("growUnder();if(typeof battleUnder==='function')battleUnder();") && CITY_JS.includes("cranes.push({x:p.x+4,y:top,seed:seed,col:col})"), "hit towers lose floors through the pixel mask and get a crane while the build line rises");
   new Function(CITY_JS);
 });
 
@@ -289,8 +290,8 @@ test("11-13: every missile that lands shows on its tower, however small; a miss 
   assert.ok(P.shots[1].to.miss && Math.abs(P.shots[1].to.y - (P.shots[1].b.p.y + 4)) <= 16 + 8 && Math.abs(P.shots[1].to.x - P.shots[1].b.p.x) <= 64 * .72 + 1, "22 m off: the rocket lands in the street next to its tower");
   assert.ok(!P.shots[0].to.miss && !P.shots[2].to.miss, "inside 10 m: on the roof");
   clock.t = at(20, 0, 10); Wd.over();
-  assert.equal(Wd.dmg(12, 9), 1 / 24, "a $18k shell hit (0.1% of the tower) still takes the smallest step off it: no zero-damage hits");
-  assert.ok(Wd.dmg(14, 9) >= 5 / 24 && Wd.dmg(14, 9) <= 6 / 24, "the rocket and the tactical missile on b2: " + Wd.dmg(14, 9));
+  assert.equal(Wd.dmg(12, 9), Math.ceil(4 / (.58 * 60) * 24) / 24, "11-14: a $18k shell hit (0.1% of the 60 px tower) still takes 4 px off it, the shell's minimum");
+  assert.equal(Wd.dmg(14, 9), 1, "a rocket (8 px) and a tactical missile (14 px) take the 30 px b2 down to its stump: " + Wd.dmg(14, 9));
   assert.ok(Wd.card("@b").includes("$6.6M of damage"), Wd.card("@b")); assert.ok(Wd.card("@a").includes("up to cruise missiles"));
   // sizes draw differently: a shell has no motor flame, a cruise missile has wings (more path points)
   const ops = (sz) => { const c = stubCtx(); Wd.art.missileHi(c, 0, 0, 0, sz, "#3178C6", 1); return c.__n.ops; };
@@ -298,11 +299,11 @@ test("11-13: every missile that lands shows on its tower, however small; a miss 
 });
 
 test("11-13: a hit tower burns: the fire adds damage as fi x (1 - e^(-t/1h)), flames die down, smoke thins, the cache redraws as it burns, and the morning only smoulders", () => {
-  const clock = { t: at(20, 0, 10), p: 1000 }, Wd = world("night", clock, data13()); Wd.api.view(true); Wd.over();
+  const clock = { t: at(20, 0, 10), p: 1000 }, Wd = world("night", clock, data13(), false, memStore(), 300); Wd.api.view(true); Wd.over();   // b2 300 px tall (b1 600, still the taller) so the blasts (11-14 minimums: rocket 10%, tactical 22% of the height) leave room for the fire
   const a0 = Wd.dmg(14, 9); clock.t = at(21, 30); const d0 = Wd.draws(); Wd.over(); const a1 = Wd.dmg(14, 9);
   assert.ok(a1 > a0, `the fire keeps eating the tower: ${a0} -> ${a1}`); assert.ok(Wd.draws() > d0, "the burn redraws the buildings");
-  const want = .004 + .0006 * (1 - Math.exp(-1.5)) + .2 + .16 * (1 - Math.exp(-1.5)); assert.ok(Math.abs(a1 - Math.ceil(want * 24) / 24) < 1e-9, "blast + fire so far, in 24ths: " + a1);
-  clock.t = at(23, 59); Wd.over(); assert.ok(Math.abs(Wd.dmg(14, 9) - Math.ceil((.204 + .1606 * (1 - Math.exp(-4))) * 24) / 24) < 1e-9, "burnt out by midnight: about 98% of the fire damage is in");
+  const vr = 30 / (.58 * 300), vt = 66 / (.58 * 300), want = vr + .0006 * (1 - Math.exp(-1.5)) + vt + .16 * (1 - Math.exp(-1.5)); assert.ok(Math.abs(a1 - Math.ceil(want * 24) / 24) < 1e-9, "blast + fire so far, in 24ths: " + a1);
+  clock.t = at(23, 59); Wd.over(); assert.ok(Math.abs(Wd.dmg(14, 9) - Math.ceil((vr + vt + .1606 * (1 - Math.exp(-4))) * 24) / 24) < 1e-9, "burnt out by midnight: about 98% of the fire damage is in");
   // the plume and the flames are drawn while it burns; in the morning (cranes at work) smoke only, then nothing
   const rep = world("night", { t: at(16), p: 10000 }, data13()); rep.api.view(true); rep.over(); assert.equal(rep.api.replay(), 4);
   const R = rep.rep().R, tac = rep.rep().P.shots.find((s) => s.w === "tactical"); assert.equal(tac.burn, 1); assert.equal(rep.rep().P.shots[0].burn, .45, "a contained fire burns smaller");
@@ -369,4 +370,45 @@ test("11-15: every shielded shot lands: a step off its tower, a dome flash then 
   assert.ok(Wd.bp() > p0, "the dome flash and the impact emit particles: " + p0 + " -> " + Wd.bp());
   // the pure city: no words on the map while the replay plays
   Wd.setPure(true); Wd.text(); step(lead.ri + 200); assert.equal(Wd.text(), 0, "no text in the pure city"); Wd.setPure(false); Wd.api.stop();
+});
+
+// ---------------------------------------------------------------- 11-14: shrapnel, damage on every hit, desolation, the fall (Mike 11-14)
+test("11-14: every hit takes at least its size's minimum off the tower; L and XL blasts break the buildings around them as the ring reaches them", () => {
+  const Wd = world("day", { t: at(16), p: 1000 }, data13()); Wd.api.view(true); const P = Wd.plan(), A = Wd.art;
+  [["shell", 4], ["rocket", 6], ["tactical", .22 * 60], ["cruise", .43 * 60]].forEach(([w, px]) => { const v = A.bVis({ b: { h: 60 }, w, f: .0001, cut: 1 }); assert.ok(Math.abs(v - px / (.58 * 60)) < 1e-9, `${w}: ${px} px of 60 (spec: max(px, % of the height))`); });
+  assert.ok(Math.abs(A.bVis({ b: { h: 40 }, w: "shell", f: 0, cut: .1 }) - 3 / (.58 * 40)) < 1e-9, "through a 99% dome: never under 3 px");
+  assert.ok(A.BVMIN.shell < A.BVMIN.rocket && A.BVMIN.rocket < A.BVMIN.tactical && A.BVMIN.tactical < A.BVMIN.cruise, "bigger sizes take more");
+  assert.equal(A.bVis({ b: { h: 60 }, w: "cruise", f: .9, cut: 1 }), .9, "the physics wins when it did more");
+  assert.ok(A.bVis({ b: { h: 60 }, w: "cruise", f: 0, cut: .46 }) < A.bVis({ b: { h: 60 }, w: "cruise", f: 0, cut: 1 }), "what a shield let through looks smaller");
+  assert.ok(!Object.values(P.hit["@b"] || {}).flat().some((q) => q.blocked), "a shot the dome held whole breaks on the dome, not the tower");
+  // collateral: an open cruise hit on b2 reaches b1 two lots away after the ring's travel time
+  const d = data13(); d.shots = [["@a", "@b", "cruise", .3, at(2, 4), 1, 0, 0]]; const clock = { t: at(16), p: 1000 }, W2 = world("day", clock, d); W2.api.view(true); const P2 = W2.plan();
+  const v = P2.virt.find((o) => o.b && o.b.i === 12); assert.ok(v && v.v > .1 && v.dl > 0, "b1 is inside the cruise blast: " + (v && v.v));
+  const ia = P2.shots[0], S = W2.S(); clock.t = at(20, 0, 10); W2.over(); assert.ok(W2.dmg(12, 9) > 0, "b1 is broken too"); assert.ok(W2.dmg(14, 9) >= .3);
+  const c = stubCtx(); A.bBigFx(0, 0, 10, "cruise", "#3178C6"); A.bNukeFx(0, -40, 0, 120); A.bDrawParticles(c); assert.ok(c.__n.ops > 50, "fireball, rings, dust skirt and mushroom draw with finite geometry");
+  assert.ok(W2.art.pool().length <= 2400, "inside the pool");
+});
+
+test("11-14: the fall: the city that took the most falls after the last strike, derezzes tower by tower and stays a grid to the end of the replay; live, the cranes bring it back by noon", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("night", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, P = Wd.rep().P, S = R.S, A = Wd.art;
+  assert.equal(P.fall.key, "@b", "@a's six cannon hits on @b are the most dollars"); assert.equal(P.fall.items.filter((it) => it.t === "b").length, 2);
+  const last = Math.max(...P.shots.map((s) => s.ri)); assert.ok(S.zf0 > last && S.zf > S.zf0 && S.wide > S.zf, "after every strike, before the wide shot");
+  const step = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); };
+  step(S.zf0 + 200); assert.equal(Wd.api.phase().stage, "fall"); assert.equal(Wd.api.phase().label, "@b falls"); assert.equal(A.bRaze(12, 9), 0, "standing until the blast");
+  const p0 = A.pool().length; step(S.zf + 30); assert.ok(A.pool().length > p0, "the blast fills the air");
+  const far = Math.max(...P.fall.items.map((it) => it.dl)); step(S.zf + far + A.BFL.flash + A.BFL.rez + 50); assert.equal(A.bRaze(12, 9), 1); assert.equal(A.bRaze(14, 9), 1, "every tower of @b derezzed"); assert.equal(A.bRaze(2, 9), 0, "@a stands");
+  step(S.zf + 400); assert.doesNotThrow(() => { A.under(); Wd.over(); }, "the scorch, the grid and the derezz draw");
+  step(S.hold + (S.end - S.hold) * .9); assert.equal(Wd.api.phase().stage, "rebuild"); assert.equal(Wd.rebOf(12, 9), 0, "the cranes leave the fallen city a grid"); assert.ok(Wd.rebOf(2, 9) > .5, "the rest rebuilds"); assert.equal(A.bRaze(12, 9), 1);
+  Wd.api.stop();
+  // the hub's pick wins when it is on the map; the raiders fall as a fleet
+  const d2 = data(); d2.fallen = d2.prev.fallen = "@a"; const W2 = world("day", { t: at(16), p: 1 }, d2); W2.api.view(true); W2.api.replay(); assert.equal(W2.rep().P.fall.key, "@a"); W2.api.stop();
+  const d3 = data(); d3.fallen = d3.prev.fallen = "~raiders"; const W3 = world("day", { t: at(16), p: 1 }, d3); W3.api.view(true); W3.api.replay(); const F3 = W3.rep().P.fall; assert.ok(F3.raid && F3.items.length === 3 && F3.items.every((it) => it.t === "s"), "three ships"); const c3 = stubCtx(); A.bFleetHi(c3, 0, 0, 1, 0); assert.ok(c3.__n.ops > 3); W3.api.stop();
+  // the camera frames the whole city, never past the pad zoom
+  const fr = A.bFallFrame(P.fall, 900, 600); assert.ok(fr.z >= .45 && fr.z <= A.bPadZoom(900) * .9 + 1e-9 && Number.isFinite(fr.x) && Number.isFinite(fr.y));
+  // reduced motion: still a fall, a cut to it
+  const Rr = A.bBeats(P.shots, 0, true, A.bFallFrame(P.fall, 900, 600)); assert.ok(Rr.S.zf - Rr.S.zf0 <= 400 && Rr.S.wide > Rr.S.zf);
+  // live: the fall comes after the salvo's last hit, holds through the night, and the cranes bring the lots back by noon
+  const lc = { t: at(16), p: 1 }, L = world("day", lc, data()); L.api.view(true); const LP = L.plan(); assert.equal(LP.fall.key, "@b");
+  lc.t = LP.S.zf + 6000; L.over(); assert.equal(L.art.bRaze(12, 9), 1, "live: @b falls tonight"); lc.t = at(23, 50); L.over(); assert.ok(L.dmg(12, 9) > 0);
+  lc.t = at(12) + 864e5 - 60e3; L.over(); assert.ok(L.rebOf(12, 9) > .9, "nearly whole by noon"); lc.t = at(12) + 864e5 + 1000; L.over(); assert.equal(L.art.bRaze(12, 9), 0, "and whole after");
 });

@@ -75,6 +75,7 @@ function gShadow(t){var g=GM[t.key];if(!g||!g.b)return null;var s=g.cs||(g.cs=gS
 function growObject(c,t,i,j,p,LOD){var g=GM[t.key];if(!g||!g.b)return;var s=g.cs||(g.cs=gState(g)),S=s.side;if(t.a>=S||t.b>=S)return;
   var li=gLot(t.a,t.b),cd=s.codes[li]||0,col=gLang(g),hc=gHc(g),dim=hc>=2,base=p.y+4,top=base,seed=hash(t.key)+li*7,isNew=gWin()&&s.fresh[li],v=gVar(t.key,li);
   if(dim)col=mix(col,.55,'#8A8E96');
+  if(typeof bRazeLot==='function'&&bRazeLot(t.key,i,j)>=1){if(LODN>0&&cd>0)pxHeap(c,p.x,base,.62,col,1,0,seed);return}   // 11-14: the fallen city's lot derezzed: a low heap on the grid
   var bd=typeof bDmg==='function'?bDmg(t.key,li):0,dcd=cd;if(bd>0){scorchHi(c,p.x,p.y+4,bd);if(bd>=.5&&cd>=4)cd=cd>4?cd-1:3}   // the Battle view: a hit lot drops a tier (a house to its frame) until it rebuilds
   var litp=dim?0:Math.min(P.lit==null?1:P.lit,hc===1?.25:.75),lq=Math.round(litp*8)/8,o={variant:v,col:col,seed:seed%12,litp:lq,dim:dim,stage:cd,crew:hc===0&&!gWin()&&!BON,turbine:false},ex=null;
   if(cd>=1&&cd<=3)o.seed=seed%3;   // sprite keys carry only what changes the picture, so lots across the world share sprites
