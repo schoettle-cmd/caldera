@@ -51,7 +51,8 @@ function pxPainter(buf,w,h){return {w:w,h:h,
 /** the break height: how much of a building stands after damage d (its top floors are gone) */
 function pxBreak(h,d){return d<=0?h:Math.max(8,h*(1-.58*d))}
 /** the hit points on the faces below the break: deterministic by seed and damage step (more craters as damage grows) */
-function pxCraters(h,d,seed,hw){var out=[],n=Math.round(d*6);for(var k=0;k<n;k++){var side=k%2,u=.2+rnd(seed*1.7+k*3.3)*.6,hb=pxBreak(h,d),v=6+rnd(seed*.9+k*5.1)*Math.max(4,hb-14),r=2.2+rnd(seed+k*7.7)*2.6+d*1.5;out.push({side:side,u:u,v:v,r:Math.min(r,hw*.45)})}return out}
+function pxCraters(h,d,seed,hw){var out=[],n=d>0?Math.max(1,Math.round(d*6)):0;   // any damage leaves at least one crater (11-13: every hit shows)
+  for(var k=0;k<n;k++){var side=k%2,u=.2+rnd(seed*1.7+k*3.3)*.6,hb=pxBreak(h,d),v=6+rnd(seed*.9+k*5.1)*Math.max(4,hb-14),r=2.2+rnd(seed+k*7.7)*2.6+d*1.5;out.push({side:side,u:u,v:v,r:Math.min(r,hw*.45)})}return out}
 /** the mask of one face: tells whether a texel at (x texels, vt world px from the ground) is still there, and how it looks */
 function pxMask(m,side,hwTex){if(!m||!(m.d>0))return null;var hb=pxBreak(m.h,m.d),yb=(m.f||0)*m.h,cr=[];(m.craters||[]).forEach(function(q){if(q.side===side)cr.push(q)});
   return {hb:hb,yb:yb,cr:cr,seed:m.seed||0,

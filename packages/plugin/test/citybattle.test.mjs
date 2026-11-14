@@ -58,7 +58,7 @@ test("battle day: by night the cranes rebuild in six steps, the cache redraws pe
   const clock = { t: at(9), p: 1000 }, Wd = world("night", clock, data()); Wd.api.view(true);
   assert.equal(Wd.plan().night, "2026-11-06", "the hub already ran at 02:00 today, so the morning rebuilds the night before");
   Wd.over(); const ph = Wd.api.phase(); assert.equal(ph.seg, "rebuild"); assert.equal(ph.until, at(12)); assert.ok(Math.abs(Wd.reb() - .75) < .01);
-  assert.equal(Wd.dmg(2, 9), Math.round(.25 * 6) / 6, "a quarter of the damage left at 09:00 on a's tower 0");
+  assert.equal(Wd.dmg(2, 9), Math.ceil(.25 * 24) / 24, "a quarter of the damage left at 09:00 on a's tower 0");
   const d0 = Wd.draws(); clock.t = at(10, 30); Wd.over(); assert.ok(Wd.draws() > d0, "a new sixth: the buildings redraw");
   const d1 = Wd.draws(); clock.t = at(10, 31); Wd.over(); assert.equal(Wd.draws(), d1, "same sixth: no redraw");
   clock.t = at(11, 59, 59); Wd.over(); assert.equal(Wd.dmg(2, 9), 0, "whole by noon");
@@ -137,11 +137,11 @@ test("replay pace: 2.5x slower than before, a shot reads launch, flight, hit; th
   W2.api.speed(0.5); clock.p += 40; W2.over(); const a2 = f0(); clock.p += 40; W2.over(); assert.equal(Math.round(f0() - a2), 20, "0.5x"); W2.api.pause(true); const a3 = f0(); clock.p += 400; W2.over(); assert.equal(f0(), a3, "paused: effects stand still"); W2.api.stop();
 });
 
-test("damage tier readout: a pill with six pips over the hit tower shows the tier dropping for 2.6 s, or Shield held; phase() carries it for the controls", () => {
+test("damage readout: a pill with the dollars and a standing bar over the hit tower for 2.6 s, or Shield held; phase() carries it for the controls", () => {
   const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, S = R.S, P = Wd.rep().P;
   const shield = P.shots.find((s) => !(s.f > 0 && s.b)), hitShot = R.beats[0].lead, step = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); };
   step(hitShot.ri - 50); assert.equal(Wd.api.phase().hit, null, "nothing before the hit");
-  step(hitShot.ri + 100); let h = Wd.api.phase().hit; assert.ok(h && h.d === "@b" && h.shield === false && h.of === 6, "a hit on @b"); assert.ok(h.from > h.to, `the tower drops from ${h.from} to ${h.to} of 6`); assert.ok(h.to >= 0 && h.from <= 6);
+  step(hitShot.ri + 100); let h = Wd.api.phase().hit; assert.ok(h && h.d === "@b" && h.shield === false && h.of === 100, "a hit on @b"); assert.ok(h.from > h.to, `the tower drops from ${h.from}% to ${h.to}% standing`); assert.ok(h.to >= 0 && h.from <= 100); assert.equal(h.usd, 5e6, "a night from before 11-13: one facade is $5M");
   const now = hitShot.ri + 100, L = Wd.art.bHitsNow(P, S, now); assert.ok(L.length >= 1 && L.every((o) => o.age >= 0 && o.age < 2600)); assert.ok(L.some((o) => o.hit && o.t1 > o.t0));
   const c = stubCtx(); Wd.art.bHitLabels(c, P, S, now); assert.ok(c.__n.ops > 4, "the pill draws, finite geometry");
   step(hitShot.ri + 2700); assert.ok(Wd.art.bHitsNow(P, S, hitShot.ri + 2700).every((o) => o.s !== hitShot), "gone after 2.6 s");
@@ -272,4 +272,42 @@ test("saved battle state: the morning rebuild writes caldera.battle.state, a rel
   const W3 = world("night", { t: at(8), p: 1000 }, data(), false, store); W3.api.view(true); W3.over(); assert.ok(Math.abs(W3.rebOf(2, 9) - 2 / 3) < .01, "another night's record does not apply");
   assert.equal(JSON.parse(store.raw("caldera.battle.state")).night, "2026-11-06", "tonight's record replaced it");
   const W4 = world("night", { t: at(8), p: 1000 }, data(), false, memStore(true)); W4.api.view(true); W4.over(); assert.ok(Math.abs(W4.rebOf(2, 9) - 2 / 3) < .01, "a store that throws leaves the schedule in charge");
+});
+
+// ---------------------------------------------------------------- 11-13: sizes, physics rows, fire and smoke
+/** one night under the 11-13 rules: @a fires one of each size at @b (a shell that barely scratches, a rocket that misses into the
+ *  street, a tactical missile whose fire spreads, a cruise missile on a full shield); x is the hub's physics for the shot */
+const X = (o) => ({ u: 0, fi: 0, fu: 0, sp: 0, m: 2, cep: 10, r: 8, kpa: 500, c: 1, fl: 15, v: 18e6, sh: 0, cd: 1, st: 1, pc: 1, raw: 0, ...o });
+const data13 = () => ({ at: "x", night: "2026-11-07", t0: at(2), next: at(2) + 864e5, members: { "@a": { sh: 0, beg: 0, ammo: 70, best: "cruise", shots: 4, hits: [], reb: 100 }, "@b": { sh: 0, beg: 0, ammo: 0, best: "shell", shots: 0, hits: [], reb: 100 } },
+  shots: [["@a", "@b", "shell", .001, at(2, 1), 0, 0, 0, X({ u: 18000, fi: .0002, fu: 3600 })], ["@a", "@b", "rocket", .004, at(2, 2), 1, 0, 0, X({ u: 72000, fi: .0006, fu: 10800, m: 22 })],
+    ["@a", "@b", "tactical", .2, at(2, 3), 1, 0, 0, X({ u: 3.6e6, fi: .16, fu: 2.88e6, sp: 1 })], ["@a", "@b", "cruise", 0, at(2, 4), 0, 1, 0, X({ sh: 1, pot: 9e6 })]], prev: null });
+
+test("11-13: every missile that lands shows on its tower, however small; a miss comes down in the street; sizes look different; labels are in dollars", () => {
+  const clock = { t: at(16), p: 1000 }, Wd = world("day", clock, data13()); Wd.api.view(true); const P = Wd.plan();
+  assert.equal(P.n, 4); assert.deepEqual(P.shots.map((s) => s.sz), [.75, .95, 1.15, 1.4], "shell < rocket < tactical < cruise on the map");
+  assert.deepEqual(P.shots.map((s) => s.usd), [21600, 82800, 6.48e6, 0]); assert.equal(P.shots[3].pot, 9e6);
+  assert.ok(P.shots[1].to.miss && Math.abs(P.shots[1].to.y - (P.shots[1].b.p.y + 4)) <= 16 + 8 && Math.abs(P.shots[1].to.x - P.shots[1].b.p.x) <= 64 * .72 + 1, "22 m off: the rocket lands in the street next to its tower");
+  assert.ok(!P.shots[0].to.miss && !P.shots[2].to.miss, "inside 10 m: on the roof");
+  clock.t = at(20, 0, 10); Wd.over();
+  assert.equal(Wd.dmg(12, 9), 1 / 24, "a $18k shell hit (0.1% of the tower) still takes the smallest step off it: no zero-damage hits");
+  assert.ok(Wd.dmg(14, 9) >= 5 / 24 && Wd.dmg(14, 9) <= 6 / 24, "the rocket and the tactical missile on b2: " + Wd.dmg(14, 9));
+  assert.ok(Wd.card("@b").includes("$6.6M of damage"), Wd.card("@b")); assert.ok(Wd.card("@a").includes("up to cruise missiles"));
+  // sizes draw differently: a shell has no motor flame, a cruise missile has wings (more path points)
+  const ops = (sz) => { const c = stubCtx(); Wd.art.missileHi(c, 0, 0, 0, sz, "#3178C6", 1); return c.__n.ops; };
+  assert.ok(ops(.75) < ops(.95) && ops(.95) < ops(1.4), "shell, rocket and cruise are three different drawings");
+});
+
+test("11-13: a hit tower burns: the fire adds damage as fi x (1 - e^(-t/1h)), flames die down, smoke thins, the cache redraws as it burns, and the morning only smoulders", () => {
+  const clock = { t: at(20, 0, 10), p: 1000 }, Wd = world("night", clock, data13()); Wd.api.view(true); Wd.over();
+  const a0 = Wd.dmg(14, 9); clock.t = at(21, 30); const d0 = Wd.draws(); Wd.over(); const a1 = Wd.dmg(14, 9);
+  assert.ok(a1 > a0, `the fire keeps eating the tower: ${a0} -> ${a1}`); assert.ok(Wd.draws() > d0, "the burn redraws the buildings");
+  const want = .004 + .0006 * (1 - Math.exp(-1.5)) + .2 + .16 * (1 - Math.exp(-1.5)); assert.ok(Math.abs(a1 - Math.ceil(want * 24) / 24) < 1e-9, "blast + fire so far, in 24ths: " + a1);
+  clock.t = at(23, 59); Wd.over(); assert.ok(Math.abs(Wd.dmg(14, 9) - Math.ceil((.204 + .1606 * (1 - Math.exp(-4))) * 24) / 24) < 1e-9, "burnt out by midnight: about 98% of the fire damage is in");
+  // the plume and the flames are drawn while it burns; in the morning (cranes at work) smoke only, then nothing
+  const rep = world("night", { t: at(16), p: 10000 }, data13()); rep.api.view(true); rep.over(); assert.equal(rep.api.replay(), 4);
+  const R = rep.rep().R, tac = rep.rep().P.shots.find((s) => s.w === "tactical"); assert.equal(tac.burn, 1); assert.equal(rep.rep().P.shots[0].burn, .45, "a contained fire burns smaller");
+  const h = rep.api.phase(); assert.ok(h.replay);
+  const lab = rep.art.bHitsNow(rep.rep().P, R.S, tac.ri + 100).find((o) => o.s === tac); assert.ok(lab && lab.hit && lab.t1 > lab.t0);
+  const held = rep.rep().P.shots[3], l2 = rep.art.bHitsNow(rep.rep().P, R.S, held.ri + 100).find((o) => o.s === held); assert.ok(l2 && !l2.hit, "the shielded cruise missile reads Shield held (and what it would have cost)");
+  rep.api.stop();
 });
