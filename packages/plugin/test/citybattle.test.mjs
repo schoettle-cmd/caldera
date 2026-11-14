@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CITY_JS, HIFI_JS, BATTLE_DRAW_JS } from "./city.build.mjs";
+import { CITY_JS, CITY_CSS, HIFI_JS, BATTLE_DRAW_JS } from "./city.build.mjs";
 
 // a 2D context that accepts every call and refuses non-finite geometry
 function stubCtx() {
@@ -9,7 +9,7 @@ function stubCtx() {
     get(t, k) { if (k === "__n") return n; if (k in t) return t[k];
       if (k === "createLinearGradient" || k === "createRadialGradient") return (...a) => { for (const v of a) if (!Number.isFinite(v)) throw new Error(`non-finite gradient arg in ${String(k)}`); return grad; };
       if (k === "measureText") return () => ({ width: 10 });
-      return (...a) => { n.ops++; for (const v of a) if (typeof v === "number" && !Number.isFinite(v)) throw new Error(`non-finite arg to ${String(k)}`); }; },
+      return (...a) => { n.ops++; if (k === "fillText") n.text = (n.text || 0) + 1; for (const v of a) if (typeof v === "number" && !Number.isFinite(v)) throw new Error(`non-finite arg to ${String(k)}`); }; },
     set(t, k, v) { t[k] = v; return true } });
 }
 const PAL = { day: { light: 1, lamp: 0, lit: .45, glass: ["#C9E3F6", "#6D9FCF"], ao: "rgba(20,30,50,.28)" }, night: { light: .5, lamp: 1, lit: 1, glass: ["#1E2C4A", "#101828"], ao: "rgba(0,0,0,.4)" } };
@@ -28,10 +28,10 @@ function world(sky, clock, data, reduce = false, store = memStore()) {
     var DA={name:'a-d',repos:[]},DB={name:'b-d',repos:[]},RA1={name:'a1',commits:40},RA2={name:'a2',commits:20},RB1={name:'b1',commits:60},RB2={name:'b2',commits:30};
     var GM={'@a':{b:{x:2,y:2,k:5},cs:{side:3,codes:[5,5,5,6,5,5,5,5,5]},lang:'#3178C6',n:{ds:[DA]}},'@b':{b:{x:12,y:2,k:5},cs:{side:3,codes:[5,5,6,5,5,5,5,5,5]},lang:'#E85D75',n:{ds:[DB]}},'@c':{cs:{side:1,codes:[5]},lang:'#888888',n:{ds:[]}}};
     var tiles={};for(var j=0;j<=H;j++)for(var i=0;i<=W;i++)tiles[i+','+j]={t:'g'};tiles['2,9']={t:'b',d:DA,r:RA1};tiles['4,9']={t:'b',d:DA,r:RA2};tiles['12,9']={t:'b',d:DB,r:RB1};tiles['14,9']={t:'b',d:DB,r:RB2};
-    function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();`;
+    function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();var PURE=false;`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", "STORE", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,stateLoad:bStateLoad,sync:function(){bStateSync(bPlan(Date.now()),Date.now())},rebOf:bRebuildOf,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam},setLOD:function(v){LODN=v},card:battleCard}`)(PAL, stubCtx, data, F, clock, store);
+    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam},setLOD:function(v){LODN=v},card:battleCard,setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
 }
 /** a localStorage stand-in (a broken one throws on every call) */
 function memStore(broken = false) { const m = new Map(); return { getItem: k => { if (broken) throw new Error("quota"); return m.has(k) ? m.get(k) : null }, setItem: (k, v) => { if (broken) throw new Error("quota"); m.set(k, String(v)) }, removeItem: k => m.delete(k), get size() { return m.size }, raw: k => m.get(k) }; }
@@ -310,4 +310,37 @@ test("11-13: a hit tower burns: the fire adds damage as fi x (1 - e^(-t/1h)), fl
   const lab = rep.art.bHitsNow(rep.rep().P, R.S, tac.ri + 100).find((o) => o.s === tac); assert.ok(lab && lab.hit && lab.t1 > lab.t0);
   const held = rep.rep().P.shots[3], l2 = rep.art.bHitsNow(rep.rep().P, R.S, held.ri + 100).find((o) => o.s === held); assert.ok(l2 && !l2.hit, "the shielded cruise missile reads Shield held (and what it would have cost)");
   rep.api.stop();
+});
+
+test("11-13 pure city: while the replay plays (PURE) the battle layer draws no text: no pad counts, no dollar pills, no countdown; missiles, hits and fire still draw", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("night", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, hitShot = R.beats[0].lead;
+  const step = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); };
+  step(hitShot.ri + 100); Wd.text(); step(hitShot.ri + 150); assert.ok(Wd.text() > 0, "outside the pure city the pad counts and the dollar pill are words on the map");
+  Wd.setPure(true); step(hitShot.ri + 200); assert.equal(Wd.text(), 0, "the pure city: no text at all on the canvas");
+  assert.ok(Wd.api.phase().hit, "the replay itself carries on (the control bar still reads the last hit)");
+  Wd.setPure(false); step(hitShot.ri + 250); assert.ok(Wd.text() > 0, "the words come back when the replay ends"); Wd.api.stop();
+  // the live countdown before the salvo is a numeral on the map too
+  const c2 = { t: at(19, 59, 58), p: 1000 }, Wc = world("night", c2, data()); Wc.api.view(true); Wc.over(); assert.equal(Wc.api.phase().seg, "countdown"); assert.ok(Wc.text() > 0, "the countdown draws");
+  Wc.setPure(true); Wc.over(); assert.equal(Wc.text(), 0, "no countdown numeral or counts in the pure city");
+});
+
+test("11-13 pure city: city.ts keys one flag (PURE) on html.w-replay; labels, rays, store markers and agent pills read it; the saved Labels and Friendships choices are never written", () => {
+  for (const s of ["var PURE=false;function LBL(){return labels&&!PURE}", "function drawRays(){if(!WORLD||!RAYS||PURE)return;", "c.clearRect(0,0,L3.width,L3.height);if(!LBL()){WLAB=[];return}", "SIGNS=[];if(PURE)return;",
+    "function pxPill(c,x,y,text,col){if(typeof PURE!=='undefined'&&PURE)return;", "function heliPill(t){if(!LBL()", "if(LBL()&&bf>=1&&!INTRO", "if(LBL()&&!INTRO){var fT=", "pureSync"])
+    assert.ok(CITY_JS.includes(s), s);
+  assert.ok(CITY_CSS.includes("html.w-replay .c-live,html.w-replay .c-today,html.w-replay .c-hint,html.w-replay .c-heli,html.w-replay .c-sfk{display:none!important}"), "the live panel, visit count, hint, helicopter line and store keys hide too");
+  // the flag block on its own, with a stand-in document: the class decides, every change redraws once, nothing is stored
+  const block = CITY_JS.slice(CITY_JS.indexOf("var PURE=false;"), CITY_JS.indexOf("pureSync();", CITY_JS.indexOf("var PURE=false;")) + "pureSync();".length);
+  assert.ok(!/localStorage/.test(block), "the replay never touches the viewer's saved toggles");
+  const cls = new Set(), obs = [], store = { w: 0 };
+  const run = new Function("document", "MutationObserver", "labels", "draw", block + ";return {pure:function(){return PURE},lbl:LBL,sync:pureSync,set:function(v){labels=v}}");
+  let draws = 0; const doc = { documentElement: { classList: { contains: (c) => cls.has(c) } } };
+  const W = run(doc, class { constructor(f) { obs.push(f) } observe(el, o) { assert.deepEqual(o.attributeFilter, ["class"]) } }, true, () => draws++);
+  assert.equal(obs.length, 1, "watches the html class"); assert.equal(W.pure(), false); assert.equal(W.lbl(), true); assert.equal(draws, 0, "no redraw at start");
+  cls.add("w-replay"); obs[0](); assert.equal(W.pure(), true); assert.equal(W.lbl(), false, "labels hidden while the replay plays"); assert.equal(draws, 1);
+  obs[0](); assert.equal(draws, 1, "an unrelated class change does not redraw");
+  cls.delete("w-replay"); obs[0](); assert.equal(W.lbl(), true, "labels back after the replay, as the viewer left them"); assert.equal(draws, 2);
+  W.set(false); assert.equal(W.lbl(), false, "Labels off stays off"); assert.equal(store.w, 0);
+  // no MutationObserver (old browsers, the Obsidian test harness): still loads
+  assert.doesNotThrow(() => run(doc, undefined, true, () => {}));
 });

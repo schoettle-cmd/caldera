@@ -64,7 +64,7 @@ function drawFloors(c,b,fl,f){var p=iso(b.i,b.j),h=bh(b.r),tiers=towerTiers(h),w
   fl.rows.forEach(function(r){var y0=top+2+r*7,y1=y0+4;if(y1>p.y)return;c.beginPath();c.moveTo(px-hw,y0);c.lineTo(px,y0+hh);c.lineTo(px,y1+hh);c.lineTo(px-hw,y1);c.closePath();c.fill();c.beginPath();c.moveTo(px,y0+hh);c.lineTo(px+hw,y0);c.lineTo(px+hw,y1);c.lineTo(px,y1+hh);c.closePath();c.fill()});c.restore()}
 function drStrobe(tn){var t=tn%500;return t<150||(t>=200&&t<300)}   // waiting: on 150, off 50, on 100, off 200 (a double flash at 2 Hz)
 /** a pixel pill: 9 px mono, 1 px border in the element colour, a 4x4 colour square, no radius (used for drones and the sky base) */
-function pxPill(c,x,y,text,col){c.font='600 9px ui-monospace,monospace';var tw=c.measureText(text).width,w=Math.ceil(tw)+18,h=13,x0=Math.round(x-w/2),y0=Math.round(y-h);
+function pxPill(c,x,y,text,col){if(typeof PURE!=='undefined'&&PURE)return;c.font='600 9px ui-monospace,monospace';var tw=c.measureText(text).width,w=Math.ceil(tw)+18,h=13,x0=Math.round(x-w/2),y0=Math.round(y-h);
   c.fillStyle=col;c.fillRect(x0,y0,w,h);c.fillStyle='rgba(14,20,32,.92)';c.fillRect(x0+1,y0+1,w-2,h-2);c.fillStyle=col;c.fillRect(x0+5,y0+4,4,4);c.fillStyle='#E6ECF5';c.textAlign='left';c.textBaseline='middle';c.fillText(text,x0+13,y0+h/2+.5);c.textAlign='start';c.textBaseline='alphabetic'}
 function agentAge(a){var s=+a.ago;if(!(s>=0))return '';return s<60?Math.round(s)+'s':s<3600?Math.round(s/60)+'m':Math.round(s/3600)+'h'}
 function agentPillText(ids){var ORD={working:0,thinking:1,waiting:2,idle:3,done:4},best=ids.slice().sort(function(p,q){return (ORD[AG[p].a.state]||0)-(ORD[AG[q].a.state]||0)})[0],a=AG[best].a,st=a.state==='waiting'?'waiting on you':a.state;
