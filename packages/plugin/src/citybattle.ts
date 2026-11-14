@@ -185,14 +185,14 @@ function bImpactFx(x,y,col,strength,gy,w,sh){var k=w!=null&&BCLS[w]!=null?BCLS[w
  *  the blast, a fireball, two or three ground shock rings racing out to the scorch line, a dust skirt rolling out, and for XL a
  *  mushroom: a fire column with a dark cap */
 function bBigFx(x,y,gy,w,col,now){var D=BDES[w];if(!D)return;var T=BTILE,ph=vw<700,sc=bFxScale();
-  if(!D.xl){bEmit({k:'fire',x:x,y:y-8,vx:0,vy:-24,r0:6,r1:34,life:1.1});bEmit({k:'ring',x:x,y:gy,r1:2.25*T,life:.6});
+  if(!D.xl){bEmit({k:'fire',x:x,y:y-8,vx:0,vy:-24,r0:6,r1:34,life:1.1});bEmit({k:'ring',x:x,y:gy,r1:2.7*T,life:.6});
     for(var q=0;q<Math.max(6,Math.round(16*sc));q++)bEmit({k:q%3?'smoke':'fire',x:x+(rnd(q*3+x)-.5)*6,y:gy-4-q*3.6,vx:(rnd(q)-.5)*4,vy:-14-rnd(q*2)*8,r0:3,r1:9+rnd(q)*5,al:.5,col:hn()?'70,66,70':'110,104,104',life:1.4});   // the column to 60 px
     bFlash(now,.18,140);bShake(now,3,350);return}
   bEmit({k:'flash',x:x,y:y-10,r0:10,r1:140,life:.45});bEmit({k:'fire',x:x,y:y-10,vx:0,vy:-37,r0:10,r1:64,life:2.4});bEmit({k:'fire',x:x,y:y-6,vx:0,vy:-30,r0:14,r1:90,life:2});
-  bEmit({k:'ring',x:x,y:gy,r1:4.5*T,life:.9});bEmit({k:'ring',x:x,y:gy-40,r1:2.2*T,life:.6});
-  var nk=Math.max(8,Math.round(24*sc));for(var a=0;a<nk;a++){var an=a/nk*6.283;bEmit({k:'dust',x:x+Math.cos(an)*T*.4,y:gy+Math.sin(an)*T*.2,vx:Math.cos(an)*2.5*T/1.3,vy:Math.sin(an)*1.25*T/1.3,r0:5,r1:16+rnd(a)*10,al:.5,col:hn()?'110,96,82':'170,150,128',life:1.5+rnd(a*3)*.4})}   // the brown dust wall to 2.5 tiles
+  bEmit({k:'ring',x:x,y:gy,r1:5.4*T,life:.9});bEmit({k:'ring',x:x,y:gy-40,r1:2.2*T,life:.6});
+  var nk=Math.max(8,Math.round(24*sc));for(var a=0;a<nk;a++){var an=a/nk*6.283;bEmit({k:'dust',x:x+Math.cos(an)*T*.4,y:gy+Math.sin(an)*T*.2,vx:Math.cos(an)*3*T/1.3,vy:Math.sin(an)*1.5*T/1.3,r0:5,r1:16+rnd(a)*10,al:.5,col:hn()?'110,96,82':'170,150,128',life:1.5+rnd(a*3)*.4})}   // the brown dust wall to 3 tiles
   for(var k2=0;k2<Math.round(24*sc);k2++){var ak=rnd(k2*1.9+gy)*6.283,sp=120+rnd(k2*2.7)*200;bEmit({k:'debris',x:x,y:y-4,vx:Math.cos(ak)*sp,vy:-140-rnd(k2*4.1)*200,g:gy+(rnd(k2*6)-.3)*T,rot:rnd(k2)*6,vr:(rnd(k2+.2)-.5)*18,s:1+rnd(k2*8)*3,col:k2%3?hmul(col,.6):'#3A3D47',life:2.2+rnd(k2)*1})}
-  bMushroom(x,gy,ph?44:87,1);bFlash(now,.45,300);bShake(now,ph?5:7,900)}
+  bMushroom(x,gy,ph?59:118,1);bFlash(now,.45,300);bShake(now,ph?5:7,900)}
 /** the mushroom (spec): a stem 14 px wide rising at 42 px/s, a cap at 150 px growing to r 46 that glows orange then hangs grey-brown */
 function bMushroom(x,gy,n,s){n=Math.round(n*Math.max(.3,Math.min(1,bFxScale()*1.4)));var st=Math.round(n*.25);for(var m=0;m<st;m++)bEmit({k:m%2?'fire':'smoke',x:x+(rnd(m*3+x)-.5)*14*s,y:gy-6-m*(140*s/st),vx:0,vy:-42,r0:4*s,r1:(9+rnd(m)*4)*s,al:.55,col:hn()?'64,58,58':'104,96,94',life:1.5+rnd(m)*.4});
   for(var q=st;q<n;q++){var an=rnd(q*5.3+x)*6.283,rr=Math.sqrt(rnd(q*2.9))*46*s,cx0=x+Math.cos(an)*rr,cy0=gy-150*s+Math.sin(an)*rr*.45;if(q%3===0)bEmit({k:'fire',x:cx0,y:cy0,vx:Math.cos(an)*8,vy:-6,r0:6*s,r1:(14+rnd(q)*8)*s,life:1.5});
@@ -205,7 +205,7 @@ function bNukeFx(x,top,gy,R){var lite=vw<700?.6:1;bEmit({k:'flash',x:x,y:top,r0:
   bMushroom(x,gy,lite<1?50:100,1.35)}
 /** a fallen item's cubes as one more sixth of it derezzes (u0 to u1): the floors it loses go into cubes that drift up and out
  *  from ground zero, glow cyan, flicker and vanish. Budget: the pool's share over every item and step of the fall */
-function bRezFx(it,u0,u1,F){var col=bCol(F.key),ph=vw<700,tot=LODN<1?160:ph?640:2000,mx=ph?180:420;if(F.area==null){F.area=0;F.items.forEach(function(x){F.area+=x.h})}   // spec: 2000 cubes for the city on a desktop, 640 on a phone, 160 on the world map
+function bRezFx(it,u0,u1,F){var col=bCol(F.key),ph=vw<700,tot=LODN<1?160:ph?580:1800,mx=ph?180:420;if(F.area==null){F.area=0;F.items.forEach(function(x){F.area+=x.h})}   // spec: 1800 cubes for the city on a desktop, 580 on a phone, 160 on the world map
   var share=Math.max(it.t==='b'?14:6,Math.min(mx,Math.round(tot*it.h/Math.max(1,F.area)))),per=Math.max(1,Math.round(share/(it.t==='b'?6:1))),cs=LODN<1?5:ph?2.5:2,cr=LODN<1?2:ph?2:1.5,sh=[];
   if(it.t==='b'){var h=it.b.h,tiers=typeof towerTiers==='function'?towerTiers(h):[[.78,h]];sh=pxShards(it.p.x,it.p.y+4,tiers[0][0],h*(1-u1),h*(1-u0)+1,col,hash(F.key)+it.b.idx*13+Math.round(u1*6),per)}
   else{if(!(u0<.5&&u1>=.5)&&it.t==='l')return;var hh=it.h*(it.t==='s'?.6:1);for(var k=0;k<per;k++){var s=it.p.x*.37+it.p.y+k*1.618;sh.push({x:it.p.x+(rnd(s)-.5)*TW*.7,y:it.p.y+4-rnd(s+1)*hh,col:k%3?col:hmul(col,.7)})}}
@@ -239,7 +239,7 @@ function battleUnder(){if(!BON||!BDATA||!BL.damage||typeof GM==='undefined')retu
   var ra=1-bRebuild(),c=cx,vb=hView(TH*3),inV=function(x,y,r){return x>vb[0]-r&&x<vb[1]+r&&y>vb[2]-r&&y<vb[3]+r};c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();
   var scorch=function(x,y,R,al){var g=c.createRadialGradient(x,y,0,x,y,R);g.addColorStop(0,'rgba(10,7,5,'+(.75*al).toFixed(3)+')');g.addColorStop(.55,'rgba(26,17,11,'+(.5*al).toFixed(3)+')');g.addColorStop(1,'rgba(40,26,16,0)');c.fillStyle=g;c.save();c.translate(x,y);c.scale(1,.5);c.beginPath();c.arc(0,0,R,0,7);c.restore();c.fill()};
   var embers=function(x,y,R,al,sd){if(reduce||LODN<1)return;c.globalCompositeOperation='lighter';for(var k=0;k<10;k++){var a=rnd(k*3.3+sd)*6.283,rr=rnd(k*1.9+sd)*R*.8,ex=x+Math.cos(a)*rr,ey=y+Math.sin(a)*rr*.5,fl=.5+.5*Math.sin(now*.006+k*2.1);c.fillStyle='rgba(255,'+(110+Math.round(60*fl))+',40,'+(.6*al*fl).toFixed(3)+')';c.fillRect(ex-.8,ey-.8,1.6,1.6)}c.globalCompositeOperation='source-over'};
-  if(ra>0)P.shots.forEach(function(s){var D=BDES[s.w];if(!D||!s.to)return;var ia=bImpactOf(S,s);if(now<ia)return;var g=bGround(s),R=D.r*TW*Math.max(.5,s.cut||1),al=ra*Math.min(1,(now-ia)/500);if(al<.02||!inV(g.x,g.y,R))return;scorch(g.x,g.y,R,al);embers(g.x,g.y,R,al,s.ix*7.1)});
+  if(ra>0)P.shots.forEach(function(s){var D=BDES[s.w];if(!D||!s.to)return;var ia=bImpactOf(S,s);if(now<ia)return;var g=bGround(s),R=D.r*BTILE*Math.max(.5,s.cut||1),al=ra*Math.min(1,(now-ia)/500);if(al<.02||!inV(g.x,g.y,R))return;scorch(g.x,g.y,R,al);embers(g.x,g.y,R,al,s.ix*7.1)});
   var F=P.fall;if(F&&S.zf!=null&&now>=S.zf){var fa=BREP?1:ra;if(fa>0){var rr=Math.min(F.R+TW*1.2,(now-S.zf)/BFL.ring*(F.R+TW*1.2));if(rr>4)scorch(F.c.x,F.c.y,rr,fa);embers(F.c.x,F.c.y,F.R+TW,fa,hash(F.key));
     c.globalCompositeOperation='lighter';F.items.forEach(function(it){if(it.t==='s')return;var u=bRezU(S,it,now);if(it.t==='l'?u<.5:u<1)return;if(!BREP&&it.t==='b'&&bRebuildOf(it.b.i,it.b.j)>0)return;if(!inV(it.p.x,it.p.y,TW))return;var hw=TW/2*.9,hh=TH/2*.9,d=[[it.p.x,it.p.y-hh],[it.p.x+hw,it.p.y],[it.p.x,it.p.y+hh],[it.p.x-hw,it.p.y]],pl=.55+.25*Math.sin(now*6.283/2400);c.strokeStyle='rgba(61,242,255,'+(pl*fa).toFixed(3)+')';c.lineWidth=.8;poly(c,d,null);c.stroke();c.fillStyle='rgba(61,242,255,'+(.07*fa).toFixed(3)+')';c.fill()})}}
   c.restore()}
@@ -432,21 +432,21 @@ function bShots(raw){var byA={},shots=[],hit={},dropped=0;raw.forEach(function(s
 // replay it stays a grid to the end; on the live day the cranes rebuild it with everything else, whole by noon.
 // the numbers are the Fable design spec of 11-14 (Battle FX: per-size tables, budgets, the fall's timeline)
 var BCLS={shell:0,catapult:0,rocket:1,cannon:1,tactical:2,beam:2,cruise:3,orbital:3},BVMIN={shell:4,rocket:6,tactical:12,cruise:24,orbital:24,beam:12,cannon:6,catapult:4},BVPCT=[.06,.10,.22,.43],
-  BTILE=TW*.7071,BDES={tactical:{r:1.25,ms:1000/3.75,xl:0},beam:{r:1.25,ms:1000/3.75,xl:0},cruise:{r:2.5,ms:1000/5,xl:1},orbital:{r:2.5,ms:1000/5,xl:1}};
+  BTILE=TW*.7071,BDES={tactical:{r:1.5,ms:1000/4.5,out:2.2,xl:0},beam:{r:1.5,ms:1000/4.5,out:2.2,xl:0},cruise:{r:3,ms:1000/6,out:3.9,xl:1},orbital:{r:3,ms:1000/6,out:3.9,xl:1}};   // final spec: zones 1.5 / 3 tiles, fronts 4.5 / 6 tiles/s, last band 2.2 / 3.9 tiles
 var BFL={pick:1400,hit:2600,cam:1400,len:7400,ring:2200,flash:180,rez:700,liveGap:3500};
 /** the share of its height a neighbour loses at u = distance / blast radius (spec: L 30% inside half, 10% to the edge; XL flattened
  *  inside .35, 55% to .7, 22% to the edge; out to 1.3 the glass goes and soot marks the wall), as damage (d 1 = 58% of the height) */
-function bShare(D,u){var g=D.xl?(u<.35?1:u<.7?.55:u<1?.22:u<1.3?.03:0):(u<.5?.3:u<1?.1:u<1.3?.03:0);return Math.min(1,g/.58)}
+function bShare(D,t){var g=D.xl?(t<=1.1?1:t<=2?.55:t<=3?.22:t<=3.9?.03:0):(t<=1.1?.3:t<=1.5?.1:t<=2.2?.03:0);return Math.min(1,g/.58)}   // t in tiles from ground zero (spec bands; the last band is glass and soot)
 /** the share of its tower one shot shows taken (0..1): the physics, or the size's minimum in px, whichever is more */
 function bVis(s){if(!s.b)return 0;var h=Math.max(14,s.b.h||40),k=BCLS[s.w]==null?1:BCLS[s.w],lost=Math.max(3,Math.max(BVMIN[s.w]||6,BVPCT[k]*h)*Math.max(.35,s.cut||1)),m=lost/(.58*h);return Math.min(1,Math.max(s.f>0?s.f:0,m))}   // spec: S max(4 px, 6% h), M max(6, 10%), L max(12, 22%), XL max(24, 43%); through a shield x max(.35, cut), never under 3 px
 /** the ground point of a shot's blast (the tower's foot on a direct hit, the street on a miss) */
 function bGround(s){return s.to&&s.to.miss?{x:s.to.x,y:s.to.y}:s.b?{x:s.b.p.x,y:s.b.p.y+4}:s.to}
 /** collateral from the L and XL sizes: entries on the defender's other buildings (P.hit) and lots (P.lots), riding the source shot */
 function bCollateral(P){var V=[];P.shots.forEach(function(s){var D=BDES[s.w];if(!D||!s.b||s.blocked)return;var g=bGround(s),R=D.r*BTILE,cut=Math.max(.35,s.cut||1);
-  var near=function(p){var dd=Math.hypot(p.x-g.x,(p.y-g.y)*2);return dd<R*1.3?dd:-1};
-  (BBLD[s.d]||[]).forEach(function(b){if(b===s.b)return;var dd=near(b.p);if(dd<0)return;var v=bShare(D,dd/R)*cut;if(v<.02)return;var o={src:s,dl:dd*D.ms/BTILE,b:b,d:s.d,a:s.a,w:s.w,ix:s.ix,f:0,fi:0,burn:0,cut:cut,v:v,usd:0,to:{x:g.x,y:g.y-10},col:1};V.push(o);
+  var near=function(p){var dd=Math.hypot(p.x-g.x,(p.y-g.y)*2);return dd<D.out*BTILE?dd:-1};
+  (BBLD[s.d]||[]).forEach(function(b){if(b===s.b)return;var dd=near(b.p);if(dd<0)return;var v=bShare(D,dd/BTILE)*cut;if(v<.02)return;var o={src:s,dl:dd*D.ms/BTILE,b:b,d:s.d,a:s.a,w:s.w,ix:s.ix,f:0,fi:0,burn:0,cut:cut,v:v,usd:0,to:{x:g.x,y:g.y-10},col:1};V.push(o);
     if(!P.hit[s.d])P.hit[s.d]={};if(!P.hit[s.d][b.idx])P.hit[s.d][b.idx]=[];P.hit[s.d][b.idx].push(o)});
-  (BLOTS[s.d]||[]).forEach(function(l){var dd=near(l.p);if(dd<0)return;var v=bShare(D,dd/R)*cut*1.6;if(v<.05)return;var o={src:s,dl:dd*D.ms/BTILE,lot:l,d:s.d,a:s.a,w:s.w,ix:s.ix,v:Math.min(1,v),col:1};V.push(o);var m=P.lots[s.d]=P.lots[s.d]||{};(m[l.li]=m[l.li]||[]).push(o)})});
+  (BLOTS[s.d]||[]).forEach(function(l){var dd=near(l.p);if(dd<0)return;var v=bShare(D,dd/BTILE)*cut*1.6;if(v<.05)return;var o={src:s,dl:dd*D.ms/BTILE,lot:l,d:s.d,a:s.a,w:s.w,ix:s.ix,v:Math.min(1,v),col:1};V.push(o);var m=P.lots[s.d]=P.lots[s.d]||{};(m[l.li]=m[l.li]||[]).push(o)})});
   P.virt=V}
 /** the city that falls: the hub's pick when it is on the map, else the same rule here (most dollars taken, then hits, then name) */
 function bFallKey(P,hint){var ok=function(k){return k&&(k.charAt(0)!=='@'?P.shots.some(function(s){return s.d===k}):(BBLD[k]||[]).length>0||(BLOTS[k]||[]).length>0)};if(ok(hint))return hint;

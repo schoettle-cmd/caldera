@@ -290,7 +290,7 @@ test("11-13: every missile that lands shows on its tower, however small; a miss 
   assert.ok(P.shots[1].to.miss && Math.abs(P.shots[1].to.y - (P.shots[1].b.p.y + 4)) <= 16 + 8 && Math.abs(P.shots[1].to.x - P.shots[1].b.p.x) <= 64 * .72 + 1, "22 m off: the rocket lands in the street next to its tower");
   assert.ok(!P.shots[0].to.miss && !P.shots[2].to.miss, "inside 10 m: on the roof");
   clock.t = at(20, 0, 10); Wd.over();
-  assert.equal(Wd.dmg(12, 9), Math.ceil(4 / (.58 * 60) * 24) / 24, "11-14: a $18k shell hit (0.1% of the 60 px tower) still takes 4 px off it, the shell's minimum");
+  assert.ok(Wd.dmg(12, 9) >= Math.ceil(4 / (.58 * 60) * 24) / 24, "11-14: a $18k shell hit (0.1% of the 60 px tower) still takes 4 px off it, the shell's minimum (more once the tactical missile's 2.2-tile blast reaches it): " + Wd.dmg(12, 9));
   assert.equal(Wd.dmg(14, 9), 1, "a rocket (8 px) and a tactical missile (14 px) take the 30 px b2 down to its stump: " + Wd.dmg(14, 9));
   assert.ok(Wd.card("@b").includes("$6.6M of damage"), Wd.card("@b")); assert.ok(Wd.card("@a").includes("up to cruise missiles"));
   // sizes draw differently: a shell has no motor flame, a cruise missile has wings (more path points)
