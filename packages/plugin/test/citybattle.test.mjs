@@ -31,7 +31,7 @@ function world(sky, clock, data, reduce = false, store = memStore(), b2h = 30) {
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();var PURE=false;`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", "STORE", pre + HIFI_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,stateLoad:bStateLoad,sync:function(){bStateSync(bPlan(Date.now()),Date.now())},rebOf:bRebuildOf,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
+    art:{bBlK:bBlK,bBlast:bBlast,bMissileFly:bMissileFly,bBigFx:bBigFx,spScorch:spScorch,spPuff:spPuff,setZ:function(z){cam.z=z},pool:function(){return BP},padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
 }
 /** a localStorage stand-in (a broken one throws on every call) */
 function memStore(broken = false) { const m = new Map(); return { getItem: k => { if (broken) throw new Error("quota"); return m.has(k) ? m.get(k) : null }, setItem: (k, v) => { if (broken) throw new Error("quota"); m.set(k, String(v)) }, removeItem: k => m.delete(k), get size() { return m.size }, raw: k => m.get(k) }; }
@@ -411,4 +411,44 @@ test("11-14: the fall: the city that took the most falls after the last strike, 
   const lc = { t: at(16), p: 1 }, L = world("day", lc, data()); L.api.view(true); const LP = L.plan(); assert.equal(LP.fall.key, "@b");
   lc.t = LP.S.zf + 6000; L.over(); assert.equal(L.art.bRaze(12, 9), 1, "live: @b falls tonight"); lc.t = at(23, 50); L.over(); assert.ok(L.dmg(12, 9) > 0);
   lc.t = at(12) + 864e5 - 60e3; L.over(); assert.ok(L.rebOf(12, 9) > .9, "nearly whole by noon"); lc.t = at(12) + 864e5 + 1000; L.over(); assert.equal(L.art.bRaze(12, 9), 0, "and whole after");
+});
+
+/** a context that records what it is asked to draw (stroke widths, drawImage alphas, fillRect widths) */
+function recCtx() {
+  const rec = { strokes: [], images: [], rects: [] }, st = { canvas: { width: 10, height: 10 }, globalAlpha: 1, lineWidth: 1, globalCompositeOperation: "source-over" }, grad = { addColorStop() {} };
+  const ctx = new Proxy(st, { get(t, k) { if (k === "rec") return rec; if (k in t) return t[k];
+      if (k === "createLinearGradient" || k === "createRadialGradient") return () => grad;
+      if (k === "stroke") return () => rec.strokes.push(t.lineWidth);
+      if (k === "drawImage") return (img, x, y, w, h) => { for (const v of [x, y, w, h]) assert.ok(Number.isFinite(v), "finite drawImage"); rec.images.push({ a: t.globalAlpha, w, op: t.globalCompositeOperation }); };
+      if (k === "fillRect") return (x, y, w, h) => rec.rects.push(Math.abs(w));
+      return (...a) => { for (const v of a) if (typeof v === "number") assert.ok(Number.isFinite(v), `finite ${String(k)}`); }; },
+    set(t, k, v) { t[k] = v; return true } });
+  return ctx;
+}
+
+test("FX pass 11-17: a blast is never smaller than its readable size on screen and never swamps a close view", () => {
+  const W = world("day", { t: at(15), p: 1 }, data()).art, MIN = [14, 18, 24, 32], R0 = [10, 14, 22, 34];
+  for (const z of [.1, .3, .6, 1, 1.6, 3]) { W.setZ(z);
+    for (let k = 0; k < 4; k++) { const K = W.bBlK(W.bBlast(0, 0, k)), rs = R0[k] * z * K;
+      assert.ok(rs >= MIN[k] - 1e-6, `class ${k} at zoom ${z}: radius ${rs.toFixed(1)} px >= ${MIN[k]}`);
+      assert.ok(rs <= Math.max(MIN[k], k === 3 ? 600 * .075 : 120) + 1e-6, `class ${k} at zoom ${z}: radius ${rs.toFixed(1)} px under the cap`); } }
+});
+
+test("FX pass 11-17: a missile is at least 16 css px long at full zoom-out, with a glow, by day and night", () => {
+  for (const sky of ["day", "night"]) { const W = world(sky, { t: at(15), p: 1 }, data()).art;
+    for (const z of [.1, .3, 1, 3]) { W.setZ(z); const c = recCtx();
+      for (let f = 0; f <= 1; f += .25) W.bMissileFly(c, W.bTraj(0, 0, 400, -40, f), 1, "#E85D75", 1000);
+      assert.ok(c.rec.images.some(i => i.op === "lighter"), `${sky} ${z}: the motor glows`);
+      if (z <= .3) assert.ok(Math.max(...c.rec.rects) * z >= 16 - 1e-6, `${sky} ${z}: body ${(Math.max(...c.rec.rects) * z).toFixed(1)} px long`); } }
+});
+
+test("FX pass 11-17: smoke trails keep a readable width zoomed out; the XL mushroom is a thin ring of puffs, not an opaque disc", () => {
+  const W = world("day", { t: at(15), p: 1 }, data()), A = W.art;
+  for (const z of [.1, 1]) { A.setZ(z); const s = { from: { x: 0, y: 0 }, to: { x: 400, y: -40 }, rf: 0, fl: 3000, a: "@a", sz: 1, dist: 400 };
+    A.bRibbonFill(s, 2800, 1); const c = recCtx(); A.bDrawRibbons(c, 3000, false);
+    assert.ok(c.rec.strokes.length > 0, "the ribbon draws"); for (const lw of c.rec.strokes) assert.ok(lw * z >= 1.5 - 1e-6, `zoom ${z}: stroke ${(lw * z).toFixed(2)} px`); }
+  W.setLOD(2); A.setZ(1); A.pool().length = 0; A.bBigFx(0, -40, 0, "cruise", "#3178C6", null);
+  const smoke = A.pool().filter(p => p.k === "smoke"); assert.ok(smoke.length <= 45, `${smoke.length} smoke puffs (was ~100)`); assert.ok(smoke.every(p => (p.acap || p.al) <= .34), "puff alpha capped");
+  A.bStep(1.2); const c2 = recCtx(); A.bDrawParticles(c2); assert.ok(c2.rec.images.filter(i => i.op !== "lighter").every(i => i.a <= .95), "painted layers stay translucent");
+  const sc = A.spScorch(1, 0); assert.equal(sc.width, 256, "the desolation is a cached sprite"); assert.equal(A.spScorch(1, 0), sc, "built once");
 });

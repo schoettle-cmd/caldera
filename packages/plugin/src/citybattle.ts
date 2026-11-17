@@ -140,29 +140,68 @@ function countdownHi(c,sx,sy,u){var k=Math.min(2,Math.floor(u*3)),f=u*3-k,num=3-
 function bTraj(ax,ay,bx,by,f,hs){var d=Math.hypot(bx-ax,by-ay),H=Math.min(260,70+d*.3)*(hs||1),s=Math.pow(f,1.3),e=1e-3,s2=Math.pow(Math.min(1,f+e),1.3);
   var p=function(u){return [ax+(bx-ax)*u,ay+(by-ay)*u-H*4*u*(1-u)]},P=p(s),Q=p(s2);return {x:P[0],y:P[1],gy:ay+(by-ay)*s,a:Math.atan2(Q[1]-P[1],Q[0]-P[0]),boost:f<.35?1:Math.max(0,1-(f-.35)/.25)}}
 function bFlightDur(d){return 2500+Math.min(1500,d*3.5)}
+// ---- the FX pass (11-17, Mike: "improve this detail on the explosions"; "when I zoom out all the way I can't see the missiles
+// moving unless I zoom in"; "improve fidelity of this"). Design spec by an Opus designer with the Claude Design skills (Fable out of
+// credit). Smoke, dust, fire and glows are cached sprites drawn with drawImage (no gradient per particle per frame); every blast
+// carries a live zoom factor so it reads at every zoom without swamping a close view; hits leave a scorch on the tiles.
+var BSPR={};
+function bSpr(key,w,h,paint){var s=BSPR[key];if(s)return s;s=document.createElement('canvas');s.width=w;s.height=h;var g=s.getContext('2d');if(g)paint(g,w,h);BSPR[key]=s;return s}
+function bRad(g,x,y,r,stops){var gr=g.createRadialGradient(x,y,0,x,y,r);stops.forEach(function(s){gr.addColorStop(s[0],s[1])});return gr}
+function spGlow(){return bSpr('glow',64,64,function(g){g.fillStyle=bRad(g,32,32,32,[[0,'rgba(255,255,255,1)'],[.2,'rgba(255,255,255,.85)'],[.5,'rgba(255,214,150,.35)'],[1,'rgba(255,214,150,0)']]);g.fillRect(0,0,64,64)})}
+function spFire(hot){return bSpr(hot?'fhot':'fember',64,64,function(g){g.fillStyle=bRad(g,32,32,32,hot?[[0,'#FFFFFF'],[.18,'#FFF3C4'],[.4,'#FFC14A'],[.65,'rgba(255,122,31,.8)'],[1,'rgba(200,50,10,0)']]:[[0,'rgba(255,176,58,.9)'],[.45,'rgba(210,69,26,.75)'],[.8,'rgba(90,34,20,.35)'],[1,'rgba(90,34,20,0)']]);g.fillRect(0,0,64,64)})}
+/** a lumpy puff in one colour ('r,g,b'): three soft lobes and a lighter top-left, so smoke has form instead of a flat disc */
+function spPuff(col){return bSpr('puff'+col,48,48,function(g){[[24,24,14],[16,27,11],[31,28,10]].forEach(function(o){g.fillStyle=bRad(g,o[0],o[1],o[2],[[0,'rgba('+col+',.55)'],[1,'rgba('+col+',0)']]);g.fillRect(0,0,48,48)});
+  var hi=String(col).split(',').map(function(v){v=+v||0;return Math.round(v+(255-v)*.35)}).join(',');g.fillStyle=bRad(g,19,19,10,[[0,'rgba('+hi+',.35)'],[1,'rgba('+hi+',0)']]);g.fillRect(0,0,48,48)})}
+/** burnt ground (drawn 2:1): a charred base, radial burn streaks, a lighter ash rim; big = the L/XL desolation, with rubble specks */
+function spScorch(big,v){var n=hn(),W=big?256:96;return bSpr('sc'+(big?'B':'S')+v+(n?'n':'d'),W,W/2,function(g){var R=W/2;g.save();g.translate(R,R/2);g.scale(1,.5);
+  g.fillStyle=bRad(g,0,0,R,big?[[0,'rgba(46,30,20,.58)'],[.5,'rgba(60,42,28,.42)'],[.8,'rgba(84,66,48,.2)'],[1,'rgba(84,66,48,0)']]:[[0,'rgba(42,28,18,.55)'],[.55,'rgba(58,42,30,.35)'],[1,'rgba(58,42,30,0)']]);g.beginPath();g.arc(0,0,R,0,7);g.fill();
+  g.fillStyle='rgba(28,18,12,'+(big?.3:.32)+')';for(var k=0;k<(big?14:7);k++){var a=rnd(k*2.3+v*7+1)*6.283,l=R*(.5+rnd(k*1.7+v+2)*.5),wd=.07+rnd(k*3.1+v+3)*.06;g.beginPath();g.moveTo(Math.cos(a-wd)*R*.2,Math.sin(a-wd)*R*.2);g.lineTo(Math.cos(a)*l,Math.sin(a)*l);g.lineTo(Math.cos(a+wd)*R*.2,Math.sin(a+wd)*R*.2);g.closePath();g.fill()}
+  g.lineWidth=R*.1;g.strokeStyle=big?(n?'rgba(120,110,100,.18)':'rgba(170,160,145,.22)'):'rgba(150,140,128,.18)';g.beginPath();g.arc(0,0,R*.86,0,7);g.stroke();
+  if(big)for(var q=0;q<40;q++){var a2=rnd(q*4.7+v+5)*6.283,r2=R*(.2+rnd(q*2.9+v+6)*.65),z=2+rnd(q*1.3+7)*4;g.fillStyle=q%2?'#2A2420':'#5A4E44';g.fillRect(Math.cos(a2)*r2-z/2,Math.sin(a2)*r2-z,z,z*2)}   // the 1:.5 squash brings the specks back to square
+  g.restore()})}
+/** a blast: its origin, size class k (0..3 = S M L XL, 4 = the fallen city) and world radius R0. bBlK = the live zoom factor that
+ *  keeps its radius between a readable minimum and a cap on screen (XL: the mushroom stays under ~45% of the view height) */
+var BKR=[10,14,22,34,46],BCUR=null,BMOVE={flash:1,fire:1,smoke:1,ring:1,spark:1};
+function bBlast(x,y,k,R0){return {x:x,y:y,k:k,R0:R0||BKR[k]||14,z:-1,w:-1,K:1}}
+function bBlK(b){if(!b)return 1;if(b.z===cam.z&&b.w===vw)return b.K;b.z=cam.z;b.w=vw;var ph=vw<700,mn=[14,18,24,32,44][b.k]*(ph?.85:1),mx=Math.max(mn,b.k===4?vh*.25:b.k===3?vh*.075:ph?90:120),rs=Math.min(Math.max(b.R0*cam.z,mn),mx);b.K=Math.min(24,rs/(b.R0*cam.z));return b.K}
+/** how near the camera a ground point is: -.5 (far, top of the view) .. .5 (near, bottom); nearer arcs draw thicker and brighter */
+function bDepth(gy){var vb=hView(TH*3),h=vb[3]-vb[2];return h>0?Math.max(-.5,Math.min(.5,(gy-(vb[2]+vb[3])/2)/h)):0}
+/** a missile in flight: a shadow on its ground track (fainter the higher it flies), a warm glow at the motor, the body never shorter
+ *  than 16 css px (14 on a phone; flat shapes when it is scaled far up), and a white-hot nose dot when zoomed out */
+function bMissileFly(c,tr,sz,col,tn){var Z=cam.z,n=hn(),Km=Math.min(24,Math.max(1,(vw<700?14:16)/(10*sz*Z))),S2=sz*Km,h=Math.max(0,tr.gy-tr.y),L=10*S2,dp=bDepth(tr.gy);
+  var rx=(5*sz+h*.02)*Km,sa=.3*Math.min(1,Math.max(.2,1-h/240))*(n?.7:1);c.fillStyle='rgba(10,20,10,'+sa.toFixed(3)+')';c.beginPath();c.ellipse(tr.x,tr.gy,rx,rx*.42,0,0,7);c.fill();
+  var ca=Math.cos(tr.a),sn=Math.sin(tr.a),gx=tr.x-ca*L*.55,gy=tr.y-sn*L*.55,gr=(tr.boost>0?20:12)/Z/2*(1+.25*dp);
+  c.save();c.globalCompositeOperation='lighter';c.globalAlpha=n?1:.85;c.drawImage(spGlow(),gx-gr,gy-gr,gr*2,gr*2);c.globalAlpha=.5;c.drawImage(spFire(1),gx-gr*.6,gy-gr*.6,gr*1.2,gr*1.2);c.restore();
+  if(Km>2.5){var R=1.5*S2;c.save();c.translate(tr.x,tr.y);c.rotate(tr.a);c.fillStyle='#2A2D35';c.fillRect(-L/2,-R*1.7,2*S2,R*3.4);c.fillStyle=n?'#C9CDD4':'#F4F5F7';c.fillRect(-L/2,-R,L,R);c.fillStyle='#8A9099';c.fillRect(-L/2,0,L,R);
+    c.fillStyle='#3A3F4A';c.beginPath();c.moveTo(L/2,-R);c.lineTo(L/2+3.2*S2,0);c.lineTo(L/2,R);c.closePath();c.fill();c.fillStyle=col;c.fillRect(L/2-3*S2,-R,1.6*S2,R*2);c.restore()}
+  else missileHi(c,tr.x,tr.y,tr.a,S2,col,tr.boost);
+  if(Km>1.5){var cr=1.25/Z*(reduce?1:.9+.1*Math.sin(tn*.05));c.fillStyle='rgba(255,255,255,.95)';c.beginPath();c.arc(tr.x+ca*(L/2+2*S2),tr.y+sn*(L/2+2*S2),cr,0,7);c.fill()}}
 // ---- particles (one pool, capped: smoke, debris, sparks, dust, flashes, rings)
 // the particle pool: smoke, dust, debris, sparks, flashes, fire, rings, and the voxels a hit building breaks into ('vox', pixel
 // squares in the building's colours with gravity and a bounce) and the ones that fly back in while the cranes work ('build').
 // Caps: 2400 on a desktop, 800 on a phone; one hit adds at most 600 voxels walked in, 220 at street zoom, 80 on the world map
 var BP=[],BPMAX=260;function bPoolMax(){return vw<700?800:2400}function bVoxMax(){return LODN>=2?600:LODN===1?220:80}
-function bEmit(p){if(!isFinite(p.x)||!isFinite(p.y))return;if(BP.length>=BPMAX)BP.shift();p.age=0;BP.push(p)}
+function bEmit(p){if(!isFinite(p.x)||!isFinite(p.y))return;if(p.bl===undefined)p.bl=BCUR;if(BP.length>=BPMAX)BP.shift();p.age=0;BP.push(p)}
 function bStep(dt){for(var i=BP.length-1;i>=0;i--){var p=BP[i];p.age+=dt;if(p.age>=p.life){BP.splice(i,1);continue}
   if(p.k==='vox'){p.vy+=260*dt;p.vx*=(1-.6*dt);p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y>p.g){p.y=p.g;p.vy=-p.vy*.3;p.vx*=.5;if(Math.abs(p.vy)<10){p.vy=0;p.vx=0;p.down=true}}}
   else if(p.k==='build'){var u=Math.min(1,p.age/p.life),e=u*u*(3-2*u);p.x=p.x0+(p.x1-p.x0)*e;p.y=p.y0+(p.y1-p.y0)*e-Math.sin(u*Math.PI)*p.arc}
   else if(p.k==='rez'){p.vy+=40*dt;p.vx*=(1-1.2*dt);p.vy*=(1-1.2*dt);p.x+=p.vx*dt;p.y+=p.vy*dt}
   else if(p.k==='debris'||p.k==='spark'||p.k==='glass'){p.vy+=(p.k==='spark'?90:p.k==='glass'?200:240)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y>p.g){p.y=p.g;p.vy=-p.vy*.35;p.vx*=.6;if(Math.abs(p.vy)<8)p.vy=0}p.rot+=p.vr*dt}
   else{p.x+=(p.vx||0)*dt;p.y+=(p.vy||0)*dt;if(p.k==='smoke'){p.vx*=(1-.8*dt);p.vy-=14*dt}}}}
-function bDrawParticles(c){BP.forEach(function(p){var f=p.age/p.life;
-  if(p.k==='smoke'||p.k==='dust'){var r=p.r0+(p.r1-p.r0)*f,al=p.al*(1-f)*(f<.15?f/.15:1),g=c.createRadialGradient(p.x,p.y,r*.15,p.x,p.y,r);g.addColorStop(0,'rgba('+p.col+','+al.toFixed(3)+')');g.addColorStop(1,'rgba('+p.col+',0)');c.fillStyle=g;c.beginPath();c.arc(p.x,p.y,r,0,7);c.fill()}
+function bDrawParticles(c){var n=hn(),Z=cam.z,lo=LODN<1,scap=lo?.22:n?.26:.3,dcap=lo?.22:.26;BP.forEach(function(p){var f=p.age/p.life,bl=p.bl,K=bl?bBlK(bl):1,mv=bl&&BMOVE[p.k],X=mv?bl.x+(p.x-bl.x)*K:p.x,Y=mv?bl.y+(p.y-bl.y)*K:p.y;
+  if(p.k==='smoke'||p.k==='dust'){var r=(p.r0+(p.r1*1.3-p.r0)*f)*K,al=Math.min(p.al,p.acap||(p.k==='dust'?dcap:scap))*Math.pow(1-f,1.6)*Math.min(1,p.age/.2);if(al<.004||!(r>0))return;c.globalAlpha=al;c.drawImage(spPuff(p.col),X-r,Y-r,r*2,r*2);c.globalAlpha=1}   // 11-17 spec: capped alphas and still-spreading puffs, so overlapping smoke never builds a flat dark disc
   else if(p.k==='vox'){var av=f>.72?(1-f)/.28:1;if(av<1)c.globalAlpha=av;c.fillStyle=p.col;c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);if(p.s>1&&!p.down){c.fillStyle='rgba(255,255,255,.28)';c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s*.4)}if(av<1)c.globalAlpha=1}
   else if(p.k==='build'){c.fillStyle=p.col;c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);if(f>.85){c.fillStyle='rgba(255,255,255,'+((f-.85)/.15*.8).toFixed(2)+')';c.fillRect(p.x-p.s,p.y-p.s,p.s*2,p.s*2)}}
-  else if(p.k==='debris'){c.save();c.translate(p.x,p.y);c.rotate(p.rot);c.fillStyle=p.col;c.globalAlpha=f>.8?(1-f)/.2:1;c.fillRect(-p.s,-p.s*.6,p.s*2,p.s*1.2);c.fillStyle='rgba(255,255,255,.25)';c.fillRect(-p.s,-p.s*.6,p.s*2,p.s*.35);c.restore()}
   else if(p.k==='rez'){var on=f<.55||rnd(Math.floor(p.age*22)+p.ph)>f*.9,s2=p.s*(f<.7?1:1-(f-.7)/.3*.6);if(on){var ar=f<.7?1:(1-f)/.3;c.globalAlpha=ar;c.fillStyle=f<.25?p.col:f<.6?'#7FF6FF':'#E8FEFF';c.fillRect(p.x-s2/2,p.y-s2/2,s2,s2);c.strokeStyle='rgba(61,242,255,'+(.9*ar).toFixed(2)+')';c.lineWidth=.5;c.strokeRect(p.x-s2/2,p.y-s2/2,s2,s2);c.globalAlpha=1}}   // 11-14 the derezz: a cube in the city's colour goes cyan, then white, flickers and is gone
-  else if(p.k==='glass'){var tw=.5+.5*Math.sin(p.age*30+p.rot*7);c.fillStyle='rgba('+(tw>.7?'255,255,255':'190,228,250')+','+(f>.8?(1-f)/.2:1).toFixed(2)+')';c.fillRect(p.x-.6,p.y-.6,1.2,1.2)}
-  else if(p.k==='spark'){c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,'+Math.round(200-120*f)+',80,'+(1-f).toFixed(3)+')';c.lineWidth=.8;hline(c,p.x,p.y,p.x-p.vx*.03,p.y-p.vy*.03);c.restore()}
-  else if(p.k==='flash'){c.save();c.globalCompositeOperation='lighter';var rr=p.r0+(p.r1-p.r0)*Math.sqrt(f),g2=c.createRadialGradient(p.x,p.y,0,p.x,p.y,rr);g2.addColorStop(0,'rgba(255,255,240,'+(.95*(1-f)).toFixed(3)+')');g2.addColorStop(.4,'rgba(255,190,90,'+(.7*(1-f)).toFixed(3)+')');g2.addColorStop(1,'rgba(255,120,40,0)');c.fillStyle=g2;c.beginPath();c.arc(p.x,p.y,rr,0,7);c.fill();c.restore()}
-  else if(p.k==='fire'){c.save();c.globalCompositeOperation='lighter';var rf=p.r0+(p.r1-p.r0)*Math.min(1,f*2.2),af=Math.pow(1-f,1.4),g3=c.createRadialGradient(p.x,p.y,0,p.x,p.y,rf);g3.addColorStop(0,'rgba(255,250,220,'+(.95*af).toFixed(3)+')');g3.addColorStop(.35,'rgba(255,170,60,'+(.8*af).toFixed(3)+')');g3.addColorStop(.7,'rgba(230,80,30,'+(.45*af).toFixed(3)+')');g3.addColorStop(1,'rgba(120,30,10,0)');c.fillStyle=g3;c.beginPath();c.arc(p.x,p.y,rf,0,7);c.fill();c.restore()}
-  else if(p.k==='ring'){c.save();c.strokeStyle='rgba(255,230,190,'+(.7*(1-f)).toFixed(3)+')';c.lineWidth=1.2*(1-f)+.3;c.beginPath();c.ellipse(p.x,p.y,p.r1*f+1,(p.r1*f+1)*.5,0,0,7);c.stroke();c.restore()}})}
+  else if(p.k==='debris'){var sd=Math.max(p.s*K,.7/Z);c.save();c.translate(p.x,p.y);c.rotate(p.rot);c.fillStyle=p.col;c.globalAlpha=f>.8?(1-f)/.2:1;c.fillRect(-sd,-sd*.6,sd*2,sd*1.2);c.fillStyle='rgba(255,255,255,.25)';c.fillRect(-sd,-sd*.6,sd*2,sd*.35);c.restore()}
+  else if(p.k==='glass'){var tw=.5+.5*Math.sin(p.age*30+p.rot*7),gz=Math.max(1.2*K,1.2/Z);c.fillStyle='rgba('+(tw>.7?'255,255,255':'190,228,250')+','+(f>.8?(1-f)/.2:1).toFixed(2)+')';c.fillRect(p.x-gz/2,p.y-gz/2,gz,gz)}
+  else if(p.k==='spark'){var vv=Math.hypot(p.vx,p.vy)||1,ln=Math.max(vv*.035*K,3/Z);c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,'+Math.round(200-120*f)+',80,'+(1-f).toFixed(3)+')';c.lineWidth=Math.max(.8,1/Z);hline(c,X,Y,X-p.vx/vv*ln,Y-p.vy/vv*ln);c.restore()}
+  else if(p.k==='flash'){var rr=(p.r0+(p.r1-p.r0)*Math.sqrt(f))*K*1.3;c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*Math.pow(1-f,1.5);c.drawImage(spGlow(),X-rr,Y-rr,rr*2,rr*2);c.restore();
+    if(p.age<.09){c.fillStyle='rgba(255,255,255,'+(1-p.age/.09).toFixed(3)+')';c.beginPath();c.arc(X,Y,Math.max(rr*.22,1.5/Z),0,7);c.fill()}}   // a hard white core: a point of light that reads over bright green
+  else if(p.k==='fire'){var u=Math.min(1,f*2.2),rf=(p.r0+(p.r1-p.r0)*(1-Math.pow(1-u,3)))*K,af=Math.pow(1-f,1.4),ms=p.age*1000,wh=ms<220?1:Math.max(0,1-(ms-220)/250);if(!(rf>0))return;   // white-hot at first (additive), then orange to red to a dark ember (painted over), never a white smear
+    if(wh>0){c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*wh*af;c.drawImage(spFire(1),X-rf,Y-rf,rf*2,rf*2);c.restore()}if(wh<1){c.globalAlpha=.85*(1-wh)*af;c.drawImage(spFire(0),X-rf,Y-rf,rf*2,rf*2);c.globalAlpha=1}}
+  else if(p.k==='ring'){var e=1-Math.pow(1-f,3),rx=(p.r1*e+1)*K,lw=Math.max(p.r1*K*.06,2/Z)*(1-f)+.5/Z;c.save();c.beginPath();c.ellipse(X,Y,rx,rx*.5,0,0,7);c.lineWidth=lw+1/Z;c.strokeStyle='rgba(30,24,18,'+(.22*(1-f)).toFixed(3)+')';c.stroke();   // two strokes: dark under, light over, so the ring reads on green and on dark tiles
+    c.lineWidth=lw;c.strokeStyle=(n?'rgba(255,214,160,':'rgba(255,255,255,')+(.85*(1-f)).toFixed(3)+')';c.stroke();c.restore()}})}
 /** what a hit does to the air: flash and fireball, shock ring, chunks of the building in its own colours and window glass
  *  (bigger and more of them for a big hit), sparks, a dust cloud, then smoke. gy = the ground under the hit (chunks land there) */
 var BFXN={debris:[14,24,40,64],panel:[2,4,7,12],glint:[16,28,48,80],spark:[10,16,28,44],dust:[5,8,14,22],smoke:[4,6,10,16],flash:[18,30,60,140],fire:[12,20,34,64],ring:[24,40,70,120],k:[.7,1,1.35,1.8]},
@@ -172,36 +211,40 @@ function bFxScale(){var ph=vw<700;return LODN>=2?(ph?.45:1):LODN===1?(ph?.25:.4)
 /** a hit (11-14, Mike: "way more shrapnel"): flash, fireball and air ring, chunks of the building in its own colours, facade panels
  *  that hang then tumble, glass glints, sparks, dust (60% at the hit, 40% at the foot) and smoke. Counts per size from the spec,
  *  scaled to the zoom and the device; a shield cuts them to max(.25, 1 - shield). k = size class 0..3 (S M L XL), from w or strength */
-function bImpactFx(x,y,col,strength,gy,w,sh){var k=w!=null&&BCLS[w]!=null?BCLS[w]:strength<.45?0:strength<.8?1:strength<1.4?2:3,K=BFXN.k[k],g0=gy==null?y+2:gy,sc=bFxScale()*Math.max(.25,1-(sh||0)),
-    N=function(nm){var v=Math.round(BFXN[nm][k]*sc);if(LODN<1&&(nm==='panel'||nm==='glint'))return 0;return Math.max(BFXFLOOR[nm],v)},big=LODN<1?2.5:1;
+function bImpactFx(x,y,col,strength,gy,w,sh){var pb=BCUR,k=w!=null&&BCLS[w]!=null?BCLS[w]:strength<.45?0:strength<.8?1:strength<1.4?2:3,K=BFXN.k[k],g0=gy==null?y+2:gy,sc=bFxScale()*Math.max(.25,1-(sh||0)),
+    N=function(nm){var v=Math.round(BFXN[nm][k]*sc);if(LODN<1&&(nm==='panel'||nm==='glint'))return 0;return Math.max(BFXFLOOR[nm],v)},big=1;BCUR=bBlast(x,y,k);
   bEmit({k:'flash',x:x,y:y-4,r0:4,r1:BFXN.flash[k],life:.34});bEmit({k:'fire',x:x,y:y-6,vx:0,vy:-16,r0:3,r1:BFXN.fire[k],life:.9+k*.07});bEmit({k:'ring',x:x,y:y,r1:BFXN.ring[k],life:.7});
+  var nb=Math.max(2,(LODN<1?3:[3,4,5,6][k])-(vw<700?1:0)),R0=BKR[k];for(var fb=1;fb<nb;fb++)bEmit({k:'fire',x:x+(rnd(fb*3.1+x)-.5)*.7*R0,y:y-6+(rnd(fb*1.7+y)-.5)*.5*R0,vx:0,vy:-.5*R0,r0:.22*R0,r1:(.7+rnd(fb*2.3)*.3)*R0,life:.75+k*.15+rnd(fb)*.2});   // 11-17: a fireball of 3-6 blobs, not one disc
   var cols=[hmul(col,.92),hmul(col,.7),hmul(col,.5),'#8A8A93','#C9E3F6','#3A3D47'],nd=N('debris');for(var q=0;q<nd;q++){var an=rnd(q*3.7+x)*6.283,sp=(50+rnd(q+y)*110)*K;bEmit({k:'debris',x:x+(rnd(q)-.5)*10,y:y-6,vx:Math.cos(an)*sp,vy:-(60+rnd(q*5+.2)*150)*K,g:g0+rnd(q*7)*12,rot:rnd(q)*6,vr:(rnd(q+.3)-.5)*16,s:(.9+rnd(q*11)*3.3)*big,col:cols[Math.floor(rnd(q*2+.5)*cols.length)],life:1.5+rnd(q)*1.1})}
   var np=N('panel');for(var j=0;j<np;j++)bEmit({k:'debris',x:x+(rnd(j*4.1+y)-.5)*14,y:y-2+rnd(j)*6,vx:(rnd(j*2.3+x)-.5)*40,vy:-6-rnd(j*1.3)*20,g:g0+rnd(j*3)*8,rot:rnd(j*5)*6,vr:(rnd(j+.9)<.5?-1:1)*(3+rnd(j*6)*6),s:2+rnd(j*7)*2.5,col:hmul(col,.8+rnd(j)*.15),life:2.4+rnd(j)*.8});   // facade panels: 4-9 px, tumbling down the face
   var ng=N('glint');for(var gq=0;gq<ng;gq++){var ag=rnd(gq*2.9+x)*6.283,vg=(40+rnd(gq+y)*120)*K;bEmit({k:'glass',x:x+(rnd(gq)-.5)*8,y:y-4,vx:Math.cos(ag)*vg,vy:-40-rnd(gq*3.3)*90,g:g0+rnd(gq*5)*10,rot:rnd(gq*1.7),vr:0,life:1+rnd(gq)*.8})}
   var ns=N('spark');for(var s2=0;s2<ns;s2++){var a2=rnd(s2*5+x)*6.283,v=(90+rnd(s2)*120)*K;bEmit({k:'spark',x:x,y:y-5,vx:Math.cos(a2)*v,vy:-40-rnd(s2+.7)*130,g:y+6,rot:0,vr:0,life:.5+rnd(s2)*.3})}
   var nu=N('dust');for(var d=0;d<nu;d++)bEmit({k:'dust',x:x+(rnd(d*9+x)-.5)*20,y:(d<nu*.6?y:g0)-2,vx:(rnd(d+.1)-.5)*28,vy:-4-rnd(d)*6,r0:3,r1:(14+rnd(d*3)*10)*K,al:.42,col:hn()?'120,110,100':'170,160,145',life:2.4+rnd(d)*1.2});
-  var nm2=N('smoke');for(var m=0;m<nm2;m++)bEmit({k:'smoke',x:x+(rnd(m*2+y)-.5)*8,y:y-8-m*2,vx:(rnd(m)-.5)*6,vy:-10-rnd(m*4)*8,r0:2.5,r1:12*K,al:.45,col:hn()?'80,82,92':'110,110,120',life:2.8+rnd(m)*1.5})}
+  var nm2=N('smoke');for(var m=0;m<nm2;m++)bEmit({k:'smoke',x:x+(rnd(m*2+y)-.5)*8,y:y-8-m*2,vx:(rnd(m)-.5)*6,vy:-10-rnd(m*4)*8,r0:2.5,r1:12*K,al:.45,col:hn()?'80,82,92':'110,110,120',life:2.8+rnd(m)*1.5});BCUR=pb}
 /** the L and XL sizes on top (11-14: "escalated nukes, like larger explosions and larger desolations"): a white flash as wide as
  *  the blast, a fireball, two or three ground shock rings racing out to the scorch line, a dust skirt rolling out, and for XL a
  *  mushroom: a fire column with a dark cap */
-function bBigFx(x,y,gy,w,col,now){var D=BDES[w];if(!D)return;var T=BTILE,ph=vw<700,sc=bFxScale();
-  if(!D.xl){bEmit({k:'fire',x:x,y:y-8,vx:0,vy:-24,r0:6,r1:34,life:1.1});bEmit({k:'ring',x:x,y:gy,r1:2.7*T,life:.6});
+function bBigFx(x,y,gy,w,col,now){var D=BDES[w];if(!D)return;var T=BTILE,ph=vw<700,sc=bFxScale(),pb=BCUR;BCUR=bBlast(x,y,D.xl?3:2);
+  if(!D.xl){bEmit({k:'fire',x:x,y:y-8,vx:0,vy:-24,r0:6,r1:34,life:1.1});bEmit({k:'ring',x:x,y:gy,r1:2.7*T,life:.6,bl:null});
     for(var q=0;q<Math.max(6,Math.round(16*sc));q++)bEmit({k:q%3?'smoke':'fire',x:x+(rnd(q*3+x)-.5)*6,y:gy-4-q*3.6,vx:(rnd(q)-.5)*4,vy:-14-rnd(q*2)*8,r0:3,r1:9+rnd(q)*5,al:.5,col:hn()?'70,66,70':'110,104,104',life:1.4});   // the column to 60 px
-    bFlash(now,.18,140);bShake(now,3,350);return}
+    bFlash(now,.18,140);bShake(now,3,350);BCUR=pb;return}
   bEmit({k:'flash',x:x,y:y-10,r0:10,r1:140,life:.45});bEmit({k:'fire',x:x,y:y-10,vx:0,vy:-37,r0:10,r1:64,life:2.4});bEmit({k:'fire',x:x,y:y-6,vx:0,vy:-30,r0:14,r1:90,life:2});
-  bEmit({k:'ring',x:x,y:gy,r1:5.4*T,life:.9});bEmit({k:'ring',x:x,y:gy-40,r1:2.2*T,life:.6});
-  var nk=Math.max(8,Math.round(24*sc));for(var a=0;a<nk;a++){var an=a/nk*6.283;bEmit({k:'dust',x:x+Math.cos(an)*T*.4,y:gy+Math.sin(an)*T*.2,vx:Math.cos(an)*3*T/1.3,vy:Math.sin(an)*1.5*T/1.3,r0:5,r1:16+rnd(a)*10,al:.5,col:hn()?'110,96,82':'170,150,128',life:1.5+rnd(a*3)*.4})}   // the brown dust wall to 3 tiles
+  bEmit({k:'ring',x:x,y:gy,r1:5.4*T,life:.9,bl:null});bEmit({k:'ring',x:x,y:gy-40,r1:2.2*T,life:.6,bl:null});
+  var nk=Math.max(8,Math.round(24*sc));for(var a=0;a<nk;a++){var an=a/nk*6.283;bEmit({k:'dust',x:x+Math.cos(an)*T*.4,y:gy+Math.sin(an)*T*.2,vx:Math.cos(an)*3*T/1.3,vy:Math.sin(an)*1.5*T/1.3,r0:5,r1:16+rnd(a)*10,al:.5,col:hn()?'110,96,82':'170,150,128',life:1.5+rnd(a*3)*.4,bl:null})}   // the brown dust wall to 3 tiles
   for(var k2=0;k2<Math.round(24*sc);k2++){var ak=rnd(k2*1.9+gy)*6.283,sp=120+rnd(k2*2.7)*200;bEmit({k:'debris',x:x,y:y-4,vx:Math.cos(ak)*sp,vy:-140-rnd(k2*4.1)*200,g:gy+(rnd(k2*6)-.3)*T,rot:rnd(k2)*6,vr:(rnd(k2+.2)-.5)*18,s:1+rnd(k2*8)*3,col:k2%3?hmul(col,.6):'#3A3D47',life:2.2+rnd(k2)*1})}
-  bMushroom(x,gy,ph?59:118,1);bFlash(now,.45,300);bShake(now,ph?5:7,900)}
-/** the mushroom (spec): a stem 14 px wide rising at 42 px/s, a cap at 150 px growing to r 46 that glows orange then hangs grey-brown */
-function bMushroom(x,gy,n,s){n=Math.round(n*Math.max(.3,Math.min(1,bFxScale()*1.4)));var st=Math.round(n*.25);for(var m=0;m<st;m++)bEmit({k:m%2?'fire':'smoke',x:x+(rnd(m*3+x)-.5)*14*s,y:gy-6-m*(140*s/st),vx:0,vy:-42,r0:4*s,r1:(9+rnd(m)*4)*s,al:.55,col:hn()?'64,58,58':'104,96,94',life:1.5+rnd(m)*.4});
-  for(var q=st;q<n;q++){var an=rnd(q*5.3+x)*6.283,rr=Math.sqrt(rnd(q*2.9))*46*s,cx0=x+Math.cos(an)*rr,cy0=gy-150*s+Math.sin(an)*rr*.45;if(q%3===0)bEmit({k:'fire',x:cx0,y:cy0,vx:Math.cos(an)*8,vy:-6,r0:6*s,r1:(14+rnd(q)*8)*s,life:1.5});
-    else bEmit({k:'smoke',x:cx0,y:cy0,vx:Math.cos(an)*10*s,vy:-4-rnd(q*3)*4,r0:6*s,r1:(18+rnd(q)*12)*s,al:.6,col:hn()?'60,52,48':'104,92,84',life:5+rnd(q)*2})}}
+  bMushroom(x,gy,ph?59:118,1);bFlash(now,.45,300);bShake(now,ph?5:7,900);BCUR=pb}
+/** the mushroom (11-17 spec): a stem of 10 puffs (6 on a phone), fire glowing inside the cap, and the cap as 28 puffs (16 phone, 12 on
+ *  the world map) on a ring, lit on the far side and shaded on the near side, that spreads and thins away over ~6 s (n is ignored) */
+function bMushroom(x,gy,n,s){var ph=vw<700,lo=LODN<1,nc=lo?12:ph?16:28,ns=ph?6:10,d=!hn(),lit=d?'217,200,180':'184,168,154',shd=d?'110,98,92':'90,80,76',sm=d?'140,135,144':'163,156,152',pb=BCUR;BCUR=bBlast(x,gy,s>1.2?4:3,s>1.2?46:34);
+  for(var m=0;m<ns;m++){var fi=m%2===1;bEmit({k:fi?'fire':'smoke',x:x+(rnd(m*3+x)-.5)*14*s,y:gy-6-m*(140*s/ns),vx:0,vy:-42+m*2,r0:4*s,r1:(9+rnd(m)*4)*s,al:.3,col:sm,life:fi?1.6:2.4+rnd(m)*.4})}
+  for(var q=0;q<3;q++)bEmit({k:'fire',x:x+(q-1)*23*s,y:gy-150*s+4,vx:(q-1)*4,vy:-10,r0:10*s,r1:24*s,life:1.8});
+  for(var q2=0;q2<nc;q2++){var an=q2/nc*6.283+rnd(q2+x)*.3,rr=(.55+rnd(q2*2.9)*.45)*46*s,up=Math.sin(an)<0;bEmit({k:'smoke',x:x+Math.cos(an)*rr,y:gy-150*s+Math.sin(an)*rr*.45,vx:Math.cos(an)*9*s,vy:-12+Math.sin(an)*3,r0:10*s,r1:(20+rnd(q2)*10)*s,al:.34,acap:lo?.26:.34,col:up?lit:shd,life:3.5+rnd(q2*1.3)*2.5})}
+  BCUR=pb}
 /** the last strike's blast on the fallen city: the biggest flash of the night, a fireball over the whole city, three rings past
  *  its edge, a tall mushroom; the screen goes white for a moment (battleOver) and the camera shakes */
 function bNukeFx(x,top,gy,R){var lite=vw<700?.6:1;bEmit({k:'flash',x:x,y:top,r0:20,r1:R*1.3+140,life:.8});bEmit({k:'fire',x:x,y:top+10,vx:0,vy:-10,r0:20,r1:R*.6+60,life:2.2});bEmit({k:'fire',x:x,y:gy-10,vx:0,vy:-3,r0:16,r1:R*.8+40,life:1.6});
   [1.1,1.6,2.3].forEach(function(f,k){bEmit({k:'ring',x:x,y:gy,r1:(R+TW)*f,life:1.1+k*.5})});
-  var nk=Math.round(28*lite);for(var a=0;a<nk;a++){var an=a/nk*6.283;bEmit({k:'dust',x:x+Math.cos(an)*R*.3,y:gy+Math.sin(an)*R*.15,vx:Math.cos(an)*(R+80),vy:Math.sin(an)*(R+80)*.5,r0:6,r1:22+rnd(a)*14,al:.55,col:hn()?'105,95,88':'170,160,148',life:2.6+rnd(a*3)*.8})}
+  var nk=Math.round(28*lite);for(var a=0;a<nk;a++){var an=a/nk*6.283;bEmit({k:'dust',x:x+Math.cos(an)*R*.3,y:gy+Math.sin(an)*R*.15,vx:Math.cos(an)*(R+80),vy:Math.sin(an)*(R+80)*.5,r0:6,r1:22+rnd(a)*14,al:.26,col:hn()?'105,95,88':'170,160,148',life:2.6+rnd(a*3)*.8})}
   bMushroom(x,gy,lite<1?50:100,1.35)}
 /** a fallen item's cubes as one more sixth of it derezzes (u0 to u1): the floors it loses go into cubes that drift up and out
  *  from ground zero, glow cyan, flicker and vanish. Budget: the pool's share over every item and step of the fall */
@@ -237,9 +280,13 @@ function bShakeAt(now){if(!BSHK||reduce)return [0,0];var u=now-BSHK.t;if(u<0||u>
  *  until the cranes clear it, and the fallen city's ground: one big scorch and a glowing grid where each building stood */
 function battleUnder(){if(!BON||!BDATA||!BL.damage||typeof GM==='undefined')return;var P=BREP?BREP.P:BPLAN;if(!P)return;var S=bS();if(!S)return;var now=bNow();if(S.live&&now>=S.end)return;
   var ra=1-bRebuild(),c=cx,vb=hView(TH*3),inV=function(x,y,r){return x>vb[0]-r&&x<vb[1]+r&&y>vb[2]-r&&y<vb[3]+r};c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();
-  var scorch=function(x,y,R,al){var g=c.createRadialGradient(x,y,0,x,y,R);g.addColorStop(0,'rgba(10,7,5,'+(.75*al).toFixed(3)+')');g.addColorStop(.55,'rgba(26,17,11,'+(.5*al).toFixed(3)+')');g.addColorStop(1,'rgba(40,26,16,0)');c.fillStyle=g;c.save();c.translate(x,y);c.scale(1,.5);c.beginPath();c.arc(0,0,R,0,7);c.restore();c.fill()};
-  var embers=function(x,y,R,al,sd){if(reduce||LODN<1)return;c.globalCompositeOperation='lighter';for(var k=0;k<10;k++){var a=rnd(k*3.3+sd)*6.283,rr=rnd(k*1.9+sd)*R*.8,ex=x+Math.cos(a)*rr,ey=y+Math.sin(a)*rr*.5,fl=.5+.5*Math.sin(now*.006+k*2.1);c.fillStyle='rgba(255,'+(110+Math.round(60*fl))+',40,'+(.6*al*fl).toFixed(3)+')';c.fillRect(ex-.8,ey-.8,1.6,1.6)}c.globalCompositeOperation='source-over'};
-  if(ra>0)P.shots.forEach(function(s){var D=BDES[s.w];if(!D||!s.to)return;var ia=bImpactOf(S,s);if(now<ia)return;var g=bGround(s),R=D.r*BTILE*Math.max(.5,s.cut||1),al=ra*Math.min(1,(now-ia)/500);if(al<.02||!inV(g.x,g.y,R))return;scorch(g.x,g.y,R,al);embers(g.x,g.y,R,al,s.ix*7.1)});
+  var scorch=function(x,y,R,al,v){if(!(R>0))return;c.globalAlpha=Math.min(1,al);c.drawImage(spScorch(1,Math.abs(Math.round(v||0))%3),x-R,y-R/2,R*2,R);c.globalAlpha=1};   // 11-17: burnt ground with streaks, rubble and an ash rim, not a black hole
+  var embers=function(x,y,R,al,sd){if(reduce||LODN<1)return;c.globalCompositeOperation='lighter';var ez=Math.max(1.6,2/cam.z);for(var k=0;k<14;k++){var a=rnd(k*3.3+sd)*6.283,rr=rnd(k*1.9+sd)*R*.8,ex=x+Math.cos(a)*rr,ey=y+Math.sin(a)*rr*.5,fl=.5+.5*Math.sin(now*.006+k*2.1);c.fillStyle='rgba(255,'+(110+Math.round(60*fl))+',40,'+(.6*al*fl).toFixed(3)+')';c.fillRect(ex-ez/2,ey-ez/2,ez,ez)}c.globalCompositeOperation='source-over'};
+  if(ra>0)P.shots.forEach(function(s){var D=BDES[s.w];if(!D||!s.to)return;var ia=bImpactOf(S,s);if(now<ia)return;var g=bGround(s),R=D.r*BTILE*Math.max(.5,s.cut||1),al=ra*Math.min(1,(now-ia)/500);if(al<.02||!inV(g.x,g.y,R))return;scorch(g.x,g.y,R,al,s.ix);embers(g.x,g.y,R,al,s.ix*7.1)});
+  // 11-17: S and M hits leave a scorch on the tiles (a hot core for 3 s, full for 8 s, gone by 40 s; at most 24, 12 on a phone)
+  var nS=0,mxS=vw<700?12:24;P.shots.forEach(function(s){if(nS>=mxS||BDES[s.w]||!s.to||!s.b||s.blocked)return;var age=now-bImpactOf(S,s);if(!(age>=0&&age<40000))return;var g=bGround(s),k=BCLS[s.w]!=null?BCLS[s.w]:1,R0=BKR[k],Kz=Math.max(1,Math.min(1.34,(k===0?14:18)/(R0*cam.z))),rx=1.2*R0*Kz;if(!inV(g.x,g.y,rx))return;nS++;
+    c.globalAlpha=(age<8000?1:1-(age-8000)/32000)*Math.min(1,reduce?1:age/200)*Math.max(.25,1-(s.sh||0));c.drawImage(spScorch(0,s.ix%3),g.x-rx,g.y-rx/2,rx*2,rx);
+    if(age<3000&&!reduce){var hr=.55*R0*Kz;c.globalCompositeOperation='lighter';c.globalAlpha=.55*(1-age/3000);c.drawImage(spFire(0),g.x-hr,g.y-hr*.5,hr*2,hr);c.globalCompositeOperation='source-over'}c.globalAlpha=1});
   var F=P.fall;if(F&&S.zf!=null&&now>=S.zf){var fa=BREP?1:ra;if(fa>0){var rr=Math.min(F.R+TW*1.2,(now-S.zf)/BFL.ring*(F.R+TW*1.2));if(rr>4)scorch(F.c.x,F.c.y,rr,fa);embers(F.c.x,F.c.y,F.R+TW,fa,hash(F.key));
     c.globalCompositeOperation='lighter';F.items.forEach(function(it){if(it.t==='s')return;var u=bRezU(S,it,now);if(it.t==='l'?u<.5:u<1)return;if(!BREP&&it.t==='b'&&bRebuildOf(it.b.i,it.b.j)>0)return;if(!inV(it.p.x,it.p.y,TW))return;var hw=TW/2*.9,hh=TH/2*.9,d=[[it.p.x,it.p.y-hh],[it.p.x+hw,it.p.y],[it.p.x,it.p.y+hh],[it.p.x-hw,it.p.y]],pl=.55+.25*Math.sin(now*6.283/2400);c.strokeStyle='rgba(61,242,255,'+(pl*fa).toFixed(3)+')';c.lineWidth=.8;poly(c,d,null);c.stroke();c.fillStyle='rgba(61,242,255,'+(.07*fa).toFixed(3)+')';c.fill()})}}
   c.restore()}
@@ -347,19 +394,26 @@ function bRepCam(R,now,home,vw,vh,reduce){var S=R.S,st=bRepStage(R,now);if(st===
 // drifts with the wind and thins as it ages. Polylines, not particles: ten ribbons cost ten strokes a frame.
 var BTR=[];
 function bRibbon(s){if(!s.tr){s.tr={pts:[],sz:s.sz||1,col:s.a};BTR.push(s.tr)}return s.tr}
-function bRibbonAdd(s,x,y,t,sz){var r=bRibbon(s),p=r.pts,q=p[p.length-1],gap=Math.max(5,(s.dist||300)/56);r.sz=sz||1;if(q&&Math.hypot(x-q[0],y-q[1])<gap)return;if(p.length>=64)p.shift();p.push([x,y,t])}
+function bRibbonAdd(s,x,y,t,sz,gy){var r=bRibbon(s),p=r.pts,q=p[p.length-1],gap=Math.max(5,(s.dist||300)/56);r.sz=sz||1;if(q&&Math.hypot(x-q[0],y-q[1])<gap)return;if(p.length>=64)p.shift();p.push([x,y,t,gy==null?y:gy])}
 /** a ribbon for a flight the viewer skipped over (or a frozen frame): sampled along the whole arc up to until */
 function bRibbonFill(s,until,sz){if(!s.from||!s.to||s.rf==null)return;var r=bRibbon(s);r.pts.length=0;var u1=Math.min(1,(until-s.rf)/s.fl);if(u1<=0)return;
-  for(var k=0;k<=40;k++){var u=u1*k/40,tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,u);bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*(sz||1),tr.y-Math.sin(tr.a)*6*(sz||1),s.rf+s.fl*u,sz)}}
+  for(var k=0;k<=40;k++){var u=u1*k/40,tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,u);bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*(sz||1),tr.y-Math.sin(tr.a)*6*(sz||1),s.rf+s.fl*u,sz,tr.gy)}}
 function bRibbonsClear(){BTR.forEach(function(r){r.pts.length=0});BTR.length=0}
-var BRIB=[[0,1500,1.8,.55],[1500,4000,3.6,.4],[4000,8000,5.4,.28],[8000,1e12,7,.18]];
+// 11-17 spec: six age bands [from ms, to ms, world width, alpha, min css px]; three on the world map
+var BRIB=[[0,250,1,.85,1.5],[250,800,1.8,.7,2.5],[800,2000,3,.5,3.5],[2000,4500,4.6,.34,4.5],[4500,9000,6.2,.22,5.5],[9000,1e12,7.5,.12,6]],BRIBLO=[[0,800,1.6,.75,2.5],[800,4500,3.4,.45,4],[4500,1e12,6.4,.2,6]];
 function bDrift(age){var a=Math.min(age,12000);return [a*.0022,-a*.0045]}
-function bDrawRibbons(c,now){if(!BTR.length)return;var n=hn(),col=n?'150,152,162':'228,229,234';c.save();c.lineCap='round';c.lineJoin='round';
-  for(var i=0;i<BTR.length;i++){var r=BTR[i],p=r.pts;if(p.length<2)continue;
-    for(var bI=BRIB.length-1;bI>=0;bI--){var B=BRIB[bI],any=false;c.beginPath();
-      for(var k=1;k<p.length;k++){var age=now-p[k][2];if(age<B[0]||age>=B[1])continue;var d0=bDrift(now-p[k-1][2]),d1=bDrift(age),w=Math.sin(k*1.7)*Math.min(1,age/1500)*1.5;
-        c.moveTo(p[k-1][0]+d0[0],p[k-1][1]+d0[1]+w);c.lineTo(p[k][0]+d1[0],p[k][1]+d1[1]+w);any=true}
-      if(any){c.lineWidth=B[2]*r.sz;c.strokeStyle='rgba('+col+','+B[3]+')';c.stroke()}}}
+/** the smoke ribbons: thin and warm at the nozzle, wider, greyer and fainter with age, drifting with the wind; a dark under-stroke
+ *  1 css px lower gives them an edge on bright green; never thinner than the band's minimum on screen; thicker and brighter where
+ *  the arc comes toward the camera. live = the nightly salvo outside a replay (ribbons go after 9 s) */
+function bDrawRibbons(c,now,live){if(!BTR.length)return;var n=hn(),Z=cam.z,BB=LODN<1?BRIBLO:BRIB,body=n?'176,178,190':'246,244,240',warm='255,226,176',sh=n?'rgba(0,0,0,.35)':'rgba(28,30,40,.22)',vb=hView(TH*3),vc=(vb[2]+vb[3])/2,vh2=Math.max(1,vb[3]-vb[2]),oy=1/Z,seg=[];c.save();c.lineCap='round';c.lineJoin='round';
+  var path=function(o){c.beginPath();for(var q=0;q<seg.length;q+=4){c.moveTo(seg[q],seg[q+1]+o);c.lineTo(seg[q+2],seg[q+3]+o)}};
+  for(var i=BTR.length-1;i>=0;i--){var r=BTR[i],p=r.pts;if(p.length<2)continue;if(live&&now-p[p.length-1][2]>9000){p.length=0;BTR.splice(i,1);continue}
+    for(var bI=BB.length-1;bI>=0;bI--){var B=BB[bI];if(live&&B[0]>=9000)continue;
+      for(var dq=-1;dq<=1;dq++){seg.length=0;
+        for(var k=1;k<p.length;k++){var age=now-p[k][2];if(age<B[0]||age>=B[1])continue;var dp=(p[k][3]-vc)/vh2;if((dp<-.17?-1:dp>.17?1:0)!==dq)continue;
+          var d0=reduce?[0,0]:bDrift(now-p[k-1][2]),d1=reduce?[0,0]:bDrift(age),w=reduce?0:Math.sin(k*1.7)*Math.min(3,1.5*(1+age/4000))*Math.min(1,age/1500);seg.push(p[k-1][0]+d0[0],p[k-1][1]+d0[1]+w,p[k][0]+d1[0],p[k][1]+d1[1]+w)}
+        if(!seg.length)continue;var lw=Math.max(B[2]*r.sz*(1+.13*dq),B[4]/Z),al=Math.min(1,B[3]*(1+.1*dq));
+        path(oy);c.lineWidth=lw;c.strokeStyle=sh;c.stroke();path(0);c.strokeStyle='rgba('+(B[1]<=800?warm:body)+','+al.toFixed(3)+')';c.stroke()}}}
   c.restore()}
 /** the big launch: the plume Mike asked for (flash, a ground ring, a dozen puffs rolling away from the tubes, dust) */
 function bLaunchFxBig(x,y,a){bEmit({k:'flash',x:x,y:y,r0:3,r1:18,life:.28});bEmit({k:'ring',x:x,y:y+4,r1:22,life:.5});
@@ -632,13 +686,13 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
         if(fx&&bBetween(fA,last,now)){var mm=tip.mz[k%12];if(rep)bLaunchFxBig(mm[0],mm[1],aim);else bLaunchFx(mm[0],mm[1],aim)}
         s.from={x:tip.mz[k%12][0],y:tip.mz[k%12][1]}})}
     badges.push([pad.x+30,pad.y-40,Math.max(0,landed-fired),col,rc,vis])}
-  if(rep)bDrawRibbons(c,now);
+  bDrawRibbons(c,now,!rep);
   // missiles in flight and their hits (also for raiders, who fire from the sea with no pad)
   P.shots.forEach(function(s){if(!s.from||!s.to)return;var fA=bFireOf(S,s),dur=bFlightOf(S,s),iA=fA+dur,sz=BSZ[s.w]||1;
     if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.b&&!s.blocked&&!reduce){if(s.sh>0)bShieldFx(s.to.x,s.to.y-26,'#3DF2FF');bImpactFx(s.to.x,s.to.y+(s.to.miss?0:4),bCol(s.d),0,s.b.p.y+4,s.w,s.sh||0);bShatterFor(s,iA);if(BDES[s.w])bBigFx(s.to.x,s.to.y,bGround(s).y,s.w,bCol(s.d),rep?now:null);else if(rep&&BCLS[s.w]===1)bShake(now,1.2,160)}else if(fx&&!reduce){bShieldFx(s.to.x,s.to.y,'#3DF2FF');bImpactFx(s.to.x,s.to.y,'#8A8A93',0,s.to.y+30,'shell',.75)}if(!(s.f>0)||s.sh>0)BDOME[s.d]=tn;if(s.b&&!s.blocked)bRedraw()}   // a shot the dome held whole breaks up on it: sparks and its own fragments
     if(s.a.charAt(0)!=='@'&&fx&&bBetween(fA,last,now)){if(rep)bLaunchFxBig(s.from.x,s.from.y,-1);else bLaunchFx(s.from.x,s.from.y,-1)}
-    if(now>=fA&&now<iA&&BL.attacks&&(inView(s.from)||inView(s.to)||rep)){var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-fA)/dur);missileHi(c,tr.x,tr.y,tr.a,sz,bCol(s.a),tr.boost);
-      if(rep){if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz)}else if(Math.floor(tn/50)%2===0&&BP.length<BPMAX-30)bTrailFx(tr.x,tr.y,tr.a,sz)}});
+    if(now>=fA&&now<iA&&BL.attacks&&(inView(s.from)||inView(s.to)||rep)){var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-fA)/dur);bMissileFly(c,tr,sz,bCol(s.a),tn);
+      if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz,tr.gy)}});
   // 11-14 collateral: the shock ring of an L or XL blast reaches the defender's buildings and lots nearby and breaks them too
   if(BL.damage&&P.virt&&last>0)P.virt.forEach(function(v){var iv=bImpactOf(S,v);if(!bBetween(iv,last,now))return;if(v.b)bRedraw();if(!fx||reduce)return;
     if(v.b){if(!inView(v.b.p))return;var hv=v.b.h*(1-.4*Math.min(1,v.v));bImpactFx(v.b.p.x,v.b.p.y+4-hv,bCol(v.d),.3+v.v,v.b.p.y+4);bShatterFor(v,iv,Math.round(bVoxMax()/3))}
@@ -674,7 +728,7 @@ function battleCard(key){if(!BON||!BDATA)return '';var m=(BDATA.members||{})[key
     +'<div class="row"><span>Today</span><b>'+mine.length+' missile'+(mine.length===1?'':'s')+' (up to '+e(wn)+'), '+lab+'</b></div>'
     +(took>0?'<div class="row"><span>Hits taken</span><b>'+bUsd(took)+' of damage'+(seg==='rebuild'?', '+Math.round(bRebuild()*100)+'% rebuilt':'')+'</b></div>':'')+'</div>'}
 window.CALDERA_BATTLE_API={
-  view:function(on,data){BON=!!on;if(data)BDATA=data;if(!on&&BREP)bReplayEnd(false);bIndex();if(!on){BP.length=0}draw()},
+  view:function(on,data){BON=!!on;if(data)BDATA=data;if(!on&&BREP)bReplayEnd(false);bIndex();if(!on){BP.length=0;bRibbonsClear()}draw()},
   layers:function(o){for(var k in o)if(k in BL)BL[k]=!!o[k];draw()},
   /** the cinematic replay of today's shots ('demo': a sample battle between the biggest cities). Returns the missile count */
   replay:function(mode,o){return bReplayStart(mode,o&&o.speed)},
