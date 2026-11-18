@@ -521,22 +521,23 @@ if(D.world){
   // with wide grass margins and an avenue on every grid line, so nothing overlaps and one tall member can't wall off the rest
   D.districts.forEach(function(d){var key=d.nb||d.name;if(!NBM[key]){NBM[key]={key:key,ds:[]};NBS.push(NBM[key])}NBM[key].ds.push(d)});
 ${GROWTH_LAYOUT_JS}
-  NBS.forEach(function(n){var ar=0;n.ds.forEach(function(d){d._h=Math.min(d.notes||0,16);var need=d.repos.length+Math.ceil(d._h/4);d._k=d.estate?d.K:Math.max(2,Math.ceil(Math.sqrt(need)));ar+=(d._k+1)*(d._k+1)});
+  var nbPack=function(n){var ar=0;n.ds.forEach(function(d){d._h=Math.min(d.notes||0,16);var need=d.repos.length+Math.ceil(d._h/4);d._k=d.estate?d.K:Math.max(2,Math.ceil(Math.sqrt(need)));ar+=(d._k+1)*(d._k+1)});
     var mw=Math.max(3,Math.ceil(Math.sqrt(ar)*1.1)),lx=0,ly=0,rh=0,w=0,h=0;
-    n.ds.forEach(function(d){if(d.apart&&(lx>0||ly>0)){if(lx>0){lx=0;ly+=rh+1;rh=0}ly+=2}else if(lx+d._k>mw&&lx>0){lx=0;ly+=rh+1;rh=0}d._lx=lx;d._ly=ly;lx+=d._k+1;rh=Math.max(rh,d._k);w=Math.max(w,lx-1);h=Math.max(h,ly+rh)});n.w=w;n.h=h});
+    n.ds.forEach(function(d){if(d.apart&&(lx>0||ly>0)){if(lx>0){lx=0;ly+=rh+1;rh=0}ly+=2}else if(lx+d._k>mw&&lx>0){lx=0;ly+=rh+1;rh=0}d._lx=lx;d._ly=ly;lx+=d._k+1;rh=Math.max(rh,d._k);w=Math.max(w,lx-1);h=Math.max(h,ly+rh)});n.w=w;n.h=h};NBS.forEach(nbPack);
 ${FRONTIER_LAYOUT_JS}
   var CWs=[],CHs=[],X0=[1],Y0=[1];
   NBS.forEach(function(n){CWs[n.cx]=Math.max(CWs[n.cx]||0,n.w);CHs[n.cy]=Math.max(CHs[n.cy]||0,n.h)});   // each column/row only as wide as its biggest member
+  if(RING){for(var ci0=0;ci0<cols;ci0++)if(ci0<RING||ci0>=cols-RING)CWs[ci0]=Math.max(CWs[ci0]||0,UCW);for(var rj0=0;rj0<rows;rj0++)if(rj0<RING||rj0>=rows-RING)CHs[rj0]=Math.max(CHs[rj0]||0,UCW)}   // a free ring cell always fits a new land (frontier live add)
   for(var ci=0;ci<cols;ci++)X0.push(X0[ci]+(CWs[ci]||0)+GAP);for(var rj=0;rj<rows;rj++)Y0.push(Y0[rj]+(CHs[rj]||0)+GAP);
-  NBS.forEach(function(n){n.ax=X0[n.cx];n.ay=Y0[n.cy];n.ox=n.ax+Math.ceil(GAP/2)+Math.floor((CWs[n.cx]-n.w)/2);n.oy=n.ay+Math.ceil(GAP/2)+Math.floor((CHs[n.cy]-n.h)/2);
+  var nbPlace=function(n){n.ax=X0[n.cx];n.ay=Y0[n.cy];n.ox=n.ax+Math.ceil(GAP/2)+Math.floor((CWs[n.cx]-n.w)/2);n.oy=n.ay+Math.ceil(GAP/2)+Math.floor((CHs[n.cy]-n.h)/2);
     n.blocks=n.ds.map(function(d){return placeDistrict(d,n.ox+d._lx,n.oy+d._ly,d._k,d._h)});
-    var big=n.blocks.slice().sort(function(a,b){return b.d.repos.length-a.d.repos.length})[0];big.rep=true;n.rep=big;big.nbo=n});
+    var big=n.blocks.slice().sort(function(a,b){return b.d.repos.length-a.d.repos.length})[0];big.rep=true;n.rep=big;big.nbo=n};NBS.forEach(nbPlace);
   W=X0[cols]+1;H=Y0[rows]+1;
   X0.forEach(function(v){AVX[v]=1});Y0.forEach(function(v){AVY[v]=1});
   for(var aj=1;aj<H;aj++)for(var ai=1;ai<W;ai++)if(AVX[ai]||AVY[aj])tiles[ai+','+aj]={t:'r',av:1};
   // a short street from each neighborhood's ring road out to the avenue on its left and above, so cars can reach every member
-  NBS.forEach(function(n){var my=n.oy+Math.floor(n.h/2),mx=n.ox+Math.floor(n.w/2);
-    for(var si=n.ax;si<n.ox-1;si++)tiles[si+','+my]={t:'r'};for(var sj=n.ay;sj<n.oy-1;sj++)tiles[mx+','+sj]={t:'r'}});
+  var nbStreet=function(n){var my=n.oy+Math.floor(n.h/2),mx=n.ox+Math.floor(n.w/2);
+    for(var si=n.ax;si<n.ox-1;si++)tiles[si+','+my]={t:'r'};for(var sj=n.ay;sj<n.oy-1;sj++)tiles[mx+','+sj]={t:'r'}};NBS.forEach(nbStreet);
 }else{
 var area=D.districts.reduce(function(s,d){var n=d.repos.length+Math.ceil(Math.min(d.notes,40)/4);var k=Math.max(2,Math.ceil(Math.sqrt(n)));return s+(k+1)*(k+1)},0);
 var maxW=Math.max(8,Math.ceil(Math.sqrt(area)*1.25));
@@ -589,7 +590,7 @@ function exits(b){if(b.ex)return b.ex;b.ex=[];for(var j=b.y-1;j<=b.y+b.k;j++)for
 function spawn(b,col,fast){var ex=exits(b);if(!ex.length||vis.length>160)return;var s=ex[Math.floor(Math.random()*ex.length)];
   var v={i:s[0],j:s[1],ti:s[0],tj:s[1],t:1,col:col,b:b,born:performance.now(),life:14000+Math.random()*9000,sp:fast?.06:.045};step(v);vis.push(v)}
 function pulse(b,col,big){var p=iso(b.x+b.k/2-.5,b.y+b.k/2-.5);pulses.push({x:p.x,y:p.y,col:col,born:performance.now(),big:big})}
-function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT=data.lit;if(data&&data.districts&&typeof data.districts==='object'){var gt={},gs={};for(var gk in data.districts){var gd=data.districts[gk]||{},gv=+gd.glow;if(gv>0)gt[gk]=Math.min(1,gv);if(gd.sites&&typeof gd.sites==='object'){var sm={},sn=0;for(var sk in gd.sites){var sv=+gd.sites[sk];if(sv>0&&sn<24){sm[String(sk).slice(0,40)]=Math.min(1,sv);sn++}}if(sn)gs[gk]=sm}}GT=gt;GS=gs}if(D.world&&data&&typeof data.members==='number'&&typeof worldGrew==='function')worldGrew(data.members);if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
+function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT=data.lit;if(D.world&&data&&Array.isArray(data.lands))data.lands.slice(0,20).forEach(function(x){if(x&&x.district&&!NBM[x.district.nb])try{ucInsert(x.district,x.meta,false)}catch(e){}});if(data&&data.districts&&typeof data.districts==='object'){var gt={},gs={};for(var gk in data.districts){var gd=data.districts[gk]||{},gv=+gd.glow;if(gv>0)gt[gk]=Math.min(1,gv);if(gd.sites&&typeof gd.sites==='object'){var sm={},sn=0;for(var sk in gd.sites){var sv=+gd.sites[sk];if(sv>0&&sn<24){sm[String(sk).slice(0,40)]=Math.min(1,sv);sn++}}if(sn)gs[gk]=sm}}GT=gt;GS=gs}if(D.world&&data&&typeof data.members==='number'&&typeof worldGrew==='function')worldGrew(data.members);if(!data||typeof data!=='object'||!data.districts||typeof data.districts!=='object')return;LV.mode=data.private?'private':'public';LV.d=data.districts;
   if(!LV.on&&Object.keys(LV.d).length){LV.on=true}lifeRetarget();lifeCars();legendUpdate();   // the population and the traffic follow the numbers (citylife.ts); the legend states them
   if(Array.isArray(data.agents))agentsIn(data.agents);
   if(Array.isArray(data.events)){var first=!LV.seen,fresh=data.events.filter(function(ev){return ev&&ev.ts>LV.seen&&(ev.k!=='view'||ev.n)}).reverse();
@@ -1333,7 +1334,7 @@ function nbTop(n){if(n._ty==null){var ty=Infinity;n.ds.forEach(function(d){(BDIS
 function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);if(!LBL()){WLAB=[];return}c.setTransform(dpr,0,0,dpr,0,0);
   var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[],me=worldMe(),fr=worldFriends(),sc=worldScores(),phone=vw<600;
   NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y),k=n.key,pr=k===foc?0:k===WHOVER?.3:k===me?.6:fr[k]?.8:1;
-    if(n.uc){cand.push({pr:1,sc:0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+' · Unclaimed',uc:1,font:'600 10.5px IBM Plex Mono,ui-monospace,monospace',block:n.rep});return}
+    if(n.uc){cand.push({pr:1,sc:0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+' · Unclaimed',uc:1,ua:ucK(n,500,700),hl:ucHl(n),font:'600 10.5px IBM Plex Mono,ui-monospace,monospace',block:n.rep});return}
     cand.push({pr:pr,sc:sc[k]||0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+(wm.isNew?(phone?' ✦':' ✦ new'):'')+(LIT[k]&&LIT[k].n?'  ✦ lit'+(LIT[k].n>1?' ×'+LIT[k].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':k===me?'rgba(109,74,232,.98)':'rgba(139,108,246,.96)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
   if(z>=.55)blocks.forEach(function(b){if(b.estate||b.d.uc)return;var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
@@ -1353,7 +1354,7 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
       for(var oi=0;oi<offs.length&&!ok;oi++){var ox=offs[oi][0],q={x0:bx.x0+ox,x1:bx.x1+ox,y0:bx.y0+offs[oi][1],y1:bx.y1+offs[oi][1]};var s2=Math.max(0,6-q.x0)-Math.max(0,q.x1-(vw-6));q.x0+=s2;q.x1+=s2;ox+=s2;   // stay inside the stage
         if(q.y0<4||q.y1>vh-4)continue;if(!hitAny(q)){bx=q;g.x+=ox;g.y+=offs[oi][1];ok=true}}if(!ok)return}
     if(!must)used++;bx.text=g.text;bx.pr=g.pr;placed.push(bx);
-    if(g.uc)ucPill(c,g.x,g.y,g.text,g.font);else pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
+    if(g.uc)ucPill(c,g.x,g.y,g.text,g.font,g.ua,g.hl);else pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
     if(g.url||g.block||g.shop)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block,shop:g.shop})})}
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
 // them. Real friendships glow warm violet, people who work on the same repo glow code-teal, GitHub follows sky-blue; the
@@ -1545,7 +1546,7 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=r.kind?.6:dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
       var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));
-      var UCT=ucIs(t);if(UCT){col=ucFog(col);litp=0;sg=0;c.globalAlpha=UCF[ucSky()].alpha}   // people on the site right now light up its building (the rest of the district a little)
+      var UCT=ucIs(t);if(UCT){col=ucFog(col);litp=0;sg=0;c.globalAlpha=UCF[ucSky()].alpha*ucK(NBM[t.d.nb],0,500)}   // people on the site right now light up its building (the rest of the district a little)
       var rb0=bdm>0?bRebuildOf(i,j):0,bdh=bdm>0?Math.max(bdm,bBldHeld(i,j)):0,rz=bdm>0&&typeof bRaze==='function'?bRaze(i,j):0,nh=bdm>0&&typeof bHitsOn==='function'?bHitsOn(i,j):0,gone=rz>=1&&rb0<=0;if(bdm>0)litp*=Math.max(0,1-Math.max(bdh,rz)*.85);   // 11-14: rz = the fallen city derezzing (citybattle.ts bRaze), gone = nothing stands   // a hit tower keeps its height in the data; its texture loses the top floors and most lights (citypix.ts), back pixel by pixel as the cranes work
       var tiers=towerTiers(LODN===1&&bf>=1?Math.round(h/3)*3:h),base=p.y+4,top=base;nObj++;   // at LOD 1 heights snap to 3 px so towers share sprites
       if(bf<1){top=lego(c,p.x,base,tiers,h,col,glass,litp,seed,r,bf,i+','+j,t.d&&(t.d.nb||t.d.name),LOD);if(bf>0&&bf<.8&&!LOD)cranes.push({x:p.x+4,y:top,seed:seed})}
@@ -1641,6 +1642,7 @@ var lastPT=0;function frame(){T=performance.now();bCam();if(BUILDING&&bActive())
     cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#03020A';cx.fillRect(0,0,cv.width,cv.height);
     cx.globalAlpha=.32;cx.drawImage(L1,0,0);cx.globalAlpha=.22;cx.drawImage(L2,0,0);cx.globalAlpha=1;cx.drawImage(UL,0,0);
     cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);drawUnderLive(cx,performance.now());return}
+  if(D.world&&ucAnim())dirty=true;   // a frontier land arriving (J7)
   if(dirty){var rd0=performance.now();if(sky==='grid'){tronGround();tronObjects()}else{drawGround();groundIntro(c1);var rd1=performance.now();drawObjects();if(window.CALDERA_LAST)CALDERA_LAST.groundMs=+(rd1-rd0).toFixed(1)}dirty=false;if(window.CALDERA_PERF&&CALDERA_PERF.push)CALDERA_PERF.push(performance.now()-rd0)}   // redraw timings for the perf check (off unless a page sets the array)
   var tn0=performance.now(),dts=lastPT?Math.min(200,tn0-lastPT)/1000:0;lastPT=tn0;if(sky!=='grid'){stepClouds(tn0);stepPrecip(dts)}stepWalks(tn0);
   drawSky();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L1,0,0);hiLive();growUnder();if(typeof battleUnder==='function')battleUnder();drawTopics();drawTraces();drawVehicles();if(!BON){drawWalks();drawLife()}drawVis();cx.setTransform(1,0,0,1,0,0);cx.drawImage(L2,0,0);drawShimmer();drawRays();drawLit();drawWeather();drawLive();if(!BON)drawFx();growOver();battleOver();cx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);if(!BON){drawSteam(cx,performance.now());drawCrews(cx,performance.now())}drawAgents(cx,performance.now());drawHelis(cx,performance.now());if(WORLD){cx.setTransform(1,0,0,1,0,0);cx.drawImage(L3,0,0)}

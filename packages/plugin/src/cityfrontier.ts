@@ -8,22 +8,44 @@
 
 /** placement (runs inside the world layout, after the neighbourhoods are sized): members on the grid, lands in rings */
 export const FRONTIER_LAYOUT_JS = String.raw`
-var UCL=NBS.filter(function(n){var d=n.ds[0];if(d&&d.uc){n.uc=1;n.by=d.by||null;n.slot=d.slot||0}return !!n.uc}),MEMS=NBS.filter(function(n){return !n.uc});
-var GAP=5,cols=Math.max(1,Math.ceil(Math.sqrt(Math.max(1,MEMS.length)*1.3))),rows=Math.max(1,Math.ceil(Math.max(1,MEMS.length)/cols)),RING=0;
-if(UCL.length){RING=1;while(RING<12){var cap=0;for(var rk=1;rk<=RING;rk++)cap+=2*(cols+2*rk)+2*(rows+2*rk)-4;if(cap>=UCL.length)break;RING++}}
+var FS=(D.world&&D.world.fs)||{},FRON=!!(D.world&&D.world.fr),UCW=3;
+var UCL=NBS.filter(function(n){var d=n.ds[0];if(d&&d.uc){n.uc=1;n.by=d.by||null;n.slot=d.slot||0}else if(FS[n.key]){n.fs=1;n.by=FS[n.key].by||null;n.slot=FS[n.key].slot||0}return !!(n.uc||n.fs)}),MEMS=NBS.filter(function(n){return !n.uc&&!n.fs});
+var GAP=5,cols=Math.max(1,Math.ceil(Math.sqrt(Math.max(1,MEMS.length)*1.3))),rows=Math.max(1,Math.ceil(Math.max(1,MEMS.length)/cols)),RING=0,UCELLS=[],UUSED={},UCSP=FRON?6:0;
+if(UCL.length||FRON){RING=1;while(RING<12){var cap=0;for(var rk=1;rk<=RING;rk++)cap+=2*(cols+2*rk)+2*(rows+2*rk)-4;if(cap>=UCL.length+UCSP)break;RING++}}
 MEMS.forEach(function(n,ix){n.cx=RING+ix%cols;n.cy=RING+Math.floor(ix/cols)});
-if(UCL.length){var UCELLS=[],UUSED={};for(var rk2=1;rk2<=RING;rk2++)for(var gy=RING-rk2;gy<=RING+rows-1+rk2;gy++)for(var gx=RING-rk2;gx<=RING+cols-1+rk2;gx++)if(gx===RING-rk2||gx===RING+cols-1+rk2||gy===RING-rk2||gy===RING+rows-1+rk2)UCELLS.push([gx,gy,rk2]);
-  UCL.sort(function(a,b){return a.slot-b.slot||(a.key<b.key?-1:1)}).forEach(function(n){var by=n.by&&NBM[n.by]&&!NBM[n.by].uc?NBM[n.by]:null,ax=by?by.cx:RING+(cols-1)/2,ay=by?by.cy:RING+(rows-1)/2,best=null,bs=Infinity;
-    UCELLS.forEach(function(c){var k=c[0]+','+c[1];if(UUSED[k])return;var s=c[2]*1e6+(c[0]-ax)*(c[0]-ax)+(c[1]-ay)*(c[1]-ay);if(s<bs){bs=s;best=c}});
-    if(best){UUSED[best[0]+','+best[1]]=1;n.cx=best[0];n.cy=best[1]}})}
+for(var rk2=1;rk2<=RING;rk2++)for(var gy=RING-rk2;gy<=RING+rows-1+rk2;gy++)for(var gx=RING-rk2;gx<=RING+cols-1+rk2;gx++)if(gx===RING-rk2||gx===RING+cols-1+rk2||gy===RING-rk2||gy===RING+rows-1+rk2)UCELLS.push([gx,gy,rk2]);
+var ucCell=function(n,fit){var by=n.by&&NBM[n.by]&&!NBM[n.by].uc&&NBM[n.by].cx!=null?NBM[n.by]:null,ax=by?by.cx:RING+(cols-1)/2,ay=by?by.cy:RING+(rows-1)/2,best=null,bs=Infinity;
+  UCELLS.forEach(function(c){if(UUSED[c[0]+','+c[1]])return;if(fit&&!((CWs[c[0]]||0)>=n.w&&(CHs[c[1]]||0)>=n.h))return;var s=c[2]*1e6+(c[0]-ax)*(c[0]-ax)+(c[1]-ay)*(c[1]-ay);if(s<bs){bs=s;best=c}});return best};
+UCL.sort(function(a,b){return a.slot-b.slot||(a.key<b.key?-1:1)}).forEach(function(n){var c=ucCell(n,null);if(c){UUSED[c[0]+','+c[1]]=1;n.cx=c[0];n.cy=c[1]}});
 cols+=2*RING;rows+=2*RING;
 `;
 
 /** drawing, the card and the hooks (after the renderer's helpers exist) */
 export const FRONTIER_DRAW_JS = String.raw`
+// ---- live add (gap 2, MB 11-17): a land added on this page appears in a free ring cell at once, no reload. The ring keeps
+// spare cells (UCSP) and every ring column/row is at least UCW tiles, so a new land (at most 8 repos = 3x3) always fits.
+// Returns the land's block, or null (no frontier, no free cell, bad data): the caller then offers a reload link.
+function ucInsert(d,meta,mine){if(!D.world||!RING||!d||typeof d.nb!=='string'||!Array.isArray(d.repos))return null;if(NBM[d.nb])return NBM[d.nb].rep||null;
+  d.uc=1;d.notes=0;var n={key:d.nb,ds:[d],uc:1,by:d.by||null,slot:d.slot||0,mine:!!mine};nbPack(n);var c=ucCell(n,true);if(!c)return null;
+  UUSED[c[0]+','+c[1]]=1;n.cx=c[0];n.cy=c[1];nbPlace(n);
+  for(var j=n.oy-1;j<=n.oy+n.h;j++)for(var i=n.ox-1;i<=n.ox+n.w;i++){var t=tiles[i+','+j];if(t&&t.t==='g'&&near(i,j)){tiles[i+','+j]={t:'r'};roads.push([i,j])}}
+  nbStreet(n);NBS.push(n);NBM[n.key]=n;byName[n.key]=n.rep;n.blocks.forEach(function(b){byName[b.d.name]=b});D.districts.push(d);
+  d.repos.forEach(function(r){maxC=Math.max(maxC,r.commits||0)});
+  if(WORLD){WORLD.uc=WORLD.uc||{};WORLD.uc[n.key]=meta||WORLD.uc[n.key]||{by:d.by||null,at:Date.now(),n:d.repos.length,name:n.key.slice(1)}}
+  var t=performance.now();UCARR=UCARR.filter(function(x){return t-x<1000});UCARR.push(t);n.born=UCARR.length>3?0:t;dirty=true;return n.rep}
+window.CALDERA_FRONTIER_CELL=function(key){var n=NBM[key];return n&&n.cx!=null?[n.cx,n.cy]:null};
+window.CALDERA_FRONTIER_FOCUS=function(key){var b=byName[key];if(!b)return false;worldFocus(b);return true};
+window.CALDERA_FRONTIER_ADD=function(d,meta,fly){try{var b=ucInsert(d,meta,true);if(b&&fly!==false)worldFocus(b);return !!b}catch(e){return false}};
+
 var UCF={day:{col:'#C9D3E0',mix:.38,keep:.22,alpha:.78,puff:'232,238,246',pa:.34,line:'rgba(40,52,74,.6)'},
   dusk:{col:'#6F6391',mix:.44,keep:.20,alpha:.74,puff:'150,136,186',pa:.30,line:'rgba(226,214,255,.55)'},
   night:{col:'#1E2440',mix:.56,keep:.16,alpha:.70,puff:'74,84,128',pa:.42,line:'rgba(190,204,240,.5)'}},UCC={},UCFULL={},UCN=[],UCMAX=24;
+// arrival (frontier-design J7): 700 ms; fog sprite fades in, puffs grow, dashed line, flag rises, label fades; adder's label border
+// brightens once (700-1900 ms). Reduced motion: one 200 ms fade. More than 3 arrivals inside 1 s (seeding): no animation.
+var UCARR=[];
+function ucK(n,t0,t1){if(!n||!n.born)return 1;var e=performance.now()-n.born;if(reduce)return Math.min(1,e/200);var k=Math.max(0,Math.min(1,(e-t0)/(t1-t0)));return 1-Math.pow(1-k,3)}
+function ucHl(n){if(!n||!n.born||!n.mine||reduce)return .7;var e=performance.now()-n.born;return e<700||e>1900?.7:.7+.3*Math.sin(Math.PI*(e-700)/1200)}
+function ucAnim(){var any=false,t=performance.now();NBS.forEach(function(n){if(n.born){if(t-n.born>(reduce?250:2000))n.born=0;else any=true}});return any}
 function ucSky(){return sky==='day'||sky==='dusk'?sky:'night'}
 function ucIs(t){return !!(t&&t.d&&t.d.uc)}
 function ucFog(hx){var s=ucSky(),k=s+hx;if(UCC[k])return UCC[k];var F=UCF[s],c=rgb(hx),t=rgb(F.col),l=.2126*c[0]+.7152*c[1]+.0722*c[2];
@@ -42,13 +64,14 @@ function ucFlag(c,x,y,col,wave){var fy=y-24;c.fillStyle='#141824';c.fillRect(x-1
 function ucDraw(c){if(!UCN.length)return;var F=UCF[ucSky()],z=cam.z;
   UCN.forEach(function(n){if(!n.ucv)return;var q=ucCorners(n),mx=(q[0].x+q[2].x)/2,my=(q[0].y+q[2].y)/2,hw=Math.max(20,(q[1].x-q[3].x)/2),hh=Math.max(10,(q[2].y-q[0].y)/2),k=hw/88,gx=10*k,gy=5*k;
     var P4=[[q[0].x,q[0].y-gy],[q[1].x+gx,q[1].y],[q[2].x,q[2].y+gy],[q[3].x-gx,q[3].y]];
-    if(!UCFULL[n.key]){c.globalAlpha=.5;c.fillStyle=F.col;poly(c,P4);c.fill();c.globalAlpha=1}
-    else{ucPuff(c,mx-40*k,my+8*k,62*k,26*k,F.puff,F.pa);ucPuff(c,mx+34*k,my-2*k,56*k,24*k,F.puff,F.pa*.9);ucPuff(c,mx,my+18*k,70*k,24*k,F.puff,F.pa*.8)}
-    c.save();c.setLineDash([6/z,5/z]);c.lineWidth=Math.max(1,1.5/z);c.strokeStyle=F.line;poly(c,P4);c.stroke();c.restore();
-    var fk=Math.max(1,14/(26*z));c.save();c.translate(q[2].x,q[2].y+gy);c.scale(fk,fk);ucFlag(c,0,0,null,0);c.restore();
+    var a1=ucK(n,0,UCFULL[n.key]?700:400),a2=ucK(n,200,600),af=ucK(n,400,700),pg=.7+.3*a1;
+    if(!UCFULL[n.key]){c.globalAlpha=.5*a1;c.fillStyle=F.col;poly(c,P4);c.fill();c.globalAlpha=1}
+    else{ucPuff(c,mx-40*k,my+8*k,62*k*pg,26*k*pg,F.puff,F.pa*a1);ucPuff(c,mx+34*k,my-2*k,56*k*pg,24*k*pg,F.puff,F.pa*.9*a1);ucPuff(c,mx,my+18*k,70*k*pg,24*k*pg,F.puff,F.pa*.8*a1)}
+    c.save();c.globalAlpha=a2;c.setLineDash([6/z,5/z]);c.lineWidth=Math.max(1,1.5/z);c.strokeStyle=F.line;poly(c,P4);c.stroke();c.restore();
+    var fk=Math.max(1,14/(26*z));c.save();c.globalAlpha=af;c.translate(q[2].x,q[2].y+gy+(reduce?0:(1-af)*8));c.scale(fk,fk);ucFlag(c,0,0,null,0);c.restore();
     if(n.rep)hits.push({uc:n,d:n.rep.d,x0:q[3].x,x1:q[1].x,y0:q[0].y-Math.max(40,hh),y1:q[2].y+gy})})}
-function ucPill(c,x,y,text,font){c.font=font;var w=c.measureText(text).width+14,h=18;c.save();c.fillStyle='rgba(15,16,22,.72)';c.beginPath();
-  if(c.roundRect)c.roundRect(x-w/2,y-h+2,w,h,9);else c.rect(x-w/2,y-h+2,w,h);c.fill();c.setLineDash([3,2]);c.strokeStyle='rgba(201,210,230,.7)';c.lineWidth=1;c.stroke();c.setLineDash([]);
+function ucPill(c,x,y,text,font,ua,hl){c.font=font;var w=c.measureText(text).width+14,h=18;c.save();if(ua!=null)c.globalAlpha=ua;c.fillStyle='rgba(15,16,22,.72)';c.beginPath();
+  if(c.roundRect)c.roundRect(x-w/2,y-h+2,w,h,9);else c.rect(x-w/2,y-h+2,w,h);c.fill();c.setLineDash([3,2]);c.strokeStyle='rgba(201,210,230,'+(hl||.7)+')';c.lineWidth=1;c.stroke();c.setLineDash([]);
   c.fillStyle='#D7DDEA';c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+2.5);c.textBaseline='alphabetic';c.restore()}
 function ucBase(){var ks=Object.keys(WORLD&&WORLD.m||{});for(var i=0;i<ks.length;i++){var u=WORLD.m[ks[i]].page;if(u&&/^https?:/.test(u)){try{return new URL(u).origin}catch(err){}}}return ''}
 var UCGH='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>',
