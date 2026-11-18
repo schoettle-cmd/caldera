@@ -452,3 +452,19 @@ test("FX pass 11-17: smoke trails keep a readable width zoomed out; the XL mushr
   A.bStep(1.2); const c2 = recCtx(); A.bDrawParticles(c2); assert.ok(c2.rec.images.filter(i => i.op !== "lighter").every(i => i.a <= .95), "painted layers stay translucent");
   const sc = A.spScorch(1, 0); assert.equal(sc.width, 256, "the desolation is a cached sprite"); assert.equal(A.spScorch(1, 0), sc, "built once");
 });
+
+test("clouds 11-18: one cached merged sprite per shape and sky, depth makes far clouds smaller and fainter, finite draws", () => {
+  const a = CITY_JS.indexOf("function newCloud(edge)"), b = CITY_JS.indexOf("\n", a), c0 = CITY_JS.indexOf("var CLSPR="), c1 = CITY_JS.indexOf("\nvar PRECIP=", c0);
+  assert.ok(a > 0 && c0 > 0 && c1 > c0, "cloud code found");
+  const mk = () => { const st = { canvas: {} }; return new Proxy(st, { get(t, k) { if (k in t) return t[k]; if (k === "createLinearGradient" || k === "createRadialGradient") return () => ({ addColorStop() {} }); return (...x) => { for (const v of x) if (typeof v === "number") assert.ok(Number.isFinite(v), `finite ${String(k)}`); }; }, set(t, k, v) { t[k] = v; return true } }); };
+  const doc = { createElement: () => ({ width: 0, height: 0, getContext: mk }) };
+  const K = new Function("document", "var sky='day',vw=900,vh=600,CLOUDS=[];function wxKind(){return 'partly'}\n" + CITY_JS.slice(a, b) + "\n" + CITY_JS.slice(c0, c1) +
+    "\nreturn {cloudSprite:cloudSprite,drawClouds:drawClouds,newCloud:newCloud,list:function(){return CLOUDS},setSky:function(v){sky=v},spr:function(){return CLSPR}}")(doc);
+  for (const sky of ["day", "dusk", "night"]) { K.setSky(sky);
+    for (let v = 0; v < 4; v++) { const s1 = K.cloudSprite(v, 0); assert.equal(K.cloudSprite(v, 0), s1, "built once"); assert.ok(s1.width > 0 && s1.height > 0); } }
+  assert.equal(Object.keys(K.spr()).length, 12, "4 shapes x 3 skies");
+  const L = K.list(); for (let i = 0; i < 6; i++) L.push(K.newCloud(null)); L[0].d = 0; L[1].d = 1; L[0].vr = L[1].vr = 0;
+  const c = recCtx(); K.drawClouds(c);
+  assert.equal(c.rec.images.length, 6, "one image per cloud, no per-lobe arcs"); assert.ok(c.rec.images[0].a < c.rec.images[5].a, "far clouds are fainter and drawn first");
+  for (let i = 0; i < 40; i++) { const n = K.newCloud(null); assert.ok(n.s > 0 && n.w > 0 && n.vr >= 0 && n.vr < 4 && n.d >= 0 && n.d <= 1); }
+});

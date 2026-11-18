@@ -717,11 +717,7 @@ function wxKind(){if(WXMODE!=='auto')return WXMODE;return WX&&WX.c?WX.c:'clear'}
 function wxCloud(){var k=wxKind();if(WXMODE==='auto'&&WX&&WX.c)return Math.max(+WX.cloud||0,{rain:80,storm:95,drizzle:70,snow:80,fog:60,overcast:90}[k]||0);return {clear:8,partly:40,overcast:92,fog:65,drizzle:75,rain:88,storm:98,snow:85}[k]||10}
 function wxWind(){var w=WXMODE==='auto'&&WX?+WX.wind||0:12,d=WXMODE==='auto'&&WX?(+WX.dir||270):250;return {vx:-Math.sin(d*Math.PI/180)*w,w:w}}   // meteorological: the direction it blows FROM
 var CLOUDS=[],CLW=0,CLH=0,lastCT=0;
-function cloudColor(){var k=wxKind(),dark=k==='storm'?.55:k==='rain'||k==='overcast'||k==='snow'?.3:k==='drizzle'||k==='fog'?.2:0;
-  if(sky==='night')return 'rgba('+Math.round(52-dark*20)+','+Math.round(60-dark*20)+','+Math.round(82-dark*20)+',.62)';
-  if(sky==='dusk')return 'rgba('+Math.round(255-dark*120)+','+Math.round(200-dark*90)+','+Math.round(190-dark*70)+',.6)';
-  var g=Math.round(255-dark*110);return 'rgba('+g+','+(g+2>255?255:g+2)+','+(g+6>255?255:g+6)+','+(.82+dark*.15).toFixed(2)+')'}
-function newCloud(edge){var s=.6+Math.random()*.9,ww=60*s+40;return {x:edge==null?Math.random()*(vw+2*ww)-ww:edge<0?-ww-Math.random()*40:vw+ww+Math.random()*40,y:(.04+Math.random()*.3)*vh,s:s,v:.7+Math.random()*.6,w:ww,p:Math.floor(Math.random()*3),gone:false}}
+function newCloud(edge){var d=Math.random(),s=(.6+Math.random()*.9)*(.55+.45*d),ww=74*s+30;return {x:edge==null?Math.random()*(vw+2*ww)-ww:edge<0?-ww-Math.random()*40:vw+ww+Math.random()*40,y:(.03+(1-d)*.12+Math.random()*.2)*vh,s:s,v:(.7+Math.random()*.6)*(.6+.4*d),w:ww,p:Math.floor(Math.random()*3),vr:Math.floor(Math.random()*4),d:d,gone:false}}
 // clouds keep their own positions frame to frame: they drift with the wind, wrap only once fully off screen, and are
 // never re-randomized by a resize, a phase change or a live update
 function stepClouds(tn){if(!vw)return;var dt=lastCT?Math.min(200,tn-lastCT)/1000:0;lastCT=tn;
@@ -733,7 +729,29 @@ function stepClouds(tn){if(!vw)return;var dt=lastCT?Math.min(200,tn-lastCT)/1000
   while(live<want){CLOUDS.push(newCloud(-dir));live++}
   CLOUDS.forEach(function(c){c.x+=dir*sp*c.v*dt});
   CLOUDS=CLOUDS.filter(function(c){var off=dir>0?c.x-c.w>vw:c.x+c.w<0;if(!off)return true;if(c.gone)return false;var n=newCloud(-dir);c.x=n.x;c.y=n.y;c.s=n.s;c.w=n.w;return true})}
-function drawClouds(c){var col=cloudColor();c.fillStyle=col;CLOUDS.forEach(function(k){var s=k.s;[[0,0,22],[18,4,16],[-18,5,15],[8,-8,15],[-6,-6,13],[30,6,11]].slice(0,5+k.p%2).forEach(function(b){c.beginPath();c.arc(k.x+b[0]*s,k.y+b[1]*s,b[2]*s,0,7);c.fill()})})}
+/** Clouds (11-18, Mike: "improve the fidelity of these clouds"): one merged silhouette per cloud (opaque lobes painted into
+ *  a cached sprite, so no inner circle edges can show), lit on top and shaded underneath in the time of day's colours (day
+ *  white over blue-grey, dusk peach over mauve, night slate), four shapes with flat bases, and depth: far clouds are smaller,
+ *  fainter, higher and slower. Sprites are built once per shape, sky and weather shade; a frame only draws images. */
+var CLSPR={},CLSH=[
+  [[0,0,24],[22,6,17],[-22,7,16],[9,-12,17],[-10,-9,15],[34,10,11],[-34,11,10]],
+  [[0,-2,20],[20,4,16],[-18,5,14],[6,-13,13],[36,9,10],[-30,10,9],[-6,8,16]],
+  [[0,0,17],[16,3,13],[-15,4,12],[30,8,9],[-27,9,8],[4,-9,12]],
+  [[-8,0,22],[16,-6,20],[34,6,14],[-28,7,13],[2,-16,14],[48,10,9],[-42,11,8]]];
+function cloudSprite(vr,dark){var key=vr+':'+sky+':'+dark;if(CLSPR[key])return CLSPR[key];var R=2,W=150,H=74,cv=document.createElement('canvas');cv.width=W*R;cv.height=H*R;var g=cv.getContext('2d');CLSPR[key]=cv;if(!g)return cv;
+  var T=sky==='night'?[[126,136,162],[80,88,112],[44,50,68]]:sky==='dusk'?[[255,228,204],[238,178,170],[146,108,140]]:[[255,255,255],[242,245,250],[188,198,214]];
+  var gm=sky==='night'?[60,64,76]:[150,152,160],mx=function(a){return 'rgb('+a.map(function(v,i){return Math.round(v+(gm[i]-v)*dark)}).join(',')+')'};
+  g.scale(R,R);g.translate(W/2,H*.6);var L=CLSH[vr%CLSH.length];
+  g.shadowColor=mx(T[1]);g.shadowBlur=5*R;g.fillStyle=mx(T[1]);
+  L.forEach(function(b){g.beginPath();g.arc(b[0],b[1],b[2],0,7);g.fill()});
+  g.beginPath();g.ellipse(0,12,50,7,0,0,7);g.fill();g.shadowBlur=0;   // a flat base
+  g.globalCompositeOperation='source-atop';
+  var top=Math.min.apply(null,L.map(function(b){return b[1]-b[2]})),gr=g.createLinearGradient(0,top,0,20);gr.addColorStop(0,mx(T[0]));gr.addColorStop(.45,mx(T[1]));gr.addColorStop(1,mx(T[2]));g.fillStyle=gr;g.fillRect(-W/2,-H,W,H*2);
+  L.forEach(function(b){if(b[1]>4)return;var hx=b[0]-b[2]*.35,hy=b[1]-b[2]*.45,rg=g.createRadialGradient(hx,hy,0,hx,hy,b[2]*.9);rg.addColorStop(0,sky==='night'?'rgba(190,200,225,.35)':'rgba(255,255,255,.55)');rg.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=rg;g.fillRect(hx-b[2],hy-b[2],b[2]*2,b[2]*2)});
+  var ug=g.createLinearGradient(0,4,0,20);ug.addColorStop(0,'rgba(0,0,0,0)');ug.addColorStop(1,sky==='night'?'rgba(10,12,24,.35)':sky==='dusk'?'rgba(90,50,100,.28)':'rgba(70,90,120,.18)');g.fillStyle=ug;g.fillRect(-W/2,0,W,H);   // the underside in shadow
+  return cv}
+function drawClouds(c){var k0=wxKind(),dark=Math.round((k0==='storm'?.55:k0==='rain'||k0==='overcast'||k0==='snow'?.3:k0==='drizzle'||k0==='fog'?.2:0)*10)/10,base=sky==='night'?.78:sky==='dusk'?.85:.92;
+  CLOUDS.slice().sort(function(a,b){return (a.d||0)-(b.d||0)}).forEach(function(k){var d=k.d==null?.6:k.d,sp=cloudSprite(k.vr||0,dark),w=150*k.s*1.15,h=74*k.s*1.15;c.globalAlpha=base*(.55+.45*d);c.drawImage(sp,k.x-w/2,k.y-h*.6,w,h)});c.globalAlpha=1}
 var PRECIP=[],flash=0,nextBolt=0;
 function stepPrecip(dt){var k=wxKind(),n=k==='storm'?(MINI?110:220):k==='rain'?(MINI?80:160):k==='drizzle'?(MINI?40:80):k==='snow'?(MINI?60:130):0;
   if(WXMODE==='auto'&&WX&&(k==='rain'||k==='storm'))n=Math.round(n*Math.min(1.4,.6+(+WX.precip||0)/4));
