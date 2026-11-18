@@ -13,8 +13,9 @@ import { BATTLE_DRAW_JS } from "./citybattle";
 import { HIFI_JS } from "./cityhifi";
 import { AGENTS_JS } from "./cityagents";
 import { LIFE_JS } from "./citylife";
+import { STREET_JS } from "./citystreet";
 import { LEGEND_JS } from "./citylegend";
-export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS, LIFE_JS, LEGEND_JS };
+export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS, LIFE_JS, LEGEND_JS, STREET_JS };
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
   commits: number; weeks: number[]; week: number; today: number;
@@ -639,7 +640,7 @@ function drawFx(){var tn=performance.now(),more=Object.keys(FX.more);if(!FX.drop
     if(t<FALL){var f=t/FALL,e2=f*f*(3-2*f),sw=Math.sin(t/180+d.sw)*3*S*(1-f);x+=sw;y=d.y-200*(1-e2);
       c.save();var g=c.createLinearGradient(0,y-60*R,0,y-6*S);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(1,day?'rgba(30,111,217,.4)':'rgba(127,231,255,.55)');c.strokeStyle=g;c.lineWidth=1.2*R;c.beginPath();c.moveTo(x-sw*.6,y-60*R);c.lineTo(x,y-13*S);c.stroke();
       c.fillStyle=day?'#FF6B4A':'#FF4FD8';c.beginPath();c.arc(x,y-19*S,7.5*S,Math.PI,0);c.closePath();c.fill();c.strokeStyle=day?'rgba(0,0,0,.45)':'rgba(255,255,255,.55)';c.lineWidth=.45;c.beginPath();c.moveTo(x-7.5*S,y-19*S);c.lineTo(x-1.4*S,y-8*S);c.moveTo(x+7.5*S,y-19*S);c.lineTo(x+1.4*S,y-8*S);c.stroke();c.restore();
-      walkerFig(c,x,y,d.col||col,S,1,0,0)}
+      s3Person(c,x,y,s3Look(7,d.col||col),0,4,1,S/PS*.75)}
     else{if(!d.walk){d.walk=true;walker(d.path,false,d.col)}var t2=t-FALL;if(t2<650){var pr=t2/650;c.save();c.strokeStyle=d.col||col;c.globalAlpha=1-pr;c.lineWidth=1.1;c.beginPath();c.ellipse(d.x,d.y,(3+pr*12)*R,(3+pr*12)*.5*R,0,0,7);c.stroke();
       c.fillStyle=day?'rgba(120,100,80,.35)':'rgba(200,230,255,.25)';for(var k=0;k<5;k++){var a2=k*1.256+d.sw;c.beginPath();c.arc(d.x+Math.cos(a2)*(2+pr*7),d.y+Math.sin(a2)*(1+pr*3.5)-pr*2,.8*(1-pr),0,7);c.fill()}c.restore()}}});
   FX.parts=FX.parts.filter(function(p){return tn-p.born<p.life});FX.parts.forEach(function(p){var t=Math.max(0,tn-p.born)/1000,x=p.x+p.vx*K*t,y=p.y+(p.vy*t+140*t*t)*K,a=1-(tn-p.born)/p.life;if(t<=0)return;
@@ -681,18 +682,13 @@ function ghostOut(b,delay){if(!b)return;var p=departurePath(b);if(p)walker(p,tru
 function stepWalks(tn){var dt=lastWT?Math.min(100,tn-lastWT):0;lastWT=tn;
   WALKS=WALKS.filter(function(w){if(tn<w.born)return true;w.d+=w.sp*dt/1000;return w.d<w.len});
   while(WALKS.length<WMAX&&WQ.length){var w=WQ.shift();w.born=Math.max(w.born,tn);WALKS.push(w)}}
-// a person at street scale: head, body and two legs that stride (3 frames) along the direction of travel
-function walkerFig(c,x,y,col,s,wf,ux,uy){var st=[-1,0,1,0][wf]*1.5*s;c.fillStyle=col;c.beginPath();c.arc(x,y-9*s,2.2*s,0,7);c.fill();
-  c.beginPath();c.moveTo(x-1.6*s,y-6.5*s);c.lineTo(x+1.6*s,y-6.5*s);c.lineTo(x+1.2*s,y-2*s);c.lineTo(x-1.2*s,y-2*s);c.closePath();c.fill();
-  c.strokeStyle=col;c.lineWidth=1.25*s;c.lineCap='round';c.beginPath();c.moveTo(x-.6*s,y-2*s);c.lineTo(x-.9*s+ux*st,y+uy*st*.5);c.moveTo(x+.6*s,y-2*s);c.lineTo(x+.9*s-ux*st,y-uy*st*.5);c.stroke();
-  c.beginPath();c.moveTo(x-1.5*s,y-6*s);c.lineTo(x-1.9*s-ux*st*.6,y-3.4*s);c.moveTo(x+1.5*s,y-6*s);c.lineTo(x+1.9*s+ux*st*.6,y-3.4*s);c.stroke()}
-function drawWalks(){if(INTRO)return;if(!WALKS.length)return;var c=cx,tn=performance.now();c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
-  var day=sky==='day',live=day?'#1E5FBF':'#BFF3FF',shade=day?'rgba(0,0,0,.22)':'rgba(0,0,0,.35)';
+// arrivals and ghosts walk as 3D people (citystreet.ts): facing their direction, a walk cycle from the distance walked
+function drawWalks(){if(INTRO)return;if(!WALKS.length)return;var c=cx,tn=performance.now(),boost=s3Boost(1.5);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
+  c.save();c.imageSmoothingEnabled=true;
   WALKS.slice().sort(function(a,b){return walkAt(a).y-walkAt(b).y}).forEach(function(w){if(tn<w.born)return;var p=walkAt(w),f=w.d/w.len,a;
     if(w.ghost)a=.42*Math.min(1,w.d/8)*(f>.7?Math.max(0,1-(f-.7)/.3):1);else a=f>.86?Math.max(0,1-(f-.86)/.14):1;   // arrivals fade into the doorway, ghosts fade at the district edge
-    if(a<=0)return;var wf=Math.floor(w.d/2.4)%4;c.save();c.globalAlpha=a;
-    c.fillStyle=shade;c.beginPath();c.ellipse(p.x+1,p.y+.6,2.4*PS,1*PS,0,0,7);c.fill();
-    if(!pxBlit(c,lifeSpr(w.id%6,wf%2),p.x,p.y,p.ux<0,LS))walkerFig(c,p.x,p.y,w.ghost?GHOSTCOL:(w.col||live),PS,wf,p.ux,p.uy);c.restore()})}
+    if(a<=0)return;c.globalAlpha=a;s3Person(c,p.x,p.y,w.ghost?S3GHOST:s3Look(s3seed(w.id)*13+7,w.col||null),s3Dir(p.ux,p.uy),reduce?4:Math.floor(w.d/2.1)%4,boost,1)});
+  c.restore();c.globalAlpha=1}
 // worn paths: footprints between the street and each busy building's door, brighter with more visitors today (log
 // scale), newer visits counting more; they reset at the viewer's local midnight
 function buildTraces(){TRACES=[];if(!TODAY)return;var mid=new Date();mid.setHours(0,0,0,0);var m0=mid.getTime(),Q15=9e5,wmax=0,W={};
@@ -709,6 +705,7 @@ function drawTraces(){if(!TRACES.length||sky==='grid')return;var c=cx;c.setTrans
       c.fillStyle='rgba('+col+','+al.toFixed(3)+')';c.beginPath();c.ellipse(x,y,1.15,.6,Math.atan2(uy,ux),0,7);c.fill();
       if(k==='rain'||k==='storm'){c.fillStyle='rgba(200,225,255,'+(al*.5).toFixed(3)+')';c.fillRect(x-.3,y-.4,.6,.3)}}}})}
 ${LIFE_JS}
+${STREET_JS}
 // ---- weather: the viewer's real local weather (hub lookup, or Obsidian passing it in), or what they pick
 var WX=null,WXMODES=['auto','clear','rain','snow','fog'],WXMODE='auto',WXN={auto:'Auto',clear:'Clear',partly:'Partly cloudy',overcast:'Overcast',drizzle:'Drizzle',rain:'Rain',storm:'Storm',snow:'Snow',fog:'Fog'};
 try{var wv=localStorage.getItem('caldera-weather');if(wv&&WXMODES.indexOf(wv)>=0)WXMODE=wv}catch(err){}

@@ -239,18 +239,9 @@ function figHi(c,x,y,col,seed,mode){var s=1.15,tn=reduce?0:T,wf=mode===1?Math.fl
   c.fillStyle='#E8C9A8';c.beginPath();c.arc(x,y-10.6*s-bob,1.7*s,0,7);c.fill();c.fillStyle='#F2D24A';c.beginPath();c.arc(x,y-11.1*s-bob,1.9*s,Math.PI,0);c.fill();c.fillRect(x-2.3*s,y-11.2*s-bob,4.6*s,.7*s);
   if(mode===0){c.fillStyle='#F4F1EA';c.fillRect(x+1.6*s,y-8.2*s,2.2*s,2.8*s);c.strokeStyle='#3A3D47';c.lineWidth=.35;hline(c,x+2*s,y-7.4*s,x+3.4*s,y-7.4*s);hline(c,x+2*s,y-6.6*s,x+3.4*s,y-6.6*s)}
   if(mode===2){c.fillStyle=col&&col.charAt(0)==='#'?col:'#E9A92C';c.fillRect(x-3.4*s,y-9.6*s-bob,6.8*s,1.6*s);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=.3;c.strokeRect(x-3.4*s,y-9.6*s-bob,6.8*s,1.6*s)}}
-/** a car: shadow, body gradient, cabin, windscreen glint, wheels, head and tail lights (cone after dark); parked = no cone */
-function carHi(c,px,py,ux,uy,col,sc,parked){sc=sc||1;var nx=-uy,ny=ux*.5,n=sky!=='day',L=5.2*sc,Wd=2.6*sc,dk=P.light<1;
-  c.fillStyle='rgba(0,0,0,'+(n?.35:.28)+')';c.beginPath();c.ellipse(px+1,py+1.6,L*1.1,Wd*.9,Math.atan2(uy,ux),0,7);c.fill();
-  if(n&&!parked&&LODN>0){c.save();c.globalCompositeOperation='lighter';var g=c.createRadialGradient(px+ux*L*1.6,py+uy*L*1.6,0,px+ux*L*1.6,py+uy*L*1.6,13*sc);g.addColorStop(0,'rgba(255,240,190,.5)');g.addColorStop(1,'rgba(255,240,190,0)');c.fillStyle=g;c.beginPath();c.ellipse(px+ux*L*1.9,py+uy*L*1.9,13*sc,7*sc,Math.atan2(uy,ux),0,7);c.fill();c.restore()}
-  var body=[[px-ux*L-nx*Wd,py-uy*L-ny*Wd-1.6],[px+ux*L-nx*Wd,py+uy*L-ny*Wd-1.6],[px+ux*L+nx*Wd,py+uy*L+ny*Wd-1.6],[px-ux*L+nx*Wd,py-uy*L+ny*Wd-1.6]];
-  var bg=c.createLinearGradient(body[0][0],body[0][1],body[3][0],body[3][1]);bg.addColorStop(0,hmul(col,dk?.95:1.1));bg.addColorStop(1,hmul(col,dk?.6:.78));poly(c,body,bg);
-  c.strokeStyle='rgba(0,0,0,.4)';c.lineWidth=.4;poly(c,body);c.stroke();
-  var cab=[[px-ux*L*.35-nx*Wd*.8,py-uy*L*.35-ny*Wd*.8-4],[px+ux*L*.5-nx*Wd*.8,py+uy*L*.5-ny*Wd*.8-4],[px+ux*L*.5+nx*Wd*.8,py+uy*L*.5+ny*Wd*.8-4],[px-ux*L*.35+nx*Wd*.8,py-uy*L*.35+ny*Wd*.8-4]];
-  poly(c,[[cab[0][0],cab[0][1]+2.4],[cab[1][0],cab[1][1]+2.4],cab[1],cab[0]],n?'#1A2338':'#6F93C0');poly(c,cab,hmul(col,dk?1.05:1.18));
-  c.fillStyle='rgba(255,255,255,'+(n?.1:.5)+')';c.fillRect(cab[1][0]-1.4,cab[1][1]+.6,1.6,1);
-  c.fillStyle='#14161C';[[-L*.6,-Wd*.9],[L*.5,-Wd*.9],[-L*.6,Wd*.9],[L*.5,Wd*.9]].forEach(function(w){c.beginPath();c.ellipse(px+ux*w[0]+nx*w[1],py+uy*w[0]+ny*w[1]+.3,1.1*sc,.7*sc,0,0,7);c.fill()});
-  if(n&&!parked){c.fillStyle='#FF4A4A';c.fillRect(px-ux*L-1,py-uy*L-2.6,1.6,1);c.fillStyle='#FFF4D0';c.fillRect(px+ux*L-.6,py+uy*L-2.4,1.4,1)}}
+/** a parked or placed car: the 3D box model from citystreet.ts, facing the road axis nearest (ux,uy); parked = lamps off */
+function carHi(c,px,py,ux,uy,col,sc,parked){var h=ux>=0?(uy>=0?0:6):(uy>=0?2:4),lk=s3CarLook(s3hash(Math.round(px*7)+Math.round(py*13)*131));
+  s3Vehicle(c,px,py,{kind:'car',type:lk.type==='taxi'?'sedan':lk.type,col:col,h:h,lamps:!parked&&sky!=='day'},s3Boost(1.6)*(sc||1))}
 /** water ripples and a sparkle by day, on the live layer (3 sine arcs per tile), only for tiles in view */
 function waterHi(c){if(sky==='grid'||LODN===0&&cam.z<.25)return;var n=hn(),tn=reduce?0:T/1000,v=hView(TH);c.save();c.lineWidth=1;
   for(var i=0;i<=W;i++)for(var j=0;j<=H;j++){if(!water(i,j))continue;var q=iso(i,j);if(q.x<v[0]||q.x>v[1]||q.y<v[2]||q.y>v[3])continue;

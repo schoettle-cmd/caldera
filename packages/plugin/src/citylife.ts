@@ -63,15 +63,14 @@ function stepPeds(tn,dt){var by=LIFE.target.by,sby=LIFE.target.sby,have={},shave
     if(p.d>=p.len){var pts=lifePath(p.b);if(!pts){p.gone=p.gone||tn;return}var len=0,seg=[];for(var i=1;i<pts.length;i++){var l=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);seg.push(l);len+=l}
       p.pts=pts;p.seg=seg;p.len=Math.max(1,len);p.d=0;p.wait=p.stand?5000+Math.random()*7000:600+Math.random()*2400}});
   LIFE.peds=LIFE.peds.filter(function(p){return !p.gone||tn-p.gone<1200})}
-function drawLife(){if(INTRO||!LIFE.peds.length)return;var c=cx,tn=performance.now(),v=hView(TH),micro=LODN===0,hl=lifeHl('walk'),hs=lifeHl('stroll');c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
-  var shade=sky==='day'?'rgba(0,0,0,.22)':'rgba(0,0,0,.35)',dots=0;c.save();c.imageSmoothingEnabled=false;
-  LIFE.peds.slice().sort(function(a,b){return walkAt(a).y-walkAt(b).y}).forEach(function(p){var q=walkAt(p);if(q.x<v[0]||q.x>v[1]||q.y<v[2]||q.y>v[3])return;
-    var a=(p.gone?Math.max(0,1-(tn-p.gone)/1200):Math.min(1,(tn-p.born)/700))*(p.stroll?hs:hl);if(a<=0)return;c.globalAlpha=a;
-    if(micro){if(dots++>=20)return;c.fillStyle=LIFE_TOP[p.o%3];c.fillRect(q.x-.25,q.y-.5,.5,.5);return}
-    var standing=p.wait>0||reduce,f=standing?1:Math.floor((tn+p.seed*37)/180)%2;
-    if(LODN===2){c.fillStyle=shade;c.fillRect(q.x-2,q.y-.5,4,1)}   // a 1-texel drop shadow
-    if(!pxBlit(c,lifeSpr(p.o,f),q.x,q.y,q.ux<0,LS))walkerFig(c,q.x,q.y,LIFE_TOP[p.o%3],PS,f,q.ux,q.uy);
-    if(standing&&p.stand&&LODN===2&&!reduce&&((tn+p.seed*91)%3000)<300){c.fillStyle='#E6ECF5';c.fillRect(q.x+2.5,q.y-9.5,1,1)}});   // talking: a speech dot every 3 s
+function drawLife(){if(INTRO||!LIFE.peds.length)return;var c=cx,tn=performance.now(),v=hView(TH),hl=lifeHl('walk'),hs=lifeHl('stroll'),boost=s3Boost(1.5),lod=s3PedLod(boost);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
+  c.save();c.imageSmoothingEnabled=true;var L=[];
+  LIFE.peds.forEach(function(p){var q=walkAt(p);if(q.x<v[0]-8||q.x>v[1]+8||q.y<v[2]-8||q.y>v[3]+8)return;
+    var a=(p.gone?Math.max(0,1-(tn-p.gone)/1200):Math.min(1,(tn-p.born)/700))*(p.stroll?hs:hl);if(a>.02)L.push({p:p,q:q,a:a})});
+  L=s3Cap(L,lod>=2?1e9:lod===1?(MINI?60:120):lod===0?48:20,function(x){return x.p.seed*7+x.p.o});   // draw caps by zoom band; a stable pick, so nobody flickers
+  L.sort(function(a,b){return a.q.y-b.q.y}).forEach(function(x){var p=x.p,q=x.q,standing=p.wait>0||reduce,dir=standing&&p._dir!=null?p._dir:s3Dir(q.ux,q.uy);p._dir=dir;c.globalAlpha=x.a;
+    s3Person(c,q.x,q.y,s3Look(p.seed*31+p.o),dir,standing?4:Math.floor(p.d/2.1)%4,boost,[.93,1,1.06][s3hash(p.seed)%3]);   // the walk frame follows the distance walked, so feet never slide
+    if(standing&&p.stand&&lod>=2&&!reduce&&((tn+p.seed*91)%3000)<300){c.fillStyle='#E6ECF5';c.fillRect(q.x+2.5,q.y-PERSON_H-1.5,1,1)}});   // talking: a speech dot every 3 s
   c.restore();c.globalAlpha=1}
 // ---- vehicles: one list (cars) of {kind,k,b,i,j,ti,tj,t,col,path,pi,st,wait}; cars roam, vans and scooters drive to the district lobby and leave, a bus loops the district's ring road
 function vehHave(){var h={car:{},van:{},scooter:{},bus:{}};cars.forEach(function(c){if(c.gone)return;var kd=c.kind||'car';h[kd][c.k||'']=(h[kd][c.k||'']||0)+1});return h}
@@ -96,14 +95,20 @@ function vehStep(c){if(c.path&&c.pi<c.path.length-1){var nx=c.path[++c.pi];c.i=c
   if(c.ring&&c.shelter&&c.ti===c.shelter[0]&&c.tj===c.shelter[1]&&!c.stopped){c.stopped=1;c.wait=6000}else if(c.ring&&!(c.ti===c.shelter[0]&&c.tj===c.shelter[1]))c.stopped=0}
 function stepVehicles(tn,dt){var grid=sky==='grid';cars.forEach(function(c){if(c.gone)return;if(c.wait>0){c.wait-=dt;if(c.wait<=0&&c.st==='wait')vehLeave(c);return}if(reduce&&!grid)return;
     c.t+=grid?0.035:vehSpeed(c.kind||'car')*dt/33;if(c.t>=1)vehStep(c);if(grid){var p=carPos(c);(c.trail=c.trail||[]).push([p.x,p.y-1]);if(c.trail.length>34)c.trail.shift()}})}
-function drawVehicles(){if(INTRO)return;if(sky==='grid')return drawCycles();var c=cx,tn=performance.now(),v=hView(TH),micro=LODN===0,nightOn=sky!=='day';c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.imageSmoothingEnabled=false;
-  cars.slice().sort(function(a,b){return carPos(a).y-carPos(b).y}).forEach(function(car){var kd=car.kind||'car',p=carPos(car);if(p.x<v[0]||p.x>v[1]||p.y<v[2]||p.y>v[3])return;
-    var a=fa(car,tn)*lifeHl(kd==='car'?'cars':kd==='van'?'vans':kd==='scooter'?'scoots':'bus');if(a<=0)return;c.globalAlpha=a;var flip=p.ux<0,px=p.x,py=p.y+1;
-    if(micro){if(kd==='scooter'||kd==='van')return;pxBlit(c,pxGlyph('vm|'+kd+'|'+car.col,VEH[kd==='bus'?'busmicro':'carmicro'],{c:car.col,o:'#F2A33A'}),px,py,false,LS);return}
-    var w=(VEH[kd]||VEH.car)[0].length*LS/PXS;c.fillStyle=sky==='day'?'rgba(0,0,0,.25)':'rgba(0,0,0,.35)';c.fillRect(px-w/2,py-.5,w,1);   // a 1-texel shadow under the wheels
-    if(nightOn&&car.wait<=0&&!reduce){var nose=flip?px-w/2:px+w/2,dir=flip?-1:1;c.fillStyle='#FFF2B0';c.globalAlpha=a*.5;c.fillRect(nose,py-3,dir*2,1);c.globalAlpha=a*.35;c.fillRect(nose+dir*2,py-3.5,dir*1,2);c.globalAlpha=a;c.fillStyle='#FF3B30';c.fillRect(flip?px+w/2-1:px-w/2,py-3,1,1)}   // headlight cone and tail light
-    pxBlit(c,vehSpr(kd,car.col,nightOn,car.st==='wait'),px,py,flip,LS);
-    if(car.spark&&tn-car.spark<600&&kd==='van'&&LODN===2){c.fillStyle='#FFD24A';c.fillRect(px+(flip?-1:1)*4,py-10-(tn-car.spark)/150,1,1)}});   // a coin sparkle as the van arrives
+// vehicles in 3D (citystreet.ts): each faces its road and turns with it, lamps and a beam on the road ahead after dark,
+// a soft shadow; beams first, then bodies sorted by depth. Draw caps by zoom band never drop a bus, or a van above 0.26
+function drawVehicles(){if(INTRO)return;if(sky==='grid')return drawCycles();var c=cx,tn=performance.now(),v=hView(TH),nightOn=sky!=='day',boost=s3Boost(1.6),lod=s3CarLod(boost),z=cam.z;
+  c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.save();c.imageSmoothingEnabled=true;var L=[];
+  cars.forEach(function(car,ix){var kd=car.kind||'car';if(z<.5&&kd==='scooter')return;if(z<.26&&kd==='van')return;var h=s3Head(car,tn),a=iso(car.i,car.j),b=iso(car.ti,car.tj),ln=s3Lane(h),x=a.x+(b.x-a.x)*car.t+ln[0],y=a.y+(b.y-a.y)*car.t+ln[1],m=nightOn?40:16;
+    if(x<v[0]-m||x>v[1]+m||y<v[2]-m||y>v[3]+m)return;var al=fa(car,tn)*lifeHl(kd==='car'?'cars':kd==='van'?'vans':kd==='scooter'?'scoots':'bus');if(al<=.02)return;
+    if(car._s==null)car._s=car.seed!=null?car.seed:ix+1;var lk=kd==='car'?(car._lk||(car._lk=s3CarLook(car._s))):null,wait=kd==='van'&&car.st==='wait';
+    L.push({car:car,kd:kd,x:x,y:y,a:al,v:{kind:kd,type:lk?lk.type:kd==='van'?'van':kd,col:lk?lk.col:car.col,h:h,lamps:nightOn&&(kd==='bus'||car.wait<=0)&&!wait,open:wait}})});
+  if(z<1.2){var keep=function(x){return x.kd==='bus'||(x.kd==='van'&&z>=.26)},cap=z>=.5?96:z>=.26?48:24,fx=L.filter(keep),rest=L.filter(function(x){return !keep(x)});
+    if(L.length>cap)L=fx.concat(s3Cap(rest,Math.max(0,cap-fx.length),function(x){return x.car._s}))}
+  if(nightOn&&lod>=1&&!reduce){c.save();c.globalCompositeOperation='lighter';L.forEach(function(x){if(x.car.wait>0||!x.v.lamps)return;c.globalAlpha=x.a;s3Cone(c,x.x,x.y,x.v,boost)});c.restore()}
+  L.sort(function(a,b){return a.y-b.y}).forEach(function(x){c.globalAlpha=x.a;s3Vehicle(c,x.x,x.y,x.v,boost);
+    if(x.v.open&&lod>=1&&!reduce&&Math.floor(tn/500)%2===0){var A=s3Ax(x.v.h,CAR_K*boost);c.fillStyle='#FFB02E';[[10,4.2],[10,-4.2],[-10,4.2],[-10,-4.2]].forEach(function(k){var p=s3P(A,k[0],k[1],3.2);c.fillRect(x.x+p[0]-.5,x.y+p[1]-.5,1,1)})}   // hazard lamps while the van delivers
+    if(x.car.spark&&tn-x.car.spark<600&&x.kd==='van'&&lod>=2){c.fillStyle='#FFD24A';c.fillRect(x.x+4,x.y-14-(tn-x.car.spark)/150,1,1)}});   // a coin sparkle as the van arrives
   c.restore();c.globalAlpha=1}
 // ---- roofs: steam from the vents of repos with commits this week (two vents when there are commits today), crews at the cranes of repos with commits today
 function drawSteam(c,tn){if(!STEAM.length||LODN===0||sky==='grid')return;var wind=wxWind(),wx=wind.vx/12,hl=lifeHl('steam');c.save();c.imageSmoothingEnabled=false;
@@ -112,7 +117,7 @@ function drawSteam(c,tn){if(!STEAM.length||LODN===0||sky==='grid')return;var win
       var age=(tn+ph)%per;if(age>1400)continue;var f=Math.min(3,Math.floor(age/350));if(LODN===1&&f<1)f=1;var rise=age/1000*3,dx=wx*age/500;c.globalAlpha=STEAM_A[f]*hl;pxBlit(c,steamSpr(f),q[0]+dx,q[1]-3-rise,false,LS*2)}});
   c.restore();c.globalAlpha=1}
 function drawCrews(c,tn){if(!CREWS.length||LODN===0||sky==='grid')return;var hl=lifeHl('steam');c.save();c.imageSmoothingEnabled=false;
-  CREWS.forEach(function(k){var swing=reduce?1:Math.floor((tn+k.seed*7)/600)%2;c.globalAlpha=hl;pxBlit(c,crewSpr(swing),k.x-7,k.y+1,false,LS);pxBlit(c,crewSpr(1),k.x+7,k.y+2,true,LS);
+  var boost=s3Boost(1.5);c.imageSmoothingEnabled=true;CREWS.forEach(function(k){var swing=reduce?1:Math.floor((tn+k.seed*7)/600)%2;c.globalAlpha=hl;s3Person(c,k.x-7,k.y+1,S3CREW,0,swing===0?5:4,boost,1);s3Person(c,k.x+7,k.y+2,S3CREW,1,4,boost,1);
     if(LODN===2&&!reduce&&swing===0&&((tn+k.seed*7)%600)<150){c.fillStyle='#E6ECF5';c.fillRect(k.x-9,k.y-3,1,1)}});   // the hammer's spark on the hit
   c.restore();c.globalAlpha=1}
 function stepLife(tn){var dt=LIFE.lastT?Math.min(100,tn-LIFE.lastT):0;LIFE.lastT=tn;stepPeds(tn,dt);stepVehicles(tn,dt)}
