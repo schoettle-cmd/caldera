@@ -10,6 +10,7 @@
 
 import { GROWTH_LAYOUT_JS, GROWTH_DRAW_JS } from "./citygrowth";
 import { BATTLE_DRAW_JS } from "./citybattle";
+import { FRONTIER_LAYOUT_JS, FRONTIER_DRAW_JS, FRONTIER_CSS } from "./cityfrontier";
 import { HIFI_JS } from "./cityhifi";
 import { AGENTS_JS } from "./cityagents";
 import { LIFE_JS } from "./citylife";
@@ -457,7 +458,7 @@ ${STORE_CSS}
 .c-tools{left:6px;right:6px;flex-wrap:nowrap;justify-content:flex-end;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.c-tools::-webkit-scrollbar{display:none}
 .c-tools button{flex:none;white-space:nowrap;min-width:32px;padding:4px 9px;line-height:1.2}}
 @media (max-width:600px){.c-main{padding:20px 16px 48px}.c-title{font-size:1.7rem}.c-stage{height:50vh;height:min(50svh,460px);min-height:300px}}
-`;
+${FRONTIER_CSS}`;
 
 /** Storefront signs: which building each listed app or website's sign floats above. Plain ES5 (it runs inside CITY_JS too).
  *  Rules, the same for every viewer and stable across loads (only the city's data decides):
@@ -523,8 +524,9 @@ ${GROWTH_LAYOUT_JS}
   NBS.forEach(function(n){var ar=0;n.ds.forEach(function(d){d._h=Math.min(d.notes||0,16);var need=d.repos.length+Math.ceil(d._h/4);d._k=d.estate?d.K:Math.max(2,Math.ceil(Math.sqrt(need)));ar+=(d._k+1)*(d._k+1)});
     var mw=Math.max(3,Math.ceil(Math.sqrt(ar)*1.1)),lx=0,ly=0,rh=0,w=0,h=0;
     n.ds.forEach(function(d){if(d.apart&&(lx>0||ly>0)){if(lx>0){lx=0;ly+=rh+1;rh=0}ly+=2}else if(lx+d._k>mw&&lx>0){lx=0;ly+=rh+1;rh=0}d._lx=lx;d._ly=ly;lx+=d._k+1;rh=Math.max(rh,d._k);w=Math.max(w,lx-1);h=Math.max(h,ly+rh)});n.w=w;n.h=h});
-  var GAP=5,cols=Math.max(1,Math.ceil(Math.sqrt(NBS.length*1.3))),rows=Math.max(1,Math.ceil(NBS.length/cols)),CWs=[],CHs=[],X0=[1],Y0=[1];
-  NBS.forEach(function(n,ix){n.cx=ix%cols;n.cy=Math.floor(ix/cols);CWs[n.cx]=Math.max(CWs[n.cx]||0,n.w);CHs[n.cy]=Math.max(CHs[n.cy]||0,n.h)});   // each column/row only as wide as its biggest member
+${FRONTIER_LAYOUT_JS}
+  var CWs=[],CHs=[],X0=[1],Y0=[1];
+  NBS.forEach(function(n){CWs[n.cx]=Math.max(CWs[n.cx]||0,n.w);CHs[n.cy]=Math.max(CHs[n.cy]||0,n.h)});   // each column/row only as wide as its biggest member
   for(var ci=0;ci<cols;ci++)X0.push(X0[ci]+(CWs[ci]||0)+GAP);for(var rj=0;rj<rows;rj++)Y0.push(Y0[rj]+(CHs[rj]||0)+GAP);
   NBS.forEach(function(n){n.ax=X0[n.cx];n.ay=Y0[n.cy];n.ox=n.ax+Math.ceil(GAP/2)+Math.floor((CWs[n.cx]-n.w)/2);n.oy=n.ay+Math.ceil(GAP/2)+Math.floor((CHs[n.cy]-n.h)/2);
     n.blocks=n.ds.map(function(d){return placeDistrict(d,n.ox+d._lx,n.oy+d._ly,d._k,d._h)});
@@ -1091,7 +1093,7 @@ function hex(c){return '#'+c.map(function(v){v=Math.max(0,Math.min(255,Math.roun
 function mix(h,f,toward){var c=rgb(h);if(toward){var t=rgb(toward);return hex(c.map(function(v,i){return v+(t[i]-v)*f}))}
   if(f>=1)return hex(c.map(function(v){return v+(255-v)*(f-1)}));return hex(c.map(function(v){return v*f}))}
 function lit(hex,f){return mix(hex,f*P.light+(f>=1?0:0))}
-var tallest=null,second=null,TALLS=[];(function(){var all=[];D.districts.forEach(function(d){d.repos.forEach(function(r){all.push(r)})});all.sort(function(a,b){return bh(b)-bh(a)});tallest=all[0];second=all[1];TALLS=all.slice(0,3).filter(function(r){return r&&bh(r)>=70})})();   // the three tallest towers (70 px or more) carry red aviation lights; the tallest always
+var tallest=null,second=null,TALLS=[];(function(){var all=[];D.districts.forEach(function(d){if(d.uc)return;d.repos.forEach(function(r){all.push(r)})});all.sort(function(a,b){return bh(b)-bh(a)});tallest=all[0];second=all[1];TALLS=all.slice(0,3).filter(function(r){return r&&bh(r)>=70})})();   // the three tallest towers (70 px or more) carry red aviation lights; the tallest always
 // ---- layers: ground (L1) and objects (L2) are cached; cars, cranes and lights animate on top
 var L1=document.createElement('canvas'),L2=document.createElement('canvas'),L3=document.createElement('canvas'),L4=document.createElement('canvas'),c1=L1.getContext('2d'),c2=L2.getContext('2d'),c3=L3.getContext('2d'),c4=L4.getContext('2d'),dirty=true,hits=[],sel=null,T=0;
 function isRoad(i,j){var t=tiles[i+','+j];return t&&t.t==='r'}
@@ -1153,13 +1155,14 @@ function drawGround(){var c=c1;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L1.wi
 // ---- world mode (caldera.social/world): every member is a neighborhood; friendships are highways between them
 var WORLD=D.world||null,WFOCUS=null,WHOVER=null;
 function blockMid(b){var n=b.nbo;return n?iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5):iso(b.x+b.k/2-.5,b.y+b.k/2-.5)}
-function worldCard(b){var key=b.d.nb||b.d.name,m=WORLD.m[key]||{},nn=NBM[key],nrep=nn?nn.ds.reduce(function(s,d){return s+d.repos.length},0):b.d.repos.length;sel=null;
+function worldCard(b){if(b.d.uc)return ucCard(b);var key=b.d.nb||b.d.name,m=WORLD.m[key]||{},nn=NBM[key],nrep=nn?nn.ds.reduce(function(s,d){return s+d.repos.length},0):b.d.repos.length;sel=null;
   card.classList.remove('is-dir');card.innerHTML='<button class="x" aria-label="Close">&times;</button><h3>'+e(m.name||key)+'</h3><div class="k">'+e(key)+(m.isNew?' &middot; new this week':'')+(m.groups&&m.groups.length?' &middot; '+m.groups.map(function(g){return e(g)}).join(', '):'')+'</div>'
     +(m.headline?'<p style="margin:6px 0 0">'+e(m.headline)+'</p>':'')
     +'<div class="row"><span>Buildings</span><b>'+nrep+'</b></div>'+(nn&&nn.ds.length>1?'<div class="row"><span>Districts</span><b>'+nn.ds.length+'</b></div>':'')+(m.friends?'<div class="row"><span>Friends</span><b>'+m.friends+'</b></div>':'')
     +growCard(key)+battleCard(key)+'<p style="margin:8px 0 0"><a href="'+e(m.city||'#')+'">Walk into their city &rarr;</a> &middot; <a href="'+e(m.page||'#')+'">Profile</a></p><div class="k" style="margin-top:4px">Click the name again to go in.</div>'+giftHtml(key,'');
   card.hidden=false;card.querySelector('.x').onclick=function(){WFOCUS=null;show(null)};giftWire(function(){worldCard(b)})}
 ${GROWTH_DRAW_JS}
+${FRONTIER_DRAW_JS}
 ${BATTLE_DRAW_JS}
 // ---- light-ups: one gift a day to celebrate someone's city (or one of its public repos). It shines on the world map for 24
 // hours as searchlights from the gifted building; every extra gift adds a beam, so friends rally to light each other up.
@@ -1330,8 +1333,9 @@ function nbTop(n){if(n._ty==null){var ty=Infinity;n.ds.forEach(function(d){(BDIS
 function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);if(!LBL()){WLAB=[];return}c.setTransform(dpr,0,0,dpr,0,0);
   var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[],me=worldMe(),fr=worldFriends(),sc=worldScores(),phone=vw<600;
   NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y),k=n.key,pr=k===foc?0:k===WHOVER?.3:k===me?.6:fr[k]?.8:1;
+    if(n.uc){cand.push({pr:1,sc:0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+' · Unclaimed',uc:1,font:'600 10.5px IBM Plex Mono,ui-monospace,monospace',block:n.rep});return}
     cand.push({pr:pr,sc:sc[k]||0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+(wm.isNew?(phone?' ✦':' ✦ new'):'')+(LIT[k]&&LIT[k].n?'  ✦ lit'+(LIT[k].n>1?' ×'+LIT[k].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':k===me?'rgba(109,74,232,.98)':'rgba(139,108,246,.96)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
-  if(z>=.55)blocks.forEach(function(b){if(b.estate)return;var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
+  if(z>=.55)blocks.forEach(function(b){if(b.estate||b.d.uc)return;var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
     Object.keys(per).forEach(function(k){if(!NBM[k])return;var hb=dockAt({d:k}),sp=S(hb.x,hb.y),q=per[k];
       cand.push({pr:1.9,sc:0,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
@@ -1349,7 +1353,7 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
       for(var oi=0;oi<offs.length&&!ok;oi++){var ox=offs[oi][0],q={x0:bx.x0+ox,x1:bx.x1+ox,y0:bx.y0+offs[oi][1],y1:bx.y1+offs[oi][1]};var s2=Math.max(0,6-q.x0)-Math.max(0,q.x1-(vw-6));q.x0+=s2;q.x1+=s2;ox+=s2;   // stay inside the stage
         if(q.y0<4||q.y1>vh-4)continue;if(!hitAny(q)){bx=q;g.x+=ox;g.y+=offs[oi][1];ok=true}}if(!ok)return}
     if(!must)used++;bx.text=g.text;bx.pr=g.pr;placed.push(bx);
-    pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
+    if(g.uc)ucPill(c,g.x,g.y,g.text,g.font);else pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
     if(g.url||g.block||g.shop)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block,shop:g.shop})})}
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
 // them. Real friendships glow warm violet, people who work on the same repo glow code-teal, GitHub follows sky-blue; the
@@ -1520,7 +1524,7 @@ function pill(c,x,y,text,bg,fg,font){c.font=font;var tw=c.measureText(text).widt
   c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+.5);c.textBaseline='alphabetic'}
 var lamps=[],cranes=[],beacons=[];
 // level of detail (BUILD-NOTE 4): 0 below zoom .5 on the World (shapes only), 1 up to 1.1 (sprites from the atlas), 2 walked in (vectors)
-function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z<1.1?1:2;atlFrame();var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.lineJoin='round';hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];STEAM=[];CREWS=[];var tags=[],vv=hView(maxH+60),nObj=0;
+function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z<1.1?1:2;atlFrame();var c=c2;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L2.width,L2.height);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.lineJoin='round';hits=[];tagHits=[];lamps=[];cranes=[];beacons=[];STEAM=[];CREWS=[];var tags=[],vv=hView(maxH+60),nObj=0;ucPre(vv);
   FOREMAN={};for(var sum=0;sum<=W+H;sum++)for(var i=0;i<=W;i++){var j=sum-i;if(j<0||j>H)continue;var t=tiles[i+','+j],p=iso(i,j);
     if((p.x<vv[0]||p.x>vv[1]||p.y<vv[2]||p.y>vv[3])&&!(t.t==='b'&&SFA.get(t.r)))continue;   // off screen: nothing to draw (signs still place themselves)
     var gp=gpop(i,j);if(gp<=0&&t.t!=='b')continue;if(gp<1&&t.t!=='b'){c.save();var gk=backOut(gp);c.translate(p.x,p.y);c.scale(gk,gk);c.translate(-p.x,-p.y)}
@@ -1535,11 +1539,13 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
     if(t.t==='p')hiDraw(c,'park|'+((i+j)%3),70,50,35,36,p.x,p.y,function(cc){treeHi(cc,-10,1,.9,i%3);pineHi(cc,11,-2,.8);treeHi(cc,2,7,.6,(i+j)%3+1);if(LODN>0)benchHi(cc,-20,8)});
     if(t.t==='h'&&!BON){var sd=(hash(t.d.name)+i*3+j*5)%24,hn0=Math.min(3,t.n);hiDraw(c,'hl|'+sd+'|'+hn0,72,54,33,37,p.x,p.y,function(cc){houseLotHi(cc,0,0,{seed:sd,n:hn0})});nObj++}
     if(hf<1)c.restore();if(gp<1&&t.t!=='b')c.restore();
+    if(t.t==='b'&&ucIs(t)&&!ucFull(t))continue;
     if(t.t==='b'){var r=t.r,SL=SFA.get(r),h=bh(r),bdm=typeof bBld==='function'?bBld(t,i,j):0,dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;
       var col=r.kind?SHOPC[seed%SHOPC.length]:r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=r.kind?.6:dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
       litp=Math.min(litp,P.lit==null?1:P.lit);   // fewer lit windows by day, more as evening comes
-      var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));   // people on the site right now light up its building (the rest of the district a little)
+      var gw=glowOf(t.d),sg=gw>0?siteGlowOf(t):0,lw=Math.max(sg,gw*.3);if(lw>0)litp=Math.max(litp,Math.min(.97,lw*(.55+.45*(P.lit==null?1:P.lit))));
+      var UCT=ucIs(t);if(UCT){col=ucFog(col);litp=0;sg=0;c.globalAlpha=UCF[ucSky()].alpha}   // people on the site right now light up its building (the rest of the district a little)
       var rb0=bdm>0?bRebuildOf(i,j):0,bdh=bdm>0?Math.max(bdm,bBldHeld(i,j)):0,rz=bdm>0&&typeof bRaze==='function'?bRaze(i,j):0,nh=bdm>0&&typeof bHitsOn==='function'?bHitsOn(i,j):0,gone=rz>=1&&rb0<=0;if(bdm>0)litp*=Math.max(0,1-Math.max(bdh,rz)*.85);   // 11-14: rz = the fallen city derezzing (citybattle.ts bRaze), gone = nothing stands   // a hit tower keeps its height in the data; its texture loses the top floors and most lights (citypix.ts), back pixel by pixel as the cranes work
       var tiers=towerTiers(LODN===1&&bf>=1?Math.round(h/3)*3:h),base=p.y+4,top=base;nObj++;   // at LOD 1 heights snap to 3 px so towers share sprites
       if(bf<1){top=lego(c,p.x,base,tiers,h,col,glass,litp,seed,r,bf,i+','+j,t.d&&(t.d.nb||t.d.name),LOD);if(bf>0&&bf<.8&&!LOD)cranes.push({x:p.x+4,y:top,seed:seed})}
@@ -1548,15 +1554,16 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
         if(!gone)hiDraw(c,bdm>0?null:'tw|'+tv2+'|'+Math.round(hs)+'|'+tc+'|'+lq+'|'+pq+'|'+rk+'|'+sk,116,hb,58,hb-34,p.x,p.y,function(cc){var tp=towerHi(cc,0,0,{variant:tv2,col:tc,seed:sk*131+7,tiers:tiers,litp:lq,people:pq,roof:false,yard:!(rz>0),dmg:bdm>0?{d:bdh,f:rb0,seed:seed,r:rz,n:nh}:null});if(LODN>0&&!(bdm>0))roofProps(cc,0,tp,ttw,r,seed)});
         if(bdm>0)top=base-Math.max(Math.min(pxBreak(hs,bdh),hs*(1-rz)),rb0*hs)}
       if(bdm>0&&bf>=1){scorchHi(c,p.x,base,Math.max(bdh,rz));pxHeap(c,p.x,base,tiers[0][0],col,Math.max(bdh,rz),rb0,seed);if(rz>0&&typeof bRezHeap==='function')bRezHeap(c,p.x,base,tiers[0][0],col,rz*(1-rb0),seed);if(rb0>0&&rb0<1){var yb0=rb0*hs,sb0=Math.max(0,yb0-14);scaffoldHi(c,p.x,base-sb0,tiers[0][0],yb0-sb0+3,1);cranes.push({x:p.x+4,y:top,seed:seed,col:col})}}
-      if(!gone&&(r===tallest||(LODN>0&&TALLS.indexOf(r)>=0)))beacons.push({x:p.x,y:top-26});
+      if(!gone&&!UCT&&(r===tallest||(LODN>0&&TALLS.indexOf(r)>=0)))beacons.push({x:p.x,y:top-26});
       if(r.week>0&&!dm&&bf>=1&&!gone)cranes.push({x:p.x+4,y:top,seed:seed});
       if(LODN>0&&bf>=1&&!(bdm>0)&&!dm&&!r.kind&&(r.week>0||r.today>0))STEAM.push({x:p.x,y:top,w:ttw,n:r.today>0?2:1,seed:seed});if(LODN>0&&bf>=1&&!(bdm>0)&&!dm&&r.week>0&&r.today>0)CREWS.push({x:p.x+4,y:top,seed:seed});   // vents steam for commits this week (two with commits today), a crew works the crane on commits today
       if(SL&&bf>=1&&!gone)SIGNS.push({c:c,x:p.x,base:base,top:top,list:SL,d:t.d,tron:false,LOD:LOD,lift:r.week>0&&!dm?30:r===tallest?28:4});   // above the crane or the beacon
       if(sel===r){c.save();c.strokeStyle='#C4B5FF';c.lineWidth=2.4/cam.z;c.shadowColor='#8B6CF6';c.shadowBlur=12;var hw=TW/2*.78,hh=TH/2*.78;c.beginPath();c.moveTo(p.x-hw,base);c.lineTo(p.x,base+hh);c.lineTo(p.x+hw,base);c.lineTo(p.x+hw,top+ (base-top>0?0:0));c.lineTo(p.x,top-TH/2*.46);c.lineTo(p.x-hw,top);c.closePath();c.stroke();c.restore()}
+      if(UCT)c.globalAlpha=1;
       hits.push({r:r,d:t.d,x0:p.x-TW*.42,x1:p.x+TW*.42,y0:top-14,y1:p.y+TH*.45});
-      if(LBL()&&bf>=1&&!INTRO&&!r.locked&&!r.kind&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase().replace(/[^a-z0-9]/g,'')===String(r.name).toLowerCase().replace(/[^a-z0-9]/g,'')))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name,url:repoUrl(r),r:r})}}
+      if(LBL()&&bf>=1&&!INTRO&&!UCT&&!r.locked&&!r.kind&&(cam.z>1.05||sel===r||(!WORLD&&topSet.indexOf(r)>=0))&&!(t.d&&sel!==r&&String(t.d.name).toLowerCase().replace(/[^a-z0-9]/g,'')===String(r.name).toLowerCase().replace(/[^a-z0-9]/g,'')))tags.push({x:p.x,y:top-(r===tallest?32:8),text:r.name.length>18?r.name.slice(0,17)+'…':r.name,url:repoUrl(r),r:r})}}
   if(window.CALDERA_PERF)window.CALDERA_LAST={plots:nObj,lod:LODN,sprites:ATL.size,atlasMB:+(ATLB/1048576).toFixed(1),hit:ATLN.hit,made:ATLN.made,direct:ATLN.direct,why:JSON.stringify(ATLN)};
-  drawDust(c);
+  ucDraw(c);drawDust(c);
   if(SHOPLBL){pill(c,SHOPLBL.x,SHOPLBL.y,SHOPLBL.text,SHOPLBL.bg,'#fff','700 11px IBM Plex Sans,Arial,sans-serif');hits.push({shop:1,x0:SHOPLBL.x-80,x1:SHOPLBL.x+80,y0:SHOPLBL.y-12,y1:SHOPLBL.y+8});SHOPLBL=null}
   if(WORLD){worldLabels(tags);drawSigns();return}   // storefront signs go over every building and label
   if(LBL()&&!INTRO){var fT='600 10.5px IBM Plex Sans,Arial,sans-serif',fB='700 11.5px IBM Plex Sans,Arial,sans-serif';fitLabels(c,tags,fT,function(b){return {x:b.x,y:b.y,text:b.d.name}},fB,
@@ -1679,6 +1686,7 @@ function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.
   var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
   if(h&&h.shop)return shopCard();
   if(h&&h.group){if(MINI)return openRepo(repoUrl(h.r));return storeDir(h.count===1?h.r:null,h.keys,false,SBTN[h.group])}   // a store marker: the panel lists every store there (the pop-out has no room: the top store)
+  if(h&&h.d&&h.d.uc&&h.d.nb&&byName[h.d.nb])return worldFocus(byName[h.d.nb]);
   if(h&&h.block)return worldFocus(h.block);
   if(h&&h.url)return openRepo(h.url);
   if(MINI&&h&&h.r)return openRepo(repoUrl(h.r));   // the pop-out has no room for cards: a public building opens its repo
@@ -1746,10 +1754,16 @@ bf.onclick=function(){if(document.fullscreenElement){document.exitFullscreen();r
   var r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null;if(r&&r.catch)r.catch(function(){cssFull(true)});else cssFull(true)};
 // pop out: inside Obsidian the plugin opens an always-on-top window; on the web a small window opens the watch page
 // (the hub's own page, which can float the city on top in Chrome/Edge); elsewhere this page in mini mode
-var bp=document.getElementById('t-pop');if(bp){if(MINI)bp.hidden=true;bp.onclick=function(){
+// Mike 11-17 "Opened hades and it shows this full screen": an app's web view (Hades on the Duo) loads any window.open of its own
+// site in place of the app's page, so a pop-out there replaced Hades with the mini city and left no way back. A phone or an app
+// web view has no small windows: no Pop out there, and the mini view never replaces the page it was opened from.
+var NOPOP=document.documentElement.classList.contains('native-ios')||/WebShell|iOS\/\d/.test(navigator.userAgent)||(window.matchMedia&&matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<900);
+var bp=document.getElementById('t-pop');if(bp){if(MINI||NOPOP)bp.hidden=true;bp.onclick=function(){
   if(window.parent!==window){parent.postMessage({caldera:'popout'},'*');return}
+  if(NOPOP)return;
   var m=location.pathname.match(/^\/@([a-z0-9-]+)\//),u=m?'/watch/@'+m[1]+location.search:location.href.split('#')[0]+'#mini';
-  var w=window.open(u,'caldera-city','popup,width=440,height=290');if(!w)location.href=u}}
+  try{window.open(u,'caldera-city','popup,width=440,height=290')}catch(err){}}}   // no window (blocked): stay on this page
+if(MINI&&window.parent===window&&!window.opener&&NOPOP){try{if(history.length>1)history.back();else location.replace(location.href.split('#')[0])}catch(err){}}   // a mini view that took over an app's page goes back
 document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')){ev.preventDefault();closeDir()}});

@@ -196,12 +196,12 @@ function bDrawParticles(c){var n=hn(),Z=cam.z,lo=LODN<1,scap=lo?.22:n?.26:.3,dca
   else if(p.k==='debris'){var sd=Math.max(p.s*K,.7/Z);c.save();c.translate(p.x,p.y);c.rotate(p.rot);c.fillStyle=p.col;c.globalAlpha=f>.8?(1-f)/.2:1;c.fillRect(-sd,-sd*.6,sd*2,sd*1.2);c.fillStyle='rgba(255,255,255,.25)';c.fillRect(-sd,-sd*.6,sd*2,sd*.35);c.restore()}
   else if(p.k==='glass'){var tw=.5+.5*Math.sin(p.age*30+p.rot*7),gz=Math.max(1.2*K,1.2/Z);c.fillStyle='rgba('+(tw>.7?'255,255,255':'190,228,250')+','+(f>.8?(1-f)/.2:1).toFixed(2)+')';c.fillRect(p.x-gz/2,p.y-gz/2,gz,gz)}
   else if(p.k==='spark'){var vv=Math.hypot(p.vx,p.vy)||1,ln=Math.max(vv*.035*K,3/Z);c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,'+Math.round(200-120*f)+',80,'+(1-f).toFixed(3)+')';c.lineWidth=Math.max(.8,1/Z);hline(c,X,Y,X-p.vx/vv*ln,Y-p.vy/vv*ln);c.restore()}
-  else if(p.k==='flash'){var rr=(p.r0+(p.r1-p.r0)*Math.sqrt(f))*K*1.3;c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*Math.pow(1-f,1.5);c.drawImage(spGlow(),X-rr,Y-rr,rr*2,rr*2);c.restore();
+  else if(p.k==='flash'){var rr=(p.r0+(p.r1-p.r0)*Math.sqrt(f))*K*1.3;c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*Math.pow(1-f,1.5);c.drawImage(p.tint?spGlowC(p.tint):spGlow(),X-rr,Y-rr,rr*2,rr*2);c.restore();
     if(p.age<.09){c.fillStyle='rgba(255,255,255,'+(1-p.age/.09).toFixed(3)+')';c.beginPath();c.arc(X,Y,Math.max(rr*.22,1.5/Z),0,7);c.fill()}}   // a hard white core: a point of light that reads over bright green
   else if(p.k==='fire'){var u=Math.min(1,f*2.2),rf=(p.r0+(p.r1-p.r0)*(1-Math.pow(1-u,3)))*K,af=Math.pow(1-f,1.4),ms=p.age*1000,wh=ms<220?1:Math.max(0,1-(ms-220)/250);if(!(rf>0))return;   // white-hot at first (additive), then orange to red to a dark ember (painted over), never a white smear
     if(wh>0){c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*wh*af;c.drawImage(spFire(1),X-rf,Y-rf,rf*2,rf*2);c.restore()}if(wh<1){c.globalAlpha=.85*(1-wh)*af;c.drawImage(spFire(0),X-rf,Y-rf,rf*2,rf*2);c.globalAlpha=1}}
   else if(p.k==='ring'){var e=1-Math.pow(1-f,3),rx=(p.r1*e+1)*K,lw=Math.max(p.r1*K*.06,2/Z)*(1-f)+.5/Z;c.save();c.beginPath();c.ellipse(X,Y,rx,rx*.5,0,0,7);c.lineWidth=lw+1/Z;c.strokeStyle='rgba(30,24,18,'+(.22*(1-f)).toFixed(3)+')';c.stroke();   // two strokes: dark under, light over, so the ring reads on green and on dark tiles
-    c.lineWidth=lw;c.strokeStyle=(n?'rgba(255,214,160,':'rgba(255,255,255,')+(.85*(1-f)).toFixed(3)+')';c.stroke();c.restore()}})}
+    c.lineWidth=lw;c.strokeStyle=(p.tint?'rgba('+p.tint+',':n?'rgba(255,214,160,':'rgba(255,255,255,')+(.85*(1-f)).toFixed(3)+')';c.stroke();c.restore()}})}
 /** what a hit does to the air: flash and fireball, shock ring, chunks of the building in its own colours and window glass
  *  (bigger and more of them for a big hit), sparks, a dust cloud, then smoke. gy = the ground under the hit (chunks land there) */
 var BFXN={debris:[14,24,40,64],panel:[2,4,7,12],glint:[16,28,48,80],spark:[10,16,28,44],dust:[5,8,14,22],smoke:[4,6,10,16],flash:[18,30,60,140],fire:[12,20,34,64],ring:[24,40,70,120],k:[.7,1,1.35,1.8]},
@@ -228,14 +228,14 @@ function bBigFx(x,y,gy,w,col,now){var D=BDES[w];if(!D)return;var T=BTILE,ph=vw<7
   if(!D.xl){bEmit({k:'fire',x:x,y:y-8,vx:0,vy:-24,r0:6,r1:34,life:1.1});bEmit({k:'ring',x:x,y:gy,r1:2.7*T,life:.6,bl:null});
     for(var q=0;q<Math.max(6,Math.round(16*sc));q++)bEmit({k:q%3?'smoke':'fire',x:x+(rnd(q*3+x)-.5)*6,y:gy-4-q*3.6,vx:(rnd(q)-.5)*4,vy:-14-rnd(q*2)*8,r0:3,r1:9+rnd(q)*5,al:.5,col:hn()?'70,66,70':'110,104,104',life:1.4});   // the column to 60 px
     bFlash(now,.18,140);bShake(now,3,350);BCUR=pb;return}
-  bEmit({k:'flash',x:x,y:y-10,r0:10,r1:140,life:.45});bEmit({k:'fire',x:x,y:y-10,vx:0,vy:-37,r0:10,r1:64,life:2.4});bEmit({k:'fire',x:x,y:y-6,vx:0,vy:-30,r0:14,r1:90,life:2});
+  bEmit({k:'flash',x:x,y:y-10,r0:10,r1:140,life:.45,tint:BBKCUR==='nova'?'200,180,255':undefined});bEmit({k:'fire',x:x,y:y-10,vx:0,vy:-37,r0:10,r1:64,life:2.4});bEmit({k:'fire',x:x,y:y-6,vx:0,vy:-30,r0:14,r1:90,life:2});
   bEmit({k:'ring',x:x,y:gy,r1:5.4*T,life:.9,bl:null});bEmit({k:'ring',x:x,y:gy-40,r1:2.2*T,life:.6,bl:null});
   var nk=Math.max(8,Math.round(24*sc));for(var a=0;a<nk;a++){var an=a/nk*6.283;bEmit({k:'dust',x:x+Math.cos(an)*T*.4,y:gy+Math.sin(an)*T*.2,vx:Math.cos(an)*3*T/1.3,vy:Math.sin(an)*1.5*T/1.3,r0:5,r1:16+rnd(a)*10,al:.5,col:hn()?'110,96,82':'170,150,128',life:1.5+rnd(a*3)*.4,bl:null})}   // the brown dust wall to 3 tiles
   for(var k2=0;k2<Math.round(24*sc);k2++){var ak=rnd(k2*1.9+gy)*6.283,sp=120+rnd(k2*2.7)*200;bEmit({k:'debris',x:x,y:y-4,vx:Math.cos(ak)*sp,vy:-140-rnd(k2*4.1)*200,g:gy+(rnd(k2*6)-.3)*T,rot:rnd(k2)*6,vr:(rnd(k2+.2)-.5)*18,s:1+rnd(k2*8)*3,col:k2%3?hmul(col,.6):'#3A3D47',life:2.2+rnd(k2)*1})}
   bMushroom(x,gy,ph?59:118,1);bFlash(now,.45,300);bShake(now,ph?5:7,900);BCUR=pb}
 /** the mushroom (11-17 spec): a stem of 10 puffs (6 on a phone), fire glowing inside the cap, and the cap as 28 puffs (16 phone, 12 on
  *  the world map) on a ring, lit on the far side and shaded on the near side, that spreads and thins away over ~6 s (n is ignored) */
-function bMushroom(x,gy,n,s){var ph=vw<700,lo=LODN<1,nc=lo?12:ph?16:28,ns=ph?6:10,d=!hn(),lit=d?'217,200,180':'184,168,154',shd=d?'110,98,92':'90,80,76',sm=d?'140,135,144':'163,156,152',pb=BCUR;BCUR=bBlast(x,gy,s>1.2?4:3,s>1.2?46:34);
+function bMushroom(x,gy,n,s){var ph=vw<700,lo=LODN<1,nc=lo?12:ph?16:28,ns=ph?6:10,d=!hn(),lit=d?'217,200,180':'184,168,154',shd=d?'110,98,92':'90,80,76',sm=d?'140,135,144':'163,156,152',pb=BCUR;if(BBKCUR==='nova'){lit='196,176,255';shd='92,70,160'}BCUR=bBlast(x,gy,s>1.2?4:3,s>1.2?46:34);
   for(var m=0;m<ns;m++){var fi=m%2===1;bEmit({k:fi?'fire':'smoke',x:x+(rnd(m*3+x)-.5)*14*s,y:gy-6-m*(140*s/ns),vx:0,vy:-42+m*2,r0:4*s,r1:(9+rnd(m)*4)*s,al:.3,col:sm,life:fi?1.6:2.4+rnd(m)*.4})}
   for(var q=0;q<3;q++)bEmit({k:'fire',x:x+(q-1)*23*s,y:gy-150*s+4,vx:(q-1)*4,vy:-10,r0:10*s,r1:24*s,life:1.8});
   for(var q2=0;q2<nc;q2++){var an=q2/nc*6.283+rnd(q2+x)*.3,rr=(.55+rnd(q2*2.9)*.45)*46*s,up=Math.sin(an)<0;bEmit({k:'smoke',x:x+Math.cos(an)*rr,y:gy-150*s+Math.sin(an)*rr*.45,vx:Math.cos(an)*9*s,vy:-12+Math.sin(an)*3,r0:10*s,r1:(20+rnd(q2)*10)*s,al:.34,acap:lo?.26:.34,col:up?lit:shd,life:3.5+rnd(q2*1.3)*2.5})}
@@ -465,6 +465,7 @@ function bPick(noon){var c=[];if(BDATA&&BDATA.t0!=null)c.push({t0:BDATA.t0,shots
   for(var i=0;i<c.length;i++)if(c[i].t0>noon-BDAY&&c[i].t0<=noon)return c[i];return null}
 /** each member's GitHub buildings (the repo towers in their neighborhood), tallest first (the hub's lot is a tower index), and which building a tile is */
 function bBuildings(){BBLD={};BBAT={};if(typeof GM==='undefined'||typeof tiles==='undefined')return;var own={};for(var k in GM){var g=GM[k];(g.n&&g.n.ds||[]).forEach(function(d){if(!d.estate)own[d.name]=k});BBLD[k]=[]}
+  if(typeof NBS!=='undefined')NBS.forEach(function(n){if(!n.uc||BBLD[n.key])return;n.ds.forEach(function(d){own[d.name]=n.key});BBLD[n.key]=[]});
   for(var j=0;j<=H;j++)for(var i=0;i<=W;i++){var t=tiles[i+','+j];if(!t||t.t!=='b'||!t.d||!t.r||t.r.kind)continue;var key=own[t.d.name];if(!key)continue;BBLD[key].push({i:i,j:j,r:t.r,p:iso(i,j),h:typeof bh==='function'?bh(t.r):40})}
   for(var kk in BBLD){BBLD[kk].sort(function(a,b){return (b.h-a.h)||(a.j-b.j)||(a.i-b.i)});BBLD[kk].forEach(function(b,ix){b.idx=ix;BBAT[b.i+','+b.j]={key:kk,idx:ix}})}
   BLOTS={};if(typeof gLot==='function')for(var j2=0;j2<=H;j2++)for(var i2=0;i2<=W;i2++){var t2=tiles[i2+','+j2];if(!t2||t2.t!=='L'||!GM[t2.key])continue;var g2=GM[t2.key],s2=g2.cs||gState(g2);if(t2.a>=s2.side||t2.b>=s2.side)continue;var li=gLot(t2.a,t2.b);if(!(s2.codes[li]>0))continue;(BLOTS[t2.key]=BLOTS[t2.key]||[]).push({i:i2,j:j2,li:li,p:iso(i2,j2),cd:s2.codes[li]})}}
@@ -595,23 +596,23 @@ function bDemoShots(){bBuildings();var keys=Object.keys(BBLD).filter(function(k)
     for(var k=0;k<n;k++){var d=near[k%n<n-1||near.length<2?0:1],held=k===n-1&&n>2;var w=W[i%W.length];raw.push([a,d,w,held?0:DF[w]*(k%3===1?.5:1),0,held?-1:(k+i)%Math.max(1,BBLD[d].length),held?1:0,0,DX(w,k,held)])}});
   raw.push(['~raiders',keys[0],'rocket',DF.rocket,0,0,0,0,DX('rocket',0,false)]);raw.push(['~raiders',keys[0],'rocket',DF.rocket*.5,0,1%Math.max(1,BBLD[keys[0]].length),0,0,DX('rocket',1,false)]);return raw}
 /** start a replay: today's shots (or the demo), the beats on a virtual clock from 0, the camera saved to come back to */
-function bReplayStart(mode,sp){if(BREP)bReplayEnd(false);var demo=mode==='demo',src0=demo?null:bPick(bPlan(Date.now()).dayNoon),raw=demo?bDemoShots():(src0||{shots:[]}).shots;
+function bReplayStart(mode,sp,noFull){if(BREP)bReplayEnd(false);var demo=mode==='demo',src0=demo?null:bPick(bPlan(Date.now()).dayNoon),raw=demo?bDemoShots():(src0||{shots:[]}).shots;
   if(!raw.length)return 0;bBuildings();var P=bShots(raw);if(!P.n)return 0;P.demo=demo;P.night=demo?'demo':BPLAN?BPLAN.night:'';P.live=false;P.fall=bFallOf(P,demo?null:src0&&src0.fallen);
   var R=bBeats(P.shots,0,reduce,P.fall?bFallFrame(P.fall,vw,vh):null),home={x:(vw/2-cam.x)/cam.z,y:(vh*.52-cam.y)/cam.z,z:cam.z};P.S=R.S;
   // on a phone the map takes the whole screen for the replay (Mike 11-08: "couldn't really see it"); back to the page at the end
-  var full=vw<700&&typeof cssFull==='function'&&typeof st!=='undefined'&&!st.classList.contains('c-full');if(full)cssFull(true);
+  var full=!noFull&&vw<700&&typeof cssFull==='function'&&typeof st!=='undefined'&&!st.classList.contains('c-full');if(full)cssFull(true);
   if(typeof flyStop==='function')flyStop();if(typeof INTRO!=='undefined'&&INTRO&&typeof introFinish==='function')introFinish(true);if(typeof BUILDING!=='undefined'&&BUILDING&&typeof buildDone==='function')buildDone();
-  if(sp!=null)BSPD=bSpeedOf(sp);BREP={vt:0,pt:performance.now(),sp:BSPD,pauseAt:null,P:P,R:R,home:home,demo:demo,full:full,follow:true,ease:null};BHITB=P.hit;BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;BFXT=0;bRibbonsClear();
+  if(sp!=null)BSPD=bSpeedOf(sp);BREP={vt:0,pt:performance.now(),sp:BSPD,pauseAt:null,P:P,R:R,home:home,demo:demo,full:full,follow:true,ease:null};BHITB=P.hit;BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;BFXT=0;bRibbonsClear();BWL.length=0;bWordWarm(P.shots);
   if(reduce&&typeof frame==='function'){BREP.timer=setInterval(function(){if(!BREP){return}frame()},120)}
   draw();return P.n}
 /** the replay is over (or stopped): the map goes back to the live clock and the camera flies home */
-function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.timer)clearInterval(BREP.timer);BREP=null;BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();if(BPLAN)BHITB=BPLAN.hit;
+function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.timer)clearInterval(BREP.timer);BREP=null;BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();BWL.length=0;if(BPLAN)BHITB=BPLAN.hit;
   var go=function(){if(fly&&h&&typeof flyTo==='function')flyTo(vw/2-h.x*h.z,vh*.52-h.y*h.z,h.z,reduce?1:BRT.tail);else bRedraw()};
   if(full&&typeof cssFull==='function'){cssFull(false);setTimeout(go,60)}else go()}
 /** skip to the next beat (a tap on the map, the Skip button); past the last beat: to the wide shot, then straight to the end */
 /** jump the virtual clock to a moment in ms: the flights jumped over leave their ribbons and hits, no burst of effects */
 function bJump(to){if(!BREP)return false;var now=bNow();if(to===now)return true;BREP.vt=to;BREP.pt=performance.now();var n2=bNow();
-  BREP.P.shots.forEach(function(s){if(s.rf<n2&&(!s.tr||s.tr.pts.length<8||s.ri>now||to<now))bRibbonFill(s,n2,s.sz);else if(s.rf>=n2&&s.tr)s.tr.pts.length=0});BLAST=n2;BP.length=0;BCOL.length=0;bRedraw();return true}
+  BREP.P.shots.forEach(function(s){if(s.rf<n2&&(!s.tr||s.tr.pts.length<8||s.ri>now||to<now))bRibbonFill(s,n2,s.sz);else if(s.rf>=n2&&s.tr)s.tr.pts.length=0});BLAST=n2;BP.length=0;BCOL.length=0;BWL.length=0;bRedraw();return true}
 /** step back: to the start of this strike (or the one before it when this one began under 1.5 s ago), then the pre-roll */
 function bPrev(){if(!BREP)return false;var R=BREP.R,now=bNow(),to=0;R.beats.forEach(function(b){if(b.t0<now-1500)to=Math.max(to,b.t0)});return bJump(to)}
 function bSkip(){if(!BREP)return false;var R=BREP.R,now=bNow(),to=null,st=bRepStage(R,now);
@@ -662,6 +663,81 @@ function bHitLabels(c,P,S,now){var L=bHitsNow(P,S,now);if(!L.length)return;L=L.s
     c.fillStyle='#F2F2F5';c.fillText(txt,x0+8+pw+(pw?6:0),y0+h/2+.5)});c.restore()}
 /** over the map, every frame: shields, pads with their stacks and launch centers, drops, loading, the countdown, the salvo,
  *  impacts, smoke ribbons and columns, and the counts */
+/** the Armory's word cloud (armory-design B, Mike 11-17): a custom bomb carries a word that rises over its hit in the replay as a
+ *  3D cloud of letters. One cached sprite per word and type (LRU 16), at most 8 live words, and a minimum on-screen size at every zoom. */
+var BBK={
+ sparkler:   {face:['#FFF4C8','#FFD24A'],shade:'#7A4E0A',puff:'255,214,120',glow:'255,210,74', H:20,rise:46,base:18,life:4400,delay:220,mn:18},
+ thunderbolt:{face:['#FFFFFF','#BFE6FF'],shade:'#23447A',puff:'176,214,255',glow:'159,216,255',H:23,rise:54,base:22,life:4600,delay:200,mn:20},
+ inferno:    {face:['#FFE2B0','#FF8A2A'],shade:'#5E1A06',puff:'255,140,64', glow:'255,122,31', H:28,rise:64,base:34,life:5000,delay:380,mn:24},
+ nova:       {face:['#F1EBFF','#B9A6FF'],shade:'#2E1F70',puff:'176,150,255',glow:'139,108,246',H:34,rise:40,base:178,life:6200,delay:650,mn:28}
+};
+var BWSP=new Map(),BWL=[],BBKCUR=null,BWFONT=false;
+function spGlowC(rgb){return bSpr('glowc'+rgb,64,64,function(g){g.fillStyle=bRad(g,32,32,32,[[0,'rgba('+rgb+',.9)'],[.5,'rgba('+rgb+',.3)'],[1,'rgba('+rgb+',0)']]);g.fillRect(0,0,64,64)})}
+function spWord(word,k){var key=k+':'+word,S=BWSP.get(key);if(S){BWSP.delete(key);BWSP.set(key,S);return S}
+  var B=BBK[k]||BBK.sparkler,F=vw<700?56:72,font='700 '+F+'px "IBM Plex Sans", system-ui, sans-serif',m=document.createElement('canvas').getContext('2d');
+  var tw=24,th=F*.74;if(m){m.font=font;try{m.letterSpacing='0.04em'}catch(e){}var mw=m.measureText(word);tw=Math.max(F*.5,mw&&mw.width||word.length*F*.62)}
+  var pad=Math.round(F*.42),dp=Math.round(F*.12),W=Math.ceil(tw+2*pad+dp),Hs=Math.ceil(th+2*pad+dp),bx=pad,by=pad+th,st=Math.max(4,Math.round(F/14)),hs=hash(word),edge=[],inner=[];
+  var mk=document.createElement('canvas');mk.width=W;mk.height=Hs;var mg=mk.getContext('2d');
+  if(mg){mg.font=font;try{mg.letterSpacing='0.04em'}catch(e){}mg.fillStyle='#fff';mg.fillText(word,bx,by);var id=null;try{id=mg.getImageData(0,0,W,Hs)}catch(e){}
+    if(id&&id.data){var A=function(x,y){return x<0||y<0||x>=W||y>=Hs?0:id.data[(y*W+x)*4+3]>120};var ins=[];
+      for(var y=0;y<Hs;y+=st)for(var x=0;x<W;x+=st)if(A(x,y)){if(!A(x-st,y)||!A(x+st,y)||!A(x,y-st)||!A(x,y+st))edge.push([x,y]);else ins.push([x,y])}
+      while(edge.length>220)edge=edge.filter(function(p,i){return i%2===0});for(var q=0;q<40&&ins.length;q++)inner.push(ins[Math.floor(rnd(q+hs)*ins.length)])}}
+  if(!edge.length)for(var e2=0;e2<12;e2++)edge.push([bx+tw*e2/11,e2%2?by:by-th]);
+  var cv=document.createElement('canvas');cv.width=W;cv.height=Hs;var g=cv.getContext('2d');
+  if(g){var pf=function(col,al,r,x,y){g.globalAlpha=al;g.drawImage(spPuff(col),x-r,y-r,2*r,2*r)};var shRGB=hrgb(B.shade);
+    edge.forEach(function(p,i){pf(shRGB,.55,st*1.9*(.8+.4*rnd(i+hs)),p[0]+dp*.8,p[1]+dp)});g.globalAlpha=1;g.font=font;try{g.letterSpacing='0.04em'}catch(e){}
+    g.fillStyle=B.shade;for(var d=dp;d>=1;d--)g.fillText(word,bx+d*.55,by+d*.85);
+    var gr=g.createLinearGradient(0,by-th,0,by);gr.addColorStop(0,B.face[0]);gr.addColorStop(1,B.face[1]);g.fillStyle=gr;g.fillText(word,bx,by);
+    edge.forEach(function(p,i){pf(B.puff,.42,st*1.5*(.8+.4*rnd(i*3+hs)),p[0],p[1])});
+    inner.forEach(function(p){pf('255,255,255',.18,st*1.2,p[0],p[1])});
+    edge.forEach(function(p){if(p[1]<pad+th*.45)pf('255,255,255',.28,st*1.1,p[0]-1,p[1]-1)});g.globalAlpha=1}
+  S={c:cv,w:W,h:Hs,tw:tw,th:th,pad:pad,edge:edge};BWSP.set(key,S);if(BWSP.size>16)BWSP.delete(BWSP.keys().next().value);return S}
+function hrgb(h){var v=parseInt(String(h).slice(1),16);return ((v>>16)&255)+','+((v>>8)&255)+','+(v&255)}
+function bWordK(e){var B=BBK[e.k];if(e.z===cam.z&&e.w===vw)return e.K;e.z=cam.z;e.w=vw;
+  var ph=vw<700,mn=B.mn*(ph?.85:1),mx=Math.max(mn,Math.min(ph?64:96,vh*.12)),hs=B.H*cam.z,ws=hs*(e.sw/e.sh),K=Math.min(Math.max(hs,mn),mx)/hs;
+  if(ws*K>vw*.8)K=vw*.8/ws;e.K=Math.min(24,K);return e.K}
+function bWordWarm(shots){var L=(shots||[]).filter(function(s){return s.x&&s.x.bk&&s.x.word&&BBK[s.x.bk]}).slice(0,16);if(!L.length)return;
+  if(!BWFONT){BWFONT=true;try{document.fonts&&document.fonts.load('700 72px "IBM Plex Sans"')}catch(e){}}
+  var i=0,go=function(){if(i>=L.length||!BREP)return;var s=L[i++];spWord(s.x.word,s.x.bk);(window.requestIdleCallback||function(f){return setTimeout(f,16)})(go)};go()}
+function bWordAdd(s,iA){var B=BBK[s.x.bk];if(!B||!s.x.word||!s.to)return;var gy=s.b&&!s.blocked?bGround(s).y:s.to.y+(s.blocked?30:0),S=spWord(s.x.word,s.x.bk),t0=iA+B.delay;
+  if(BWL.length>=8){var o=BWL[0];o.t0=Math.min(o.t0,t0-(BBK[o.k].life-300))}
+  var slot=0;BWL.forEach(function(o){if(Math.abs(o.x-s.to.x)<60&&t0<o.t0+BBK[o.k].life)slot=Math.max(slot,o.slot+1)});
+  BWL.push({x:s.to.x,gy:gy,k:s.x.bk,s:s,t0:t0,iA:iA,seed:hash(s.x.word)%1000,slot:slot,dir:rnd(hash(s.x.word))<.5?-1:1,sw:S.w,sh:S.th,z:-1,w:-1,K:1,fb:-1,broke:false});
+  if(BWL.length>9)BWL.shift()}
+function bBombFx(s,iA,now){var k=s.x.bk,x=s.to.x,y=s.to.y,gy=s.b?bGround(s).y:y+30,lo=LODN<1,ph=vw<700,pb=BCUR;bWordAdd(s,iA);if(reduce||s.blocked)return;BCUR=null;
+  if(k==='sparkler'){var n=lo?6:ph?10:18;for(var i=0;i<n;i++){var sg=rnd(i+x)<.5?-1:1;bEmit({k:'spark',x:x,y:y-4,vx:sg*(30+rnd(i*3+y)*60),vy:-(120+rnd(i*7)*100),g:gy+4,rot:0,vr:0,life:.7+rnd(i*5)*.4,bl:null})}}
+  else if(k==='thunderbolt'){bEmit({k:'flash',x:x,y:y-6,r0:6,r1:BFXN.flash[1]*1.4,life:.28,tint:'190,225,255',bl:null});bFlash(now,.12,120)}
+  else if(k==='inferno'){for(var f=-1;f<=1;f+=2)bEmit({k:'fire',x:x+f*.4*34,y:y-6,vx:0,vy:-20,r0:6,r1:40,life:1.3,bl:null});
+    for(var j=0;j<10;j++)bEmit({k:'spark',x:x+(rnd(j+x)-.5)*30,y:y-6,vx:(rnd(j*3)-.5)*30,vy:-(20+rnd(j*7)*20),g:gy+4,rot:0,vr:0,life:1.6,bl:null})}
+  else if(k==='nova')bEmit({k:'ring',x:x,y:gy,r1:6.4*BTILE,life:1.1,bl:null,tint:'185,166,255'});
+  BCUR=pb}
+function bBolt(c,x0,y0,x1,y1,seg,jit,seed){var pts=[[x0,y0]];for(var i=1;i<seg;i++){var u=i/seg;pts.push([x0+(x1-x0)*u+(rnd(seed+i*3.1)-.5)*2*jit,y0+(y1-y0)*u+(rnd(seed+i*5.7)-.5)*jit])}pts.push([x1,y1]);
+  c.save();c.globalCompositeOperation='lighter';[[3,.25,'159,216,255'],[1,.95,'220,240,255']].forEach(function(p){c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(var j=1;j<pts.length;j++)c.lineTo(pts[j][0],pts[j][1]);c.lineWidth=Math.max(1.6,2/cam.z)*p[0];c.strokeStyle='rgba('+p[2]+','+p[1]+')';c.stroke()});c.restore()}
+function bDrawWords(c,now){if(!BWL.length)return;if(!BREP||now==null){BWL.length=0;return}var n=hn(),lo=LODN<1,rate=lo?.25:vw<700?.5:1;
+  for(var i=BWL.length-1;i>=0;i--){var e=BWL[i],B=BBK[e.k],ms=now-e.t0,ims=now-e.iA;if(ms>=B.life){BWL.splice(i,1);continue}
+    if(e.k==='thunderbolt'&&!reduce&&!e.s.blocked&&ims>=0&&ims<140)for(var b=0;b<3;b++)bBolt(c,e.x+(rnd(e.seed+b)-.5)*60,e.gy-160,e.x,e.gy-4,7,8,e.seed+b*11);
+    if(ms<0)continue;
+    var word=e.s.x.word,S=spWord(word,e.k);if(S.w!==e.sw){e.sw=S.w;e.sh=S.th;e.z=-1}
+    var u=Math.min(1,ms/B.life),K=bWordK(e),sc,al,dis=B.life-1600;
+    if(reduce){sc=1;al=ms<300?ms/300:ms>B.life-600?(B.life-ms)/600:1}
+    else if(ms<450){var v=ms/450;sc=.62+.38*(1-Math.pow(1-v,3))+.04*Math.sin(v*Math.PI);al=1-(1-v)*(1-v)}
+    else if(ms<dis){sc=1+.04*(ms-450)/Math.max(1,dis-450);al=1}
+    else{var v2=(ms-dis)/1600;sc=1.04+.1*v2;al=Math.pow(1-v2,1.4)}
+    var Hd=B.H*K*sc,dh=Hd/S.th*S.h,dw=dh*S.w/S.h,rise=B.rise*K*(reduce?1:1-Math.pow(1-u,2.2));
+    var X=e.x+(reduce?0:6*u*e.dir+1.2*Math.sin(ms*.0016+e.seed)),Y=e.gy-(B.base*K+rise)-e.slot*1.15*B.H*K,ox=X-dw/2,oy=Y-dh,mx=dw/S.w,my=dh/S.h;
+    var ep=function(j){var p=S.edge[Math.floor(j)%S.edge.length];return [ox+p[0]*mx,oy+p[1]*my]};
+    var live=!reduce&&ms<dis,fl=1;
+    if(e.k==='inferno'&&!reduce){c.save();c.globalCompositeOperation='lighter';c.globalAlpha=al*(.3+.1*Math.sin(ms*.006));c.drawImage(spFire(false),X-dw*.55,Y-dh*.6,dw*1.1,dh*.7);c.restore()}
+    if(e.k==='thunderbolt'&&live&&ms>300){var bk=Math.floor(ms/260);if(ms-bk*260<90){fl=.82;var a=ep(rnd(bk+e.seed)*S.edge.length),q=ep(rnd(bk*7+e.seed)*S.edge.length),dx=Math.abs(a[0]-q[0]);if(dx>.25*dw&&dx<.7*dw)bBolt(c,a[0],a[1],q[0],q[1],5,.25*Hd,bk+e.seed)}}
+    c.globalAlpha=al*fl;c.drawImage(S.c,ox,oy,dw,dh);
+    if(n||e.k!=='sparkler'){c.globalCompositeOperation='lighter';c.globalAlpha=al*(n?.32:.16);c.drawImage(spGlowC(B.glow),X-dw*.6,Y-dh*1.05,dw*1.2,dh*1.1);c.globalCompositeOperation='source-over'}
+    c.globalAlpha=1;
+    if(e.k==='nova'&&!reduce)[0,1200].forEach(function(t){var f=(ms-t)/1100;if(f<0||f>=1)return;var ee=1-Math.pow(1-f,3),rx=dw*(.6+.9*ee);c.save();c.beginPath();c.ellipse(X,Y,rx,rx*.5,0,0,7);
+      c.lineWidth=Math.max(1.5,2.5/cam.z)+1/cam.z;c.strokeStyle='rgba(30,24,18,'+(.22*(1-f)).toFixed(3)+')';c.stroke();c.lineWidth=Math.max(1.5,2.5/cam.z);c.strokeStyle='rgba(185,166,255,'+(.8*(1-f)).toFixed(3)+')';c.stroke();c.restore()});
+    if(live){var per=e.k==='sparkler'?140:e.k==='inferno'?120:0;if(per){var bb=Math.floor(ms/per);if(bb>e.fb){e.fb=bb;if(rnd(bb+e.seed*.37)<rate){
+      if(e.k==='sparkler')for(var m=0;m<2;m++){var p0=ep(rnd(bb*3+m+e.seed)*S.edge.length);bEmit({k:'spark',x:p0[0],y:p0[1],vx:(rnd(bb+m)-.5)*40,vy:-(30+rnd(bb*5+m)*30),g:Y+40*K,rot:0,vr:0,life:.45,bl:null})}
+      else{var p1=ep(rnd(bb*3+e.seed)*S.edge.length);bEmit({k:'spark',x:p1[0],y:Y-dh*.25,vx:(rnd(bb)-.5)*10,vy:-25,g:Y+60*K,rot:0,vr:0,life:1.2,bl:null})}}}}}
+    if(!reduce&&ms>=dis&&!e.broke){e.broke=true;var nb=e.k==='nova'?8:6;for(var z=0;z<nb;z++){var pz=ep(z/nb*S.edge.length);bEmit({k:'smoke',x:pz[0],y:pz[1],vx:0,vy:-8,r0:4,r1:Hd*.9,al:.32,col:B.puff,life:1.8,bl:null})}}}}
 function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,tn=performance.now(),P=bPlan(Date.now()),S=bS(),now=bNow();bClock(now);P=bPlan(Date.now());S=bS();now=bNow();var dt=battleOver.tp?Math.min(.05,(tn-battleOver.tp)/1000):0;battleOver.tp=tn;
   if(BREP){if(typeof INTRO!=='undefined'&&INTRO&&typeof introFinish==='function')introFinish(true);if(typeof BUILDING!=='undefined'&&BUILDING&&typeof buildDone==='function')buildDone()}   // the city intro and new-land builds never run over a replay
   var rep=!!BREP,paused=rep&&BREP.pauseAt!=null,fx=BLAST>0&&now-BLAST<5000,last=BLAST;BLAST=now;BPMAX=bPoolMax();if(!rep&&(now-BSAVED>2000||BSAVED===0))bStateSync(P,now);
@@ -689,7 +765,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
   bDrawRibbons(c,now,!rep);
   // missiles in flight and their hits (also for raiders, who fire from the sea with no pad)
   P.shots.forEach(function(s){if(!s.from||!s.to)return;var fA=bFireOf(S,s),dur=bFlightOf(S,s),iA=fA+dur,sz=BSZ[s.w]||1;
-    if(bBetween(iA,last,now)){if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.b&&!s.blocked&&!reduce){if(s.sh>0)bShieldFx(s.to.x,s.to.y-26,'#3DF2FF');bImpactFx(s.to.x,s.to.y+(s.to.miss?0:4),bCol(s.d),0,s.b.p.y+4,s.w,s.sh||0);bShatterFor(s,iA);if(BDES[s.w])bBigFx(s.to.x,s.to.y,bGround(s).y,s.w,bCol(s.d),rep?now:null);else if(rep&&BCLS[s.w]===1)bShake(now,1.2,160)}else if(fx&&!reduce){bShieldFx(s.to.x,s.to.y,'#3DF2FF');bImpactFx(s.to.x,s.to.y,'#8A8A93',0,s.to.y+30,'shell',.75)}if(!(s.f>0)||s.sh>0)BDOME[s.d]=tn;if(s.b&&!s.blocked)bRedraw()}   // a shot the dome held whole breaks up on it: sparks and its own fragments
+    if(bBetween(iA,last,now)){BBKCUR=rep&&s.x&&s.x.bk&&BBK[s.x.bk]?s.x.bk:null;if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.b&&!s.blocked&&!reduce){if(s.sh>0)bShieldFx(s.to.x,s.to.y-26,'#3DF2FF');bImpactFx(s.to.x,s.to.y+(s.to.miss?0:4),bCol(s.d),0,s.b.p.y+4,s.w,s.sh||0);bShatterFor(s,iA);if(BDES[s.w])bBigFx(s.to.x,s.to.y,bGround(s).y,s.w,bCol(s.d),rep?now:null);else if(rep&&BCLS[s.w]===1)bShake(now,1.2,160)}else if(fx&&!reduce){bShieldFx(s.to.x,s.to.y,'#3DF2FF');bImpactFx(s.to.x,s.to.y,'#8A8A93',0,s.to.y+30,'shell',.75)}if(BBKCUR&&fx)bBombFx(s,iA,now);BBKCUR=null;if(!(s.f>0)||s.sh>0)BDOME[s.d]=tn;if(s.b&&!s.blocked)bRedraw()}   // a shot the dome held whole breaks up on it: sparks and its own fragments
     if(s.a.charAt(0)!=='@'&&fx&&bBetween(fA,last,now)){if(rep)bLaunchFxBig(s.from.x,s.from.y,-1);else bLaunchFx(s.from.x,s.from.y,-1)}
     if(now>=fA&&now<iA&&BL.attacks&&(inView(s.from)||inView(s.to)||rep)){var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-fA)/dur);bMissileFly(c,tr,sz,bCol(s.a),tn);
       if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz,tr.gy)}});
@@ -698,7 +774,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
     if(v.b){if(!inView(v.b.p))return;var hv=v.b.h*(1-.4*Math.min(1,v.v));bImpactFx(v.b.p.x,v.b.p.y+4-hv,bCol(v.d),.3+v.v,v.b.p.y+4);bShatterFor(v,iv,Math.round(bVoxMax()/3))}
     else if(v.lot&&inView(v.lot.p)){bRedraw();for(var k=0;k<4;k++)bEmit({k:'dust',x:v.lot.p.x+(rnd(k+v.lot.li)-.5)*20,y:v.lot.p.y+2,vx:(rnd(k*3)-.5)*20,vy:-5,r0:3,r1:14,al:.45,col:hn()?'110,100,90':'175,165,150',life:1.8});for(var k2=0;k2<6;k2++)bEmit({k:'debris',x:v.lot.p.x,y:v.lot.p.y-6,vx:(rnd(k2*1.3+v.lot.li)-.5)*90,vy:-60-rnd(k2)*60,g:v.lot.p.y+6,rot:k2,vr:4,s:1+rnd(k2*2)*1.6,col:hmul(bCol(v.d),.7),life:1.4})}});
   var FP=BL.damage?bFP():null;if(FP&&S.zf!=null&&now>=S.zf0-2600)bFallOver(c,FP.fall,S,now,last,fx,tn,rep);
-  if(dt>0&&!paused){var spd=rep?BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);
+  if(dt>0&&!paused){var spd=rep?BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);bDrawWords(c,rep?now:null);
   // fire and smoke (Mike 11-13): every hit tower burns. Flames die down as e^(-t/tau), the plume drifts downwind and thins more
   // slowly; once the cranes start it only smoulders, and stops when the rebuild is under way. Street craters mark the misses.
   if(BL.damage){var nSm=0,fq=0,tau=bTau(S),wind=bWind(P),ra=1-bRebuild();
@@ -731,7 +807,7 @@ window.CALDERA_BATTLE_API={
   view:function(on,data){BON=!!on;if(data)BDATA=data;if(!on&&BREP)bReplayEnd(false);bIndex();if(!on){BP.length=0;bRibbonsClear()}draw()},
   layers:function(o){for(var k in o)if(k in BL)BL[k]=!!o[k];draw()},
   /** the cinematic replay of today's shots ('demo': a sample battle between the biggest cities). Returns the missile count */
-  replay:function(mode,o){return bReplayStart(mode,o&&o.speed)},
+  replay:function(mode,o){return bReplayStart(mode,o&&o.speed,o&&o.auto)},   // auto (a ?replay link on load): never full screen; only a tap does (Mike 11-17)
   stop:function(){if(BREP)bReplayEnd(true)},
   skip:function(){return bSkip()},
   next:function(){return bSkip()},
