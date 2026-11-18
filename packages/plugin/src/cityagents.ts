@@ -110,5 +110,5 @@ function drawAgents(c,tn){var ids=Object.keys(AG);if(!ids.length)return;var lay=
     if(st==='thinking'&&!reduce&&!micro){var ta=tn/143;c.fillStyle=col;for(var di=0;di<3;di++){var an=ta+di*.55,dsz=di===2?1:.5;c.globalAlpha=f*(.9-di*.2);c.fillRect(sx+Math.cos(an)*5.5-dsz/2,sy+Math.sin(an)*2.5-dsz/2,dsz,dsz)}c.globalAlpha=f}   // thought dots on an 11x5 texel orbit
     g.sx=g.x*cam.z+cam.x;g.sy=g.y*cam.z+cam.y;
     if(labels&&sp.mode!=='dock'&&(cam.z>.55||ids.length<=8)&&(sp.pill||sp.mode==='hold'&&false)){var pk=g.b?g.b.i+','+g.b.j:id;pills.push({x:sx,y:sy-9,ids:g.b?lay.groups&&Object.keys(AG).filter(function(o){return AG[o].b===g.b&&!AG[o].gone}):[id],col:col})}});
-  c.globalAlpha=1;pills.forEach(function(p){var t=agentPillText(p.ids);if(t)pxPill(c,p.x,p.y,t,p.col)});c.restore()}
+  c.globalAlpha=1;if(typeof UIDRAWN!=='undefined')UIDRAWN.ag=[];pills.forEach(function(p){var t=agentPillText(p.ids);if(!t)return;c.font='600 9px ui-monospace,monospace';var w=Math.ceil(c.measureText(t).width)+18;if(typeof uiBlocked==='function'&&uiBlocked([p.x-w/2,p.y-13,p.x+w/2,p.y]))return;if(typeof UIDRAWN!=='undefined')UIDRAWN.ag.push([p.x-w/2,p.y-13,p.x+w/2,p.y]);pxPill(c,p.x,p.y,t,p.col)});c.restore()}
 `;

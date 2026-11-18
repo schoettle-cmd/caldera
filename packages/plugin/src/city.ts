@@ -1075,11 +1075,15 @@ function tronObjects(){SIGNS=[];CLAB=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.c
   drawSigns()}
 // labels never sit on top of each other: district names and the live counts are placed first, then the selected repo,
 // then repo names by size; a repo name that would overlap one already placed waits until you zoom in far enough to fit
-function fitLabels(c,tags,fT,blk,fB,drawTag,drawBlk){var placed=[],box=function(x,y,t,f){c.font=f;var w=c.measureText(t).width+14;return [x-w/2-2,y-19,x+w/2+2,y+5]},
+// a label or agent tag in world px [x0,y0,x1,y1] must not sit under the toolbar chips or past the frame edge (MB 11-18): hide it
+var UIDRAWN={lab:[],ag:[]};
+function uiBlocked(q){if(typeof st==='undefined'||!st||typeof cam==='undefined')return false;var z=cam.z,sx0=cam.x+q[0]*z,sx1=cam.x+q[2]*z,sy0=cam.y+q[1]*z,sy1=cam.y+q[3]*z;
+  if(sx0<2||sy0<2||sx1>vw-2||sy1>vh-2)return true;if(MINI)return false;var R=controlRects();for(var i=0;i<R.length;i++){var o=R[i];if(sx0<o.x1+4&&sx1>o.x0-4&&sy0<o.y1+4&&sy1>o.y0-4)return true}return false}
+function fitLabels(c,tags,fT,blk,fB,drawTag,drawBlk){UIDRAWN.lab=[];var placed=[],box=function(x,y,t,f){c.font=f;var w=c.measureText(t).width+14;return [x-w/2-2,y-19,x+w/2+2,y+5]},
   hit=function(q){for(var i=0;i<placed.length;i++){var o=placed[i];if(q[0]<o[2]&&q[2]>o[0]&&q[1]<o[3]&&q[3]>o[1])return true}return false};
   if(LV.mode==='private')Object.keys(LV.d).forEach(function(k){var b=byName[k],x=LV.d[k];if(b&&x&&x.now>0){var f=iso(b.x+b.k,b.y+b.k);placed.push(box(f.x,f.y+18,'\u25CF '+x.now+' live','600 10px ui-monospace,monospace'))}});
-  blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),q=blk({x:p2[0],y:p2[1]+22,d:b.d});placed.push(box(q.x,q.y,q.text,fB));drawBlk(b,q)});
-  tags.slice().sort(function(a,b){return (b.r===sel)-(a.r===sel)||((b.r&&+b.r.commits)||0)-((a.r&&+a.r.commits)||0)}).forEach(function(g){var q=box(g.x,g.y,g.text,fT);if(g.r!==sel&&hit(q))return;placed.push(q);drawTag(g)})}
+  blocks.forEach(function(b){var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),q=blk({x:p2[0],y:p2[1]+22,d:b.d});var bq=box(q.x,q.y,q.text,fB);if(uiBlocked(bq))return;placed.push(bq);UIDRAWN.lab.push(bq);drawBlk(b,q)});
+  tags.slice().sort(function(a,b){return (b.r===sel)-(a.r===sel)||((b.r&&+b.r.commits)||0)-((a.r&&+a.r.commits)||0)}).forEach(function(g){var q=box(g.x,g.y,g.text,fT);if(uiBlocked(q)||g.r!==sel&&hit(q))return;placed.push(q);UIDRAWN.lab.push(q);drawTag(g)})}
 function tronPill(c,x,y,text,col,font){c.font=font;var tw=c.measureText(text).width,w=tw+14,h=17;c.fillStyle='rgba(2,6,12,.88)';poly(c,[[x-w/2,y-h],[x+w/2,y-h],[x+w/2,y],[x+3,y],[x,y+4],[x-3,y],[x-w/2,y]]);c.fill();
   glowLine(c,[[x-w/2,y-h],[x+w/2,y-h],[x+w/2,y],[x+3,y],[x,y+4],[x-3,y],[x-w/2,y]],col,1,6,true);c.fillStyle=col;c.textAlign='center';c.textBaseline='middle';c.fillText(text,x,y-h/2+.5);c.textBaseline='alphabetic'}
 function rgb(hex){var n=parseInt(hex.slice(1),16);return [n>>16,n>>8&255,n&255]}
@@ -1682,6 +1686,7 @@ function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.
 if(/[#&]test\b/.test(location.hash))window.calderaTest={   // #test: hit boxes in page coordinates, for automated checks
   life:function(){var c=lifeCounts();c.peds=LIFE.peds.filter(function(p){return !p.gone}).length;c.vehicles={};cars.forEach(function(v){if(v.gone)return;var k=v.kind||'car';c.vehicles[k]=(c.vehicles[k]||0)+1});c.legend=LEG.on;return c},
   signs:function(){var b=st.getBoundingClientRect();return SHITS.map(function(h){var k=h.card;return {name:h.r.name,group:h.group,keys:h.keys,count:h.count,box:[b.left+h.x0,b.top+h.y0,b.left+h.x1,b.top+h.y1],x:b.left+(h.x0+h.x1)/2,y:b.top+(h.y0+h.y1)/2,w:h.x1-h.x0,h:h.y1-h.y0,card:[b.left+k[0],b.top+k[1],b.left+k[2],b.top+k[3]]}})},
+  uiBoxes:function(){var b=st.getBoundingClientRect(),P=function(q){return {x0:b.left+cam.x+q[0]*cam.z,y0:b.top+cam.y+q[1]*cam.z,x1:b.left+cam.x+q[2]*cam.z,y1:b.top+cam.y+q[3]*cam.z}};return {labels:UIDRAWN.lab.map(P),agents:UIDRAWN.ag.map(P),frame:{x0:b.left,y0:b.top,x1:b.right,y1:b.bottom}}},   // drawn label and agent tag boxes, for the overlay probe
   signCounts:function(){storeGroups();return {groups:SKEYS.length,shown:SHITS.length,stores:storeList(null).length,counted:SHITS.reduce(function(a,h){return a+h.count},0)}},
   pos:function(){var b=st.getBoundingClientRect(),S=function(x,y){return [Math.round(b.left+cam.x+x*cam.z),Math.round(b.top+cam.y+y*cam.z)]};return {z:cam.z,nbs:Object.keys(NBM),steam:STEAM.map(function(k){return S(k.x,k.y)}),crews:CREWS.map(function(k){return S(k.x,k.y)}),agents:(function(){var lay=agentLayout(performance.now());return Object.keys(AG).map(function(k){var g=AG[k],sp=lay.spots[k];return {id:k,st:g.a&&g.a.state,b:g.b&&g.b.r?g.b.r.name:null,sp:sp?[sp.mode,Math.round(sp.x),Math.round(sp.y)]:null,at:S(g.x,g.y)}})})(),peds:LIFE.peds.filter(function(p){return !p.gone}).slice(0,6).map(function(p){return [p.k].concat(S(p.x,p.y))})}},   // where the living-city elements are, for the harness
   cranes:function(){var b=st.getBoundingClientRect();return cranes.map(function(k){return {x:b.left+cam.x+k.x*cam.z,y:b.top+cam.y+(k.y-30)*cam.z}})},
