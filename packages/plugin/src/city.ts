@@ -1687,7 +1687,7 @@ cv.addEventListener('pointermove',function(ev){var p=ptr[ev.pointerId];if(!p)ret
   if(ks.length===2){var o=ptr[ks[0]===String(ev.pointerId)?ks[1]:ks[0]];var dist=Math.hypot(ev.clientX-o.x,ev.clientY-o.y);if(pinch){var r=st.getBoundingClientRect();zoom(dist/pinch,(ev.clientX+o.x)/2-r.left,(ev.clientY+o.y)/2-r.top)}pinch=dist;moved=true}
   else{var dx=ev.clientX-p.x,dy=ev.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;cam.x+=dx;cam.y+=dy;if(BON){bClampPan();if(moved)bUserCam()}}   // the Battle view: the map stays on screen; a drag takes the camera from a replay (Follow gives it back)
   p.x=ev.clientX;p.y=ev.clientY;draw()});
-function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){if(BON&&BREP){bSkip();return}   // a tap during a battle replay: next strike
+function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){if(BON&&BREP)return;   // a tap during a battle replay does nothing (Mike 11-20: Next or the right arrow skips, never a stray tap)
   var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
   if(h&&h.shop)return shopCard();
   if(h&&h.group){if(MINI)return openRepo(repoUrl(h.r));return storeDir(h.count===1?h.r:null,h.keys,false,SBTN[h.group])}   // a store marker: the panel lists every store there (the pop-out has no room: the top store)

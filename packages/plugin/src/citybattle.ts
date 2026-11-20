@@ -330,8 +330,10 @@ function ruinHi(c,px,top,w,col,d,reb){var n=hn(),hw=TW/2*w,hh=TH/2*w,dk=n?'#1A1D
 // Pace (Mike 11-08: "animation sequence moves too fast on battle"): every beat timing is 2.5x what it was (a shot's flight was 1.3 to 2.0 s,
 // it is now 3.25 to 5.0 s), and the camera holds 450 ms on each hit (it was 900 ms on the last hit of a beat and nothing between). All
 // of these are ms at 1x; the replay clock runs at 0.5x, 1x or 2x of them (bRealMs).
-var BRT={pre:1250,approach:2375,first:875,ripple:700,step:175,hold:450,zoomIn:250,beatMax:9625,wide:3200,tail:1600,total:20000,rebMin:5500,flMin:3250,flCap:5000};
-function bRepFlight(d){return BRT.flMin+Math.min(1750,(d||300)*1.375)}
+// Mike 11-20 ("it moves so fast, I can't even track it"), map-audit DESIGN item 1: a two-shot of pad and target, a 700 ms ready
+// hold, hits 350 ms apart, flights 4.2-6.5 s, an 1.8 s hold on the hit, at most 6 full strikes (the rest play as one montage)
+var BRT={approach:2300,pre:12e2,establish:1600,first:875,ripple:1400,step:350,hold:1800,zoomIn:400,beatMax:12500,wide:4000,tail:1600,total:20000,rebMin:5500,flMin:4200,flCap:6500,maxBeats:6,montage:6000};
+function bRepFlight(d){return BRT.flMin+Math.min(BRT.flCap-BRT.flMin,(d||300)*1.5)}
 // ---- replay speed: the clock runs at one of these times the 1x timings (pure helpers, tested)
 var BSPEEDS=[.5,1,2];
 function bSpeedOf(v){v=+v;return BSPEEDS.indexOf(v)>=0?v:1}
@@ -353,11 +355,16 @@ function bClampPan(){var c=bClampCam(cam,vw,vh,bMapBounds());cam.x=c.x;cam.y=c.y
  *  {beats, S (a schedule for bHitDmg and bRebuild), total ms}. now0 = the virtual start (0 on the renderer's replay clock) */
 function bBeats(shots,now0,reduce,FF){var by={},keys=[];shots.forEach(function(s){if(!by[s.a]){by[s.a]=[];keys.push(s.a)}by[s.a].push(s)});
   keys.sort(function(a,b){var ra=a.charAt(0)!=='@',rb=b.charAt(0)!=='@';if(ra!==rb)return ra?1:-1;var d=by[b].length-by[a].length;return d||(a<b?-1:a>b?1:0)});
+  var rest=keys.length>BRT.maxBeats?keys.slice(BRT.maxBeats):[];if(rest.length)keys=keys.slice(0,BRT.maxBeats);
   var t=now0+BRT.pre,beats=[];keys.forEach(function(k,i){var L=by[k],n=L.length,ap=reduce?400:BRT.approach+(i?0:BRT.first),step=n>1?Math.min(BRT.step,BRT.ripple/(n-1)):0,launch=t+ap,lastHit=launch;
     L.forEach(function(s,j){s.rf=launch+j*step;s.fl=Math.min(BRT.flCap,bRepFlight(s.dist));s.ri=s.rf+s.fl;if(s.ri>lastHit)lastHit=s.ri});
     var end=Math.min(t+BRT.beatMax+(i?0:BRT.first),lastHit+BRT.hold);var tg={};L.forEach(function(s){tg[s.d]=(tg[s.d]||0)+1});var d=Object.keys(tg).sort(function(p,q){return tg[q]-tg[p]});
     var lead=L[0];for(var q=0;q<L.length;q++)if(L[q].f>0&&L[q].b){lead=L[q];break}   // the camera follows a missile that lands, not one a shield holds
     beats.push({i:i,a:k,d:lead.d,targets:d,shots:L,n:n,t0:t,launch:launch,hit:lastHit,end:end,lead:lead,raid:k.charAt(0)!=='@'});t=end});
+  if(rest.length){var M=[];rest.forEach(function(k){M=M.concat(by[k])});var mn=M.length,ml=t+(reduce?400:1000),mst=mn>1?Math.min(BRT.step,1500/(mn-1)):0,mh=ml;   // the montage: every other strike at once, one wide shot, about 6 s
+    M.forEach(function(s,j){s.rf=ml+j*mst;s.fl=Math.min(3500,bRepFlight(s.dist));s.ri=s.rf+s.fl;if(s.ri>mh)mh=s.ri});
+    var ml2=M[0];for(var q2=0;q2<M.length;q2++)if(M[q2].f>0&&M[q2].b){ml2=M[q2];break}var tg2={};M.forEach(function(s){tg2[s.d]=(tg2[s.d]||0)+1});
+    var me2=Math.min(t+BRT.montage+1000,mh+600);beats.push({i:beats.length,a:ml2.a,d:ml2.d,targets:Object.keys(tg2),shots:M,n:mn,t0:t,launch:ml,hit:mh,end:me2,lead:ml2,raid:false,montage:true,cities:rest.length});t=me2}
   var fall0=FF?t:null,wide=FF?t+(reduce?BFL.hit+1800:BFL.len):t,hold=wide+BRT.wide,reb=Math.max(BRT.rebMin,BRT.total-(hold-now0)-BRT.tail),end=hold+reb;   // 11-14: the fall, between the last strike and the wide shot
   return {beats:beats,by:by,shots:shots,F:FF||null,total:end+BRT.tail-now0,S:{D:now0,live:false,rep:true,drop:now0,dropStep:0,fall:0,zf0:fall0,zf:FF?fall0+(reduce?400:BFL.hit):null,load0:now0,load1:now0,loadDur:0,count:beats.length?beats[0].launch:now0,salvo:beats.length?beats[0].launch:now0,ripple:0,wide:wide,hold:hold,end:end}}}
 /** the beat at now (or null before the first / after the last) */
@@ -373,7 +380,12 @@ function bClampAbs(v,m){return v>m?m:v<-m?-m:v}
 function bPadFrame(b,vw){var f=b.lead.pad||b.lead.from,t=b.lead.to;return {x:f.x+bClampAbs((t.x-f.x)*.1,12),y:f.y-18,z:bPadZoom(vw)}}
 /** the zoom at mid-flight: out far enough that a long arc reads as a journey, never below .45 of the pad zoom */
 function bFlightZoom(pz,dist,vw){return Math.max(pz*.45,Math.min(pz*.75,vw*1.2/Math.max(60,dist||300)))}
-function bHitFrame(b,vw){return {x:b.lead.to.x,y:b.lead.to.y-10,z:bPadZoom(vw)*1.04}}
+function bHitFrame(b,vw){return {x:b.lead.to.x,y:b.lead.to.y-10,z:bPadZoom(vw)*.8}}
+/** the two-shot: the pad and every target of the beat in one frame (18% side and 22% top/bottom margin), zoom in [fit, pad x .7] */
+function bTwoFrame(b,vw,vh){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,f=b.lead.pad||b.lead.from;[f].concat(b.shots.map(function(s){return s.to})).forEach(function(p){if(!p)return;x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y)});
+  var fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,pz=bPadZoom(vw),z=Math.min(vw*.64/Math.max(80,x1-x0),vh*.56/Math.max(80,y1-y0+60));z=Math.max(Math.min(fz,pz*.7),Math.min(pz*.7,z));return {x:(x0+x1)/2,y:(y0+y1)/2-20,z:z}}
+/** the fastest the map may slide under a flight, css px/s (desktop, Duo, phone): above it the eye loses the missile */
+function bVmax(vw){return vw>=1000?260:vw>=600?200:150}
 function bCamMix(a,b,u){u=bEase(u);return {x:bLerp(a.x,b.x,u),y:bLerp(a.y,b.y,u),z:bLerp(a.z,b.z,u)}}
 /** where the camera looks at now: {x,y,z} (world centre, zoom). home = the framing to start from and come back to.
  *  reduce: cuts instead of moves (pad until mid-flight, then the hit). Returns null after the end (the renderer flies home). */
@@ -383,13 +395,17 @@ function bRepCam(R,now,home,vw,vh,reduce){var S=R.S,st=bRepStage(R,now);if(st===
     return uf>=1?{x:FR.x,y:FR.y,z:zf}:bCamMix(from0,{x:FR.x,y:FR.y,z:zf},uf)}   // ease to the whole city, then a slow pull back while it derezzes
   if(st==='wide'||st==='rebuild'){var wide=bWideFrame(R.shots,vw,vh)||home,lb=R.beats[R.beats.length-1],fromC=R.F?{x:R.F.x,y:R.F.y,z:R.F.z*.92}:lb?bHitFrame(lb,vw):home,u=(now-S.wide)/(BRT.wide*.7);return reduce?wide:u>=1?wide:bCamMix(fromC,wide,u)}
   var b=bBeatAt(R,now);if(!b){var nb=null;for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}return nb&&nb.i>0?bHitFrame(R.beats[nb.i-1],vw):home}
-  var pad=bPadFrame(b,vw),prev=b.i>0?bHitFrame(R.beats[b.i-1],vw):home,lead=b.lead;
-  if(now<b.launch){if(reduce)return pad;return bCamMix(prev,pad,(now-b.t0)/(b.launch-b.t0))}
-  var f=Math.min(1,(now-lead.rf)/lead.fl),hit=bHitFrame(b,vw);
-  if(reduce)return f<.5?pad:hit;
-  if(f>=1){var u2=Math.min(1,(now-lead.ri)/BRT.zoomIn);return {x:hit.x,y:hit.y,z:bLerp(pad.z,hit.z,bEase(u2))}}
-  var tr=bTraj(lead.from.x,lead.from.y,lead.to.x,lead.to.y,Math.min(1,f+Math.min(.07,40/Math.max(1,lead.dist||300)))),zm=bFlightZoom(pad.z,lead.dist,vw),zz=bLerp(pad.z,zm,Math.sin(Math.PI*f)),k=bEase(Math.min(1,f/.25));
-  return {x:bLerp(pad.x,tr.x,k)+bClampAbs((lead.to.x-lead.from.x)*.06,40)*Math.sin(Math.PI*f),y:bLerp(pad.y,bLerp(tr.gy,tr.y,.55)-8,k),z:zz}}   // the camera rides between the missile and its ground track, so the map stays under it
+  var prev=b.i>0?(R.beats[b.i-1].montage?bWideFrame(R.beats[b.i-1].shots,vw,vh)||home:bHitFrame(R.beats[b.i-1],vw)):home,lead=b.lead;
+  if(b.montage){var mw=bWideFrame(b.shots,vw,vh)||home;return reduce?mw:bCamMix(prev,mw,(now-b.t0)/1000)}
+  var two=bTwoFrame(b,vw,vh),hit=bHitFrame(b,vw);
+  if(now<b.launch){if(reduce)return two;return bCamMix(prev,two,(now-b.t0)/BRT.establish)}   // ease to the two-shot, then hold on it (ready)
+  var f=Math.min(1,(now-lead.rf)/lead.fl);
+  if(reduce)return f<.5?two:hit;
+  if(f>=1)return hit;   // the hold on the hit
+  var pz=bPadZoom(vw),near=two.z>=.5*pz,fly=two;
+  if(!near){var tr=bTraj(lead.from.x,lead.from.y,lead.to.x,lead.to.y,f),fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,zf=Math.max(Math.min(fz,pz*.6),Math.min(pz*.6,bVmax(vw)*(lead.fl/1000)/Math.max(60,lead.dist||300)));
+    var tk={x:bLerp(tr.x,lead.to.x,.35),y:bLerp(tr.gy,lead.to.y,.35)-20,z:zf};fly=f<.15?bCamMix(two,tk,f/.15):tk}   // far strike: track a point 35% ahead of the missile, slow enough to follow
+  return f<.6?fly:bCamMix(fly,hit,(f-.6)/.22)}   // 60-82% of the flight: ease to the hit frame, then the missile flies into a still frame
 // ---- smoke ribbons: one polyline per missile, kept for the whole replay. Points carry their time, so the ribbon widens,
 // drifts with the wind and thins as it ages. Polylines, not particles: ten ribbons cost ten strokes a frame.
 var BTR=[];
