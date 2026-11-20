@@ -1827,7 +1827,18 @@ function toolsFit(){var tb=st.querySelector('.c-tools');if(!tb)return;
     document.addEventListener('click',function(e){if(MOREP&&!MOREP.hidden&&!MOREP.contains(e.target)&&!MORE.contains(e.target))moreOpen(false)},true);
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&MOREP&&!MOREP.hidden){moreOpen(false);MORE.focus()}})}
   [].slice.call(tb.children).forEach(function(x){if(x.tagName==='BUTTON'&&x!==MORE&&TORD.indexOf(x)<0)TORD.push(x)});   // buttons added later (Storefronts, Stores, Legend)
-  var open=!MOREP.hidden;TORD.forEach(function(b){tb.insertBefore(b,MORE)});tb.classList.remove('tight');MORE.hidden=true;
+  var open=!MOREP.hidden;
+  // Mike 11-20 map audit item 3 (Fable DESIGN.md): on the world map the toolbar is three icon buttons, Layers, Overview and
+  // Full screen; every other setting lives in the Layers panel
+  if(D.world&&!MINI){if(!tb.classList.contains('c-3')){tb.classList.add('c-3');MORE.title='Layers';MORE.setAttribute('aria-label','Layers');MORE.setAttribute('aria-haspopup','true');MOREP.setAttribute('aria-label','Layers');MOREP.setAttribute('role','group');
+      MORE.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5zM2 13l10 5 10-5M2 17.5l10 5 10-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+      var rs=document.getElementById('t-reset');if(rs){rs.title='Overview: the whole map';rs.setAttribute('aria-label','Overview');rs.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+      var sc3=document.createElement('style');sc3.textContent='.c-tools.c-3{gap:6px!important}.c-tools.c-3>:is(#t-more,#t-reset,#t-full){width:36px;height:36px!important;min-width:0;padding:0!important;display:inline-flex;align-items:center;justify-content:center;border-radius:10px!important}.c-tools.c-3>#t-full .t-txt{display:none}'
+        +'.c-tools.c-3 .c-more{min-width:240px}.c-tools.c-3 .c-more>:is(#t-sky,#t-wx,#t-snd)::before{display:inline-block;min-width:74px;opacity:.65;font-size:12px}.c-tools.c-3 .c-more>#t-sky::before{content:"Sky"}.c-tools.c-3 .c-more>#t-wx::before{content:"Weather"}.c-tools.c-3 .c-more>#t-snd::before{content:"Sound"}.c-tools.c-3 .c-more>#t-snd::after{display:inline!important;content:"Off";position:static;background:none;width:auto;height:auto}.c-tools.c-3 .c-more>#t-snd[aria-pressed="true"]::after{content:"On"}.c-tools.c-3 .c-more>#t-snd[aria-pressed="false"]{opacity:1!important}'
+        +'.c-tools.c-3 .c-more{min-width:240px}@media (max-width:900px){.c-tools.c-3>:is(#t-more,#t-reset,#t-full){width:32px;height:32px!important}}@media (max-width:480px){.c-tools.c-3>:is(#t-more,#t-reset,#t-full){width:40px;height:40px!important}}';(document.head||document.documentElement).appendChild(sc3)}
+    tb.insertBefore(MORE,tb.firstChild);var rs2=document.getElementById('t-reset'),fl=document.getElementById('t-full');if(rs2)tb.insertBefore(rs2,MORE.nextSibling);if(fl)tb.insertBefore(fl,(rs2||MORE).nextSibling);tb.appendChild(MOREP);
+    TORD.forEach(function(b){if(b!==rs2&&b!==fl&&b!==MORE)MOREP.appendChild(b)});MORE.hidden=false;moreOpen(open);return}
+  TORD.forEach(function(b){tb.insertBefore(b,MORE)});tb.classList.remove('tight');MORE.hidden=true;
   var avail=st.clientWidth-20;function used(){var bs=[].slice.call(tb.children).filter(function(x){return x.tagName==='BUTTON'&&!x.hidden&&x.offsetWidth>0});if(!bs.length)return 0;return bs[bs.length-1].getBoundingClientRect().right-bs[0].getBoundingClientRect().left}
   if(used()<=avail){moreOpen(false);return}
   tb.classList.add('tight');MORE.hidden=false;
