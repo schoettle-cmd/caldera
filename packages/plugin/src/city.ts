@@ -398,6 +398,8 @@ export const CITY_CSS = `
 @media (max-width:600px){.w-topics{top:52px;gap:3px;padding:7px 9px;font-size:11px;max-width:min(200px,calc(100% - 20px))}}
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
+#t-sf{position:relative}#t-sf[aria-pressed="false"]::after{content:"";position:absolute;left:8px;top:50%;width:16px;height:1.5px;background:#BFF8FF;transform:rotate(-45deg);pointer-events:none}
+.d-sfoff{margin:4px 0 8px;font-size:12px;opacity:.75}.d-sfoff .d-sfshow{font:inherit;color:inherit;text-decoration:underline;background:none;border:0;padding:0;cursor:pointer}
 .c-under{position:absolute;left:10px;bottom:10px;width:min(300px,calc(100% - 20px));background:rgba(2,6,12,.86);border:1px solid rgba(181,140,255,.45);border-radius:10px;padding:8px 10px;color:#E3DAFF;font:12px/1.45 var(--font-mono,'IBM Plex Mono',monospace)}
 .c-under b{color:#fff}.c-under{cursor:pointer}.c-under.c-min>:not(.uh){display:none}.c-under.c-min,.c-live.c-min{width:auto}.c-under .chev,.c-live .chev{float:right;opacity:.7;margin-left:8px}.c-under .lg{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:4px;color:#A99BD0}.c-under .lg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
 .c-stage.c-dig .c-hint{display:none}
@@ -609,6 +611,8 @@ function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT
 // a signup is a beam of light, confetti and a toast; a sale is a gold coin burst. Capped and queued when it floods.
 var FX={drops:[],queue:[],parts:[],beams:[],more:{}},MAXDROP=MINI?5:8,toasts=document.querySelector('.c-toasts'),sound=false,AC=null;
 try{sound=localStorage.getItem('caldera-sound')==='1'}catch(err){}
+var SFON=true;try{SFON=localStorage.getItem('caldera.sf')!=='0'}catch(err){}   // the viewer's Storefronts switch (Mike 11-19): off hides every storefront sign and shop building, for this viewer only
+function sfShow(t){return SFON||!t.r||!t.r.kind}
 function arrive(b,kind){if(!b)return;if(FX.drops.length>=MAXDROP){if(FX.queue.length<24)FX.queue.push(b);else{var mo=FX.more[b.d.name]||(FX.more[b.d.name]={n:0,b:b});mo.n++;mo.until=performance.now()+5000}return}
   var path=arrivalPath(b);if(!path)return;var p=path[0];
   FX.drops.push({x:p.x,y:p.y,path:path,col:kind==='signup'?SCOL:kind==='buy'?BCOL:null,born:performance.now(),sw:Math.random()*6.28});tone([880,1320],.05)}
@@ -1060,7 +1064,7 @@ function tronObjects(){SIGNS=[];CLAB=[];var c=c2;c.setTransform(1,0,0,1,0,0);c.c
     if(t.t==='h'&&(!BUILDING||buildF(t,i,j)>=1)){var spots=[[-11,-3],[11,-3],[0,-9],[0,4]],blk=null;blocks.forEach(function(b){if(b.d===t.d)blk=b});var hc=blk&&blk.neon||CYAN;
       for(var q2=0;q2<t.n;q2++){var hx=p.x+spots[q2][0],hy=p.y+spots[q2][1],hw=TW/2*.24,hh=TH/2*.24;c.fillStyle='#0A1220';poly(c,[[hx-hw,hy],[hx,hy+hh],[hx+hw,hy],[hx+hw,hy-6],[hx,hy-14],[hx-hw,hy-6]]);c.fill();
         glowLine(c,[[hx-hw,hy-6],[hx,hy-14],[hx+hw,hy-6]],hc,1,6);c.fillStyle=hc;c.globalAlpha=.8;c.fillRect(hx-1,hy-4,2,2);c.globalAlpha=1}}
-    if(t.t==='b'){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),col=r.kind?(LCOL[r.kind]||'#9FB4FF'):r.locked?'#CFEFFF':dm?'#5A6A80':neon(r);
+    if(t.t==='b'&&sfShow(t)){var r=t.r,h=bh(r),dm=dormant(r),seed=hash(r.name||(i+'_'+j)),col=r.kind?(LCOL[r.kind]||'#9FB4FF'):r.locked?'#CFEFFF':dm?'#5A6A80':neon(r);
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=dm?.03:r.locked?(t.d&&t.d.apart?0:r.week?.45:.12):Math.min(.95,.25+(r.week/Math.max(wk,1))*.7);
       var tiers=h>110?[[.78,h*.6],[.62,h*.26],[.46,h*.14]]:h>70?[[.78,h*.72],[.6,h*.28]]:[[.78,h]],base=p.y+4,top=base;
       for(var k=0;k<tiers.length;k++){tronPrism(c,p.x,top,tiers[k][0],tiers[k][1],col,litp,seed+k*101,r.locked);top-=tiers[k][1]}
@@ -1417,7 +1421,7 @@ function storeGroups(){if(SGR)return SGR;SGR={};SKEYS=[];storeList(null).forEach
   SKEYS.sort(function(a,b){return SGR[b].n-SGR[a].n||(a<b?-1:1)});return SGR}
 function controlRects(){var t=performance.now();if(t-COBT<300)return COBS;COBT=t;COBS=[];var b=st.getBoundingClientRect();st.querySelectorAll('.c-tools button,.c-live,.c-today,.c-hint,.c-heli,.w-topics').forEach(function(el){var r=el.getBoundingClientRect();if(!r.width||!r.height)return;COBS.push({x0:r.left-b.left,x1:r.right-b.left,y0:r.top-b.top,y1:r.bottom-b.top})});return COBS}
 var SOFF=(function(){var o=[[0,0]];[[46,8],[92,12]].forEach(function(q){for(var i=0;i<q[1];i++){var a=-Math.PI/2+(i%2?1:-1)*Math.ceil(i/2)*2*Math.PI/q[1];o.push([Math.round(Math.cos(a)*q[0]),Math.round(Math.sin(a)*q[0])])}});return o})();
-function drawSigns(){var c=c4,z=cam.z;SHITS=[];c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L4.width,L4.height);c.setTransform(dpr,0,0,dpr,0,0);SIGNS=[];if(PURE)return;
+function drawSigns(){var c=c4,z=cam.z;SHITS=[];c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L4.width,L4.height);c.setTransform(dpr,0,0,dpr,0,0);SIGNS=[];if(PURE)return;if(!SFON){storeKeys({});return}
   var GR=storeGroups(),S=vw<600?30:34,B=44,obs=[],me=D.world?worldMe():'',foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,dark=sky==='grid'||sky==='night'||sky==='evening',tron=sky==='grid',seen={},P=[];
   if(!MINI)controlRects().forEach(function(q){obs.push(q)});
   if(D.world&&WLAB)WLAB.forEach(function(q){obs.push(q)});
@@ -1474,10 +1478,10 @@ function storeDir(r0,key,focus,from){var keys=Array.isArray(key)?key:key?[key]:n
       +(m.desc?'<p style="margin:8px 0 0">'+e(m.desc)+'</p>':'')
       +(m.genre?'<div class="row"><span>Category</span><b>'+e(m.genre)+'</b></div>':'')
       +(+m.rating>0?'<div class="row"><span>Rating</span><b>&#9733; '+(+m.rating).toFixed(1)+(+m.ratings>0?' ('+(+m.ratings).toLocaleString('en-US')+')':'')+'</b></div>':'')+'</div>':'';
-    card.innerHTML='<button class="x" type="button" aria-label="Close">&times;</button><div class="d-head"><b>Stores</b> <span class="k">'+all.length+' '+where+'</span></div>'+top
+    card.innerHTML='<button class="x" type="button" aria-label="Close">&times;</button><div class="d-head"><b>Stores</b> <span class="k">'+all.length+' '+where+'</span></div>'+(SFON?'':'<p class="d-sfoff">Storefronts are hidden on the map. <button type="button" class="d-sfshow">Show</button></p>')+top
       +'<ul class="d-list" role="list">'+all.map(function(s,ix){var on=s===cur,su=repoUrl(s.r),app2=s.r.kind==='app',lbl=su?'Open '+s.r.name+(app2?((s.r.meta||{}).store==='play'?' on Google Play':' on the App Store'):'')+' in a new tab':'',inner=storeIcon(s.r,28)+'<span class="d-txt"><span class="d-name">'+e(s.r.name)+'</span><span class="d-meta">'+e(storeKind(s.r))+(!person&&placeOf(s)?' &middot; '+e(placeOf(s)):'')+'</span></span>';
         return '<li class="d-li">'+(su?'<a class="d-row'+(on?' is-on':'')+'" href="'+e(su)+'" target="_blank" rel="noopener" aria-label="'+e(lbl)+'">'+inner+EXTSVG+'</a>':'<div class="d-row'+(on?' is-on':'')+'">'+inner+'</div>')+(key?'':'<button type="button" class="d-loc" data-ix="'+ix+'" aria-label="Show '+e(s.r.name)+' on the map" title="Show on the map">'+LOCSVG+'</button>')+'</li>'}).join('')+'</ul>';
-    card.querySelector('.x').onclick=function(){closeDir()};
+    card.querySelector('.x').onclick=function(){closeDir()};var sfb=card.querySelector('.d-sfshow');if(sfb)sfb.onclick=function(){setSF(true);render()};
     card.querySelectorAll('.d-loc').forEach(function(b){b.onclick=function(){var ix=b.getAttribute('data-ix'),s=all[+ix];cur=s;sel=s.r;render();flyToStore(s);var nb=card.querySelector('.d-loc[data-ix="'+ix+'"]');if(nb)nb.focus({preventScroll:true});card.scrollTop=0}});
     draw()}
   card.classList.add('is-dir');card.setAttribute('role','dialog');card.setAttribute('aria-label',title.replace(/&amp;/g,'&'));render();card.hidden=false;placeDir(DIRFROM);
@@ -1541,6 +1545,7 @@ function drawObjects(){SIGNS=[];CLAB=[];var LOD=WORLD&&cam.z<.5;LODN=LOD?0:cam.z
     if(t.t==='h'&&!BON){var sd=(hash(t.d.name)+i*3+j*5)%24,hn0=Math.min(3,t.n);hiDraw(c,'hl|'+sd+'|'+hn0,72,54,33,37,p.x,p.y,function(cc){houseLotHi(cc,0,0,{seed:sd,n:hn0})});nObj++}
     if(hf<1)c.restore();if(gp<1&&t.t!=='b')c.restore();
     if(t.t==='b'&&ucIs(t)&&!ucFull(t))continue;
+    if(t.t==='b'&&!sfShow(t))continue;
     if(t.t==='b'){var r=t.r,SL=SFA.get(r),h=bh(r),bdm=typeof bBld==='function'?bBld(t,i,j):0,dm=dormant(r),seed=hash(r.name||(i+'_'+j)),glass=!!GLASS[r.language]||r.locked,bf=BUILDING?buildF(t,i,j):1;
       var col=r.kind?SHOPC[seed%SHOPC.length]:r.locked?'#5F6F8E':dm?mix(LANG[r.language]||'#8A8A93',.55,'#8A8E96'):(LANG[r.language]||'#8A8A93');
       var wk=r.weeks&&r.weeks.length?Math.max.apply(null,r.weeks):0,litp=r.kind?.6:dm?0:r.locked?(t.d&&t.d.apart?0:r.week?.4:.08):Math.min(.95,.15+(r.week/Math.max(wk,1))*.8);
@@ -1769,6 +1774,10 @@ if(MINI&&window.parent===window&&!window.opener&&NOPOP){try{if(history.length>1)
 document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')){ev.preventDefault();closeDir()}});
+var SFB=null;function setSF(on,init){SFON=!!on;try{if(SFON)localStorage.removeItem('caldera.sf');else localStorage.setItem('caldera.sf','0')}catch(err){}
+  if(SFB){SFB.setAttribute('aria-pressed',String(SFON));var tt=SFON?'Hide storefronts':'Show storefronts';SFB.title=tt;SFB.setAttribute('aria-label',tt)}if(!init){dirty=true;UDIRTY=true;draw()}}
+(function(){var tb=st.querySelector('.c-tools');if(!tb||!storeList(null).length)return;SFB=document.createElement('button');SFB.id='t-sf';SFB.type='button';SFB.innerHTML='&#x1FAA7;<span class="t-txt"> Storefronts</span>';
+  SFB.onclick=function(){setSF(!SFON)};tb.insertBefore(SFB,tb.querySelector('#t-reset')||null);setSF(SFON,true)})();
 (function(){var n=storeList(null).length,tb=st.querySelector('.c-tools');if(!n||!tb||MINI)return;var b=document.createElement('button');b.id='t-stores';b.type='button';b.title='Every storefront in this '+(D.world?'world':'city');
   b.innerHTML='&#x1F3EA;<span class="t-txt"> Stores ('+n+')</span>';b.setAttribute('aria-label','Stores ('+n+')');b.onclick=function(){if(!card.hidden&&card.classList.contains('is-dir')&&!DIRKEY){closeDir();return}storeDir(null,null,true,b)};
   var ref=tb.querySelector('#t-reset');tb.insertBefore(b,ref||null)})();
