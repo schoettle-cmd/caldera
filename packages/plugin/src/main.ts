@@ -113,7 +113,8 @@ export default class CalderaPlugin extends Plugin {
         window.setTimeout(() => { void this.offerFinish(); }, 12_000);   // once: a bare page gets an offer to fill it in
         window.setTimeout(() => { void this.offerTopics(); }, 40_000);   // once: a page with no topics gets the vault's own tags to pick from
       }
-      this.ihWatch();
+      void this.ihCheckMoved().then(() => this.ihWatch());
+      this.timers.push(every(() => void this.ihCheckMoved(), 60_000));
       // catch up after Obsidian was closed: the daily journal (and the garden it grows) may have changed meanwhile
       this.timers.push(later(() => { if (this.settings.identity && this.settings.handle && this.settings.autoPublishHours > 0 && Date.now() - (this.settings.lastPublished || 0) > 6 * 3600_000) void this.publish(true); }, 20_000));
     });
@@ -138,7 +139,19 @@ export default class CalderaPlugin extends Plugin {
   welcome: Modal | null = null;
   private ihBusy = false; private ihQueue = new Set<string>(); private ihTimer = 0;
   ihState(): IhSyncState { return this.settings.ihSync || (this.settings.ihSync = {}); }
-  ihConnected(): boolean { return !!this.settings.ihSync?.token; }
+  ihConnected(): boolean { return !!this.settings.ihSync?.token && !this.ihMoved; }
+  /** Mike 11-20 ("obsidian should connect directly to inbox hero ... caldera should NOT be in the middle"): when the Inbox Hero
+   *  plugin is on in this vault and holds a token, this connector stands down (no watcher, outbox or notices). Read-only check:
+   *  inbox-hero/data.json is never written. The pairing link keeps working for members who have not moved yet. */
+  ihMoved = false;
+  async ihCheckMoved(): Promise<boolean> {
+    let moved = false;
+    try {
+      const on = (this.app as any).plugins?.enabledPlugins?.has?.("inbox-hero");
+      if (on) { const raw = await this.app.vault.adapter.read(`${this.app.vault.configDir}/plugins/inbox-hero/data.json`); const j = JSON.parse(raw); moved = typeof j?.token === "string" && j.token.length > 0; }
+    } catch { moved = false; }
+    this.ihMoved = moved; return moved;
+  }
   ihEngine(): IhSyncEngine {
     const v = this.app.vault;
     return new IhSyncEngine(this.ihState(),
@@ -161,7 +174,7 @@ export default class CalderaPlugin extends Plugin {
   /** Settings > Inbox Hero connector > Choose folders. */
   ihChooseFolders(done?: () => void) { const m = new IhConnectModal(this.app, this, false); const c = m.onClose.bind(m); m.onClose = () => { c(); done?.(); }; m.open(); }
   async ihSyncNow(full: boolean, only?: Set<string>, quiet = false) {
-    if (!this.ihConnected() || scopeEmpty(scopeOf(this.settings.ihSync))) return;
+    if (this.ihMoved || !this.ihConnected() || scopeEmpty(scopeOf(this.settings.ihSync))) return;
     if (this.ihBusy) { if (only) only.forEach(p => this.ihQueue.add(p)); else window.setTimeout(() => void this.ihSyncNow(full, undefined, quiet), 5_000); return; }
     this.ihBusy = true; const st = this.ihState();
     // never silent (Mike 2026-11-05: "Your notes" said 0 notes with no clue why): the first sync says it started, a sync
@@ -186,7 +199,7 @@ export default class CalderaPlugin extends Plugin {
   }
   /** File changes inside the folder sync after a quiet moment (debounced). */
   private ihWatch() {
-    const hit = (path: string) => { const st = this.settings.ihSync; if (!st?.token || !inScope(path, scopeOf(st))) return;
+    const hit = (path: string) => { const st = this.settings.ihSync; if (this.ihMoved || !st?.token || !inScope(path, scopeOf(st))) return;
       this.ihQueue.add(path); window.clearTimeout(this.ihTimer);
       this.ihTimer = window.setTimeout(() => { const q = new Set(this.ihQueue); this.ihQueue.clear(); void this.ihSyncNow(false, q, true); }, 4_000); };
     for (const ev of ["create", "modify", "delete"] as const) this.registerEvent(this.app.vault.on(ev as any, (f: any) => { if (f instanceof TFile) hit(f.path); }));
@@ -200,7 +213,7 @@ export default class CalderaPlugin extends Plugin {
    *  failed check tries again next minute; a written email shows one short notice. */
   private ihOutboxBusy = false;
   async ihOutbox() {
-    if (!this.ihConnected() || this.ihOutboxBusy) return;
+    if (this.ihMoved || !this.ihConnected() || this.ihOutboxBusy) return;
     this.ihOutboxBusy = true; const v = this.app.vault;
     try {
       const eng = this.ihEngine(), p = await eng.poll();
@@ -212,7 +225,7 @@ export default class CalderaPlugin extends Plugin {
       });
       if (r.written.length) new Notice(r.written.length === 1 ? `Inbox Hero: saved an email to ${r.written[0].replace(/\.md$/, "")}` : `Inbox Hero: saved ${r.written.length} emails to the ${IH_OUTBOX_DIR} folder`, 6_000);
     } catch { /* offline or Inbox Hero busy: next minute */ }
-    finally { this.ihOutboxBusy = false; if (!this.ihConnected()) await this.saveSettings(); }
+    finally { this.ihOutboxBusy = false; if (!this.ihMoved && !this.ihConnected()) await this.saveSettings(); }
   }
   async ihDisconnect() {
     try { await this.ihEngine().disconnect(); new Notice("Disconnected from Inbox Hero. It is deleting the notes it had from this vault."); }

@@ -268,3 +268,13 @@ test("outbox path: exactly one dated file under Inbox Hero/, emails there never 
     assert.equal(outboxPath(bad), null, String(bad));
   assert.equal(inScope("Inbox Hero/2026-11-20 a.md", { mode: "vault", include: [], exclude: [], skipPrivate: true }), false);
 });
+
+test("Inbox Hero moved (Mike 11-20): with the inbox-hero plugin on and holding a token, the watcher, sync, outbox and settings stand down; its data.json is only read", () => {
+  const main = fs.readFileSync(new URL("../src/main.ts", import.meta.url), "utf8"), set = fs.readFileSync(new URL("../src/settings.ts", import.meta.url), "utf8");
+  assert.match(main, /enabledPlugins\?\.has\?\.\("inbox-hero"\)/);
+  assert.match(main, /plugins\/inbox-hero\/data\.json`\)/);
+  assert.ok(!/adapter\.write\([^)]*inbox-hero/.test(main) && !/inbox-hero\/data\.json[^;]*write/.test(main), "never writes inbox-hero/data.json");
+  for (const re of [/if \(this\.ihMoved \|\| !this\.ihConnected\(\) \|\| scopeEmpty/, /if \(this\.ihMoved \|\| !st\?\.token/, /if \(this\.ihMoved \|\| !this\.ihConnected\(\) \|\| this\.ihOutboxBusy\)/]) assert.match(main, re);
+  assert.match(main, /if \(params\.ih === "pair"\)/, "the old pairing link still works");
+  assert.match(set, /if \(this\.plugin\.ihMoved\) \{ new Setting\(el\)\.setName\("Inbox Hero connector"\)\.setDesc\("Moved to the Inbox Hero plugin\."\)/);
+});

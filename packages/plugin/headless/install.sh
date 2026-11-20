@@ -3,6 +3,8 @@
 # outbox, daily run after 4:30am Pacific). Re-run after changing headless/ih-sync.ts. Reads the vault and the plugin's data.json; writes only to
 # ~/.ih-obsidian-sync and new outbox notes under "Inbox Hero/" in the vault. Usage: headless/install.sh [vault dir]
 set -euo pipefail
+# Retired 2026-11-20: the Inbox Hero plugin (github.com/schoettle-cmd/inbox-hero-obsidian) now runs this label with its own runner.
+echo "Retired: the Inbox Hero plugin's own runner owns com.mjones.ih-obsidian-sync. Not installing." >&2; exit 1
 cd "$(dirname "$0")/.."
 VAULT="${1:-$HOME/claude-obsidian}"; DIR="$HOME/.ih-obsidian-sync"; LABEL=com.mjones.ih-obsidian-sync
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"; NODE="$(command -v node)"

@@ -273,6 +273,7 @@ export class CalderaSettingTab extends PluginSettingTab {
   /** Inbox Hero connector: the folders the member picks, one way, private. Works without a Caldera account. */
   private ihSection(el: HTMLElement, alone: boolean) {
     const st = this.plugin.settings.ihSync || {}, on = !!st.token;
+    if (this.plugin.ihMoved) { new Setting(el).setName("Inbox Hero connector").setDesc("Moved to the Inbox Hero plugin."); void alone; return; }   // Mike 11-20: Inbox Hero connects directly
     new Setting(el).setName("Inbox Hero connector").setHeading();
     el.createEl("p", { cls: "setting-item-description", text: "Sync the folders you choose (or your whole vault, minus what you leave out) to your Inbox Hero account so it can use your notes when it answers and drafts. Private and one way: only what you choose is read, nothing in your vault is ever changed, nothing goes to Caldera, and notes that look like they hold passwords, keys, card numbers or seed phrases are left out." });
     if (!on) {
