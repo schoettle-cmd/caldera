@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Install the Inbox Hero headless sync as a launchd agent (every 5 minutes: poll for "Sync now", daily run after 4:30am
-# Pacific). Re-run after changing headless/ih-sync.ts. Reads the vault and the plugin's data.json; writes only to
-# ~/.ih-obsidian-sync. Usage: headless/install.sh [vault dir]
+# Install the Inbox Hero headless sync as a launchd agent (every minute: poll for "Sync now" and the Send to Obsidian
+# outbox, daily run after 4:30am Pacific). Re-run after changing headless/ih-sync.ts. Reads the vault and the plugin's data.json; writes only to
+# ~/.ih-obsidian-sync and new outbox notes under "Inbox Hero/" in the vault. Usage: headless/install.sh [vault dir]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VAULT="${1:-$HOME/claude-obsidian}"; DIR="$HOME/.ih-obsidian-sync"; LABEL=com.mjones.ih-obsidian-sync
@@ -14,7 +14,7 @@ cat > "$PLIST" <<PL
 <plist version="1.0"><dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key><array><string>$NODE</string><string>$DIR/ih-sync.mjs</string><string>--vault</string><string>$VAULT</string><string>--daily</string><string>04:30</string><string>--tz</string><string>America/Los_Angeles</string></array>
-  <key>StartInterval</key><integer>300</integer>
+  <key>StartInterval</key><integer>60</integer>
   <key>RunAtLoad</key><true/>
   <key>ProcessType</key><string>Background</string>
   <key>StandardOutPath</key><string>$DIR/sync.log</string>

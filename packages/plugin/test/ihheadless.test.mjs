@@ -36,19 +36,21 @@ function vault(files, ih) {
   return dir;
 }
 function fakeIh(opts = {}) {
-  const calls = [], store = new Map();
+  const calls = [], store = new Map(), acked = new Set();
   const f = async (url, init = {}) => {
     const u = new URL(url), body = init.body ? JSON.parse(init.body) : null; calls.push({ path: u.pathname, method: init.method || "GET", body, auth: init.headers?.authorization });
     const res = (status, json) => ({ status, ok: status < 300, json: async () => json });
     if (init.headers?.authorization !== "Bearer " + TOKEN) return res(401, { error: "revoked" });
-    if (u.pathname === "/api/obsidian/poll") return res(200, { ok: true, syncRequested: !!opts.requested });
+    if (u.pathname === "/api/obsidian/poll") return res(200, { ok: true, syncRequested: !!opts.requested, outbox: (opts.outbox || []).filter(n => !acked.has(n.id)).length });
+    if (u.pathname === "/api/obsidian/outbox") return res(200, { ok: true, notes: (opts.outbox || []).filter(n => !acked.has(n.id)).slice(0, 20) });
+    if (u.pathname === "/api/obsidian/outbox/ack") { body.ids.forEach(i => acked.add(i)); return res(200, { ok: true }); }
     if (u.pathname === "/api/obsidian/limits") return res(200, { maxNoteBytes: 2e6, maxTotalBytes: 5e7, maxNotes: 10000, maxBatchNotes: 100, maxBatchBytes: 4e6, folder: "wiki", notes: store.size });
     if (u.pathname === "/api/obsidian/notes") { for (const n of body.notes) store.set(n.path, n); return res(200, { ok: true, accepted: body.notes.length, unchanged: 0, rejected: [] }); }
     if (u.pathname === "/api/obsidian/notes/delete") { body.paths.forEach(p => store.delete(p)); return res(200, { ok: true }); }
     if (u.pathname === "/api/obsidian/report") return res(200, { ok: true });
     return res(404, {});
   };
-  return { f, calls, store };
+  return { f, calls, store, acked };
 }
 const IH = { token: TOKEN, api: "https://joininboxhero.com", scope: { mode: "folders", include: ["wiki"], skipPrivate: true }, folder: "wiki", sent: {} };
 const snap = dir => { const o = {}; const w = r => { for (const e of fs.readdirSync(path.join(dir, r), { withFileTypes: true })) { const p = r ? r + "/" + e.name : e.name; if (e.isDirectory()) w(p); else o[p] = fs.readFileSync(path.join(dir, p), "utf8"); } }; w(""); return o; };
@@ -85,4 +87,36 @@ test("paths as Obsidian names them: NFC and plain spaces, read from the real fil
   const files = v.getMarkdownFiles(); assert.equal(files.length, 1);
   assert.equal(files[0].path, "wiki/Oc\u00e9ane trip.md"); assert.equal(obsPath(nfd), files[0].path);
   assert.equal(await v.cachedRead(files[0]), "hello");
+});
+
+// Send to Obsidian (Inbox Hero outbox v1.1, Mike 2026-11-20)
+test("outbox: writes new files under Inbox Hero/, never overwrites, refuses other paths, acks, works with no folders chosen", async () => {
+  const B = "---\nfrom: a@b.c\ntags: [inbox-hero]\n---\nHello";
+  const dir = vault({ "Inbox Hero/2026-11-20 Hi.md": "my own note", "wiki/a.md": "x" }, { ...IH, scope: { mode: "folders", include: [], skipPrivate: true }, folder: "" });
+  const ih = fakeIh({ outbox: [
+    { id: "1", path: "Inbox Hero/2026-11-20 Hi.md", body: B, createdAt: "x" },
+    { id: "2", path: "Inbox Hero/2026-11-20 Re: plans... ok.md", body: "two", createdAt: "x" },
+    { id: "3", path: "Inbox Hero/../evil.md", body: "no", createdAt: "x" },
+    { id: "4", path: "wiki/2026-11-20 x.md", body: "no", createdAt: "x" },
+    { id: "5", path: "Inbox Hero/sub/2026-11-20 x.md", body: "no", createdAt: "x" },
+    { id: "6", path: "Inbox Hero/notdated.md", body: "no", createdAt: "x" },
+  ] });
+  const stateFile = dir + ".s.json";
+  const r = await runOnce({ vault: dir, stateFile, schedule: SCH, fetchImpl: ih.f, now: () => Date.parse("2026-11-07T12:00:00Z") });
+  assert.equal(r.why, "no folders chosen");
+  const v = snap(dir);
+  assert.equal(v["Inbox Hero/2026-11-20 Hi.md"], "my own note", "an existing file is never overwritten");
+  assert.equal(v["Inbox Hero/2026-11-20 Hi 2.md"], B);
+  assert.equal(v["Inbox Hero/2026-11-20 Re: plans... ok.md"], "two");
+  assert.ok(!Object.keys(v).some(k => /evil|wiki\/2026|sub\/|notdated/.test(k)), "no other path is written");
+  assert.deepEqual([...ih.acked].sort(), ["1", "2", "3", "4", "5", "6"], "written and refused notes are acked");
+  assert.equal(r.outbox.written.length, 2); assert.equal(r.outbox.refused, 4);
+  // the same note again (a crash before the ack, or the plugin wrote it too): found, acked, not written twice
+  const ih2 = fakeIh({ outbox: [{ id: "1", path: "Inbox Hero/2026-11-20 Hi.md", body: B, createdAt: "x" }] });
+  const r2 = await runOnce({ vault: dir, stateFile, schedule: SCH, fetchImpl: ih2.f, now: () => Date.parse("2026-11-07T12:01:00Z") });
+  assert.equal(r2.outbox.already, 1); assert.equal(r2.outbox.written.length, 0); assert.ok(!snap(dir)["Inbox Hero/2026-11-20 Hi 3.md"]);
+  // nothing waiting: no outbox request at all
+  const ih3 = fakeIh();
+  await runOnce({ vault: dir, stateFile, schedule: SCH, fetchImpl: ih3.f, now: () => Date.parse("2026-11-07T12:02:00Z") });
+  assert.deepEqual(ih3.calls.map(c => c.path), ["/api/obsidian/poll"]);
 });

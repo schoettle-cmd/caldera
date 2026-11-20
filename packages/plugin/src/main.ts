@@ -4,7 +4,7 @@
  * and only to the hub you configure. No telemetry.
  */
 import { fillFromPage, isPageCode, photoPlan } from "./page-import";
-import { IhSyncEngine, IH_API_DEFAULT, ihApiOk, inScope, scopeOf, scopeEmpty, scopeRoot, suggestedScope, defaultExclusions, topmost, countScope, isPrivateNote, skippedMessage, type IhScope, type IhSyncState } from "./ihsync";
+import { IhSyncEngine, IH_OUTBOX_DIR, IH_API_DEFAULT, ihApiOk, inScope, scopeOf, scopeEmpty, scopeRoot, suggestedScope, defaultExclusions, topmost, countScope, isPrivateNote, skippedMessage, type IhScope, type IhSyncState } from "./ihsync";
 import { App, FileSystemAdapter, ItemView, Menu, Modal, Notice, Platform, Plugin, Setting, SuggestModal, TFile, TFolder, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import * as C from "@caldera/core";
 import { CalderaSettingTab, CalderaSettings, DEFAULT_SETTINGS, WELCOME_NOTE, agentSetupPrompt, groupsFrom, trackTag } from "./settings";
@@ -192,6 +192,27 @@ export default class CalderaPlugin extends Plugin {
     for (const ev of ["create", "modify", "delete"] as const) this.registerEvent(this.app.vault.on(ev as any, (f: any) => { if (f instanceof TFile) hit(f.path); }));
     this.registerEvent(this.app.vault.on("rename", (f, old) => { if (f instanceof TFile) { hit(old); hit(f.path); } }));
     this.timers.push(later(() => { if (this.ihConnected()) void this.ihSyncNow(false, undefined, true); }, 15_000));   // catch up on changes made while Obsidian was closed
+    // Send to Obsidian (Inbox Hero outbox v1.1, Mike 2026-11-20): check in every minute; emails the member sent wait there
+    this.timers.push(later(() => void this.ihOutbox(), 20_000));
+    this.timers.push(every(() => void this.ihOutbox(), 60_000));
+  }
+  /** Write the emails the member sent from Inbox Hero into "Inbox Hero/" (new files only), then ack them. Quiet: a
+   *  failed check tries again next minute; a written email shows one short notice. */
+  private ihOutboxBusy = false;
+  async ihOutbox() {
+    if (!this.ihConnected() || this.ihOutboxBusy) return;
+    this.ihOutboxBusy = true; const v = this.app.vault;
+    try {
+      const eng = this.ihEngine(), p = await eng.poll();
+      if (!(Number(p?.outbox) > 0)) return;
+      const r = await eng.deliverOutbox({
+        read: async path => { const f = v.getAbstractFileByPath(path); return f instanceof TFile ? await v.read(f) : f ? "\u0000folder" : null; },
+        create: async (path, body) => { await v.create(path, body); },
+        ensureFolder: async dir => { if (!v.getAbstractFileByPath(dir)) await v.createFolder(dir); },
+      });
+      if (r.written.length) new Notice(r.written.length === 1 ? `Inbox Hero: saved an email to ${r.written[0].replace(/\.md$/, "")}` : `Inbox Hero: saved ${r.written.length} emails to the ${IH_OUTBOX_DIR} folder`, 6_000);
+    } catch { /* offline or Inbox Hero busy: next minute */ }
+    finally { this.ihOutboxBusy = false; if (!this.ihConnected()) await this.saveSettings(); }
   }
   async ihDisconnect() {
     try { await this.ihEngine().disconnect(); new Notice("Disconnected from Inbox Hero. It is deleting the notes it had from this vault."); }

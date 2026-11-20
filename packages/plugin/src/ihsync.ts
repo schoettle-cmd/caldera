@@ -8,8 +8,10 @@
  *   left-out folders (sensitive-looking names pre-checked). Notes marked private (private: true or #private) stay out.
  *   Inbox Hero's contract takes one root folder per account: one picked folder is sent as the root; several (or the
  *   whole vault) are sent with the vault root "" and every path is filtered here, before anything is read.
- * - Read-only: this file only ever reads the vault (getMarkdownFiles, cachedRead, metadataCache). It never writes,
- *   renames or deletes anything in it.
+ * - Read-only for the sync: it only reads the vault (getMarkdownFiles, cachedRead, metadataCache). The one write is
+ *   "Send to Obsidian" (Inbox Hero outbox v1.1, Mike 2026-11-20): an email the member sent on purpose lands as a NEW file
+ *   "Inbox Hero/<YYYY-MM-DD> <subject>.md". Nothing outside that folder is ever written, and no file is ever overwritten,
+ *   renamed or deleted.
  * - A note that looks like it holds a secret (API keys, private keys, passwords, card numbers, seed phrases, or a
  *   long high-entropy value next to a key-like label) is skipped and listed, never sent.
  * - Nothing here talks to the Caldera hub: every request goes to the Inbox Hero API (https, joininboxhero.com).
@@ -26,6 +28,9 @@ export const IH_PATHS = {
   remove: "/api/obsidian/notes/delete",
   resync: "/api/obsidian/resync",
   disconnect: "/api/obsidian/disconnect",
+  poll: "/api/obsidian/poll",
+  outbox: "/api/obsidian/outbox",
+  outboxAck: "/api/obsidian/outbox/ack",
 };
 export interface IhLimits { maxNoteBytes: number; maxTotalBytes: number; maxNotes: number; maxBatchNotes: number; maxBatchBytes: number; folder?: string | null; notes?: number; bytes?: number }
 export const IH_LIMITS_DEFAULT: IhLimits = { maxNoteBytes: 2_000_000, maxTotalBytes: 50_000_000, maxNotes: 5000, maxBatchNotes: 50, maxBatchBytes: 4_000_000 };
@@ -111,6 +116,7 @@ export function inScope(path: string, s: IhScope): boolean {
   if (!/\.md$/i.test(p) || p.split("/").some(seg => seg === ".." || seg === ".")) return false;
   if (s.mode === "folders") return s.include.some(f => p.startsWith(normFolder(f) + "/"));
   if (p.split("/").some(seg => seg.startsWith("."))) return false;   // hidden folders (.obsidian, .trash) never sync
+  if (p.startsWith(IH_OUTBOX_DIR + "/")) return false;   // emails Inbox Hero sent here don't go back up
   return !(s.exclude || []).some(f => p.startsWith(normFolder(f) + "/"));
 }
 /** private: true (or "yes"), or a #private tag inline or in frontmatter tags. */
@@ -222,6 +228,34 @@ export function limitsFrom(j: any): IhLimits {
     maxBatchNotes: n(j?.maxBatchNotes, IH_LIMITS_DEFAULT.maxBatchNotes, 1000), maxBatchBytes: n(j?.maxBatchBytes, IH_LIMITS_DEFAULT.maxBatchBytes, 50_000_000),
     folder: typeof j?.folder === "string" ? j.folder : null, notes: Math.max(0, Number(j?.notes) || 0), bytes: Math.max(0, Number(j?.bytes) || 0) };
 }
+
+// ---- Send to Obsidian: the outbox (v1.1) -------------------------------------------------------------------------------
+export const IH_OUTBOX_DIR = "Inbox Hero";
+/** The only shape accepted: exactly one file "Inbox Hero/<YYYY-MM-DD> <name>.md". No subfolders, no dot names, no
+ *  control characters or backslashes (the date start rules out "." and ".."), at most 240 characters. Anything else = null (not written). */
+export function outboxPath(p: unknown): string | null {
+  const s = typeof p === "string" ? p.normalize("NFC") : "";
+  const m = /^Inbox Hero\/(\d{4}-\d{2}-\d{2} [^/]*\.md)$/.exec(s); if (!m || s.length > 240) return null;
+  if (/[\u0000-\u001f\u007f\\]/.test(m[1])) return null;
+  return s;
+}
+export interface VaultWriter {
+  read(path: string): Promise<string | null>;   // null = no file there
+  create(path: string, body: string): Promise<void>;   // must fail if the file exists (never overwrite)
+  ensureFolder(path: string): Promise<void>;
+}
+/** Where a note goes: the path, else "<name> 2.md", "<name> 3.md" ... A file there with exactly this body means it was
+ *  already written (a crash before the ack, or two runners at once): "same", so it is acked and not written again. */
+export async function outboxTarget(w: VaultWriter, p: string, body: string): Promise<{ path: string; same: boolean }> {
+  const base = p.replace(/\.md$/, "");
+  for (let i = 1; i < 200; i++) {
+    const c = i === 1 ? p : `${base} ${i}.md`, cur = await w.read(c);
+    if (cur === null) return { path: c, same: false };
+    if (cur === body) return { path: c, same: true };
+  }
+  return { path: `${base} ${Date.now()}.md`, same: false };
+}
+export interface OutboxResult { written: string[]; already: number; refused: number; failed: number }
 
 // ---- the sync engine (vault + network injected, so tests drive it with fakes) -------------------------------------------
 export interface VaultReader {
@@ -351,6 +385,28 @@ export class IhSyncEngine {
     if (scopeEmpty(scope)) return { notes: 0, skipped: [] };
     const out = { notes: 0, skipped: [] as { path: string; why: string }[] };
     for (const f of this.scoped(scope)) { const p = await this.prepare(f, IH_LIMITS_DEFAULT); if (p.skip) out.skipped.push({ path: f.path, why: p.skip }); else out.notes++; }
+    return out;
+  }
+
+  /** GET /poll: { syncRequested, outbox: n, ... } */
+  async poll(): Promise<any> { return await this.call(IH_PATHS.poll, "GET") || {}; }
+
+  /** Send to Obsidian: write what waits in the outbox, then ack it. A note with a wrong path is refused (acked, never
+   *  written); a note that fails to write is not acked and comes back next time. */
+  async deliverOutbox(w: VaultWriter): Promise<OutboxResult> {
+    const out: OutboxResult = { written: [], already: 0, refused: 0, failed: 0 };
+    const j = await this.call(IH_PATHS.outbox, "GET"), ack: string[] = [];
+    for (const n of Array.isArray(j?.notes) ? j.notes.slice(0, 20) : []) {
+      const id = String(n?.id ?? ""); if (!id) continue;
+      const p = outboxPath(n?.path); if (!p || typeof n?.body !== "string") { out.refused++; ack.push(id); continue; }
+      try {
+        await w.ensureFolder(IH_OUTBOX_DIR);
+        const t = await outboxTarget(w, p, n.body);
+        if (t.same) out.already++; else { await w.create(t.path, n.body); out.written.push(t.path); }
+        ack.push(id);
+      } catch { out.failed++; }
+    }
+    if (ack.length) await this.call(IH_PATHS.outboxAck, "POST", { ids: ack });
     return out;
   }
 

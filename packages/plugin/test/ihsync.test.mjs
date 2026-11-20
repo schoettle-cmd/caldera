@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { inFolder, normFolder, scopeOf, suggestedScope, scopeRoot, scopeEmpty, inScope, topmost, defaultExclusions, isPrivateNote, countScope, scopeLabel, scanSecrets, buildNote, batches, IhSyncEngine, ihApiOk, ihTokenOk, IH_API_DEFAULT, skippedMessage, entropy } from "./ihsync.build.mjs";
+import { inFolder, normFolder, scopeOf, suggestedScope, scopeRoot, scopeEmpty, inScope, topmost, defaultExclusions, isPrivateNote, countScope, scopeLabel, scanSecrets, buildNote, batches, IhSyncEngine, ihApiOk, ihTokenOk, IH_API_DEFAULT, skippedMessage, entropy, outboxPath } from "./ihsync.build.mjs";
 
 const TOKEN = "iho_" + "A".repeat(20) + "b1_-" + "x".repeat(19);
 const CODE = "ihp_" + "Q".repeat(32);
@@ -165,10 +165,17 @@ test("connector: read-only (never writes to the vault) and never talks to the Ca
   assert.ok(ih.calls.length > 4 && ih.calls.every(c => c.url.startsWith("https://joininboxhero.com/api/obsidian/")), "every request goes to the Inbox Hero API");
   // source-level guards: the connector code has no vault write calls and no hub calls
   const src = fs.readFileSync(new URL("../src/ihsync.ts", import.meta.url), "utf8");
-  assert.ok(!/\.(modify|modifyBinary|create|createBinary|createFolder|delete|trash|rename|process|append|write|remove)\s*\(/.test(src.replace(/IH_PATHS\.remove/g, "")), "ihsync.ts never calls a write API");
+  // the one exception (Send to Obsidian, Mike 2026-11-20): deliverOutbox creates new files, only at checked outbox paths
+  const dob = src.slice(src.indexOf("  async deliverOutbox("), src.indexOf("  /** Revoke the token"));
+  assert.ok(dob.length > 200 && !src.replace(dob, "").includes("w.create("), "deliverOutbox is the only writer");
+  assert.deepEqual([...dob.matchAll(/\bw\.(\w+)\(([^,)]*)/g)].map(m => m[1] + ":" + m[2]), ["ensureFolder:IH_OUTBOX_DIR", "create:t.path"], "it writes only the outbox folder and the checked target");
+  assert.ok(/const p = outboxPath\(n\?\.path\); if \(!p/.test(dob), "every path is checked first");
+  assert.ok(!/\.(modify|modifyBinary|create|createBinary|createFolder|delete|trash|rename|process|append|write|remove)\s*\(/.test(src.replace(dob, "").replace(/IH_PATHS\.remove/g, "")), "ihsync.ts never calls a write API elsewhere");
   assert.ok(!/hubUrl|caldera\.social|\/v1\//.test(src), "ihsync.ts never names the hub");
   const main = fs.readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  const ihBlock = main.slice(main.indexOf("// ---- Inbox Hero connector"), main.indexOf("async ihDisconnect")) + main.slice(main.indexOf("export class IhConnectModal"), main.indexOf("class WelcomeModal"));
+  const ob = main.slice(main.indexOf("  async ihOutbox()"), main.indexOf("  async ihDisconnect"));
+  assert.ok(/eng\.deliverOutbox\(\{/.test(ob) && !/\.vault\.(modify|delete|trash|rename|process|append)/.test(ob), "the outbox writes only through deliverOutbox (create, never modify)");
+  const ihBlock = main.slice(main.indexOf("// ---- Inbox Hero connector"), main.indexOf("  async ihOutbox()")) + main.slice(main.indexOf("export class IhConnectModal"), main.indexOf("class WelcomeModal"));
   assert.ok(!/this\.api\(|this\.send\(|hubUrl|\.vault\.(modify|create|delete|trash|rename|process|append)/.test(ihBlock), "the plugin's connector code makes no hub calls and no vault writes");
 });
 
@@ -253,4 +260,11 @@ test("connector: a sync cut short keeps what was sent, and the next one carries 
   assert.equal(Object.keys(st.sent).length, 3, "the first batch is remembered");
   const r = await e.sync(false);
   assert.equal(r.sent, 4, "only the rest is sent next time"); assert.equal(Object.keys(st.sent).length, 7); assert.equal(st.maxNotes, 5000);
+});
+
+test("outbox path: exactly one dated file under Inbox Hero/, emails there never sync back up", () => {
+  assert.equal(outboxPath("Inbox Hero/2026-11-20 Lunch?.md"), "Inbox Hero/2026-11-20 Lunch?.md");
+  for (const bad of ["Inbox Hero/x.md", "Inbox Hero/2026-11-20 a/b.md", "../Inbox Hero/2026-11-20 a.md", "Inbox Hero/2026-11-20 a.txt", "inbox hero/2026-11-20 a.md", "Inbox Hero/2026-11-20 a\\b.md", "Inbox Hero/2026-11-20 a\nb.md", 5, null])
+    assert.equal(outboxPath(bad), null, String(bad));
+  assert.equal(inScope("Inbox Hero/2026-11-20 a.md", { mode: "vault", include: [], exclude: [], skipPrivate: true }), false);
 });

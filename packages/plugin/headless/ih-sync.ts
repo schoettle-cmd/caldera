@@ -3,11 +3,13 @@
  *
  * Runs the plugin's own IhSyncEngine (src/ihsync.ts) from Node, without Obsidian, so the daily sync does not depend on
  * Obsidian being open (or responsive). launchd starts it every 5 minutes (headless/install.sh):
- *   1. GET /api/obsidian/poll: is a "Sync now" from the Inbox Hero app waiting?
+ *   1. GET /api/obsidian/poll: is a "Sync now" from the Inbox Hero app waiting? Are emails waiting in the outbox
+ *      ("Send to Obsidian", v1.1, Mike 2026-11-20)? Those are written as new files under "Inbox Hero/", then acked.
  *   2. sync when asked, or once a day after the scheduled time (default 04:30 America/Los_Angeles; a Mac asleep at
  *      4:30 syncs at the next check after it wakes), then POST /api/obsidian/report with counts and the schedule.
  *
- * - Read-only on the vault: it lists and reads .md files. It never writes inside the vault, data.json included.
+ * - Read-only on the vault except for the outbox: it lists and reads .md files, and creates new files only as
+ *   "Inbox Hero/<YYYY-MM-DD> <subject>.md" (never overwrites: "<name> 2.md"). data.json is never written.
  * - The token, API and folder scope come from the plugin's data.json (ihSync), read each run, so a re-pair in Obsidian
  *   carries over. The token is never written to this runner's state, never logged.
  * - Its own state (~/.ih-obsidian-sync/state.json): what Inbox Hero already has (path -> hash), so only changes go up.
@@ -16,10 +18,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { IhSyncEngine, IhSyncState, CacheLike, ihApiOk, IH_API_DEFAULT, scopeOf, scopeEmpty } from "../src/ihsync";
+import { IhSyncEngine, IhSyncState, CacheLike, VaultWriter, OutboxResult, ihApiOk, IH_API_DEFAULT, scopeOf, scopeEmpty } from "../src/ihsync";
 
 export interface Schedule { daily: string; tz: string }
-export interface RunnerState { sent?: Record<string, string>; lastSync?: number; lastScheduledDay?: string; lastResult?: { sent: number; removed: number; unchanged: number; skipped: number; at: string; why: string }; lastError?: string }
+export interface RunnerState { sent?: Record<string, string>; lastSync?: number; lastScheduledDay?: string; lastResult?: { sent: number; removed: number; unchanged: number; skipped: number; at: string; why: string }; lastError?: string; lastOutbox?: { written: number; already: number; refused: number; failed: number; at: string } }
 
 // ---- frontmatter, links and tags the way Obsidian's metadataCache gives them (enough for titles, aliases, tags and
 // private: true; the upload hash is of the body only, so it matches the plugin's whatever this parser makes of YAML) ----
@@ -75,6 +77,16 @@ export function diskVault(root: string) {
   };
 }
 
+/** The outbox writer on disk: new files only (flag wx), so an existing note is never overwritten. */
+export function diskWriter(root: string): VaultWriter {
+  const abs = (p: string) => path.join(root, p);
+  return {
+    read: async p => { try { const st = fs.statSync(abs(p)); return st.isFile() ? fs.readFileSync(abs(p), "utf8") : "\u0000folder"; } catch { return null; } },
+    create: async (p, body) => { fs.writeFileSync(abs(p), body, { flag: "wx" }); },
+    ensureFolder: async d => { fs.mkdirSync(abs(d), { recursive: true }); },
+  };
+}
+
 // ---- schedule ----
 /** "YYYY-MM-DD" and minutes after midnight for instant t in zone tz */
 export function localDay(t: number, tz: string): { day: string; minutes: number } {
@@ -94,23 +106,15 @@ export interface RunOpts {
   vault: string; stateFile: string; schedule: Schedule; force?: boolean; runner?: string;
   fetchImpl?: typeof fetch; now?: () => number; log?: (s: string) => void;
 }
-export async function runOnce(o: RunOpts): Promise<{ ran: boolean; why: string; result?: RunnerState["lastResult"]; error?: string }> {
+export async function runOnce(o: RunOpts): Promise<{ ran: boolean; why: string; result?: RunnerState["lastResult"]; error?: string; outbox?: OutboxResult }> {
   const log = o.log || (() => {}), now = o.now || Date.now, f = o.fetchImpl || fetch;
   const dataFile = path.join(o.vault, ".obsidian", "plugins", "caldera", "data.json");
   const plugin = JSON.parse(fs.readFileSync(dataFile, "utf8"))?.ihSync as IhSyncState | undefined;
   if (!plugin?.token) return { ran: false, why: "not paired" };
   const api = ihApiOk(plugin.api || IH_API_DEFAULT); if (!api) return { ran: false, why: "bad api" };
-  if (scopeEmpty(scopeOf(plugin))) return { ran: false, why: "no folders chosen" };
   let st: RunnerState = {}; try { st = JSON.parse(fs.readFileSync(o.stateFile, "utf8")); } catch { /* first run */ }
   if (!st.sent) st.sent = { ...(plugin.sent || {}) };   // seed from what the plugin already sent
   const auth = { authorization: "Bearer " + plugin.token, "content-type": "application/json" };
-
-  let requested = false;
-  try { const r = await f(api + "/api/obsidian/poll", { headers: auth }); if (r.status === 401) return save(o, st, { ran: false, why: "token refused (401)", error: "Inbox Hero refused the token: re-pair in Obsidian" }); if (r.ok) requested = !!(await r.json())?.syncRequested; }
-  catch (e: any) { /* offline: the daily run still tries below and fails loudly */ }
-  const due = dailyDue(o.schedule, st, now());
-  const why = o.force ? "manual" : requested ? "sync now" : due ? "daily" : "";
-  if (!why) return { ran: false, why: "not due" };
 
   const v = diskVault(o.vault);
   // the engine's state: the plugin's token/scope, this runner's own sent list (the token is never saved by us)
@@ -120,6 +124,19 @@ export async function runOnce(o: RunOpts): Promise<{ ran: boolean; why: string; 
     return { status: res.status, json };
   };
   const eng = new IhSyncEngine(es, v, p => v.cacheOf(p), req, path.basename(o.vault));
+
+  let requested = false, waiting = 0, outbox: OutboxResult | undefined;
+  try { const r = await f(api + "/api/obsidian/poll", { headers: auth }); if (r.status === 401) return save(o, st, { ran: false, why: "token refused (401)", error: "Inbox Hero refused the token: re-pair in Obsidian" }); if (r.ok) { const j = await r.json(); requested = !!j?.syncRequested; waiting = Number(j?.outbox) || 0; } }
+  catch (e: any) { /* offline: the daily run still tries below and fails loudly */ }
+  if (waiting > 0) {
+    try { outbox = await eng.deliverOutbox(diskWriter(o.vault)); st.lastOutbox = { written: outbox.written.length, already: outbox.already, refused: outbox.refused, failed: outbox.failed, at: new Date(now()).toISOString() };
+      log(`outbox: ${outbox.written.length} written${outbox.already ? `, ${outbox.already} already there` : ""}${outbox.refused ? `, ${outbox.refused} refused (bad path)` : ""}${outbox.failed ? `, ${outbox.failed} failed` : ""}`); }
+    catch (e: any) { log("outbox failed: " + String(e?.message || e)); }
+  }
+  if (scopeEmpty(scopeOf(plugin))) return save(o, st, { ran: false, why: "no folders chosen", outbox });
+  const due = dailyDue(o.schedule, st, now());
+  const why = o.force ? "manual" : requested ? "sync now" : due ? "daily" : "";
+  if (!why) return save(o, st, { ran: false, why: "not due", outbox });
   try {
     const r = await eng.sync(false);
     st.sent = es.sent; st.lastSync = now(); st.lastError = undefined;
@@ -141,14 +158,14 @@ function save<T extends { error?: string }>(o: RunOpts, st: RunnerState, out: T)
   return out;
 }
 
-// ---- CLI (launchd): node ih-sync.mjs [--now] [--vault DIR] [--state FILE] [--daily HH:MM] [--tz ZONE] ----
+// ---- CLI (launchd, every minute): node ih-sync.mjs [--now] [--vault DIR] [--state FILE] [--daily HH:MM] [--tz ZONE] ----
 async function main() {
   const a = process.argv.slice(2), arg = (k: string, d: string) => { const i = a.indexOf(k); return i >= 0 && a[i + 1] ? a[i + 1] : d; };
   const home = os.homedir(), dir = path.join(home, ".ih-obsidian-sync");
   const opts: RunOpts = { vault: arg("--vault", path.join(home, "claude-obsidian")), stateFile: arg("--state", path.join(dir, "state.json")),
     schedule: { daily: arg("--daily", "04:30"), tz: arg("--tz", "America/Los_Angeles") }, force: a.includes("--now"),
     log: s => console.log(new Date().toISOString() + " " + s) };
-  // one run at a time (a big first sync can outlast the 5-minute interval)
+  // one run at a time (a big first sync can outlast the 1-minute interval)
   const lock = path.join(dir, "run.lock"); fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   try { const st = fs.statSync(lock); if (Date.now() - st.mtimeMs < 30 * 60e3) { opts.log!("another run is in progress"); return; } fs.unlinkSync(lock); } catch { /* no lock */ }
   fs.writeFileSync(lock, String(process.pid), { flag: "wx" });
