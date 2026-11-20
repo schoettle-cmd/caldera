@@ -147,11 +147,18 @@ function bFlightDur(d){return 2500+Math.min(1500,d*3.5)}
 var BSPR={};
 function bSpr(key,w,h,paint){var s=BSPR[key];if(s)return s;s=document.createElement('canvas');s.width=w;s.height=h;var g=s.getContext('2d');if(g)paint(g,w,h);BSPR[key]=s;return s}
 function bRad(g,x,y,r,stops){var gr=g.createRadialGradient(x,y,0,x,y,r);stops.forEach(function(s){gr.addColorStop(s[0],s[1])});return gr}
-function spGlow(){return bSpr('glow',64,64,function(g){g.fillStyle=bRad(g,32,32,32,[[0,'rgba(255,255,255,1)'],[.2,'rgba(255,255,255,.85)'],[.5,'rgba(255,214,150,.35)'],[1,'rgba(255,214,150,0)']]);g.fillRect(0,0,64,64)})}
-function spFire(hot){return bSpr(hot?'fhot':'fember',64,64,function(g){g.fillStyle=bRad(g,32,32,32,hot?[[0,'#FFFFFF'],[.18,'#FFF3C4'],[.4,'#FFC14A'],[.65,'rgba(255,122,31,.8)'],[1,'rgba(200,50,10,0)']]:[[0,'rgba(255,176,58,.9)'],[.45,'rgba(210,69,26,.75)'],[.8,'rgba(90,34,20,.35)'],[1,'rgba(90,34,20,0)']]);g.fillRect(0,0,64,64)})}
+// Mike 11-20 ("smoke and explosions look very bitmap-y"), map-audit item 2: sprites at 128/256 px drawn with smoothing on, a puff
+// whose edge always fades to 0, a soft ring sprite in place of stroked ellipses, feathered trails that are gone after 7 s
+function bSz(d){return d*Math.max(1,(typeof devicePixelRatio==='number'?devicePixelRatio:1))>180?256:128}
+function spGlow(d){var S=bSz(d||0),h=S/2;return bSpr('glow'+S,S,S,function(g){g.fillStyle=bRad(g,h,h,h,[[0,'rgba(255,255,255,1)'],[.2,'rgba(255,255,255,.85)'],[.5,'rgba(255,214,150,.35)'],[1,'rgba(255,214,150,0)']]);g.fillRect(0,0,S,S)})}
+function spFire(hot,d){var S=bSz(d||0),h=S/2;return bSpr((hot?'fhot':'fember')+S,S,S,function(g){g.fillStyle=bRad(g,h,h,h,hot?[[0,'#FFFFFF'],[.18,'#FFF3C4'],[.4,'#FFC14A'],[.65,'rgba(255,122,31,.8)'],[1,'rgba(200,50,10,0)']]:[[0,'rgba(255,190,90,.95)'],[.35,'rgba(240,96,24,.8)'],[.7,'rgba(120,30,16,.45)'],[1,'rgba(60,20,16,0)']]);g.fillRect(0,0,S,S)})}
+/** the shock ring: a soft donut, drawn squashed 2:1 with 'lighter' */
+function spRing(){return bSpr('ring256',256,256,function(g){g.fillStyle=bRad(g,128,128,128,[[0,'rgba(255,246,224,0)'],[.74,'rgba(255,246,224,0)'],[.87,'rgba(255,246,224,.8)'],[.94,'rgba(255,214,160,.32)'],[1,'rgba(255,214,160,0)']]);g.fillRect(0,0,256,256)})}
 /** a lumpy puff in one colour ('r,g,b'): three soft lobes and a lighter top-left, so smoke has form instead of a flat disc */
-function spPuff(col){return bSpr('puff'+col,48,48,function(g){[[24,24,14],[16,27,11],[31,28,10]].forEach(function(o){g.fillStyle=bRad(g,o[0],o[1],o[2],[[0,'rgba('+col+',.55)'],[1,'rgba('+col+',0)']]);g.fillRect(0,0,48,48)});
-  var hi=String(col).split(',').map(function(v){v=+v||0;return Math.round(v+(255-v)*.35)}).join(',');g.fillStyle=bRad(g,19,19,10,[[0,'rgba('+hi+',.35)'],[1,'rgba('+hi+',0)']]);g.fillRect(0,0,48,48)})}
+function spPuff(col){return bSpr('puff2'+col,128,128,function(g){var st=[[0,'rgba('+col+',.55)'],[.45,'rgba('+col+',.34)'],[.8,'rgba('+col+',.10)'],[1,'rgba('+col+',0)']];
+  [[64,64,40],[86,64,28],[42,64,27],[64,42,30],[64,86,26]].forEach(function(o){g.fillStyle=bRad(g,o[0],o[1],o[2],st);g.fillRect(0,0,128,128)});
+  var hi=String(col).split(',').map(function(v){v=+v||0;return Math.round(v+(255-v)*.35)}).join(',');g.fillStyle=bRad(g,52,50,26,[[0,'rgba('+hi+',.28)'],[1,'rgba('+hi+',0)']]);g.fillRect(0,0,128,128);
+  g.globalCompositeOperation='destination-in';g.fillStyle=bRad(g,64,64,64,[[0,'rgba(0,0,0,1)'],[.7,'rgba(0,0,0,1)'],[1,'rgba(0,0,0,0)']]);g.fillRect(0,0,128,128);g.globalCompositeOperation='source-over'})}   // the edge is always 0: no hard disc
 /** burnt ground (drawn 2:1): a charred base, radial burn streaks, a lighter ash rim; big = the L/XL desolation, with rubble specks */
 function spScorch(big,v){var n=hn(),W=big?256:96;return bSpr('sc'+(big?'B':'S')+v+(n?'n':'d'),W,W/2,function(g){var R=W/2;g.save();g.translate(R,R/2);g.scale(1,.5);
   g.fillStyle=bRad(g,0,0,R,big?[[0,'rgba(46,30,20,.58)'],[.5,'rgba(60,42,28,.42)'],[.8,'rgba(84,66,48,.2)'],[1,'rgba(84,66,48,0)']]:[[0,'rgba(42,28,18,.55)'],[.55,'rgba(58,42,30,.35)'],[1,'rgba(58,42,30,0)']]);g.beginPath();g.arc(0,0,R,0,7);g.fill();
@@ -188,20 +195,20 @@ function bStep(dt){for(var i=BP.length-1;i>=0;i--){var p=BP[i];p.age+=dt;if(p.ag
   else if(p.k==='rez'){p.vy+=40*dt;p.vx*=(1-1.2*dt);p.vy*=(1-1.2*dt);p.x+=p.vx*dt;p.y+=p.vy*dt}
   else if(p.k==='debris'||p.k==='spark'||p.k==='glass'){p.vy+=(p.k==='spark'?90:p.k==='glass'?200:240)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y>p.g){p.y=p.g;p.vy=-p.vy*.35;p.vx*=.6;if(Math.abs(p.vy)<8)p.vy=0}p.rot+=p.vr*dt}
   else{p.x+=(p.vx||0)*dt;p.y+=(p.vy||0)*dt;if(p.k==='smoke'){p.vx*=(1-.8*dt);p.vy-=14*dt}}}}
-function bDrawParticles(c){var n=hn(),Z=cam.z,lo=LODN<1,scap=lo?.22:n?.26:.3,dcap=lo?.22:.26;BP.forEach(function(p){var f=p.age/p.life,bl=p.bl,K=bl?bBlK(bl):1,mv=bl&&BMOVE[p.k],X=mv?bl.x+(p.x-bl.x)*K:p.x,Y=mv?bl.y+(p.y-bl.y)*K:p.y;
-  if(p.k==='smoke'||p.k==='dust'){var r=(p.r0+(p.r1*1.3-p.r0)*f)*K,al=Math.min(p.al,p.acap||(p.k==='dust'?dcap:scap))*Math.pow(1-f,1.6)*Math.min(1,p.age/.2);if(al<.004||!(r>0))return;c.globalAlpha=al;c.drawImage(spPuff(p.col),X-r,Y-r,r*2,r*2);c.globalAlpha=1}   // 11-17 spec: capped alphas and still-spreading puffs, so overlapping smoke never builds a flat dark disc
+function bDrawParticles(c){var n=hn(),Z=cam.z,pk=n?.34:.40,sm0=c.imageSmoothingEnabled,sq0=c.imageSmoothingQuality;c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';BP.forEach(function(p){var f=p.age/p.life,bl=p.bl,K=bl?bBlK(bl):1,mv=bl&&BMOVE[p.k],X=mv?bl.x+(p.x-bl.x)*K:p.x,Y=mv?bl.y+(p.y-bl.y)*K:p.y;
+  if(p.k==='smoke'||p.k==='dust'){var r=(p.r0+(p.r1*1.3-p.r0)*(1-(1-f)*(1-f)))*K,al=Math.min(p.al,p.acap||pk)*Math.pow(1-f,1.8)*Math.min(1,p.age/.15);/* ease-out spread, 150 ms fade-in, soft-edged sprite (no flat disc) */if(al<.004||!(r>0))return;c.globalAlpha=al;c.drawImage(spPuff(p.col),X-r,Y-r,r*2,r*2);c.globalAlpha=1}   // 11-17 spec: capped alphas and still-spreading puffs, so overlapping smoke never builds a flat dark disc
   else if(p.k==='vox'){var av=f>.72?(1-f)/.28:1;if(av<1)c.globalAlpha=av;c.fillStyle=p.col;c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);if(p.s>1&&!p.down){c.fillStyle='rgba(255,255,255,.28)';c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s*.4)}if(av<1)c.globalAlpha=1}
   else if(p.k==='build'){c.fillStyle=p.col;c.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);if(f>.85){c.fillStyle='rgba(255,255,255,'+((f-.85)/.15*.8).toFixed(2)+')';c.fillRect(p.x-p.s,p.y-p.s,p.s*2,p.s*2)}}
   else if(p.k==='rez'){var on=f<.55||rnd(Math.floor(p.age*22)+p.ph)>f*.9,s2=p.s*(f<.7?1:1-(f-.7)/.3*.6);if(on){var ar=f<.7?1:(1-f)/.3;c.globalAlpha=ar;c.fillStyle=f<.25?p.col:f<.6?'#7FF6FF':'#E8FEFF';c.fillRect(p.x-s2/2,p.y-s2/2,s2,s2);c.strokeStyle='rgba(61,242,255,'+(.9*ar).toFixed(2)+')';c.lineWidth=.5;c.strokeRect(p.x-s2/2,p.y-s2/2,s2,s2);c.globalAlpha=1}}   // 11-14 the derezz: a cube in the city's colour goes cyan, then white, flickers and is gone
   else if(p.k==='debris'){var sd=Math.max(p.s*K,.7/Z);c.save();c.translate(p.x,p.y);c.rotate(p.rot);c.fillStyle=p.col;c.globalAlpha=f>.8?(1-f)/.2:1;c.fillRect(-sd,-sd*.6,sd*2,sd*1.2);c.fillStyle='rgba(255,255,255,.25)';c.fillRect(-sd,-sd*.6,sd*2,sd*.35);c.restore()}
   else if(p.k==='glass'){var tw=.5+.5*Math.sin(p.age*30+p.rot*7),gz=Math.max(1.2*K,1.2/Z);c.fillStyle='rgba('+(tw>.7?'255,255,255':'190,228,250')+','+(f>.8?(1-f)/.2:1).toFixed(2)+')';c.fillRect(p.x-gz/2,p.y-gz/2,gz,gz)}
   else if(p.k==='spark'){var vv=Math.hypot(p.vx,p.vy)||1,ln=Math.max(vv*.035*K,3/Z);c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,'+Math.round(200-120*f)+',80,'+(1-f).toFixed(3)+')';c.lineWidth=Math.max(.8,1/Z);hline(c,X,Y,X-p.vx/vv*ln,Y-p.vy/vv*ln);c.restore()}
-  else if(p.k==='flash'){var rr=(p.r0+(p.r1-p.r0)*Math.sqrt(f))*K*1.3;c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*Math.pow(1-f,1.5);c.drawImage(p.tint?spGlowC(p.tint):spGlow(),X-rr,Y-rr,rr*2,rr*2);c.restore();
+  else if(p.k==='flash'){var rr=(p.r0+(p.r1-p.r0)*Math.sqrt(f))*K*1.3;c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*Math.pow(1-f,1.5);c.drawImage(p.tint?spGlowC(p.tint):spGlow(rr*2*Z),X-rr,Y-rr,rr*2,rr*2);c.restore();
     if(p.age<.09){c.fillStyle='rgba(255,255,255,'+(1-p.age/.09).toFixed(3)+')';c.beginPath();c.arc(X,Y,Math.max(rr*.22,1.5/Z),0,7);c.fill()}}   // a hard white core: a point of light that reads over bright green
   else if(p.k==='fire'){var u=Math.min(1,f*2.2),rf=(p.r0+(p.r1-p.r0)*(1-Math.pow(1-u,3)))*K,af=Math.pow(1-f,1.4),ms=p.age*1000,wh=ms<220?1:Math.max(0,1-(ms-220)/250);if(!(rf>0))return;   // white-hot at first (additive), then orange to red to a dark ember (painted over), never a white smear
-    if(wh>0){c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*wh*af;c.drawImage(spFire(1),X-rf,Y-rf,rf*2,rf*2);c.restore()}if(wh<1){c.globalAlpha=.85*(1-wh)*af;c.drawImage(spFire(0),X-rf,Y-rf,rf*2,rf*2);c.globalAlpha=1}}
-  else if(p.k==='ring'){var e=1-Math.pow(1-f,3),rx=(p.r1*e+1)*K,lw=Math.max(p.r1*K*.06,2/Z)*(1-f)+.5/Z;c.save();c.beginPath();c.ellipse(X,Y,rx,rx*.5,0,0,7);c.lineWidth=lw+1/Z;c.strokeStyle='rgba(30,24,18,'+(.22*(1-f)).toFixed(3)+')';c.stroke();   // two strokes: dark under, light over, so the ring reads on green and on dark tiles
-    c.lineWidth=lw;c.strokeStyle=(p.tint?'rgba('+p.tint+',':n?'rgba(255,214,160,':'rgba(255,255,255,')+(.85*(1-f)).toFixed(3)+')';c.stroke();c.restore()}})}
+    if(wh>0){c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.95*wh*af;c.drawImage(spFire(1,rf*2*Z),X-rf,Y-rf,rf*2,rf*2);c.restore()}if(wh<1){c.globalAlpha=.85*(1-wh)*af;c.drawImage(spFire(0,rf*2*Z),X-rf,Y-rf,rf*2,rf*2);c.globalAlpha=1}}
+  else if(p.k==='ring'){var e=1-Math.pow(1-f,3),rx=(p.r1*e+1)*K*1.15;c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.8*(1-f);c.drawImage(spRing(),X-rx,Y-rx*.5,rx*2,rx);c.restore()}});   // a soft gradient ring, squashed 2:1
+  c.imageSmoothingEnabled=sm0;if(sq0)c.imageSmoothingQuality=sq0}
 /** what a hit does to the air: flash and fireball, shock ring, chunks of the building in its own colours and window glass
  *  (bigger and more of them for a big hit), sparks, a dust cloud, then smoke. gy = the ground under the hit (chunks land there) */
 var BFXN={debris:[14,24,40,64],panel:[2,4,7,12],glint:[16,28,48,80],spark:[10,16,28,44],dust:[5,8,14,22],smoke:[4,6,10,16],flash:[18,30,60,140],fire:[12,20,34,64],ring:[24,40,70,120],k:[.7,1,1.35,1.8]},
@@ -416,20 +423,20 @@ function bRibbonFill(s,until,sz){if(!s.from||!s.to||s.rf==null)return;var r=bRib
   for(var k=0;k<=40;k++){var u=u1*k/40,tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,u);bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*(sz||1),tr.y-Math.sin(tr.a)*6*(sz||1),s.rf+s.fl*u,sz,tr.gy)}}
 function bRibbonsClear(){BTR.forEach(function(r){r.pts.length=0});BTR.length=0}
 // 11-17 spec: six age bands [from ms, to ms, world width, alpha, min css px]; three on the world map
-var BRIB=[[0,250,1,.85,1.5],[250,800,1.8,.7,2.5],[800,2000,3,.5,3.5],[2000,4500,4.6,.34,4.5],[4500,9000,6.2,.22,5.5],[9000,1e12,7.5,.12,6]],BRIBLO=[[0,800,1.6,.75,2.5],[800,4500,3.4,.45,4],[4500,1e12,6.4,.2,6]];
+var BRIB=[[0,250,1,.85,1.5,'255,226,176'],[250,900,2,.6,2.5,'248,244,238'],[900,2200,3.6,.4,3.5,'244,242,238'],[2200,4500,5.5,.22,4.5,'238,238,242'],[4500,7000,7,.1,5.5,'238,238,242',1]],BRIBLO=[[0,900,1.6,.7,2.5,'255,226,176'],[900,3000,3.6,.35,4,'244,242,238'],[3000,6000,6,.15,6,'238,238,242',1]],BRSTK=[[1.7,.28],[1,.5],[.45,.8]],BRSTKLO=[[1.5,.4],[.6,.8]],BRLIFE=7000;
 function bDrift(age){var a=Math.min(age,12000);return [a*.0022,-a*.0045]}
 /** the smoke ribbons: thin and warm at the nozzle, wider, greyer and fainter with age, drifting with the wind; a dark under-stroke
  *  1 css px lower gives them an edge on bright green; never thinner than the band's minimum on screen; thicker and brighter where
  *  the arc comes toward the camera. live = the nightly salvo outside a replay (ribbons go after 9 s) */
-function bDrawRibbons(c,now,live){if(!BTR.length)return;var n=hn(),Z=cam.z,BB=LODN<1?BRIBLO:BRIB,body=n?'176,178,190':'246,244,240',warm='255,226,176',sh=n?'rgba(0,0,0,.35)':'rgba(28,30,40,.22)',vb=hView(TH*3),vc=(vb[2]+vb[3])/2,vh2=Math.max(1,vb[3]-vb[2]),oy=1/Z,seg=[];c.save();c.lineCap='round';c.lineJoin='round';
-  var path=function(o){c.beginPath();for(var q=0;q<seg.length;q+=4){c.moveTo(seg[q],seg[q+1]+o);c.lineTo(seg[q+2],seg[q+3]+o)}};
-  for(var i=BTR.length-1;i>=0;i--){var r=BTR[i],p=r.pts;if(p.length<2)continue;if(live&&now-p[p.length-1][2]>9000){p.length=0;BTR.splice(i,1);continue}
-    for(var bI=BB.length-1;bI>=0;bI--){var B=BB[bI];if(live&&B[0]>=9000)continue;
-      for(var dq=-1;dq<=1;dq++){seg.length=0;
-        for(var k=1;k<p.length;k++){var age=now-p[k][2];if(age<B[0]||age>=B[1])continue;var dp=(p[k][3]-vc)/vh2;if((dp<-.17?-1:dp>.17?1:0)!==dq)continue;
-          var d0=reduce?[0,0]:bDrift(now-p[k-1][2]),d1=reduce?[0,0]:bDrift(age),w=reduce?0:Math.sin(k*1.7)*Math.min(3,1.5*(1+age/4000))*Math.min(1,age/1500);seg.push(p[k-1][0]+d0[0],p[k-1][1]+d0[1]+w,p[k][0]+d1[0],p[k][1]+d1[1]+w)}
-        if(!seg.length)continue;var lw=Math.max(B[2]*r.sz*(1+.13*dq),B[4]/Z),al=Math.min(1,B[3]*(1+.1*dq));
-        path(oy);c.lineWidth=lw;c.strokeStyle=sh;c.stroke();path(0);c.strokeStyle='rgba('+(B[1]<=800?warm:body)+','+al.toFixed(3)+')';c.stroke()}}}
+function bDrawRibbons(c,now,live){if(!BTR.length)return;var n=hn(),Z=cam.z,lo=LODN<1,BB=lo?BRIBLO:BRIB,SK=lo?BRSTKLO:BRSTK,seg=[];c.save();c.lineCap='round';c.lineJoin='round';
+  var path=function(){c.beginPath();for(var q=0;q<seg.length;q+=4){c.moveTo(seg[q],seg[q+1]);c.lineTo(seg[q+2],seg[q+3])}};
+  for(var i=BTR.length-1;i>=0;i--){var r=BTR[i],p=r.pts;if(p.length<2)continue;if(live&&now-p[p.length-1][2]>BRLIFE){p.length=0;BTR.splice(i,1);continue}
+    for(var bI=BB.length-1;bI>=0;bI--){var B=BB[bI];seg.length=0;var fa=1;
+      for(var k=1;k<p.length;k++){var age=now-p[k][2];if(age<B[0]||age>=B[1])continue;
+        var d0=reduce?[0,0]:bDrift(now-p[k-1][2]),d1=reduce?[0,0]:bDrift(age),w=reduce?0:Math.sin(k*1.7)*Math.min(5,age/900)*Math.min(1,age/1500);seg.push(p[k-1][0]+d0[0],p[k-1][1]+d0[1]+w,p[k][0]+d1[0],p[k][1]+d1[1]+w);
+        if(B[6])fa=Math.min(fa,1-(age-B[0])/(B[1]-B[0]))}   // the last band fades to 0: a trail is gone 7 s after it was laid
+      if(!seg.length)continue;var lw=Math.max(B[2]*r.sz,B[4]/Z),al=B[3]*(B[6]?Math.max(0,fa):1)*(n?.8:1);if(al<.01)continue;path();
+      for(var sI=0;sI<SK.length;sI++){c.lineWidth=Math.max(lw*SK[sI][0],1.5/Z);c.strokeStyle='rgba('+B[5]+','+(al*SK[sI][1]).toFixed(3)+')';c.stroke()}}}   // three strokes, wide and faint to narrow and bright: a feathered edge
   c.restore()}
 /** the big launch: the plume Mike asked for (flash, a ground ring, a dozen puffs rolling away from the tubes, dust) */
 function bLaunchFxBig(x,y,a){bEmit({k:'flash',x:x,y:y,r0:3,r1:18,life:.28});bEmit({k:'ring',x:x,y:y+4,r1:22,life:.5});

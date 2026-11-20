@@ -69,7 +69,7 @@ test("words: wired into the replay (impact, draw after particles, cleared on sta
   assert.match(BATTLE_DRAW_JS, /if\(BBKCUR&&fx\)bBombFx\(s,iA,now\);BBKCUR=null;/);
   assert.match(BATTLE_DRAW_JS, /bDrawParticles\(c\);bDrawWords\(c,rep\?now:null\);/);
   assert.equal((BATTLE_DRAW_JS.match(/BWL\.length=0;/g) || []).length >= 3, true);
-  assert.match(BATTLE_DRAW_JS, /p\.tint\?spGlowC\(p\.tint\):spGlow\(\)/);
+  assert.match(BATTLE_DRAW_JS, /p\.tint\?spGlowC\(p\.tint\):spGlow\(rr\*2\*Z\)/);
   assert.match(BATTLE_DRAW_JS, /if\(BBKCUR==='nova'\)\{lit='196,176,255';shd='92,70,160'\}/);
   assert.ok(CITY_JS.includes(BATTLE_DRAW_JS));
 });
