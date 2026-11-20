@@ -50,3 +50,10 @@ test("Mike 11-20: zoomed out, a hit tower is cut to its stump and charred like c
   assert.match(CITY_JS, /else\{var th=dm\?Math\.min\(t\[1\],Math\.max\(0,stand-v0\)\):t\[1\];/);
   assert.match(CITY_JS, /prismHi\(c,x,top,t\[0\],th,dm\?mix\(tc,Math\.min\(\.65,\.2\+\.5\*dm\.d\),'#3A3D47'\):tc,\{floors:false\}\);if\(th<t\[1\]\)\{cut=true;top-=th;return\}/);
 });
+
+test("Mike 11-20: the strike card's top attackers link to the member's Caldera profile with their avatar; raiders stay plain", () => {
+  assert.match(CITY_JS, /function bcLink\(h\)\{if\(!h\|\|h\.charAt\(0\)!=='@'\|\|bcRaid\(h\)\)return null;/);
+  assert.match(CITY_JS, /<a class="n" href="'\+bcE\(lk\.href\)\+'" target="_top" rel="noopener">'\+bcAv\(r\[4\],lk\.av\)/);
+  assert.match(CITY_JS, /r\.a===cur&&up>0\?up:0,r\.a\]:null\)\}return o\}/);
+  assert.match(CITY_JS, /'<div class="sc-lb">/);
+});
