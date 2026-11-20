@@ -1808,6 +1808,32 @@ window.addEventListener('message',function(e){var m=e.data;if(m&&m.type==='calde
 if(MINI){setInterval(function(){if(!document.hidden&&ONSCREEN)healthCheck()},5000);
   if(window.IntersectionObserver)new IntersectionObserver(function(es){var on=es[0]&&es[0].isIntersecting;if(on&&!ONSCREEN){ONSCREEN=true;rebuildLayers();fit();setTimeout(healthCheck,300)}else ONSCREEN=on}).observe(cv)}
 window.addEventListener('resize',function(){fit();draw()});
-fit();lifeRetarget();lifeCars();legendInit();
+// ---- the toolbar on one row (Mike 11-19, Duo landscape: the chips wrapped into tall circles over the map). Buttons that
+// don't fit move, least used first, into a "More" menu at the end of the row; at mid widths Sound, Reset, Pop out and Full
+// screen drop their words first. The CSS rides in the script (published pages only get the script upgraded).
+var MORE=null,MOREP=null,TORD=null,MORDER=['t-legend','t-topics','t-sky','t-wx','t-sf','t-under','*','t-pop','t-snd','t-reset','t-fr','t-stores','t-labels'];
+function moreOpen(on){if(!MOREP)return;MOREP.hidden=!on;MORE.setAttribute('aria-expanded',String(!!on));if(on)MOREP.style.maxHeight=Math.max(120,st.clientHeight-60)+'px'}
+function toolsFit(){var tb=st.querySelector('.c-tools');if(!tb)return;
+  if(!MORE){if(!document.getElementById('c-more-css')){var sc=document.createElement('style');sc.id='c-more-css';
+      sc.textContent='.c-tools.has-more{flex-wrap:nowrap!important;overflow:visible!important;z-index:20}.c-tools.has-more>button{white-space:nowrap;flex:none}.c-tools.tight>:is(#t-snd,#t-reset,#t-pop,#t-full) .t-txt{display:none}'
+        +'.c-more{position:absolute;top:calc(100% + 6px);right:0;min-width:210px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:14px;background:rgba(2,6,12,.95);border:1px solid rgba(61,242,255,.45);box-shadow:0 14px 34px -14px rgba(0,0,0,.85);z-index:30}.c-more[hidden]{display:none}'
+        +'.c-more>button{display:flex!important;align-items:center;gap:8px;width:100%;min-height:36px;height:auto!important;border:0!important;border-radius:8px!important;background:transparent!important;text-align:left;justify-content:flex-start;padding:0 10px!important;white-space:nowrap;opacity:1!important;font:500 12px var(--font-mono,\'IBM Plex Mono\',monospace)!important;color:#BFF8FF}'
+        +'.c-more>button:hover,.c-more>button:focus-visible{background:rgba(61,242,255,.12)!important}.c-more>button .t-txt{display:inline!important}.c-more>button[aria-pressed="false"]{opacity:.55!important}.c-more>button::after{display:none!important}';
+      (document.head||document.documentElement).appendChild(sc)}
+    TORD=[].slice.call(tb.children).filter(function(x){return x.tagName==='BUTTON'});
+    MORE=document.createElement('button');MORE.type='button';MORE.id='t-more';MORE.title='More map settings';MORE.setAttribute('aria-haspopup','menu');MORE.setAttribute('aria-expanded','false');MORE.innerHTML='&#x22EF;<span class="t-txt"> More</span>';
+    MOREP=document.createElement('div');MOREP.className='c-more';MOREP.setAttribute('role','menu');MOREP.setAttribute('aria-label','More map settings');MOREP.hidden=true;
+    MORE.onclick=function(e){e.stopPropagation();moreOpen(MOREP.hidden)};tb.appendChild(MORE);tb.appendChild(MOREP);tb.classList.add('has-more');
+    document.addEventListener('click',function(e){if(MOREP&&!MOREP.hidden&&!MOREP.contains(e.target)&&!MORE.contains(e.target))moreOpen(false)},true);
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&MOREP&&!MOREP.hidden){moreOpen(false);MORE.focus()}})}
+  [].slice.call(tb.children).forEach(function(x){if(x.tagName==='BUTTON'&&x!==MORE&&TORD.indexOf(x)<0)TORD.push(x)});   // buttons added later (Storefronts, Stores, Legend)
+  var open=!MOREP.hidden;TORD.forEach(function(b){tb.insertBefore(b,MORE)});tb.classList.remove('tight');MORE.hidden=true;
+  var avail=st.clientWidth-20;function used(){var bs=[].slice.call(tb.children).filter(function(x){return x.tagName==='BUTTON'&&!x.hidden&&x.offsetWidth>0});if(!bs.length)return 0;return bs[bs.length-1].getBoundingClientRect().right-bs[0].getBoundingClientRect().left}
+  if(used()<=avail){moreOpen(false);return}
+  tb.classList.add('tight');MORE.hidden=false;
+  var ev=[];MORDER.forEach(function(id){if(id==='*'){TORD.forEach(function(b){if(MORDER.indexOf(b.id)<0&&b.id!=='t-full')ev.push(b)})}else{var b=document.getElementById(id);if(b&&TORD.indexOf(b)>=0)ev.push(b)}});
+  for(var k=0;k<ev.length&&used()>avail;k++)MOREP.appendChild(ev[k]);
+  moreOpen(open&&MOREP.children.length>0)}
+fit();lifeRetarget();lifeCars();legendInit();toolsFit();setTimeout(toolsFit,600);window.addEventListener('resize',function(){toolsFit()});
 if(reduce)frame();else{cityIntro();requestAnimationFrame(tick)}
 })();`;
