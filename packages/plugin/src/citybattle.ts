@@ -596,6 +596,11 @@ function bRebuildOf(i,j){var f=bRebuild(),e=BBAT[i+','+j],P=BREP?BREP.P:BPLAN;if
 /** rebuild progress 0..1 (0 while the damage holds) */
 function bRebuild(){var S=bS();if(!S)return 0;var now=bNow();return now<S.hold?0:Math.min(1,(now-S.hold)/(S.end-S.hold))}
 function bCenter(key){var g=GM[key];if(!g||!g.b)return null;var S=(g.cs||gState(g)).side;return iso(g.b.x+S/2-.5,g.b.y+S/2-.5)}
+/** Mike 11-20 ("that shield is over blank land ... it needs to be over my city"): the shield covers the member's buildings,
+ *  the box around their repo districts (not the plot); [centre, radius in world px]. Falls back to the plot. */
+function bCityBox(key){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;(typeof blocks!=='undefined'?blocks:[]).forEach(function(b){if(b.estate||!b.d||b.d.nb!==key||b.d.uc)return;x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);x1=Math.max(x1,b.x+b.k);y1=Math.max(y1,b.y+b.k)});
+  if(x1<x0){var c=bCenter(key),g=GM[key];return c?[c,(g.cs||gState(g)).side*TW*.42+20]:null}
+  return [iso((x0+x1)/2-.5,(y0+y1)/2-.5),Math.max(x1-x0,y1-y0)*TW*.42+20]}
 /** the ammo pad: the plot's front corner (the surveyed row beyond the road ring), in front of every building */
 function bPad(key){var g=GM[key];if(!g||!g.b)return null;var S=(g.cs||gState(g)).side,k=Math.min(S+1,g.b.k-1);var p=iso(g.b.x+k,g.b.y+k);return {x:p.x,y:p.y+2}}
 function bSea(key){var c=bCenter(key);return c?{x:c.x-260,y:c.y-150}:null}
@@ -766,7 +771,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
   var rep=!!BREP,paused=rep&&BREP.pauseAt!=null,fx=BLAST>0&&now-BLAST<5000,last=BLAST;BLAST=now;BPMAX=bPoolMax();if(!rep&&(now-BSAVED>2000||BSAVED===0))bStateSync(P,now);
   c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);var M=BDATA.members||{},vb=hView(TH*3),inView=function(p){return p&&p.x>vb[0]-60&&p.x<vb[1]+60&&p.y>vb[2]-200&&p.y<vb[3]+80};
   var FD=BL.damage?bFP():null,fdk=FD&&S.zf0!=null?FD.fall.key:null;   // the doomed city's dome flickers and dies before the last strike (spec: 900 to 1300 ms into the fall)
-  if(BL.shields)for(var k in M){var ctr=bCenter(k),g=GM[k];if(!ctr||!g||!inView(ctr))continue;var sd=(g.cs||gState(g)).side,sh=M[k].sh||0;if(sh<=0)continue;if(k===fdk&&now>=S.zf0+900&&(now>=S.zf0+1300||rnd(Math.floor(now/60))<.5)&&!(S.live&&now>=S.hold&&bRebuild()>.5))continue;var dz=BDOME[k]?Math.max(0,1-(tn-BDOME[k])/900):0;bShieldDome(c,ctr.x,ctr.y+8,sd*TW*.42+20,dz>0?'#3DF2FF':M[k].beg?'#FFFFFF':'#3DF2FF',(M[k].beg?.12:.08+.22*sh)+.55*dz)}
+  if(BL.shields)for(var k in M){var ctr=bCenter(k),g=GM[k];if(!ctr||!g||!inView(ctr))continue;var sd=(g.cs||gState(g)).side,sh=M[k].sh||0;if(sh<=0)continue;if(k===fdk&&now>=S.zf0+900&&(now>=S.zf0+1300||rnd(Math.floor(now/60))<.5)&&!(S.live&&now>=S.hold&&bRebuild()>.5))continue;var dz=BDOME[k]?Math.max(0,1-(tn-BDOME[k])/900):0,cb=bCityBox(k)||[ctr,sd*TW*.42+20];bShieldDome(c,cb[0].x,cb[0].y+8,cb[1],dz>0?'#3DF2FF':M[k].beg?'#FFFFFF':'#3DF2FF',(M[k].beg?.12:.08+.22*sh)+.55*dz)}
   var badges=[],aAng=Math.atan2(BIY,BIX),padKeys={};for(var mk in M)padKeys[mk]=1;for(var ak in P.byA)if(ak.charAt(0)==='@')padKeys[ak]=1;
   if(BL.attacks)for(var h in padKeys){var pad=bPad(h);if(!pad)continue;var L=P.byA[h]||[],n=L.length,col=bCol(h),vis=inView(pad),seed=hash(h);
     var landed=0,fired=0,inPod=0,aim=-.95;L.forEach(function(s){if(bLandOf(S,s)<=now)landed++;if(bFireOf(S,s)<=now)fired++;if(bLoadOf(S,s,n)+S.loadDur<=now)inPod++});

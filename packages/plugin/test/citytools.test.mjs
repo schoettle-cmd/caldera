@@ -24,3 +24,12 @@ test("world map (Mike 11-20, map-audit item 3): three icon buttons, Layers, Over
   assert.match(code, /TORD\.forEach\(function\(b\)\{if\(b!==rs2&&b!==fl&&b!==MORE\)MOREP\.appendChild\(b\)\}\)/);
   assert.match(code, /:is\(#t-more,#t-reset,#t-full\)\{width:36px;height:36px/);
 });
+
+test("Mike 11-20: the shield covers the member's buildings, not the plot; the plot is only as big as its used lots", () => {
+  assert.match(CITY_JS, /function gUsed\(m\)\{var c=String\(m\.l\|\|''\),last=-1;/);
+  assert.match(CITY_JS, /Math\.min\(m\.k\|0,gUsed\(m\)\)/);
+  const gUsed = new Function("m", CITY_JS.match(/function gUsed\(m\)\{([^\n]*?)\}\n/)[1]);
+  assert.equal(gUsed({ l: "0000" }), 2); assert.equal(gUsed({ l: "4400000000000000" }), 2); assert.equal(gUsed({ l: "4440400000000000" }), 3); assert.equal(gUsed({ l: "0000000000000004" }), 4);
+  assert.match(CITY_JS, /cb=bCityBox\(k\)\|\|\[ctr,sd\*TW\*\.42\+20\];bShieldDome\(c,cb\[0\]\.x,cb\[0\]\.y\+8,cb\[1\],/);
+  assert.match(CITY_JS, /if\(b\.estate\|\|!b\.d\|\|b\.d\.nb!==key\|\|b\.d\.uc\)return;/);
+});

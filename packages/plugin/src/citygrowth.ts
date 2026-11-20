@@ -16,7 +16,10 @@
 /** layout: estates join each neighborhood's districts before it is packed (inside `if(D.world)`, before sizing) */
 export const GROWTH_LAYOUT_JS = String.raw`
 var GROW=window.CALDERA_GROWTH&&window.CALDERA_GROWTH.members?window.CALDERA_GROWTH:null,GM={},GV='now',GVIEW0=(window.CALDERA_GVIEW||'now');
-if(GROW){NBS.forEach(function(n){var m=GROW.members[n.key];if(!m)return;var side=Math.max(2,Math.min(16,m.k|0));
+// Mike 11-20 ("that additional land is a waste of space"): the plot is only as big as its used lots. Lots fill in rings from
+// the corner (gXY), so the first s*s lots are an s x s square: the side is the smallest square holding the last lot in use.
+function gUsed(m){var c=String(m.l||''),last=-1;for(var i=0;i<c.length;i++)if(+c[i]>0)last=i;return Math.max(2,Math.ceil(Math.sqrt(last+1)))}
+if(GROW){NBS.forEach(function(n){var m=GROW.members[n.key];if(!m)return;var side=Math.max(2,Math.min(16,Math.min(m.k|0,gUsed(m))));
   var d={name:n.key+'/~plot',label:'Plot',nb:n.key,notes:0,repos:[],estate:true,K:side+2};n.ds.push(d);
   GM[n.key]={key:n.key,v:m,side0:side,K:side+2,d:d,n:n,lang:null,cs:null}})}
 `;
