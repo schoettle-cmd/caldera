@@ -611,7 +611,7 @@ function onLive(data){if(D.world&&data&&data.lit&&typeof data.lit==='object')LIT
 // a signup is a beam of light, confetti and a toast; a sale is a gold coin burst. Capped and queued when it floods.
 var FX={drops:[],queue:[],parts:[],beams:[],more:{}},MAXDROP=MINI?5:8,toasts=document.querySelector('.c-toasts'),sound=false,AC=null;
 try{sound=localStorage.getItem('caldera-sound')==='1'}catch(err){}
-var SFON=true;try{SFON=localStorage.getItem('caldera.sf')!=='0'}catch(err){}   // the viewer's Storefronts switch (Mike 11-19): off hides every storefront sign and shop building, for this viewer only
+var SFON=true;try{SFON=localStorage.getItem('caldera.sf')!=='0'}catch(err){}if(window.CALDERA_SF===0)SFON=false;   // the viewer's Storefronts switch (Mike 11-19): off hides every storefront sign and shop building, for this viewer only
 function sfShow(t){return SFON||!t.r||!t.r.kind}
 function arrive(b,kind){if(!b)return;if(FX.drops.length>=MAXDROP){if(FX.queue.length<24)FX.queue.push(b);else{var mo=FX.more[b.d.name]||(FX.more[b.d.name]={n:0,b:b});mo.n++;mo.until=performance.now()+5000}return}
   var path=arrivalPath(b);if(!path)return;var p=path[0];
@@ -1774,7 +1774,9 @@ if(MINI&&window.parent===window&&!window.opener&&NOPOP){try{if(history.length>1)
 document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')){ev.preventDefault();closeDir()}});
-var SFB=null;function setSF(on,init){SFON=!!on;try{if(SFON)localStorage.removeItem('caldera.sf');else localStorage.setItem('caldera.sf','0')}catch(err){}
+var SFB=null;function setSF(on,init){SFON=!!on;var kept=true;try{if(SFON)localStorage.removeItem('caldera.sf');else localStorage.setItem('caldera.sf','0')}catch(err){kept=false}
+  // a hosted city is sandboxed (no storage): the hub keeps the choice in a cookie (/@handle/sf, then back to this page)
+  var pg=location.pathname.match(/\/@[a-z0-9-]+\/([a-z0-9._-]+\.html)$/);if(!init&&!kept&&pg&&/^https?:$/.test(location.protocol)){location.replace('sf?on='+(SFON?1:0)+'&back='+encodeURIComponent(pg[1]+location.search)+location.hash);}
   if(SFB){SFB.setAttribute('aria-pressed',String(SFON));var tt=SFON?'Hide storefronts':'Show storefronts';SFB.title=tt;SFB.setAttribute('aria-label',tt)}if(!init){dirty=true;UDIRTY=true;draw()}}
 (function(){var tb=st.querySelector('.c-tools');if(!tb||!storeList(null).length)return;SFB=document.createElement('button');SFB.id='t-sf';SFB.type='button';SFB.innerHTML='&#x1FAA7;<span class="t-txt"> Storefronts</span>';
   SFB.onclick=function(){setSF(!SFON)};tb.insertBefore(SFB,tb.querySelector('#t-reset')||null);setSF(SFON,true)})();

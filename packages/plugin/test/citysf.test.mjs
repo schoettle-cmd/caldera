@@ -25,3 +25,11 @@ test("storefronts off: no signs, no marker buttons, no shop buildings; the Store
   assert.match(CITY_JS, /Storefronts are hidden on the map\./);
   assert.match(CITY_CSS ?? CITY_JS, /#t-sf\[aria-pressed="false"\]::after/);
 });
+
+test("storefronts switch on a sandboxed hosted city: the hub's cookie route keeps the choice", () => {
+  assert.match(CITY_JS, /if\(window\.CALDERA_SF===0\)SFON=false;/);
+  const i = CITY_JS.indexOf("var SFB=null;"), code = CITY_JS.slice(i, i + 900);
+  assert.match(code, /catch\(err\)\{kept=false\}/);
+  assert.match(code, /if\(!init&&!kept&&pg&&/, "only a real toggle on a page with no storage goes through the hub");
+  assert.match(code, /location\.replace\('sf\?on='\+\(SFON\?1:0\)\+'&back='\+encodeURIComponent\(pg\[1\]\+location\.search\)\+location\.hash\)/);
+});
