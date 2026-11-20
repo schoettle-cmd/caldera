@@ -23,6 +23,7 @@
  * it through window.CALDERA_BATTLE_API. Runs inside the CITY_JS closure after GROWTH_DRAW_JS: GM, gState, gLang, tiles, W, H,
  * bh, iso, poly, rnd, hash, cam, dpr, cx, vw, vh, T, reduce, sky, mix, e, draw, cranes and the cityhifi set are in scope.
  */
+import { STRIKE_CARD_JS } from "./citycard";
 /** the battle art, as drawn on the design page (battle-art.js there, verbatim) */
 export const BATTLE_ART_JS = String.raw`
 // ---- battle art (citybattle.ts BATTLE_ART_JS). Mike 2026-11-07: an ammo plot in front of each building site, missiles
@@ -339,7 +340,7 @@ function ruinHi(c,px,top,w,col,d,reb){var n=hn(),hw=TW/2*w,hh=TH/2*w,dk=n?'#1A1D
 // of these are ms at 1x; the replay clock runs at 0.5x, 1x or 2x of them (bRealMs).
 // Mike 11-20 ("it moves so fast, I can't even track it"), map-audit DESIGN item 1: a two-shot of pad and target, a 700 ms ready
 // hold, hits 350 ms apart, flights 4.2-6.5 s, an 1.8 s hold on the hit, at most 6 full strikes (the rest play as one montage)
-var BRT={approach:2300,pre:12e2,establish:1600,first:875,ripple:1400,step:350,hold:1800,zoomIn:400,beatMax:12500,wide:4000,tail:1600,total:20000,rebMin:5500,flMin:4200,flCap:6500,maxBeats:6,montage:6000};
+var BRT={approach:2300,pre:12e2,establish:1600,first:875,ripple:1400,step:350,hold:1800,zoomIn:400,beatMax:12500,wide:4000,tail:1600,total:20000,rebMin:5500,flMin:4200,flCap:6500,maxBeats:6,montage:6000,card:2000,cardRm:2600,cardIn:500,cardInRm:150};   // 11-20 strike card (STRIKECARD.md): every beat holds 2 s more for its card (2.6 s with reduced motion), after the beatMax clamp
 function bRepFlight(d){return BRT.flMin+Math.min(BRT.flCap-BRT.flMin,(d||300)*1.5)}
 // ---- replay speed: the clock runs at one of these times the 1x timings (pure helpers, tested)
 var BSPEEDS=[.5,1,2];
@@ -365,13 +366,13 @@ function bBeats(shots,now0,reduce,FF){var by={},keys=[];shots.forEach(function(s
   var rest=keys.length>BRT.maxBeats?keys.slice(BRT.maxBeats):[];if(rest.length)keys=keys.slice(0,BRT.maxBeats);
   var t=now0+BRT.pre,beats=[];keys.forEach(function(k,i){var L=by[k],n=L.length,ap=reduce?400:BRT.approach+(i?0:BRT.first),step=n>1?Math.min(BRT.step,BRT.ripple/(n-1)):0,launch=t+ap,lastHit=launch;
     L.forEach(function(s,j){s.rf=launch+j*step;s.fl=Math.min(BRT.flCap,bRepFlight(s.dist));s.ri=s.rf+s.fl;if(s.ri>lastHit)lastHit=s.ri});
-    var end=Math.min(t+BRT.beatMax+(i?0:BRT.first),lastHit+BRT.hold);var tg={};L.forEach(function(s){tg[s.d]=(tg[s.d]||0)+1});var d=Object.keys(tg).sort(function(p,q){return tg[q]-tg[p]});
+    var end0=Math.min(t+BRT.beatMax+(i?0:BRT.first),lastHit+BRT.hold),end=end0+(reduce?BRT.cardRm:BRT.card);var tg={};L.forEach(function(s){tg[s.d]=(tg[s.d]||0)+1});var d=Object.keys(tg).sort(function(p,q){return tg[q]-tg[p]});
     var lead=L[0];for(var q=0;q<L.length;q++)if(L[q].f>0&&L[q].b){lead=L[q];break}   // the camera follows a missile that lands, not one a shield holds
-    beats.push({i:i,a:k,d:lead.d,targets:d,shots:L,n:n,t0:t,launch:launch,hit:lastHit,end:end,lead:lead,raid:k.charAt(0)!=='@'});t=end});
+    beats.push({i:i,a:k,d:lead.d,targets:d,shots:L,n:n,t0:t,launch:launch,hit:lastHit,end:end,c0:end0-(reduce?BRT.cardInRm:BRT.cardIn),lead:lead,raid:k.charAt(0)!=='@'});t=end});
   if(rest.length){var M=[];rest.forEach(function(k){M=M.concat(by[k])});var mn=M.length,ml=t+(reduce?400:1000),mst=mn>1?Math.min(BRT.step,1500/(mn-1)):0,mh=ml;   // the montage: every other strike at once, one wide shot, about 6 s
     M.forEach(function(s,j){s.rf=ml+j*mst;s.fl=Math.min(3500,bRepFlight(s.dist));s.ri=s.rf+s.fl;if(s.ri>mh)mh=s.ri});
     var ml2=M[0];for(var q2=0;q2<M.length;q2++)if(M[q2].f>0&&M[q2].b){ml2=M[q2];break}var tg2={};M.forEach(function(s){tg2[s.d]=(tg2[s.d]||0)+1});
-    var me2=Math.min(t+BRT.montage+1000,mh+600);beats.push({i:beats.length,a:ml2.a,d:ml2.d,targets:Object.keys(tg2),shots:M,n:mn,t0:t,launch:ml,hit:mh,end:me2,lead:ml2,raid:false,montage:true,cities:rest.length});t=me2}
+    var me0=Math.min(t+BRT.montage+1000,mh+600),me2=me0+(reduce?BRT.cardRm:BRT.card);beats.push({i:beats.length,a:ml2.a,d:ml2.d,targets:Object.keys(tg2),shots:M,n:mn,t0:t,launch:ml,hit:mh,end:me2,c0:me0-(reduce?BRT.cardInRm:BRT.cardIn),lead:ml2,raid:false,montage:true,cities:rest.length});t=me2}
   var fall0=FF?t:null,wide=FF?t+(reduce?BFL.hit+1800:BFL.len):t,hold=wide+BRT.wide,reb=Math.max(BRT.rebMin,BRT.total-(hold-now0)-BRT.tail),end=hold+reb;   // 11-14: the fall, between the last strike and the wide shot
   return {beats:beats,by:by,shots:shots,F:FF||null,total:end+BRT.tail-now0,S:{D:now0,live:false,rep:true,drop:now0,dropStep:0,fall:0,zf0:fall0,zf:FF?fall0+(reduce?400:BFL.hit):null,load0:now0,load1:now0,loadDur:0,count:beats.length?beats[0].launch:now0,salvo:beats.length?beats[0].launch:now0,ripple:0,wide:wide,hold:hold,end:end}}}
 /** the beat at now (or null before the first / after the last) */
@@ -479,7 +480,7 @@ function bPlumeHi(c,x,y,inten,wind,seed){var tn=reduce?0:T,n=hn(),N=4+Math.round
 function bFlameHi(c,x,y,inten,seed){var tn=reduce?0:T;c.save();c.globalCompositeOperation='lighter';var gr=8+14*inten,g0=c.createRadialGradient(x,y-2,1,x,y-2,gr);g0.addColorStop(0,'rgba(255,170,60,'+(.34*inten+.06).toFixed(3)+')');g0.addColorStop(1,'rgba(255,90,20,0)');c.fillStyle=g0;c.beginPath();c.arc(x,y-2,gr,0,7);c.fill();
   for(var k=0;k<3;k++){var ph=tn/95+k*2.1+seed,hg=(4+10*inten)*(.72+.28*Math.sin(ph)),px=x+(k-1)*(2.4+2.6*inten)+Math.sin(ph*.7)*.8,rw=1.6+2*inten,g=c.createLinearGradient(px,y+1,px,y-hg);g.addColorStop(0,'rgba(255,244,200,.95)');g.addColorStop(.45,'rgba(255,160,50,.85)');g.addColorStop(1,'rgba(210,60,20,0)');c.fillStyle=g;c.beginPath();c.moveTo(px-rw,y+1);c.quadraticCurveTo(px-rw*.9,y-hg*.5,px+Math.sin(ph)*1.2,y-hg);c.quadraticCurveTo(px+rw*.9,y-hg*.5,px+rw,y+1);c.closePath();c.fill()}c.restore()}
 var BSPD=1;   // the speed the next replay starts at (the page remembers the viewer's choice and sets it)
-function bNow(){return BREP?(BREP.pauseAt!=null?BREP.vt:bVirt(BREP.vt,BREP.pt,BREP.sp,performance.now())):Date.now()}
+function bNow(){return BREP?(BREP.pauseAt!=null?BREP.vt:BREP.esp?BREP.vt+(performance.now()-BREP.pt)*BREP.esp:bVirt(BREP.vt,BREP.pt,BREP.sp,performance.now())):Date.now()}   // esp: the strike card's 1.2 s floor on its hold at 2x (citycard.ts)
 function bS(){return BREP?BREP.R.S:BPLAN?BPLAN.S:null}
 function bRedraw(){if(reduce)setTimeout(draw,0);else draw()}
 function bNoonOf(t){var d=new Date(t);d.setHours(12,0,0,0);return d.getTime()}
@@ -635,12 +636,12 @@ function bReplayStart(mode,sp,noFull){if(BREP)bReplayEnd(false);var demo=mode===
   if(reduce&&typeof frame==='function'){BREP.timer=setInterval(function(){if(!BREP){return}frame()},120)}
   draw();return P.n}
 /** the replay is over (or stopped): the map goes back to the live clock and the camera flies home */
-function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.timer)clearInterval(BREP.timer);BREP=null;BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();BWL.length=0;if(BPLAN)BHITB=BPLAN.hit;
+function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.timer)clearInterval(BREP.timer);BREP=null;bCardOff();BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();BWL.length=0;if(BPLAN)BHITB=BPLAN.hit;
   var go=function(){if(fly&&h&&typeof flyTo==='function')flyTo(vw/2-h.x*h.z,vh*.52-h.y*h.z,h.z,reduce?1:BRT.tail);else bRedraw()};
   bSndStop();if(full&&typeof theater==='function'){theater(false);setTimeout(go,60)}else go()}
 /** skip to the next beat (a tap on the map, the Skip button); past the last beat: to the wide shot, then straight to the end */
 /** jump the virtual clock to a moment in ms: the flights jumped over leave their ribbons and hits, no burst of effects */
-function bJump(to){if(!BREP)return false;var now=bNow();if(to===now)return true;BREP.vt=to;BREP.pt=performance.now();var n2=bNow();
+function bJump(to){if(!BREP)return false;var now=bNow();if(to===now)return true;bCardOff();BREP.vt=to;BREP.pt=performance.now();var n2=bNow();
   BREP.P.shots.forEach(function(s){if(s.rf<n2&&(!s.tr||s.tr.pts.length<8||s.ri>now||to<now))bRibbonFill(s,n2,s.sz);else if(s.rf>=n2&&s.tr)s.tr.pts.length=0});BLAST=n2;BP.length=0;BCOL.length=0;BWL.length=0;bRedraw();return true}
 /** step back: to the start of this strike (or the one before it when this one began under 1.5 s ago), then the pre-roll */
 function bPrev(){if(!BREP)return false;var R=BREP.R,now=bNow(),to=0;R.beats.forEach(function(b){if(b.t0<now-1500)to=Math.max(to,b.t0)});return bJump(to)}
@@ -649,14 +650,14 @@ function bSkip(){if(!BREP)return false;var R=BREP.R,now=bNow(),to=null,st=bRepSt
   if(to==null||to<=now)return false;return bJump(to)}
 function bPause(on){if(!BREP)return false;var was=BREP.pauseAt!=null;on=on==null?!was:!!on;if(on&&!was){BREP.vt=bNow();BREP.pauseAt=performance.now()}else if(!on&&was){BREP.pt=performance.now();BREP.pauseAt=null}draw();return on}
 /** 0.5x, 1x or 2x (anything else is 1x), from now on: the virtual clock is re-anchored so the replay does not jump */
-function bSpeed(v){BSPD=bSpeedOf(v);if(BREP){var now=bNow();BREP.vt=now;BREP.pt=performance.now();BREP.sp=BSPD}return BSPD}
+function bSpeed(v){BSPD=bSpeedOf(v);if(BREP){var now=bNow();BREP.vt=now;BREP.pt=performance.now();BREP.sp=BSPD;BREP.esp=null}return BSPD}
 // ---- the viewer's camera. Any pan or zoom hands the camera to the viewer (follow off); Follow gives it back with a short ease
 function bUserCam(){if(BREP&&BON&&BREP.follow){BREP.follow=false;BREP.ease=null}}
 function bFollow(on){if(!BREP)return false;on=on==null?true:!!on;if(typeof flyStop==='function')flyStop();if(on&&!BREP.follow){BREP.follow=true;BREP.ease=reduce?null:{t0:performance.now(),x:cam.x,y:cam.y,z:cam.z}}else if(!on){BREP.follow=false;BREP.ease=null}bRedraw();return BREP.follow}
 function bFitAll(){bUserCam();var f=bFitCam();if(typeof flyStop==='function')flyStop();if(reduce||typeof flyTo!=='function'){cam.x=f.x;cam.y=f.y;cam.z=f.z;dirty=true;bRedraw()}else flyTo(f.x,f.y,f.z,350)}
 /** the camera, every frame before anything is drawn (frame() calls it): where the beats want it, in css px */
 function bCam(){if(!BREP||!BON||!BREP.follow)return;var R=BREP.R,c=bRepCam(R,bNow(),BREP.home,vw,vh,reduce);if(!c)return;var x=vw/2-c.x*c.z,y=vh*.52-c.y*c.z,z=c.z,E=BREP.ease;
-  var sk=bShakeAt(bNow());x+=sk[0];y+=sk[1];
+  y+=bCardLift(bNow(),y,z);var sk=bShakeAt(bNow());x+=sk[0];y+=sk[1];   // the strike card: the hit stays clear of it
   if(E){var u=(performance.now()-E.t0)/BCAMEASE;if(reduce||u>=1)BREP.ease=null;else{u=bEase(u);x=bLerp(E.x,x,u);y=bLerp(E.y,y,u);z=bLerp(E.z,z,u)}}   // Follow was just pressed: ease back to where the auto camera is
   if(Math.abs(x-cam.x)>.05||Math.abs(y-cam.y)>.05||Math.abs(z-cam.z)>1e-4){cam.x=x;cam.y=y;cam.z=z;dirty=true}}
 /** the clock: the replay ends, the rebuild steps redraw the cache, events between the last frame and this one make their effects */
@@ -683,9 +684,9 @@ function bTiers(S,s){var P=BREP?BREP.P:BPLAN,L=P&&s.b&&P.hit[s.d]?P.hit[s.d][s.b
 /** the impacts that are still on show at now, one per tower (the latest), newest last: {s, age, hit, t0, t1} */
 function bHitsNow(P,S,now){var best={},out=[];P.shots.forEach(function(s){if(!s.to)return;var ia=bImpactOf(S,s),age=now-ia;if(age<0||age>=BHLMS)return;var hit=s.f>0&&!!s.b,key=s.d+'|'+(hit?s.b.idx:'sh'+Math.round(s.to.x));if(!best[key]||ia>best[key].ia)best[key]={s:s,ia:ia,age:age,hit:hit}});
   for(var k in best){var o=best[k],t=o.hit?bTiers(S,o.s):[0,0];out.push({s:o.s,ia:o.ia,age:o.age,hit:o.hit,t0:t[0],t1:t[1]})}return out.sort(function(a,b){return a.ia-b.ia})}
-function bHitLabels(c,P,S,now){var L=bHitsNow(P,S,now);if(!L.length)return;L=L.slice(-6);c.save();c.font='600 10px IBM Plex Mono,Menlo,monospace';c.textBaseline='middle';c.textAlign='left';
+function bHitLabels(c,P,S,now){var L=bHitsNow(P,S,now),kc=bCardClear(now);if(!L.length||kc<=0)return;L=L.slice(-6);c.save();c.font='600 10px IBM Plex Mono,Menlo,monospace';c.textBaseline='middle';c.textAlign='left';
   L.forEach(function(o){var x=cam.x+o.s.to.x*cam.z,y=cam.y+(o.s.to.y-34)*cam.z;if(!isFinite(x)||!isFinite(y)||x<-80||x>vw+80||y<-30||y>vh+30)return;
-    var landed=o.s.f>0&&!o.s.blocked,cut=landed&&o.s.sh>0,txt=landed?'-'+bUsd(o.s.usd)+((o.s.x?o.s.x.sp:o.s.burn>=1)?' +fire':'')+(cut?' \u00b7 shield '+Math.round(o.s.sh*100)+'%':''):'Shield held'+(o.s.pot?' '+bUsd(o.s.pot):''),tw=c.measureText(txt).width,pw=o.hit?42:0,w=8+pw+(pw?6:0)+tw+8,h=18,x0=Math.round(x-w/2),y0=Math.round(y-h/2),al=reduce?1:Math.min(1,o.age/150)*Math.min(1,(BHLMS-o.age)/500);
+    var landed=o.s.f>0&&!o.s.blocked,cut=landed&&o.s.sh>0,txt=landed?'-'+bUsd(o.s.usd)+((o.s.x?o.s.x.sp:o.s.burn>=1)?' +fire':'')+(cut?' \u00b7 shield '+Math.round(o.s.sh*100)+'%':''):'Shield held'+(o.s.pot?' '+bUsd(o.s.pot):''),tw=c.measureText(txt).width,pw=o.hit?42:0,w=8+pw+(pw?6:0)+tw+8,h=18,x0=Math.round(x-w/2),y0=Math.round(y-h/2),al=kc*(reduce?1:Math.min(1,o.age/150)*Math.min(1,(BHLMS-o.age)/500));
     c.globalAlpha=al;c.fillStyle='rgba(15,16,22,.94)';c.strokeStyle=landed&&!cut?'rgba(255,255,255,.28)':'rgba(61,242,255,.7)';c.lineWidth=1;c.beginPath();if(c.roundRect)c.roundRect(x0,y0,w,h,9);else c.rect(x0,y0,w,h);c.fill();c.stroke();
     if(o.hit){var bw=40,w1=Math.round(bw*(1-o.t1)),w0=Math.max(w1+2,Math.round(bw*(1-o.t0)));   // the tower still standing (teal), what this hit took (red, fading), what was gone before
       c.fillStyle='rgba(255,255,255,.16)';c.fillRect(x0+8,y0+6,bw,h-12);c.fillStyle='#4FD1C5';c.fillRect(x0+8,y0+6,w1,h-12);c.fillStyle='rgba(255,90,70,'+(reduce?.9:Math.max(.25,1-o.age/1800)).toFixed(2)+')';c.fillRect(x0+8+w1,y0+6,Math.min(bw,w0)-w1,h-12)}
@@ -803,7 +804,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
     if(v.b){if(!inView(v.b.p))return;var hv=v.b.h*(1-.4*Math.min(1,v.v));bImpactFx(v.b.p.x,v.b.p.y+4-hv,bCol(v.d),.3+v.v,v.b.p.y+4);bShatterFor(v,iv,Math.round(bVoxMax()/3))}
     else if(v.lot&&inView(v.lot.p)){bRedraw();for(var k=0;k<4;k++)bEmit({k:'dust',x:v.lot.p.x+(rnd(k+v.lot.li)-.5)*20,y:v.lot.p.y+2,vx:(rnd(k*3)-.5)*20,vy:-5,r0:3,r1:14,al:.45,col:hn()?'110,100,90':'175,165,150',life:1.8});for(var k2=0;k2<6;k2++)bEmit({k:'debris',x:v.lot.p.x,y:v.lot.p.y-6,vx:(rnd(k2*1.3+v.lot.li)-.5)*90,vy:-60-rnd(k2)*60,g:v.lot.p.y+6,rot:k2,vr:4,s:1+rnd(k2*2)*1.6,col:hmul(bCol(v.d),.7),life:1.4})}});
   var FP=BL.damage?bFP():null;if(FP&&S.zf!=null&&now>=S.zf0-2600)bFallOver(c,FP.fall,S,now,last,fx,tn,rep);
-  if(dt>0&&!paused){var spd=rep?BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);bDrawWords(c,rep?now:null);
+  if(dt>0&&!paused){var spd=rep?BREP.esp||BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);bDrawWords(c,rep?now:null);
   // fire and smoke (Mike 11-13): every hit tower burns. Flames die down as e^(-t/tau), the plume drifts downwind and thins more
   // slowly; once the cranes start it only smoulders, and stops when the rebuild is under way. Street craters mark the misses.
   if(BL.damage){var nSm=0,fq=0,tau=bTau(S),wind=bWind(P),ra=1-bRebuild();
@@ -823,7 +824,8 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
   var pure=typeof PURE!=='undefined'&&PURE;c.setTransform(dpr,0,0,dpr,0,0);if(!pure)badges.forEach(function(b){if(b[5])badgeHi(c,cam.x+b[0]*cam.z,cam.y+b[1]*cam.z,b[2],b[3],b[4])});
   if(rep&&!pure)bHitLabels(c,P,S,now);
   if(BFLS&&!reduce){var uf=(now-BFLS.t)/BFLS.dur;if(uf>=0&&uf<1){c.fillStyle='rgba(255,250,235,'+(BFLS.a*(1-uf)*(1-uf)).toFixed(3)+')';c.fillRect(0,0,vw,vh)}}   // the big blasts white out the screen for a moment
-  if(!pure&&S.live&&now>=S.count&&now<S.salvo&&P.n>0)countdownHi(c,vw/2,vh*.42,(now-S.count)/(S.salvo-S.count))}
+  if(!pure&&S.live&&now>=S.count&&now<S.salvo&&P.n>0)countdownHi(c,vw/2,vh*.42,(now-S.count)/(S.salvo-S.count));
+  if(rep)bCardTick(now)}   // the strike card after each beat (citycard.ts)
 /** the world card's battle lines */
 function battleCard(key){if(!BON||!BDATA)return '';var m=(BDATA.members||{})[key];
   if(!m)return '<div class="c-grow"><div class="row"><span>Battles</span><b>Peaceful zone</b></div></div>';
@@ -885,4 +887,4 @@ window.CALDERA_BATTLE_API={
 bStateRead();
 `;
 
-export const BATTLE_DRAW_JS = BATTLE_ART_JS + BATTLE_LOGIC_JS;
+export const BATTLE_DRAW_JS = BATTLE_ART_JS + BATTLE_LOGIC_JS + STRIKE_CARD_JS;
