@@ -187,7 +187,8 @@ function towerHi(c,x,y,o){var v=o.variant,col=o.col,seed=o.seed,base=y+4,top=bas
   tiers.forEach(function(t,k){var mat=v===0||(v===2&&k===0)?'glass':v===1?'punched':'concrete';
     if(cut)return;if(dm&&v0>=stand){cut=true;return}
     if(LODN>0){var r=pxBlock(c,x,top,t[0],t[1],mat==='concrete'?'punched':mat,tc,{litp:litp,seed:seed+k*101,people:pe,sign:k===0&&v===0?col:null,ground:k===0,awning:k===0&&v===1&&rnd(seed+.4)<.5?col:null,v0:v0,mask:dm,roof:v===1?'pavers':v===2?'membrane':'gravel'});if(r.cut){cut=true;top=r.top;return}}
-    else prismHi(c,x,top,t[0],t[1],tc,{floors:false});
+    else{var th=dm?Math.min(t[1],Math.max(0,stand-v0)):t[1];   /* Mike 11-20: at far zoom a hit tower is cut to its stump and charred like close up, never a whole block */
+      prismHi(c,x,top,t[0],th,dm?mix(tc,Math.min(.65,.2+.5*dm.d),'#3A3D47'):tc,{floors:false});if(th<t[1]){cut=true;top-=th;return}}
     top-=t[1];v0+=t[1]});
   if(dm&&cut)top=base-stand;
   var tw=tiers[tiers.length-1][0];

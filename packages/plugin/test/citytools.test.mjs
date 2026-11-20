@@ -33,3 +33,20 @@ test("Mike 11-20: the shield covers the member's buildings, not the plot; the pl
   assert.match(CITY_JS, /cb=bCityBox\(k\)\|\|\[ctr,sd\*TW\*\.42\+20\];bShieldDome\(c,cb\[0\]\.x,cb\[0\]\.y\+8,cb\[1\],/);
   assert.match(CITY_JS, /if\(b\.estate\|\|!b\.d\|\|b\.d\.nb!==key\|\|b\.d\.uc\)return;/);
 });
+
+test("Mike 11-20: on a phone the replay camera keeps every missile in the air on screen, zooming out if it must", () => {
+  const grab = (name) => { const i = CITY_JS.indexOf("function " + name + "("); assert.ok(i > 0, name); let d = 0, k = CITY_JS.indexOf("{", i);
+    for (; k < CITY_JS.length; k++) { if (CITY_JS[k] === "{") d++; else if (CITY_JS[k] === "}" && --d === 0) break; } return CITY_JS.slice(i, k + 1); };
+  const bKeep = new Function("FITZ", grab("bKeep") + "; return bKeep;")(0.3);
+  const on = (fr, p, vw, vh) => { const sx = (p.x - fr.x) * fr.z + vw / 2, sy = (p.y - fr.y) * fr.z + vh / 2; return sx >= 0 && sx <= vw && sy >= 0 && sy <= vh * 0.66 + 1; };
+  const fr = { x: 0, y: 0, z: 1.2 }, pts = [{ x: 400, y: -500 }, { x: 380, y: -460 }];
+  const k = bKeep(fr, pts, 390, 844); pts.forEach(p => assert.ok(on(k, p, 390, 844), JSON.stringify(k)));
+  const wide = [{ x: -2000, y: 0 }, { x: 2000, y: -300 }]; const k2 = bKeep(fr, wide, 390, 844); assert.ok(k2.z < fr.z && k2.z >= 0.24 - 1e-9);
+  assert.deepEqual(bKeep(fr, [], 390, 844), fr);
+  assert.match(CITY_JS, /return bKeep\(f<\.6\?fly:bCamMix\(fly,hit,\(f-\.6\)\/\.22\),bFlying\(b,now\),vw,vh\)\}/);
+});
+
+test("Mike 11-20: zoomed out, a hit tower is cut to its stump and charred like close up (no whole block)", () => {
+  assert.match(CITY_JS, /else\{var th=dm\?Math\.min\(t\[1\],Math\.max\(0,stand-v0\)\):t\[1\];/);
+  assert.match(CITY_JS, /prismHi\(c,x,top,t\[0\],th,dm\?mix\(tc,Math\.min\(\.65,\.2\+\.5\*dm\.d\),'#3A3D47'\):tc,\{floors:false\}\);if\(th<t\[1\]\)\{cut=true;top-=th;return\}/);
+});

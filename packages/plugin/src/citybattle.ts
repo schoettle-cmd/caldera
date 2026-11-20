@@ -388,10 +388,20 @@ function bClampAbs(v,m){return v>m?m:v<-m?-m:v}
 function bPadFrame(b,vw){var f=b.lead.pad||b.lead.from,t=b.lead.to;return {x:f.x+bClampAbs((t.x-f.x)*.1,12),y:f.y-18,z:bPadZoom(vw)}}
 /** the zoom at mid-flight: out far enough that a long arc reads as a journey, never below .45 of the pad zoom */
 function bFlightZoom(pz,dist,vw){return Math.max(pz*.45,Math.min(pz*.75,vw*1.2/Math.max(60,dist||300)))}
-function bHitFrame(b,vw){return {x:b.lead.to.x,y:b.lead.to.y-10,z:bPadZoom(vw)*.8}}
+function bHitFrame(b,vw){var z=bPadZoom(vw)*.8;return {x:b.lead.to.x,y:b.lead.to.y-10+(vw<700?90/z:0),z:z}}   /* phone: the hit sits 90 px higher, clear of the replay controls and the strike card (Mike 11-20) */
 /** the two-shot: the pad and every target of the beat in one frame (18% side and 22% top/bottom margin), zoom in [fit, pad x .7] */
 function bTwoFrame(b,vw,vh){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,f=b.lead.pad||b.lead.from;[f].concat(b.shots.map(function(s){return s.to})).forEach(function(p){if(!p)return;x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y)});
   var fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,pz=bPadZoom(vw),z=Math.min(vw*.64/Math.max(80,x1-x0),vh*.56/Math.max(80,y1-y0+60));z=Math.max(Math.min(fz,pz*.7),Math.min(pz*.7,z));return {x:(x0+x1)/2,y:(y0+y1)/2-20,z:z}}
+/** Mike 11-20 ("on mobile the missile camera does not keep the missiles in view"): the world points of every missile of the beat
+ *  in the air at now (its arc included, so the apex counts) */
+function bFlying(b,now){var P=[];b.shots.forEach(function(s){if(s.rf==null||!s.from||!s.to||now<s.rf||now>s.rf+s.fl)return;var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-s.rf)/s.fl);P.push({x:tr.x,y:tr.y})});return P}
+/** keep pts on screen: margins of 10% at the sides, 10% at the top and room for the HUD and the strike card at the bottom (34% on a
+ *  phone, 20% else); zooms out (to 80% of the fit zoom at most) when they don't fit, then slides the frame the least it must */
+function bKeep(fr,pts,vw,vh){if(!pts||!pts.length||!fr)return fr;var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;pts.forEach(function(p){x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y)});
+  var mx=vw*.1,mt=vh*.1,mb=vh*(vw<700?.34:.2),fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,z=fr.z,zf=Math.min((vw-2*mx)/Math.max(1,x1-x0),(vh-mt-mb)/Math.max(1,y1-y0));
+  if(zf<z)z=Math.max(Math.min(z,fz*.8),zf);
+  var cx=fr.x,cy=fr.y,lo=x1-(vw/2-mx)/z,hi=x0+(vw/2-mx)/z;cx=lo>hi?(lo+hi)/2:Math.min(hi,Math.max(lo,cx));
+  var ylo=y1-(vh/2-mb)/z,yhi=y0+(vh/2-mt)/z;cy=ylo>yhi?(ylo+yhi)/2:Math.min(yhi,Math.max(ylo,cy));return {x:cx,y:cy,z:z}}
 /** the fastest the map may slide under a flight, css px/s (desktop, Duo, phone): above it the eye loses the missile */
 function bVmax(vw){return vw>=1000?260:vw>=600?200:150}
 function bCamMix(a,b,u){u=bEase(u);return {x:bLerp(a.x,b.x,u),y:bLerp(a.y,b.y,u),z:bLerp(a.z,b.z,u)}}
@@ -409,11 +419,11 @@ function bRepCam(R,now,home,vw,vh,reduce){var S=R.S,st=bRepStage(R,now);if(st===
   if(now<b.launch){if(reduce)return two;return bCamMix(prev,two,(now-b.t0)/BRT.establish)}   // ease to the two-shot, then hold on it (ready)
   var f=Math.min(1,(now-lead.rf)/lead.fl);
   if(reduce)return f<.5?two:hit;
-  if(f>=1)return hit;   // the hold on the hit
+  if(f>=1)return bKeep(hit,bFlying(b,now),vw,vh);   // the hold on the hit (a ripple's last missiles may still be flying)
   var pz=bPadZoom(vw),near=two.z>=.5*pz,fly=two;
   if(!near){var tr=bTraj(lead.from.x,lead.from.y,lead.to.x,lead.to.y,f),fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,zf=Math.max(Math.min(fz,pz*.6),Math.min(pz*.6,bVmax(vw)*(lead.fl/1000)/Math.max(60,lead.dist||300)));
     var tk={x:bLerp(tr.x,lead.to.x,.35),y:bLerp(tr.gy,lead.to.y,.35)-20,z:zf};fly=f<.15?bCamMix(two,tk,f/.15):tk}   // far strike: track a point 35% ahead of the missile, slow enough to follow
-  return f<.6?fly:bCamMix(fly,hit,(f-.6)/.22)}   // 60-82% of the flight: ease to the hit frame, then the missile flies into a still frame
+  return bKeep(f<.6?fly:bCamMix(fly,hit,(f-.6)/.22),bFlying(b,now),vw,vh)}   // 60-82% of the flight: ease to the hit frame, then the missile flies into a still frame
 // ---- smoke ribbons: one polyline per missile, kept for the whole replay. Points carry their time, so the ribbon widens,
 // drifts with the wind and thins as it ages. Polylines, not particles: ten ribbons cost ten strokes a frame.
 var BTR=[];
