@@ -23,7 +23,7 @@ test("storefronts off: no signs, no marker buttons, no shop buildings; the Store
   assert.match(CITY_JS, /if\(t\.t==='b'&&!sfShow\(t\)\)continue;/);
   assert.match(CITY_JS, /if\(t\.t==='b'&&sfShow\(t\)\)\{/);
   assert.match(CITY_JS, /Storefronts are hidden on the map\./);
-  assert.match(CITY_CSS ?? CITY_JS, /#t-sf\[aria-pressed="false"\]::after/);
+  assert.match(CITY_JS, /#t-sf\[aria-pressed="false"\]::after/); assert.ok(!CITY_CSS.includes("#t-sf"), "the CSS rides in the script: hosted pages only get the script upgraded");
 });
 
 test("storefronts switch on a sandboxed hosted city: the hub's cookie route keeps the choice", () => {

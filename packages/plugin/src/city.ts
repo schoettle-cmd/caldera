@@ -398,8 +398,6 @@ export const CITY_CSS = `
 @media (max-width:600px){.w-topics{top:52px;gap:3px;padding:7px 9px;font-size:11px;max-width:min(200px,calc(100% - 20px))}}
 .c-tools button{font:500 12px var(--font-mono,'IBM Plex Mono',monospace);padding:5px 10px;border-radius:999px;border:1px solid rgba(61,242,255,.45);background:rgba(2,6,12,.8);color:#BFF8FF;cursor:pointer}
 .c-tools button[aria-pressed="false"]{opacity:.6}
-#t-sf{position:relative}#t-sf[aria-pressed="false"]::after{content:"";position:absolute;left:8px;top:50%;width:16px;height:1.5px;background:#BFF8FF;transform:rotate(-45deg);pointer-events:none}
-.d-sfoff{margin:4px 0 8px;font-size:12px;opacity:.75}.d-sfoff .d-sfshow{font:inherit;color:inherit;text-decoration:underline;background:none;border:0;padding:0;cursor:pointer}
 .c-under{position:absolute;left:10px;bottom:10px;width:min(300px,calc(100% - 20px));background:rgba(2,6,12,.86);border:1px solid rgba(181,140,255,.45);border-radius:10px;padding:8px 10px;color:#E3DAFF;font:12px/1.45 var(--font-mono,'IBM Plex Mono',monospace)}
 .c-under b{color:#fff}.c-under{cursor:pointer}.c-under.c-min>:not(.uh){display:none}.c-under.c-min,.c-live.c-min{width:auto}.c-under .chev,.c-live .chev{float:right;opacity:.7;margin-left:8px}.c-under .lg{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:4px;color:#A99BD0}.c-under .lg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
 .c-stage.c-dig .c-hint{display:none}
@@ -1779,7 +1777,10 @@ var SFB=null;function setSF(on,init){SFON=!!on;var kept=true;try{if(SFON)localSt
   var pg=location.pathname.match(/\/@[a-z0-9-]+\/([a-z0-9._-]+\.html)$/);if(!init&&!kept&&pg&&/^https?:$/.test(location.protocol)){location.replace('sf?on='+(SFON?1:0)+'&back='+encodeURIComponent(pg[1]+location.search)+location.hash);}
   if(SFB){SFB.setAttribute('aria-pressed',String(SFON));var tt=SFON?'Hide storefronts':'Show storefronts';SFB.title=tt;SFB.setAttribute('aria-label',tt)}if(!init){dirty=true;UDIRTY=true;draw()}}
 (function(){var tb=st.querySelector('.c-tools');if(!tb||!storeList(null).length)return;SFB=document.createElement('button');SFB.id='t-sf';SFB.type='button';SFB.innerHTML='&#x1FAA7;<span class="t-txt"> Storefronts</span>';
-  SFB.onclick=function(){setSF(!SFON)};tb.insertBefore(SFB,tb.querySelector('#t-reset')||null);setSF(SFON,true)})();
+  SFB.onclick=function(){setSF(!SFON)};
+  if(!document.getElementById('c-sf-css')){var sc=document.createElement('style');sc.id='c-sf-css';   // in the script, so already published pages get it too (only the script is upgraded)
+    sc.textContent='#t-sf{position:relative}#t-sf[aria-pressed="false"]::after{content:"";position:absolute;left:8px;top:50%;width:16px;height:1.5px;background:#BFF8FF;transform:rotate(-45deg);pointer-events:none}'
+      +'#card .d-sfoff{margin:4px 0 8px;font-size:12px;opacity:.75}#card .d-sfoff .d-sfshow{font:inherit;color:inherit;text-decoration:underline;background:none;border:0;padding:0;margin:0;cursor:pointer;box-shadow:none}';(document.head||document.documentElement).appendChild(sc)}tb.insertBefore(SFB,tb.querySelector('#t-reset')||null);setSF(SFON,true)})();
 (function(){var n=storeList(null).length,tb=st.querySelector('.c-tools');if(!n||!tb||MINI)return;var b=document.createElement('button');b.id='t-stores';b.type='button';b.title='Every storefront in this '+(D.world?'world':'city');
   b.innerHTML='&#x1F3EA;<span class="t-txt"> Stores ('+n+')</span>';b.setAttribute('aria-label','Stores ('+n+')');b.onclick=function(){if(!card.hidden&&card.classList.contains('is-dir')&&!DIRKEY){closeDir();return}storeDir(null,null,true,b)};
   var ref=tb.querySelector('#t-reset');tb.insertBefore(b,ref||null)})();
