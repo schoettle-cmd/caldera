@@ -1362,7 +1362,7 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
 // them. Real friendships glow warm violet, people who work on the same repo glow code-teal, GitHub follows sky-blue; the
 // founder's welcome links are faint and thin. Dimmer by day. Links are [a, b, kind, why]: 0 request/invite, 1 founder,
 // 2 shared repo, 3 GitHub follow, 4 same stack (not a friendship: dashed coral, their public repos share uncommon packages).
-var WLAB=[],RAYS=true;try{RAYS=localStorage.getItem('caldera-world-rays')!=='0'}catch(err){}
+var WLAB=[],RAYS=false;try{RAYS=localStorage.getItem('caldera-world-rays')==='1'}catch(err){}   /* D5 (Mike 11-20): rays off by default; a viewer's saved choice wins */
 // Color by topic: tint each neighborhood's ground by its member's top "what they're building" tag; the legend names every
 // color, so the tint is never the only cue
 var TOPICS=false,TCOL={};try{TOPICS=localStorage.getItem('caldera-world-topics')==='1'}catch(err){}
@@ -1425,7 +1425,8 @@ function drawSigns(){var c=c4,z=cam.z;SHITS=[];c.setTransform(1,0,0,1,0,0);c.cle
   if(D.world&&WLAB)WLAB.forEach(function(q){obs.push(q)});
   CLAB.forEach(function(l){var x=l[0]*z+cam.x,y=l[1]*z+cam.y;obs.push({x0:x-l[2]*z/2,x1:x+l[2]*z/2,y0:y-18*z,y1:y+4*z})});   // city labels are drawn in world units, so they scale with the zoom
   var hitsAny=function(x0,y0){for(var q=0;q<obs.length;q++){var o=obs[q];if(x0<o.x1+2&&x0+B>o.x0-2&&y0<o.y1+2&&y0+B>o.y0-2)return true}return false};
-  var order=SKEYS.slice();if(me||foc)order.sort(function(a,b){return (b===foc?2:b===me?1:0)-(a===foc?2:a===me?1:0)});
+  var order=SKEYS.slice();if(D.world&&FITZ&&z/FITZ<1.8)order=order.filter(function(k){return k===me});   /* D7 (Mike 11-20): at world zoom no store bubbles but the viewer's own city's; the market landmark is a label */
+  if(me||foc)order.sort(function(a,b){return (b===foc?2:b===me?1:0)-(a===foc?2:a===me?1:0)});
   order.forEach(function(k){var G=GR[k],n=D.world&&NBM[k],t=n?nbTop(n):null,ax=(t?t.x:G.ax)*z+cam.x,ay=(t?t.y:G.ay)*z+cam.y;
     if(ax<-30||ax>vw+30||ay<-30||ay>vh+30)return;   // its place is off the stage
     var fx=null,fy=null;for(var i=0;i<SOFF.length;i++){var x0=ax+SOFF[i][0]-B/2,y0=ay-44+SOFF[i][1]-B/2;if(x0<2||y0<2||x0+B>vw-2||y0+B>vh-2||hitsAny(x0,y0))continue;fx=x0;fy=y0;break}
@@ -1754,7 +1755,16 @@ var bu=document.getElementById('t-under');if(bu)bu.onclick=function(){under=!und
 if(U&&/[#&]underground\b/.test(location.hash))setTimeout(function(){bu&&bu.onclick()},50);
 // full screen: the real Fullscreen API where the page is allowed it, otherwise the stage fills the window (Esc exits)
 var bf=document.getElementById('t-full');function fsLabel(){var on=!!document.fullscreenElement||st.classList.contains('c-full');bf.innerHTML=on?'&#x2715;<span class="t-txt"> Exit</span>':'&#x26F6;<span class="t-txt"> Full screen</span>';bf.setAttribute('aria-label',on?'Exit full screen':'Full screen')}
-function cssFull(on){st.classList.toggle('c-full',on);document.body.style.overflow=on?'hidden':'';setTimeout(function(){fit();draw()},30);fsLabel()}
+function cssFull(on){st.classList.toggle('c-full',on);document.body.style.overflow=on?'hidden':'';setTimeout(function(){fit();draw()},30);fsLabel();if(!on&&THEA==='css'){THEA='';thStop()}}
+/* D3 (Mike 11-20): the battle replay always plays in the theater: the real Fullscreen API on the stage, or cssFull where the
+   browser refuses it (iOS Safari). theater(true) returns false when the stage is already full (then the replay leaves it as it
+   is); theater(false) leaves full screen. Leaving full screen any other way (Esc, the Exit button) ends the replay. */
+var THEA='';
+function theater(on){if(on){if(THEA||document.fullscreenElement||st.classList.contains('c-full'))return false;st.classList.add('c-theater');var r=null;
+    try{r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null}catch(err){r=null}
+    if(r&&r.then){THEA='fs';r.catch(function(){if(THEA==='fs'){THEA='css';cssFull(true)}})}else{THEA='css';cssFull(true)}return true}
+  var m=THEA;THEA='';st.classList.remove('c-theater');if(m==='fs'&&document.fullscreenElement){try{document.exitFullscreen()}catch(err){}}else if(m==='css'&&st.classList.contains('c-full'))cssFull(false);return !!m}
+function thStop(){st.classList.remove('c-theater');if(typeof BREP!=='undefined'&&BREP&&typeof bReplayEnd==='function')bReplayEnd(true)}
 bf.onclick=function(){if(document.fullscreenElement){document.exitFullscreen();return}if(st.classList.contains('c-full'))return cssFull(false);
   var r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null;if(r&&r.catch)r.catch(function(){cssFull(true)});else cssFull(true)};
 // pop out: inside Obsidian the plugin opens an always-on-top window; on the web a small window opens the watch page
@@ -1769,8 +1779,8 @@ var bp=document.getElementById('t-pop');if(bp){if(MINI||NOPOP)bp.hidden=true;bp.
   var m=location.pathname.match(/^\/@([a-z0-9-]+)\//),u=m?'/watch/@'+m[1]+location.search:location.href.split('#')[0]+'#mini';
   try{window.open(u,'caldera-city','popup,width=440,height=290')}catch(err){}}}   // no window (blocked): stay on this page
 if(MINI&&window.parent===window&&!window.opener&&NOPOP){try{if(history.length>1)history.back();else location.replace(location.href.split('#')[0])}catch(err){}}   // a mini view that took over an app's page goes back
-document.addEventListener('fullscreenchange',function(){setTimeout(function(){fit();draw()},30);fsLabel()});
-document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false)});
+document.addEventListener('fullscreenchange',function(){if(!document.fullscreenElement&&THEA==='fs'){THEA='';thStop()}setTimeout(function(){fit();draw()},30);fsLabel()});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&st.classList.contains('c-full'))cssFull(false);if(ev.key==='Escape'&&THEA==='fs'&&document.fullscreenElement){try{document.exitFullscreen()}catch(err){}}});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!card.hidden&&card.classList.contains('is-dir')){ev.preventDefault();closeDir()}});
 var SFB=null;function setSF(on,init){SFON=!!on;var kept=true;try{if(SFON)localStorage.removeItem('caldera.sf');else localStorage.setItem('caldera.sf','0')}catch(err){kept=false}
   // a hosted city is sandboxed (no storage): the hub keeps the choice in a cookie (/@handle/sf, then back to this page)
@@ -1837,7 +1847,10 @@ function toolsFit(){var tb=st.querySelector('.c-tools');if(!tb)return;
         +'.c-tools.c-3 .c-more{min-width:240px}.c-tools.c-3 .c-more>:is(#t-sky,#t-wx,#t-snd)::before{display:inline-block;min-width:74px;opacity:.65;font-size:12px}.c-tools.c-3 .c-more>#t-sky::before{content:"Sky"}.c-tools.c-3 .c-more>#t-wx::before{content:"Weather"}.c-tools.c-3 .c-more>#t-snd::before{content:"Sound"}.c-tools.c-3 .c-more>#t-snd::after{display:inline!important;content:"Off";position:static;background:none;width:auto;height:auto}.c-tools.c-3 .c-more>#t-snd[aria-pressed="true"]::after{content:"On"}.c-tools.c-3 .c-more>#t-snd[aria-pressed="false"]{opacity:1!important}'
         +'.c-tools.c-3 .c-more{min-width:240px}@media (max-width:900px){.c-tools.c-3>:is(#t-more,#t-reset,#t-full){width:32px;height:32px!important}}@media (max-width:480px){.c-tools.c-3>:is(#t-more,#t-reset,#t-full){width:40px;height:40px!important}}';(document.head||document.documentElement).appendChild(sc3)}
     tb.insertBefore(MORE,tb.firstChild);var rs2=document.getElementById('t-reset'),fl=document.getElementById('t-full');if(rs2)tb.insertBefore(rs2,MORE.nextSibling);if(fl)tb.insertBefore(fl,(rs2||MORE).nextSibling);tb.appendChild(MOREP);
-    TORD.forEach(function(b){if(b!==rs2&&b!==fl&&b!==MORE)MOREP.appendChild(b)});MORE.hidden=false;moreOpen(open);return}
+    TORD.forEach(function(b){if(b!==rs2&&b!==fl&&b!==MORE)MOREP.appendChild(b)});
+    /* D4 (Mike 11-20): a page's own rows for Layers (the world page's Time row, class c-lrow) go in before Sky */
+    [].slice.call(tb.querySelectorAll('.c-lrow')).forEach(function(r){var sk=document.getElementById('t-sky');MOREP.insertBefore(r,sk&&sk.parentNode===MOREP?sk:null)});
+    MORE.hidden=false;moreOpen(open);return}
   TORD.forEach(function(b){tb.insertBefore(b,MORE)});tb.classList.remove('tight');MORE.hidden=true;
   var avail=st.clientWidth-20;function used(){var bs=[].slice.call(tb.children).filter(function(x){return x.tagName==='BUTTON'&&!x.hidden&&x.offsetWidth>0});if(!bs.length)return 0;return bs[bs.length-1].getBoundingClientRect().right-bs[0].getBoundingClientRect().left}
   if(used()<=avail){moreOpen(false);return}

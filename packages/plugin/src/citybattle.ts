@@ -627,8 +627,9 @@ function bDemoShots(){bBuildings();var keys=Object.keys(BBLD).filter(function(k)
 function bReplayStart(mode,sp,noFull){if(BREP)bReplayEnd(false);var demo=mode==='demo',src0=demo?null:bPick(bPlan(Date.now()).dayNoon),raw=demo?bDemoShots():(src0||{shots:[]}).shots;
   if(!raw.length)return 0;bBuildings();var P=bShots(raw);if(!P.n)return 0;P.demo=demo;P.night=demo?'demo':BPLAN?BPLAN.night:'';P.live=false;P.fall=bFallOf(P,demo?null:src0&&src0.fallen);
   var R=bBeats(P.shots,0,reduce,P.fall?bFallFrame(P.fall,vw,vh):null),home={x:(vw/2-cam.x)/cam.z,y:(vh*.52-cam.y)/cam.z,z:cam.z};P.S=R.S;
-  // on a phone the map takes the whole screen for the replay (Mike 11-08: "couldn't really see it"); back to the page at the end
-  var full=!noFull&&vw<700&&typeof cssFull==='function'&&typeof st!=='undefined'&&!st.classList.contains('c-full');if(full)cssFull(true);
+  // D3 (Mike 11-20): a pressed replay always plays in the theater (full screen, or the CSS full screen where the browser refuses
+  // it); a ?replay link on load stays inline (Mike 11-17). Back to the page at the end
+  var full=!noFull&&typeof theater==='function'&&theater(true);bSndStart(!noFull);
   if(typeof flyStop==='function')flyStop();if(typeof INTRO!=='undefined'&&INTRO&&typeof introFinish==='function')introFinish(true);if(typeof BUILDING!=='undefined'&&BUILDING&&typeof buildDone==='function')buildDone();
   if(sp!=null)BSPD=bSpeedOf(sp);BREP={vt:0,pt:performance.now(),sp:BSPD,pauseAt:null,P:P,R:R,home:home,demo:demo,full:full,follow:true,ease:null};BHITB=P.hit;BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;BFXT=0;bRibbonsClear();BWL.length=0;bWordWarm(P.shots);
   if(reduce&&typeof frame==='function'){BREP.timer=setInterval(function(){if(!BREP){return}frame()},120)}
@@ -636,7 +637,7 @@ function bReplayStart(mode,sp,noFull){if(BREP)bReplayEnd(false);var demo=mode===
 /** the replay is over (or stopped): the map goes back to the live clock and the camera flies home */
 function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.timer)clearInterval(BREP.timer);BREP=null;BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();BWL.length=0;if(BPLAN)BHITB=BPLAN.hit;
   var go=function(){if(fly&&h&&typeof flyTo==='function')flyTo(vw/2-h.x*h.z,vh*.52-h.y*h.z,h.z,reduce?1:BRT.tail);else bRedraw()};
-  if(full&&typeof cssFull==='function'){cssFull(false);setTimeout(go,60)}else go()}
+  bSndStop();if(full&&typeof theater==='function'){theater(false);setTimeout(go,60)}else go()}
 /** skip to the next beat (a tap on the map, the Skip button); past the last beat: to the wide shot, then straight to the end */
 /** jump the virtual clock to a moment in ms: the flights jumped over leave their ribbons and hits, no burst of effects */
 function bJump(to){if(!BREP)return false;var now=bNow();if(to===now)return true;BREP.vt=to;BREP.pt=performance.now();var n2=bNow();
@@ -787,13 +788,13 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
           else if(now>=lA&&now<lA+600){chuteDownHi(c,st.x+slot.x,st.y+slot.y,(now-lA)/600,col);if(fx&&bBetween(lA,last,now))bLandFx(st.x+slot.x,st.y+slot.y)}
           if(now>=oA&&now<oA+S.loadDur){var u=bEase((now-oA)/S.loadDur),m=tip.mz[k%12],x0=st.x+slot.x,y0=st.y+slot.y-1.6,x1=m[0]-tip.nx*4,y1=m[1]-tip.ny*4,lift=Math.sin(u*Math.PI)*12;
             missileHi(c,bLerp(x0,x1,u),bLerp(y0,y1,u)-lift,bLerp(aAng+Math.PI,aim,u),sz,col,0)}}
-        if(fx&&bBetween(fA,last,now)){var mm=tip.mz[k%12];if(rep)bLaunchFxBig(mm[0],mm[1],aim);else bLaunchFx(mm[0],mm[1],aim)}
+        if(fx&&bBetween(fA,last,now)){var mm=tip.mz[k%12];if(rep){bLaunchFxBig(mm[0],mm[1],aim);bSfx('launch',mm[0]*cam.z+cam.x)}else bLaunchFx(mm[0],mm[1],aim)}
         s.from={x:tip.mz[k%12][0],y:tip.mz[k%12][1]}})}
     badges.push([pad.x+30,pad.y-40,Math.max(0,landed-fired),col,rc,vis])}
   bDrawRibbons(c,now,!rep);
   // missiles in flight and their hits (also for raiders, who fire from the sea with no pad)
   P.shots.forEach(function(s){if(!s.from||!s.to)return;var fA=bFireOf(S,s),dur=bFlightOf(S,s),iA=fA+dur,sz=BSZ[s.w]||1;
-    if(bBetween(iA,last,now)){BBKCUR=rep&&s.x&&s.x.bk&&BBK[s.x.bk]?s.x.bk:null;if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.b&&!s.blocked&&!reduce){if(s.sh>0)bShieldFx(s.to.x,s.to.y-26,'#3DF2FF');bImpactFx(s.to.x,s.to.y+(s.to.miss?0:4),bCol(s.d),0,s.b.p.y+4,s.w,s.sh||0);bShatterFor(s,iA);if(BDES[s.w])bBigFx(s.to.x,s.to.y,bGround(s).y,s.w,bCol(s.d),rep?now:null);else if(rep&&BCLS[s.w]===1)bShake(now,1.2,160)}else if(fx&&!reduce){bShieldFx(s.to.x,s.to.y,'#3DF2FF');bImpactFx(s.to.x,s.to.y,'#8A8A93',0,s.to.y+30,'shell',.75)}if(BBKCUR&&fx)bBombFx(s,iA,now);BBKCUR=null;if(!(s.f>0)||s.sh>0)BDOME[s.d]=tn;if(s.b&&!s.blocked)bRedraw()}   // a shot the dome held whole breaks up on it: sparks and its own fragments
+    if(bBetween(iA,last,now)){if(rep)bSfx(s.b&&!s.blocked?(BCLS[s.w]>=2?'L':'M'):'shield',s.to.x*cam.z+cam.x);BBKCUR=rep&&s.x&&s.x.bk&&BBK[s.x.bk]?s.x.bk:null;if(rep&&(!s.tr||s.tr.pts.length<8))bRibbonFill(s,iA,sz);if(fx&&s.b&&!s.blocked&&!reduce){if(s.sh>0)bShieldFx(s.to.x,s.to.y-26,'#3DF2FF');bImpactFx(s.to.x,s.to.y+(s.to.miss?0:4),bCol(s.d),0,s.b.p.y+4,s.w,s.sh||0);bShatterFor(s,iA);if(BDES[s.w])bBigFx(s.to.x,s.to.y,bGround(s).y,s.w,bCol(s.d),rep?now:null);else if(rep&&BCLS[s.w]===1)bShake(now,1.2,160)}else if(fx&&!reduce){bShieldFx(s.to.x,s.to.y,'#3DF2FF');bImpactFx(s.to.x,s.to.y,'#8A8A93',0,s.to.y+30,'shell',.75)}if(BBKCUR&&fx)bBombFx(s,iA,now);BBKCUR=null;if(!(s.f>0)||s.sh>0)BDOME[s.d]=tn;if(s.b&&!s.blocked)bRedraw()}   // a shot the dome held whole breaks up on it: sparks and its own fragments
     if(s.a.charAt(0)!=='@'&&fx&&bBetween(fA,last,now)){if(rep)bLaunchFxBig(s.from.x,s.from.y,-1);else bLaunchFx(s.from.x,s.from.y,-1)}
     if(now>=fA&&now<iA&&BL.attacks&&(inView(s.from)||inView(s.to)||rep)){var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-fA)/dur);bMissileFly(c,tr,sz,bCol(s.a),tn);
       if(!paused)bRibbonAdd(s,tr.x-Math.cos(tr.a)*6*sz,tr.y-Math.sin(tr.a)*6*sz,now,sz,tr.gy)}});
@@ -831,12 +832,33 @@ function battleCard(key){if(!BON||!BDATA)return '';var m=(BDATA.members||{})[key
   return '<div class="c-grow"><div class="row"><span>Shield</span><b>'+Math.round((m.sh||0)*100)+'%'+(m.beg?' (beginner)':'')+'</b></div>'
     +'<div class="row"><span>Today</span><b>'+mine.length+' missile'+(mine.length===1?'':'s')+' (up to '+e(wn)+'), '+lab+'</b></div>'
     +(took>0?'<div class="row"><span>Hits taken</span><b>'+bUsd(took)+' of damage'+(seg==='rebuild'?', '+Math.round(bRebuild()*100)+'% rebuilt':'')+'</b></div>':'')+'</div>'}
+// ---- D6 (Mike 11-20): battle sound, on by default when the viewer presses Watch or Replay (the press is the user gesture that
+// lets audio start; a ?replay link on load stays silent). The mute in the replay bar is remembered (caldera.battle.sound '0').
+// Synthesised, no files (DESIGN.md item 12): launch, impact (S/M and L/XL), shield. Master gain .5, at most 4 voices.
+var BSKEY='caldera.battle.sound',BSON=false,BAC=null,BMG=null,BNZB=null,BVO=[];
+function bSndPref(){try{return localStorage.getItem(BSKEY)!=='0'}catch(err){return true}}
+function bSndCtx(){try{if(!BAC){var A=window.AudioContext||window.webkitAudioContext;if(!A)return null;BAC=new A();BMG=BAC.createGain();BMG.gain.value=.5;BMG.connect(BAC.destination)}if(BAC.state==='suspended'&&BAC.resume)BAC.resume()}catch(err){BAC=null}return BAC}
+function bSndHush(){BVO.forEach(function(v){try{v.g.gain.cancelScheduledValues(0);v.g.gain.value=0;v.o.forEach(function(n){try{n.stop()}catch(err){}})}catch(err){}});BVO.length=0}
+function bSndStart(press){BSON=!!press&&bSndPref();if(BSON)bSndCtx()}
+function bSndStop(){BSON=false;bSndHush()}
+function bSndSet(on){BSON=!!on;try{localStorage.setItem(BSKEY,BSON?'1':'0')}catch(err){}if(BSON)bSndCtx();else bSndHush();return BSON}
+function bNz(){if(!BNZB){var n=Math.floor(BAC.sampleRate*.5);BNZB=BAC.createBuffer(1,n,BAC.sampleRate);var a=BNZB.getChannelData(0);for(var i=0;i<n;i++)a[i]=Math.random()*2-1}var s=BAC.createBufferSource();s.buffer=BNZB;return s}
+function bEnv(g,t,pk,d){g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(pk,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d)}
+function bSfx(k,px){if(!BSON||!BAC||BAC.state==='closed')return;try{var t=BAC.currentTime,big=k==='L',d=k==='launch'?.4:k==='shield'?.3:big?.5:.25;
+  BVO=BVO.filter(function(v){return v.end>t});if(BVO.length>=4){var old=BVO.shift();try{old.g.gain.cancelScheduledValues(t);old.g.gain.setValueAtTime(0,t)}catch(err){}}
+  var g=BAC.createGain(),v={g:g,o:[],end:t+d};BVO.push(v);if(BAC.createStereoPanner){var pn=BAC.createStereoPanner();pn.pan.value=Math.max(-.6,Math.min(.6,((px==null?vw/2:px)/vw-.5)*1.2));g.connect(pn);pn.connect(BMG)}else g.connect(BMG);
+  if(k==='launch'){var n=bNz(),f=BAC.createBiquadFilter();f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(400,t);f.frequency.exponentialRampToValueAtTime(2400,t+.35);n.connect(f);f.connect(g);bEnv(g,t,.25,.35);n.start(t);n.stop(t+.4);v.o.push(n)}
+  else if(k==='shield'){[880,1320].forEach(function(fq){var o=BAC.createOscillator();o.frequency.value=fq;o.connect(g);o.start(t);o.stop(t+.3);v.o.push(o)});bEnv(g,t,.3,.25)}
+  else{var o=BAC.createOscillator();o.frequency.setValueAtTime(big?110:140,t);o.frequency.exponentialRampToValueAtTime(big?35:50,t+(big?.42:.18));o.connect(g);o.start(t);o.stop(t+d);v.o.push(o);
+    var n2=bNz(),lp=BAC.createBiquadFilter(),ng=BAC.createGain();lp.type='lowpass';lp.frequency.value=big?800:3000;ng.gain.setValueAtTime(1,t);ng.gain.exponentialRampToValueAtTime(.001,t+(big?.16:.06));n2.connect(lp);lp.connect(ng);ng.connect(g);n2.start(t);n2.stop(t+(big?.2:.1));v.o.push(n2);bEnv(g,t,big?.8:.5,d)}}catch(err){}}
 window.CALDERA_BATTLE_API={
   view:function(on,data){BON=!!on;if(data)BDATA=data;if(!on&&BREP)bReplayEnd(false);bIndex();if(!on){BP.length=0;bRibbonsClear()}draw()},
   layers:function(o){for(var k in o)if(k in BL)BL[k]=!!o[k];draw()},
   /** the cinematic replay of today's shots ('demo': a sample battle between the biggest cities). Returns the missile count */
   replay:function(mode,o){return bReplayStart(mode,o&&o.speed,o&&o.auto)},   // auto (a ?replay link on load): never full screen; only a tap does (Mike 11-17)
   stop:function(){if(BREP)bReplayEnd(true)},
+  /** D6: the replay's sound. sound() reads it, sound(true|false) sets it and remembers the viewer's choice */
+  sound:function(on){return on==null?BSON:bSndSet(on)},
   skip:function(){return bSkip()},
   next:function(){return bSkip()},
   prev:function(){return bPrev()},

@@ -17,8 +17,10 @@ test("pop-out: no window on phones or app web views, never navigates this page t
 
 test("battle replay: a ?replay link plays without full screen; only a tap enlarges the map", () => {
   assert.match(BATTLE_DRAW_JS, /function bReplayStart\(mode,sp,noFull\)/);
-  assert.match(BATTLE_DRAW_JS, /var full=!noFull&&vw<700/);
+  assert.match(BATTLE_DRAW_JS, /var full=!noFull&&typeof theater==='function'&&theater\(true\)/, "D3: a pressed replay at any width goes full screen");
   assert.match(BATTLE_DRAW_JS, /bReplayStart\(mode,o&&o\.speed,o&&o\.auto\)/);
   const own = CITY_JS.replace(BATTLE_DRAW_JS, "");
-  assert.equal((own.match(/cssFull\(true\)/g) || []).length, 2, "in the city itself only the Full screen button (and its fallback) call cssFull(true)");
+  assert.equal((own.match(/cssFull\(true\)/g) || []).length, 4, "in the city itself only the Full screen button and the replay theater (each with its fallback) call cssFull(true)");
+  const th = own.slice(own.indexOf("function theater(on)"), own.indexOf("function thStop()"));
+  assert.equal((th.match(/cssFull\(true\)/g) || []).length, 2);
 });
