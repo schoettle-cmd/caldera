@@ -31,7 +31,7 @@ function world(sky, clock, data, reduce = false, store = memStore(), b2h = 30) {
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();var PURE=false;`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", "STORE", pre + HIFI_JS + STREET_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,stateLoad:bStateLoad,sync:function(){bStateSync(bPlan(Date.now()),Date.now())},rebOf:bRebuildOf,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{bBlK:bBlK,bBlast:bBlast,bMissileFly:bMissileFly,bBigFx:bBigFx,spScorch:spScorch,spPuff:spPuff,setZ:function(z){cam.z=z},pool:function(){return BP},padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,bTwoFrame:bTwoFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,bCardState:bCardState,bCardRanks:bCardRanks,bCardSpeed:bCardSpeed,bCardPlan:bCardPlan,bCardStandOf:bCardStandOf,bCardModel:bCardModel,bCardTimes:bCardTimes,bCardAt:bCardAt,bCardClear:bCardClear,BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
+    art:{bBlK:bBlK,bBlast:bBlast,bMissileFly:bMissileFly,bBigFx:bBigFx,spScorch:spScorch,spPuff:spPuff,setZ:function(z){cam.z=z},pool:function(){return BP},padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,bTwoFrame:bTwoFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,bCardState:bCardState,bCardRanks:bCardRanks,bCardSpeed:bCardSpeed,bCardPlan:bCardPlan,bCardStandOf:bCardStandOf,bCardModel:bCardModel,bCardTimes:bCardTimes,bCardAt:bCardAt,bCardClear:bCardClear,BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,pu:{isTap:puIsTap,pool:function(){return PUP},plume:puPlume,crane:puCrane,target:puTarget,draw:puDraw,max:puMax,setVw:function(v){vw=v}},setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
 }
 /** a localStorage stand-in (a broken one throws on every call) */
 function memStore(broken = false) { const m = new Map(); return { getItem: k => { if (broken) throw new Error("quota"); return m.has(k) ? m.get(k) : null }, setItem: (k, v) => { if (broken) throw new Error("quota"); m.set(k, String(v)) }, removeItem: k => m.delete(k), get size() { return m.size }, raw: k => m.get(k) }; }
@@ -227,7 +227,7 @@ test("follow mode: the auto camera is the default, any pan or zoom turns it off,
   const e0 = Wd.camera.x; assert.ok(Math.abs(e0 - held.x) < 1, "the first frame is where the viewer left it"); clock.p += 200; Wd.bcam(); const e1 = Wd.camera.x; clock.p += 400; Wd.bcam(); const e2 = Wd.camera.x; clock.p += 100; Wd.bcam(); const e3 = Wd.camera.x;
   assert.ok(e1 !== e0, "it moves"); assert.ok(Math.abs(e3 - e2) < Math.abs(e0 - e2) || e3 === e2, "and settles on the auto camera"); Wd.bcam(); assert.ok(Math.abs(Wd.camera.x - e3) < 400);
   // a real gesture in the renderer: pan, wheel and pinch all go through bUserCam; a tap during a replay does nothing (Mike 11-20)
-  assert.ok(CITY_JS.includes("if(was&&!moved){if(BON&&BREP)return;"), "a tap no longer skips"); assert.ok((CITY_JS.match(/bUserCam\(\)/g) || []).length >= 2);
+  assert.ok(/if\(was&&BON&&BREP\)\{[^\n]*CALDERA_BATTLE_TAP[^\n]*\}return\}\n  if\(was&&!moved\)\{/.test(CITY_JS) && !/if\(was&&BON&&BREP\)\{[^\n]*bSkip/.test(CITY_JS), "a tap no longer skips"); assert.ok((CITY_JS.match(/bUserCam\(\)/g) || []).length >= 2);
   Wd.api.follow(false); assert.equal(Wd.api.phase().follow, false, "follow(false) takes the camera too"); Wd.api.stop(); assert.equal(Wd.api.follow(true), false, "no replay: nothing to follow"); assert.equal(Wd.api.camera().follow, false); Wd.art.userCam();
   // a new replay starts with the auto camera again
   Wd.api.replay(); assert.equal(Wd.api.phase().follow, true, "each replay starts following"); Wd.api.stop();
@@ -284,7 +284,7 @@ test("battle: wired into the renderer; no walkers, no houses, no crews in the Ba
   assert.ok(/growOver\(\);battleOver\(\)/.test(CITY_JS), "the battle layer draws over the map every frame");
   assert.ok(CITY_JS.includes("function frame(){T=performance.now();bCam();"), "the replay camera is set before the frame is drawn");
   assert.ok(CITY_JS.includes("function flyStop(){FLYG++}") && CITY_JS.includes("if(g!==FLYG)return;"), "a replay cancels a flight in progress");
-  assert.ok(CITY_JS.includes("if(was&&!moved){if(BON&&BREP)return;"), "a tap on the map during a replay does nothing; Next or the right arrow skips");
+  assert.ok(/if\(was&&BON&&BREP\)\{[^\n]*CALDERA_BATTLE_TAP[^\n]*\}return\}\n  if\(was&&!moved\)\{/.test(CITY_JS) && !/if\(was&&BON&&BREP\)\{[^\n]*bSkip/.test(CITY_JS), "a tap on the map during a replay does nothing; Next or the right arrow skips");
   assert.ok(CITY_JS.includes("if(!BON){drawWalks();drawLife()}"), "no people on foot in the Battle view");
   assert.ok(CITY_JS.includes("if(t.t==='h'&&!BON)") && CITY_JS.includes("if(cd===4){if(!BON)"), "no little houses in the Battle view");
   assert.ok(CITY_JS.includes("hc===0&&!BON") && CITY_JS.includes("!gWin()&&!BON") && CITY_JS.includes("if(!BON)for(var k=0;k<7;k++)") && CITY_JS.includes("if(!BON)drawFx()"), "no growth crews, parades or effects walkers in the Battle view");
@@ -511,4 +511,48 @@ test("clouds 11-18: one cached merged sprite per shape and sky, depth makes far 
   const c = recCtx(); K.drawClouds(c);
   assert.equal(c.rec.images.length, 6, "one image per cloud, no per-lobe arcs"); assert.ok(c.rec.images[0].a < c.rec.images[5].a, "far clouds are fainter and drawn first");
   for (let i = 0; i < 40; i++) { const n = K.newCloud(null); assert.ok(n.s > 0 && n.w > 0 && n.vr >= 0 && n.vr < 4 && n.d >= 0 && n.d <= 1); }
+});
+
+// ---- viewer power-ups v1 (citypowerup.ts, map-audit DESIGN.md item 10; Mike D1 11-20: cosmetic, free, local to the viewer)
+import { POWERUP_JS } from "../src/citypowerup.ts";
+test("power-ups 11-21: a tap is under 180 ms and 8 px (a drag still pans); drop() snaps to a roof within 60 css px, else the ground and the nearest city", () => {
+  const clock = { t: at(16), p: 5000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over();
+  const P = Wd.pu; assert.equal(typeof Wd.api.drop, "function", "CALDERA_BATTLE_API.drop");
+  assert.deepEqual([[0, 0], [179, 7.9], [180, 0], [100, 8], [-1, 0], [50, 30]].map(([ms, d]) => P.isTap(ms, d)), [true, true, false, false, false, false]);
+  const r1 = Wd.api.drop("heal", 400, 500); assert.equal(r1.ok, true); assert.equal(r1.handle, "@b"); assert.equal(r1.snap, true, "a tap on tower b1 snaps to it");
+  assert.ok(Math.abs(r1.x - 396) < 1 && Math.abs(r1.y - 480) < 1, `lands on the roof (${r1.x},${r1.y})`);
+  const r2 = Wd.api.drop("cheer", 800, 100); assert.equal(r2.ok, true); assert.equal(r2.snap, false, "nothing within 60 px: the ground"); assert.equal(r2.handle, "@b", "the nearest city");
+  assert.ok(Math.abs(r2.x - 800) < 1e-6 && Math.abs(r2.y - 100) < 1e-6, "lands under the tap");
+  assert.equal(Wd.api.drop("nuke", 400, 500).ok, false, "only the three kinds"); assert.equal(Wd.api.drop("fw", NaN, 1).ok, false);
+  const kinds = P.pool().map(p => p.k); assert.ok(kinds.includes("crate") && kinds.includes("rings") && kinds.includes("cf"));
+  assert.equal(P.pool().filter(p => p.k === "cf").length, 34, "34 confetti pieces at L");
+});
+
+test("power-ups 11-21: their own pool (80; phone 50), never the battle pool; drawn in real time with finite geometry; the crate's building smokes at half for 6 s", () => {
+  const clock = { t: at(16), p: 5000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.api.replay(); Wd.over();
+  const P = Wd.pu, bp0 = Wd.bp();
+  for (let i = 0; i < 6; i++) Wd.api.drop(["heal", "fw", "cheer"][i % 3], 400, 500);
+  assert.ok(P.pool().length <= 80, `${P.pool().length} pieces`); assert.equal(Wd.bp(), bp0, "the battle pool is untouched");
+  P.setVw(390); for (let i = 0; i < 4; i++) Wd.api.drop("cheer", 400, 500); assert.ok(P.pool().length <= 50, "phone: 50"); assert.equal(P.max(), 50);
+  assert.ok(P.pool().filter(p => p.k === "cf").length >= 20); P.setVw(900);
+  P.pool().length = 0; Wd.api.drop("heal", 400, 500);
+  for (let t = 0; t <= 3000; t += 50) { clock.p = 5000 + t; Wd.over(); }   // stub ctx throws on non-finite numbers
+  assert.deepEqual(Wd.api.powerups().repaired, ["12,9"], "the crate's building is repaired"); assert.equal(P.plume(12, 9), .5, "its plume at half");
+  assert.equal(P.plume(14, 9), 1); const k = { x: 96, y: 336 }; P.crane(k); clock.p += 50; P.crane(k); assert.equal(k.ex, 100, "a crane next to it runs at 3x (2 x 50 ms extra)");
+  clock.p += 6000; assert.equal(P.plume(12, 9), 1, "after 6 s the plume is back");
+  assert.equal(P.pool().length, 0, "every piece is gone after its life");
+  for (const kd of ["fw", "cheer"]) { Wd.api.drop(kd, 400, 500); for (let t = 0; t <= 2500; t += 40) { clock.p += 40; Wd.over(); } assert.equal(P.pool().length, 0, `${kd} done`); }
+  const paused = Wd.api.pause(true); assert.equal(paused, true); const ph = Wd.api.phase(); Wd.api.drop("fw", 400, 500); assert.equal(Wd.api.phase().paused, true); assert.equal(Wd.api.phase().t, ph.t, "a drop never moves or pauses the replay clock");
+});
+
+test("power-ups 11-21: prefers-reduced-motion is a 300 ms fade-in of the end state (no fall, no burst); no network call and no storage", () => {
+  const clock = { t: at(16), p: 5000 }, store = memStore(), Wd = world("day", clock, data(), true, store); Wd.api.view(true); Wd.over();
+  const n0 = store.size; Wd.api.drop("heal", 400, 500); Wd.api.drop("fw", 400, 500); Wd.api.drop("cheer", 400, 500);
+  assert.ok(Wd.pu.pool().every(p => p.rm), "every piece takes the reduced path");
+  for (let t = 0; t <= 2000; t += 100) { clock.p = 5000 + t; Wd.over(); } assert.equal(Wd.pu.pool().length, 0);
+  assert.equal(store.size, n0, "nothing stored");
+  assert.ok(/puRmA\(age,life\)/.test(POWERUP_JS) && /age\/300/.test(POWERUP_JS), "the 300 ms fade");
+  for (const bad of ["fetch(", "XMLHttpRequest", "sendBeacon", "localStorage", "sessionStorage", "indexedDB", "document.cookie", "WebSocket"]) assert.ok(!POWERUP_JS.includes(bad), `no ${bad} in the power-up code`);
+  assert.ok(BATTLE_DRAW_JS.includes(POWERUP_JS), "shipped with the battle renderer");
+  assert.ok(CITY_JS.includes("window.CALDERA_BATTLE_TAP(ev.clientX,ev.clientY)") && CITY_JS.includes("puIsTap(performance.now()-(was.t0||0)"), "city.ts hands a replay tap to the hub's tray");
 });

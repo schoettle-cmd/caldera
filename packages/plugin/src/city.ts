@@ -1609,7 +1609,7 @@ function drawLive(){var c=cx;c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dp
     c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(255,255,255,'+(.35*(1-pr))+')';c.lineWidth=1.5;c.beginPath();c.ellipse(p.x,p.y,(b.k*TW/2)*(.6+pr*.5),(b.k*TH/2)*(.6+pr*.5),0,0,7);c.stroke();c.restore();
     if(LV.mode==='private'&&x.now>0){var f=iso(b.x+b.k,b.y+b.k);tronPill(c,f.x,f.y+18,'\u25CF '+x.now+' live','#FFFFFF','600 10px ui-monospace,monospace')}});
   // cranes slew, trolley and hook move, the load swings (craneHi); at most 24 in view
-  var cv0=hView(TH*2),nCr=0;cranes.forEach(function(k){if(k.x<cv0[0]||k.x>cv0[1]||k.y<cv0[2]-60||k.y>cv0[3]+60||nCr>=24)return;nCr++;craneHi(c,k)});
+  var cv0=hView(TH*2),nCr=0;cranes.forEach(function(k){if(k.x<cv0[0]||k.x>cv0[1]||k.y<cv0[2]-60||k.y>cv0[3]+60||nCr>=24)return;nCr++;if(typeof puCrane==='function')puCrane(k);craneHi(c,k)});
   if(sky==='grid'){c.globalCompositeOperation='lighter';beacons.forEach(function(b){var pr=(T%2400)/2400,g=c.createRadialGradient(b.x,b.y,0,b.x,b.y,30*pr+4);g.addColorStop(0,'rgba(255,255,255,.0)');g.addColorStop(.8,'rgba(61,242,255,'+(.5*(1-pr))+')');g.addColorStop(1,'rgba(61,242,255,0)');c.fillStyle=g;c.beginPath();c.ellipse(b.x,b.y,30*pr+4,(30*pr+4)*.5,0,0,7);c.fill()});c.globalCompositeOperation='source-over';return}
   beacons.forEach(function(b){if(Math.floor(T/900)%2){c.fillStyle='#FF3B30';c.beginPath();c.arc(b.x,b.y,2,0,7);c.fill();if(sky!=='day'){c.globalCompositeOperation='lighter';var g=c.createRadialGradient(b.x,b.y,0,b.x,b.y,10);g.addColorStop(0,'rgba(255,60,48,.6)');g.addColorStop(1,'rgba(255,60,48,0)');c.fillStyle=g;c.beginPath();c.arc(b.x,b.y,10,0,7);c.fill();c.globalCompositeOperation='source-over'}}})}
 // ---- window glow from live visitors: the hub sends each district's glow (visitors in the last 30 minutes, each fading
@@ -1685,13 +1685,17 @@ function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=
   for(var si=SHITS.length-1;si>=0;si--){var sh=SHITS[si];if(px>=sh.x0&&px<=sh.x1&&py>=sh.y0&&py<=sh.y1)return sh}   // markers sit on top of everything and their 44 px squares never overlap (screen pixels)
   if(LBL()){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return th.shop?{shop:1}:th.block?{block:th.block,armory:th.armory}:{url:th.url}}}
   for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
-var ptr={},moved=false,pinch=0;
-cv.addEventListener('pointerdown',function(ev){if(BON)flyStop();cv.setPointerCapture(ev.pointerId);ptr[ev.pointerId]={x:ev.clientX,y:ev.clientY};moved=false;cv.classList.add('drag');var ks=Object.keys(ptr);if(ks.length===2){var a=ptr[ks[0]],b=ptr[ks[1]];pinch=Math.hypot(a.x-b.x,a.y-b.y)}});
+var ptr={},moved=false,pinch=0,multi=false;
+cv.addEventListener('pointerdown',function(ev){if(BON)flyStop();cv.setPointerCapture(ev.pointerId);ptr[ev.pointerId]={x:ev.clientX,y:ev.clientY,x0:ev.clientX,y0:ev.clientY,t0:performance.now()};moved=false;cv.classList.add('drag');var ks=Object.keys(ptr);if(ks.length===1)multi=false;if(ks.length===2){multi=true;var a=ptr[ks[0]],b=ptr[ks[1]];pinch=Math.hypot(a.x-b.x,a.y-b.y)}});
 cv.addEventListener('pointermove',function(ev){var p=ptr[ev.pointerId];if(!p)return;var ks=Object.keys(ptr);
   if(ks.length===2){var o=ptr[ks[0]===String(ev.pointerId)?ks[1]:ks[0]];var dist=Math.hypot(ev.clientX-o.x,ev.clientY-o.y);if(pinch){var r=st.getBoundingClientRect();zoom(dist/pinch,(ev.clientX+o.x)/2-r.left,(ev.clientY+o.y)/2-r.top)}pinch=dist;moved=true}
   else{var dx=ev.clientX-p.x,dy=ev.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;cam.x+=dx;cam.y+=dy;if(BON){bClampPan();if(moved)bUserCam()}}   // the Battle view: the map stays on screen; a drag takes the camera from a replay (Follow gives it back)
   p.x=ev.clientX;p.y=ev.clientY;draw()});
-function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;if(was&&!moved){if(BON&&BREP)return;   // a tap during a battle replay does nothing (Mike 11-20: Next or the right arrow skips, never a stray tap)
+function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.remove('drag');pinch=0;
+  // a tap during a battle replay never skips (Mike 11-20: Next or the right arrow skips, never a stray tap). With a power-up armed
+  // in the hub's tray it drops one (DESIGN.md 10: under 180 ms and 8 px; a drag still pans): the hub's CALDERA_BATTLE_TAP decides
+  if(was&&BON&&BREP){if(ev.type==='pointerup'&&!multi&&typeof puIsTap==='function'&&puIsTap(performance.now()-(was.t0||0),Math.hypot(ev.clientX-was.x0,ev.clientY-was.y0))&&typeof window.CALDERA_BATTLE_TAP==='function'){try{window.CALDERA_BATTLE_TAP(ev.clientX,ev.clientY)}catch(err){}}return}
+  if(was&&!moved){
   var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
   if(h&&h.shop)return shopCard();
   if(h&&h.group){if(MINI)return openRepo(repoUrl(h.r));return storeDir(h.count===1?h.r:null,h.keys,false,SBTN[h.group])}   // a store marker: the panel lists every store there (the pop-out has no room: the top store)

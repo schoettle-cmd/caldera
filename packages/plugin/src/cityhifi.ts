@@ -212,7 +212,7 @@ function campusHi(c,x,y,o){var v=o.variant,col=o.col,seed=o.seed,n=hn(),base=y+4
   if(LODN>0){for(var ev=0;ev<2;ev++){c.fillStyle=n?'#C9D2E6':'#F6F8FB';c.fillRect(x+16+ev*5,y+2+ev*2.5-5,1.4,5);c.fillStyle='#4FD1C5';c.fillRect(x+16+ev*5,y+2+ev*2.5-5,1.4,1)}
     treeHi(c,x-TW*.38,y+TH*.2,.6,seed);treeHi(c,x+TW*.1,y+TH*.42,.5,seed+1);carHi(c,x+22,y+5,.894,.447,'#F2F2F5',.8,true)}return base-h2}
 // ---- motion: crane, scaffold, crews, cars, water
-function craneHi(c,k){var mx=k.x,my=k.y,mh=34,n=hn(),tn=reduce?0:T,sd=k.seed||0,a=tn/5200+(sd%7),f=.45+.3*Math.sin(tn/2600+sd),drop=10+7*Math.sin(tn/3100+sd*2),gr=sky==='grid';
+function craneHi(c,k){var mx=k.x,my=k.y,mh=34,n=hn(),tn=reduce?0:T+(k.ex||0),sd=k.seed||0,a=tn/5200+(sd%7),f=.45+.3*Math.sin(tn/2600+sd),drop=10+7*Math.sin(tn/3100+sd*2),gr=sky==='grid';
   var yel=gr?(k.col||'#3DF2FF'):'#E9A92C';if(gr){c.save();c.shadowColor=yel;c.shadowBlur=6}
   c.strokeStyle=yel;c.lineWidth=1.1;c.beginPath();c.moveTo(mx-1.8,my);c.lineTo(mx-1.8,my-mh);c.moveTo(mx+1.8,my);c.lineTo(mx+1.8,my-mh);c.stroke();c.lineWidth=.6;c.beginPath();for(var z=0;z<mh;z+=4){c.moveTo(mx-1.8,my-z);c.lineTo(mx+1.8,my-z-4);c.moveTo(mx-1.8,my-z-4);c.lineTo(mx+1.8,my-z-4)}c.stroke();
   var L=38,cx0=Math.cos(a),cy0=Math.sin(a)*.5,tip=[mx+cx0*L,my-mh-2+cy0*L],cj=[mx-cx0*13,my-mh-2-cy0*13],apex=[mx,my-mh-9];

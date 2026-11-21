@@ -24,6 +24,7 @@
  * bh, iso, poly, rnd, hash, cam, dpr, cx, vw, vh, T, reduce, sky, mix, e, draw, cranes and the cityhifi set are in scope.
  */
 import { STRIKE_CARD_JS } from "./citycard";
+import { POWERUP_JS } from "./citypowerup";
 /** the battle art, as drawn on the design page (battle-art.js there, verbatim) */
 export const BATTLE_ART_JS = String.raw`
 // ---- battle art (citybattle.ts BATTLE_ART_JS). Mike 2026-11-07: an ammo plot in front of each building site, missiles
@@ -816,7 +817,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
     if(v.b){if(!inView(v.b.p))return;var hv=v.b.h*(1-.4*Math.min(1,v.v));bImpactFx(v.b.p.x,v.b.p.y+4-hv,bCol(v.d),.3+v.v,v.b.p.y+4);bShatterFor(v,iv,Math.round(bVoxMax()/3))}
     else if(v.lot&&inView(v.lot.p)){bRedraw();for(var k=0;k<4;k++)bEmit({k:'dust',x:v.lot.p.x+(rnd(k+v.lot.li)-.5)*20,y:v.lot.p.y+2,vx:(rnd(k*3)-.5)*20,vy:-5,r0:3,r1:14,al:.45,col:hn()?'110,100,90':'175,165,150',life:1.8});for(var k2=0;k2<6;k2++)bEmit({k:'debris',x:v.lot.p.x,y:v.lot.p.y-6,vx:(rnd(k2*1.3+v.lot.li)-.5)*90,vy:-60-rnd(k2)*60,g:v.lot.p.y+6,rot:k2,vr:4,s:1+rnd(k2*2)*1.6,col:hmul(bCol(v.d),.7),life:1.4})}});
   var FP=BL.damage?bFP():null;if(FP&&S.zf!=null&&now>=S.zf0-2600)bFallOver(c,FP.fall,S,now,last,fx,tn,rep);
-  if(dt>0&&!paused){var spd=rep?BREP.esp||BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);bDrawWords(c,rep?now:null);
+  if(dt>0&&!paused){var spd=rep?BREP.esp||BREP.sp:1;BFXT+=dt*1000*spd;bStep(dt*spd)}bDrawCollapse(c,BFXT);bDrawParticles(c);bDrawWords(c,rep?now:null);if(typeof puDraw==='function'){puDraw(c);c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y)}   // viewer power-ups (citypowerup.ts), their own pool
   // fire and smoke (Mike 11-13): every hit tower burns. Flames die down as e^(-t/tau), the plume drifts downwind and thins more
   // slowly; once the cranes start it only smoulders, and stops when the rebuild is under way. Street craters mark the misses.
   if(BL.damage){var nSm=0,fq=0,tau=bTau(S),wind=bWind(P),ra=1-bRebuild();
@@ -825,7 +826,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
       var fl=0,sm=0;P.hit[hk][bi].forEach(function(q){var ag=now-bImpactOf(S,q);if(ag<0)return;fl=Math.max(fl,q.burn*Math.exp(-ag/tau));sm=Math.max(sm,(.4*(q.cut||1)+.6*q.burn)*Math.exp(-ag/(2.5*tau)))});
       var hh=b.h,rb=bRebuildOf(b.i,b.j),top=b.p.y+4-Math.max(pxBreak(hh,bBldHeld(b.i,b.j)),rb*hh);
       if(now>=S.hold){fl=0;sm=Math.max(sm,.24)*Math.max(0,1-rb*2.5)}else sm=Math.max(sm,.14);
-      nSm++;if(sm>.03)bPlumeHi(c,b.p.x+2,top-4,Math.min(1,sm),wind,b.i*7+b.j);if(fl>.04)bFlameHi(c,b.p.x+1,top+1,Math.min(1,fl),b.i*3+b.j)}}
+      nSm++;if(typeof puPlume==='function')sm*=puPlume(b.i,b.j);if(sm>.03)bPlumeHi(c,b.p.x+2,top-4,Math.min(1,sm),wind,b.i*7+b.j);if(fl>.04)bFlameHi(c,b.p.x+1,top+1,Math.min(1,fl),b.i*3+b.j)}}
     if(fq!==BFQ){var f0=BFQ<0;BFQ=fq;if(!f0)bRedraw()}
     // the rebuild, pixel by pixel: while the cranes work, voxels in the building's colours fly in from the hook and land on the build line
     if(BL.damage&&!reduce&&dt>0){var rb2=bRebuild();if(rb2>0&&rb2<1){var nB=0;for(var hk2 in P.hit){var bl2=BBLD[hk2]||[];for(var bi2 in P.hit[hk2]){var b2=bl2[+bi2];if(!b2||nB>=8||!inView(b2.p))continue;var dh=bBldHeld(b2.i,b2.j);if(dh<=0)continue;nB++;var rbB=bRebuildOf(b2.i,b2.j);if(rbB>=1||(rbB<=0&&bRaze(b2.i,b2.j)>0))continue;
@@ -901,4 +902,4 @@ window.CALDERA_BATTLE_API={
 bStateRead();
 `;
 
-export const BATTLE_DRAW_JS = BATTLE_ART_JS + BATTLE_LOGIC_JS + STRIKE_CARD_JS;
+export const BATTLE_DRAW_JS = BATTLE_ART_JS + BATTLE_LOGIC_JS + STRIKE_CARD_JS + POWERUP_JS;
