@@ -16,6 +16,8 @@ import { AGENTS_JS } from "./cityagents";
 import { LIFE_JS } from "./citylife";
 import { STREET_JS } from "./citystreet";
 import { LEGEND_JS } from "./citylegend";
+import { ARMORY_RULES_JS } from "./cityarmory";
+export { ARMORY_RULES_JS };
 export { HIFI_JS, BATTLE_DRAW_JS, AGENTS_JS, LIFE_JS, LEGEND_JS, STREET_JS };
 export interface CityRepo {
   name: string; project: string; public: boolean; language: string;
@@ -1339,6 +1341,7 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
     if(n.uc){cand.push({pr:1,sc:0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+' · Unclaimed',uc:1,ua:ucK(n,500,700),hl:ucHl(n),font:'600 10.5px IBM Plex Mono,ui-monospace,monospace',block:n.rep});return}
     cand.push({pr:pr,sc:sc[k]||0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+(wm.isNew?(phone?' ✦':' ✦ new'):'')+(LIT[k]&&LIT[k].n?'  ✦ lit'+(LIT[k].n>1?' ×'+LIT[k].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':k===me?'rgba(109,74,232,.98)':'rgba(139,108,246,.96)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
   if(z>=.55)blocks.forEach(function(b){if(b.estate||b.d.uc)return;var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
+  if(z>=.55&&typeof yardLabels==='function')yardLabels(cand,S);   // the Armory yard's chip (cityarmory.ts)
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
     Object.keys(per).forEach(function(k){if(!NBM[k])return;var hb=dockAt({d:k}),sp=S(hb.x,hb.y),q=per[k];
       cand.push({pr:1.9,sc:0,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
@@ -1349,15 +1352,15 @@ function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,
   // zooming in spreads neighborhoods apart, so the budget grows with zoom (up to 4x) and collisions decide the rest
   var cap=LMODE==='all'?Infinity:Math.round(Math.max(4,vw*vh/40000)*Math.max(1,Math.min(4,FITZ?z/FITZ:1))),used=0,M=5;
   var hitAny=function(q){for(var i=0;i<placed.length;i++){var o=placed[i];if(q.x0<o.x1+M&&q.x1+M>o.x0&&q.y0<o.y1+M&&q.y1+M>o.y0)return true}return false};
-  cand.forEach(function(g){var must=g.pr<.7;if(!must&&used>=cap)return;c.font=g.font;var w=c.measureText(g.text).width+12,bx={x0:g.x-w/2-3,x1:g.x+w/2+3,y0:g.y-20,y1:g.y+5};
+  cand.forEach(function(g){var must=g.pr<.7;if(!must&&used>=cap)return;c.font=g.font;var w=c.measureText(g.text).width+12+(g.dots&&g.dots.length?g.dots.length*8+2:0),bx={x0:g.x-w/2-3,x1:g.x+w/2+3,y0:g.y-20,y1:g.y+5};
     if(bx.x1<0||bx.x0>vw||bx.y1<0||bx.y0>vh)return;
     {var sh=Math.max(0,6-bx.x0)-Math.max(0,bx.x1-(vw-6));if(sh){bx.x0+=sh;bx.x1+=sh;g.x+=sh}}   // a name near the edge slides in instead of vanishing
     if(hitAny(bx)){if(!must)return;var offs=[],ok=false;[26,52].forEach(function(dy){[0,-.5,.5].forEach(function(fx){offs.push([w*fx,-dy]);offs.push([w*fx,dy])})});
       for(var oi=0;oi<offs.length&&!ok;oi++){var ox=offs[oi][0],q={x0:bx.x0+ox,x1:bx.x1+ox,y0:bx.y0+offs[oi][1],y1:bx.y1+offs[oi][1]};var s2=Math.max(0,6-q.x0)-Math.max(0,q.x1-(vw-6));q.x0+=s2;q.x1+=s2;ox+=s2;   // stay inside the stage
         if(q.y0<4||q.y1>vh-4)continue;if(!hitAny(q)){bx=q;g.x+=ox;g.y+=offs[oi][1];ok=true}}if(!ok)return}
     if(!must)used++;bx.text=g.text;bx.pr=g.pr;placed.push(bx);
-    if(g.uc)ucPill(c,g.x,g.y,g.text,g.font,g.ua,g.hl);else pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
-    if(g.url||g.block||g.shop)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block,shop:g.shop})})}
+    if(g.uc)ucPill(c,g.x,g.y,g.text,g.font,g.ua,g.hl);else if(g.dots)yChip(c,g.x,g.y,g.text,g.dots,g.font);else pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
+    if(g.url||g.block||g.shop)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block,shop:g.shop,armory:g.armory})})}
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
 // them. Real friendships glow warm violet, people who work on the same repo glow code-teal, GitHub follows sky-blue; the
 // founder's welcome links are faint and thin. Dimmer by day. Links are [a, b, kind, why]: 0 request/invite, 1 founder,
@@ -1680,7 +1683,7 @@ function show(h){if(h&&h.note!=null)return noteCard(h.note);if(under&&!h){usel=n
   card.hidden=false;card.querySelector('.x').onclick=function(){show(null)};giftWire(function(){show(h)});draw()}
 function at(px,py){if(under){var wx0=(px-cam.x)/cam.z,wy0=(py-cam.y)/cam.z,best=null,bd=1e9;UP.forEach(function(p,ix){var d=Math.hypot(p.x-wx0,p.y-wy0);if(d<Math.max(p.r+3,7/cam.z)&&d<bd){bd=d;best=ix}});return best==null?null:{note:best}}
   for(var si=SHITS.length-1;si>=0;si--){var sh=SHITS[si];if(px>=sh.x0&&px<=sh.x1&&py>=sh.y0&&py<=sh.y1)return sh}   // markers sit on top of everything and their 44 px squares never overlap (screen pixels)
-  if(LBL()){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return th.shop?{shop:1}:th.block?{block:th.block}:{url:th.url}}}
+  if(LBL()){var tx=(px-cam.x)/cam.z,ty=(py-cam.y)/cam.z;for(var ti=tagHits.length-1;ti>=0;ti--){var th=tagHits[ti];if(tx>=th.x0&&tx<=th.x1&&ty>=th.y0&&ty<=th.y1)return th.shop?{shop:1}:th.block?{block:th.block,armory:th.armory}:{url:th.url}}}
   for(var aid in AG){var g=AG[aid];if(!g.gone&&g.sx!=null&&Math.hypot(px-g.sx,py-g.sy)<Math.max(12,14*cam.z))return {agent:aid}}var wx=(px-cam.x)/cam.z,wy=(py-cam.y)/cam.z;for(var i=hits.length-1;i>=0;i--){var h=hits[i];if(wx>=h.x0&&wx<=h.x1&&wy>=h.y0&&wy<=h.y1)return h}return null}
 var ptr={},moved=false,pinch=0;
 cv.addEventListener('pointerdown',function(ev){if(BON)flyStop();cv.setPointerCapture(ev.pointerId);ptr[ev.pointerId]={x:ev.clientX,y:ev.clientY};moved=false;cv.classList.add('drag');var ks=Object.keys(ptr);if(ks.length===2){var a=ptr[ks[0]],b=ptr[ks[1]];pinch=Math.hypot(a.x-b.x,a.y-b.y)}});
@@ -1693,6 +1696,7 @@ function up(ev){var was=ptr[ev.pointerId];delete ptr[ev.pointerId];cv.classList.
   if(h&&h.shop)return shopCard();
   if(h&&h.group){if(MINI)return openRepo(repoUrl(h.r));return storeDir(h.count===1?h.r:null,h.keys,false,SBTN[h.group])}   // a store marker: the panel lists every store there (the pop-out has no room: the top store)
   if(h&&h.d&&h.d.uc&&h.d.nb&&byName[h.d.nb])return worldFocus(byName[h.d.nb]);
+  if(h&&h.armory&&h.block&&typeof window.CALDERA_ARMORY_OPEN==='function'){var hb=h.block;if(window.CALDERA_ARMORY_OPEN(h.armory,function(){worldFocus(hb)}))return}   // the Armory yard: your own opens the Armory panel
   if(h&&h.block)return worldFocus(h.block);
   if(h&&h.url)return openRepo(h.url);
   if(MINI&&h&&h.r)return openRepo(repoUrl(h.r));   // the pop-out has no room for cards: a public building opens its repo
@@ -1724,7 +1728,8 @@ cv.addEventListener('dblclick',function(ev){var r=st.getBoundingClientRect(),h=a
 cv.addEventListener('pointermove',function(ev){if(Object.keys(ptr).length)return;var r=st.getBoundingClientRect(),h=at(ev.clientX-r.left,ev.clientY-r.top);
   cv.classList.toggle('c-link',!!(h&&(h.url||h.sign||h.block||(h.r&&repoUrl(h.r)))));
   var hv=h&&h.sign?h.group:null;if(hv!==SHOVER){SHOVER=hv;cv.title=hv?(h.count>1?h.count+' stores':h.r.name):'';draw();if(reduce)frame()}
-  if(WORLD&&!(h&&h.sign)){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null;if(hk!==WHOVER){WHOVER=hk;cv.title=hk?rayWhy(hk):'';if(reduce)frame()}}});
+  if(WORLD&&!(h&&h.sign)){var hk=h&&h.block?(h.block.d.nb||h.block.d.name):h&&h.d?(h.d.nb||h.d.name):null,yt=h&&h.armory&&typeof yardTip==='function'?yardTip(h.armory):null;
+    if(hk!==WHOVER||yt!==YTTL){var nw=hk!==WHOVER;WHOVER=hk;YTTL=yt;cv.title=yt||(hk?rayWhy(hk):'');if(nw&&reduce)frame()}}});
 cv.addEventListener('pointerleave',function(){if(SHOVER){SHOVER=null;cv.title='';draw()}if(WHOVER){WHOVER=null;cv.title='';if(reduce)frame()}});
 // /world?focus=<handle> (the World link on a profile): fly straight to that person's neighborhood
 if(D.world){try{var FQ=(new URLSearchParams(location.search).get('focus')||'').toLowerCase().replace(/^@/,'');if(FQ&&byName['@'+FQ])setTimeout(function(){worldFocus(byName['@'+FQ])},700)}catch(err){}}

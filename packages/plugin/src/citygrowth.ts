@@ -12,6 +12,7 @@
  * Runs inside the CITY_JS closure: tiles, blocks, iso, poly, dia, prism, facadeWindows, houseAt, scaffold, studs, minifig,
  * roofProps, mix, LANG, P, sky, T, cam, dpr, cranes, hits, NBM, byName, draw are all in scope.
  */
+import { ARMORY_JS } from "./cityarmory";
 
 /** layout: estates join each neighborhood's districts before it is packed (inside `if(D.world)`, before sizing) */
 export const GROWTH_LAYOUT_JS = String.raw`
@@ -56,8 +57,10 @@ function growGround(c){if(!GROW)return;var dk=gDirt();
       if(gWin()&&s.ring)gOutline(c,X,Y,1.02,'rgba(196,181,255,.75)',1.2)}
     var x0=b.x-.5-.08,y0=b.y-.5-.08,x1=b.x+S-.5+.08,y1=b.y+S-.5+.08,A=corner(x0,y0),B=corner(x1,y0),C=corner(x1,y1),Dd=corner(x0,y1),h=3;
     poly(c,[Dd,C,[C[0],C[1]+h],[Dd[0],Dd[1]+h]],P.walkSide);poly(c,[C,B,[B[0],B[1]+h],[C[0],C[1]+h]],P.walkSide);poly(c,[A,B,C,Dd],P.walk);
-    for(var li=0;li<S*S;li++){var ab=gXY(li),X2=b.x+ab[0],Y2=b.y+ab[1],cd=s.codes[li]||0,q=iso(X2,Y2);
-      if(cd===0){poly(c,dia(X2,Y2,.9),P.park);gOutline(c,X2,Y2,.84,lapsed?'rgba(140,140,150,.45)':gRgba(col,.4),1,[4,3])}
+    var YD=yardOf(g);   // the Armory yard (cityarmory.ts): its empty lots are paved
+    for(var li=0;li<S*S;li++){var ab=gXY(li),X2=b.x+ab[0],Y2=b.y+ab[1],cd=s.codes[li]||0,q=iso(X2,Y2),yk=cd===0&&YD?YD.at[ab[0]+','+ab[1]]:null;
+      if(yk)yPad(c,X2,Y2,yk.k==='la');
+      else if(cd===0){poly(c,dia(X2,Y2,.9),P.park);gOutline(c,X2,Y2,.84,lapsed?'rgba(140,140,150,.45)':gRgba(col,.4),1,[4,3])}
       else if(cd===1){poly(c,dia(X2,Y2,.9),P.park);if(lapsed)gOutline(c,X2,Y2,.84,'rgba(150,150,160,.7)',1.2,[4,3])}   // zoned: lotHi draws the outline, stakes and board
       else if(cd===2||cd===3)poly(c,dia(X2,Y2,.92),dk[0]);
       else if(cd===4)poly(c,dia(X2,Y2,.92),P.grass2);
@@ -67,7 +70,8 @@ function growGround(c){if(!GROW)return;var dk=gDirt();
       if(GZONE&&gWin()){c.save();poly(c,dia(X2,Y2,.98));c.clip();c.fillStyle=gRgba(col,.14);c.fill();c.strokeStyle=gRgba(col,.5);c.lineWidth=1;c.beginPath();for(var hk=-6;hk<=6;hk++){c.moveTo(q.x-40,q.y+hk*5-20);c.lineTo(q.x+40,q.y+hk*5+20)}c.stroke();c.restore()}
       if(gWin()&&hc>=1&&GHEAT){poly(c,dia(X2,Y2,.95),'rgba(150,180,235,.14)');c.fillStyle='rgba(220,235,255,.7)';for(var fr=0;fr<3;fr++)c.fillRect(q.x+(rnd(X2*9+Y2*4+fr)-.5)*TW*.6,q.y+(rnd(X2*3+Y2*8+fr)-.5)*TH*.5,1.2,1.2)}}
     if(s.survey&&S+1<b.k)for(var o2=0;o2<=2*S+2;o2++){var e2=gXY((S+1)*(S+1)+o2);if(Math.max(e2[0],e2[1])!==S+1)continue;var X3=b.x+e2[0],Y3=b.y+e2[1];if(e2[0]>=b.k||e2[1]>=b.k)continue;
-      gOutline(c,X3,Y3,.84,lapsed?'rgba(140,140,150,.35)':gRgba(col,.38),1,[3,4])}}}
+      gOutline(c,X3,Y3,.84,lapsed?'rgba(140,140,150,.35)':gRgba(col,.38),1,[3,4])}
+    if(YD)yardGround(c,g,YD)}}
 /** objects on lots, in the renderer's depth order */
 /** the variant of a lot (stable per lot) and its cast shadow footprint [w, h] for the ground's unioned shadow */
 function gVar(key,li){return (li*7+hash(key))%3}
@@ -75,7 +79,7 @@ function gShadow(t){var g=GM[t.key];if(!g||!g.b)return null;var s=g.cs||(g.cs=gS
   return cd===3?[.62,22]:cd===5?[.64,v===0?40:v===1?34:30]:cd===6?[.68,68]:cd===7&&v!==1?[v===0?.8:.6,v===0?14:11]:null}
 /** objects on lots, in the renderer's depth order: the high-detail tiers (lotHi, houseLotHi, midHi, towerHi, campusHi),
  *  through the atlas at LOD 1 unless the lot is new in the window or hit in the Battle view */
-function growObject(c,t,i,j,p,LOD){var g=GM[t.key];if(!g||!g.b)return;var s=g.cs||(g.cs=gState(g)),S=s.side;if(t.a>=S||t.b>=S)return;
+function growObject(c,t,i,j,p,LOD){var g=GM[t.key];if(!g||!g.b)return;var s=g.cs||(g.cs=gState(g)),S=s.side;if(yardObject(c,g,t.a,t.b,p))return;if(t.a>=S||t.b>=S)return;
   var li=gLot(t.a,t.b),cd=s.codes[li]||0,col=gLang(g),hc=gHc(g),dim=hc>=2,base=p.y+4,top=base,seed=hash(t.key)+li*7,isNew=gWin()&&s.fresh[li],v=gVar(t.key,li);
   if(dim)col=mix(col,.55,'#8A8E96');
   if(typeof bRazeLot==='function'&&bRazeLot(t.key,i,j)>=1){if(LODN>0&&cd>0)pxHeap(c,p.x,base,.62,col,1,0,seed);return}   // 11-14: the fallen city's lot derezzed: a low heap on the grid
@@ -111,7 +115,7 @@ function growUnder(){if(!GROW||!gWin()||!GHEAT)return;var c=cx;c.setTransform(dp
     if(a<=.02)continue;var gr=c.createRadialGradient(ctr.x,ctr.y,4,ctr.x,ctr.y,rx);gr.addColorStop(0,'rgba('+col.join(',')+','+a+')');gr.addColorStop(1,'rgba('+col.join(',')+',0)');c.fillStyle=gr;c.beginPath();c.ellipse(ctr.x,ctr.y,rx,rx*.5,0,0,7);c.fill()}
   c.restore()}
 /** over everything on the map: crews, commit drops, events, and the daily drop's animations */
-function growOver(){if(!GROW)return;var c=cx,tn=performance.now();c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);
+function growOver(){if(!GROW)return;var c=cx,tn=performance.now();c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);yardOver(c,tn);
   if(gWin()){
     for(var k in GM){var g=GM[k],b=g.b,s=g.cs;if(!b||!s||!g.v)continue;var hc=gHc(g),col=gLang(g);
       // crews on the lot being built (paused after 14 quiet days)
@@ -133,11 +137,18 @@ function gStorm(c,x,y,tn){c.save();c.fillStyle=sky==='night'?'rgba(40,46,64,.85)
   c.strokeStyle='rgba(185,166,255,.75)';c.lineWidth=1.2;for(var k=0;k<12;k++){var ox=(rnd(k*7)-.5)*60,ph=((tn/9+k*37)%60);c.beginPath();c.moveTo(x+ox,y+10+ph);c.lineTo(x+ox-2,y+18+ph);c.stroke()}c.restore()}
 function gSmoke(c,x,y,tn){c.save();for(var k=0;k<5;k++){var f=((tn/1400)+k/5)%1;c.fillStyle='rgba(120,120,130,'+(.5*(1-f))+')';c.beginPath();c.arc(x+Math.sin(k+tn/700)*6,y-f*40,4+f*8,0,7);c.fill()}
   if(Math.floor(tn/400)%2){c.fillStyle='rgba(255,70,60,.9)';c.beginPath();c.arc(x+16,y+16,2.5,0,7);c.fill()}c.restore()}
-/** a parade marches around the plot's road ring, with a banner */
+/** a parade marches around the plot's road ring; a drop's banner is a cloth carried on two poles at the head of the column
+ *  (Fable 11-21, ARMORY.md 9: on the road, not a pill over the plot; hidden at far zoom) */
 function gParade(c,g,tn,banner){var b=g.b,s=g.cs;if(!b||!s)return;var S=s.side,path=[];for(var a=0;a<=S;a++)path.push([a,S]);for(var bb=S;bb>=0;bb--)path.push([S,bb]);
-  var L=path.length,cols=['#E8457A','#F2D24A','#4FD1C5','#8B6CF6','#FF9A3D','#FFFFFF'];
-  if(!BON)for(var k=0;k<7;k++){var f=((tn/9000)+k*.035)%1,u=f*(L-1),ix=Math.floor(u),fr=u-ix,p0=path[ix],p1=path[Math.min(L-1,ix+1)],q=iso(b.x+p0[0]+(p1[0]-p0[0])*fr,b.y+p0[1]+(p1[1]-p0[1])*fr);minifig(c,q.x,q.y,cols[k%cols.length],k)}
-  if(banner){var f0=((tn/9000))%1,u0=f0*(L-1),i0=Math.floor(u0),pp=path[i0],qb=iso(b.x+pp[0],b.y+pp[1]);c.save();c.setTransform(dpr,0,0,dpr,0,0);var sx=cam.x+qb.x*cam.z,sy=cam.y+(qb.y-34)*cam.z;pill(c,sx,sy,banner,'rgba(139,108,246,.95)','#fff','700 11px IBM Plex Sans,Arial,sans-serif');c.restore()}}
+  var L=path.length,cols=['#E8457A','#F2D24A','#4FD1C5','#8B6CF6','#FF9A3D','#FFFFFF'],at=function(u){u=Math.max(0,Math.min(L-1,u));var ix=Math.floor(u),fr=u-ix,p0=path[ix],p1=path[Math.min(L-1,ix+1)];return iso(b.x+p0[0]+(p1[0]-p0[0])*fr,b.y+p0[1]+(p1[1]-p0[1])*fr)};
+  if(!BON)for(var k=0;k<7;k++){var q=at((((tn/9000)+k*.035)%1)*(L-1));minifig(c,q.x,q.y,cols[k%cols.length],k)}
+  if(banner&&!BON&&LODN>0)gBanner(c,at,L,(((tn/9000)+.21)%1)*(L-1)+.35,String(banner))}
+function gBanner(c,at,L,u0,text){var font='700 4.6px IBM Plex Sans,Arial,sans-serif';text=text.toUpperCase();c.font=font;var tw=c.measureText(text).width,lt=Math.max(1,Math.min(3.2,(tw+6)/(TW/2)));
+  if(u0+lt>L-1)u0=Math.max(0,L-1-lt);var pa=at(u0),pb=at(u0+lt);if(pb.x<pa.x){var t=pa;pa=pb;pb=t}
+  var Z=function(p,z){return [p.x,p.y-z]},pc=yDim('#D9D2C4'),dx=pb.x-pa.x,sk=dx>.5?(pb.y-pa.y)/dx:0;
+  minifig(c,pa.x,pa.y,'#F2D24A',11);minifig(c,pb.x,pb.y,'#4FD1C5',12);
+  yLn(c,Z(pa,0),Z(pa,15),.9,pc);yLn(c,Z(pb,0),Z(pb,15),.9,pc);poly(c,[Z(pa,8.5),Z(pb,8.5),Z(pb,15),Z(pa,15)],'#8B6CF6');
+  var fs=Math.min(1,Math.max(.2,(dx-3)/Math.max(1,tw)));c.save();c.transform(1,sk,0,1,pa.x,pa.y-10.1);c.scale(fs,1);c.fillStyle='#fff';c.font=font;c.textAlign='left';c.textBaseline='alphabetic';c.fillText(text,Math.max(1.5,(dx/fs-tw)/2),0);c.restore()}
 // ---------------------------------------------------------------- the daily drop: a manifest of parametric animations
 function gPhaseOk(t){if(!t)return true;var h=new Date().getHours()+new Date().getMinutes()/60;if(t==='dawn')return true;if(t==='dusk')return true;var m=/^(\d\d):(\d\d)$/.exec(t);return !m||h>=+m[1]+(+m[2])/60}
 function gNight(){return sky==='night'||sky==='evening'||sky==='dusk'}
@@ -194,6 +205,7 @@ function growCard(key){var g=GM[key];if(!g||!g.v)return '';var v=g.v,st=v.st||{}
    +(st.streak?'<div class="row"><span>Daily streak</span><b>'+st.streak+' day'+(st.streak===1?'':'s')+'</b></div>':'')
    +(st.ai?'<div class="row" title="'+e((st.ai[2]||[]).join(', '))+'"><span>AI boost</span><b>x'+st.ai[0]+': '+st.ai[1]+' signal'+(st.ai[1]===1?'':'s')+'</b></div>':'')
    +(gWin()&&(w.z||w.top||w.up)?'<div class="row"><span>'+e(wn.charAt(0).toUpperCase()+wn.slice(1))+'</span><b>'+[w.z?w.z+' broke ground':'',w.top?w.top+' topped out':'',w.up?w.up+' upgraded':''].filter(Boolean).join(', ')+'</b></div>':'')
+   +yardRow(key)
    +'<div class="row"><span>State</span><b>'+e(GHEALTH[st.hc||0])+(st.idle!=null&&st.hc?' ('+st.idle+' days quiet)':'')+'</b></div>';
   return '<div class="c-grow">'+rows+'</div>'}
 // ---------------------------------------------------------------- the page's controls drive this
@@ -206,6 +218,9 @@ if(GROW){gRefresh();window.CALDERA_GROWTH_API={
   fly:function(h){var b=byName[h];if(b){worldFocus(b);return true}return false},
   plot:function(h,z){var g=GM[h];if(!g||!g.b)return false;var s=g.cs||gState(g),c=iso(g.b.x+s.side/2-.5,g.b.y+s.side/2-.5);cam.z=z||1.5;cam.x=vw/2-c.x*cam.z;cam.y=vh/2-c.y*cam.z;draw();return true},
   state:function(){return {view:GV,cursor:GCUR,heat:GHEAT,zoning:GZONE,plots:Object.keys(GM).length}},
+  armory:{at:function(t){YT=t==null?null:+t;YSIG='';draw()},info:function(h){var g=GM[h],Y=g&&yardOf(g);if(!Y)return null;var st=Y.st;
+    return {lay:Y.lay,ph:st.ph,N:st.N,u:st.u,pallets:st.pallets,gl:st.gl,gone:st.gone,F:st.F,np:st.np,tip:yardTip(h),chip:yTexts(st,yClock(st.B)).chip}}},
   plotInfo:function(h){var g=GM[h];if(!g)return null;var s=g.cs||gState(g);return {K:g.K,side:s.side,lots:s.codes.join(''),survey:s.survey,b:g.b?{x:g.b.x,y:g.b.y,k:g.b.k}:null,tile:g.b?tiles[(g.b.x+s.side)+','+(g.b.y)]:null}}};
   if(GVIEW0!=='now')GV=GVIEW0}
+${ARMORY_JS}
 `;
