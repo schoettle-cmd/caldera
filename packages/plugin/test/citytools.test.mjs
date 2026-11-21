@@ -57,3 +57,7 @@ test("Mike 11-20: the strike card's top attackers link to the member's Caldera p
   assert.match(CITY_JS, /r\.a===cur&&up>0\?up:0,r\.a\]:null\)\}return o\}/);
   assert.match(CITY_JS, /'<div class="sc-lb">/);
 });
+
+test("Mike 11-21: a plot with no missiles shows no missile pill; the pill shows only above 0", () => {
+  assert.match(CITY_JS, /badges\.forEach\(function\(b\)\{if\(b\[5\]&&b\[2\]>0\)badgeHi\(/);
+});

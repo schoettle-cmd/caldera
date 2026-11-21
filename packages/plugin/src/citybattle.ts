@@ -833,7 +833,7 @@ function battleOver(){if(!BON||!BDATA||typeof GM==='undefined')return;var c=cx,t
         bEmit({k:'build',x0:b2.p.x+4+(rnd(tn*.3)-.5)*20,y0:base2-h2-40,x1:q[0],y1:q[1],x:0,y:0,arc:8+rnd(tn)*10,s:.8+rnd(tn*1.3)*.8,col:hex([cr2[0]*L2,cr2[1]*L2,cr2[2]*L2]),life:.8+rnd(tn*.9)*.4})}}}}}}
   // the counts and the countdown, in screen space
   // none of it while the replay plays: the pure city (PURE, city.ts), only buildings, missiles, hits, fire and cranes
-  var pure=typeof PURE!=='undefined'&&PURE;c.setTransform(dpr,0,0,dpr,0,0);if(!pure)badges.forEach(function(b){if(b[5])badgeHi(c,cam.x+b[0]*cam.z,cam.y+b[1]*cam.z,b[2],b[3],b[4])});
+  var pure=typeof PURE!=='undefined'&&PURE;c.setTransform(dpr,0,0,dpr,0,0);if(!pure)badges.forEach(function(b){if(b[5]&&b[2]>0)badgeHi(c,cam.x+b[0]*cam.z,cam.y+b[1]*cam.z,b[2],b[3],b[4])});
   if(rep&&!pure)bHitLabels(c,P,S,now);
   if(BFLS&&!reduce){var uf=(now-BFLS.t)/BFLS.dur;if(uf>=0&&uf<1){c.fillStyle='rgba(255,250,235,'+(BFLS.a*(1-uf)*(1-uf)).toFixed(3)+')';c.fillRect(0,0,vw,vh)}}   // the big blasts white out the screen for a moment
   if(!pure&&S.live&&now>=S.count&&now<S.salvo&&P.n>0)countdownHi(c,vw/2,vh*.42,(now-S.count)/(S.salvo-S.count));
