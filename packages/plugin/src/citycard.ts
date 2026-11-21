@@ -249,9 +249,14 @@ function bCardBlob(fmt,withMap){var C=BCARD;if(!C)return Promise.reject(new Erro
 /** Save: the replay pauses and the card stays; "Saving..."; the share sheet on a phone or tablet that can share files, else a
  *  download; "Saved" for 1.2 s, then the replay goes on. On a failure "Could not save. Try again." for 2 s */
 function bCardSave(fmt,btn){if(!BCARD||!BREP||BCSAVE)return Promise.resolve(false);var lab=btn&&btn.querySelector('span'),was=lab?lab.textContent:'',set=function(t){if(lab)lab.textContent=t};
-  var mine=BREP.pauseAt==null;if(mine)bPause(true);BCSAVE=1;set('Saving…');if(btn)btn.disabled=true;bCardFonts();
+  var mine=BREP.pauseAt==null;if(mine)bPause(true);BCSAVE=1;set('Saving…');bcTr('strikecard_share_tap',{kind:bcKind(fmt)});if(btn)btn.disabled=true;bCardFonts();
   var done=function(ok,keep){set(ok?'Saved':'Could not save. Try again.');setTimeout(function(){set(was);if(btn)btn.disabled=false;BCSAVE=0;if(mine&&BREP&&BREP.pauseAt!=null&&!(BCARD&&(BCARD.hp||BCARD.tp)))bPause(false)},ok?1200:2000);return ok};
-  return bCardBlob(fmt).then(function(r){return bcDeliver(r.blob,r.name)}).then(function(k){if(k==='abort'){set(was);if(btn)btn.disabled=false;BCSAVE=0;if(mine&&BREP&&BREP.pauseAt!=null)bPause(false);return false}return done(true)},function(){return done(false)})}
+  return bCardBlob(fmt).then(function(r){return bcDeliver(r.blob,r.name)}).then(function(k){if(k==='abort'){bcTr('strikecard_share_done',{ok:false,err:'AbortError'});set(was);if(btn)btn.disabled=false;BCSAVE=0;if(mine&&BREP&&BREP.pauseAt!=null)bPause(false);return false}bcTr('strikecard_share_done',{ok:true,via:k});return done(true)},function(e){bcTr('strikecard_share_done',{ok:false,err:bcErr(e)});return done(false)})}
+/** ES session tracer events for the share funnel (MB order 11-21): no-op when the page has no tracer (Obsidian, city pages) */
+function bcTr(n,p){try{if(typeof window!=='undefined'&&typeof window.esTrace==='function')window.esTrace(n,p||{})}catch(e){}}
+/** what a Save tap will do: the share sheet, a download, or the 4:5 post download */
+function bcKind(fmt){if(fmt==='p')return 'post45';var c=false;try{c=matchMedia('(pointer: coarse)').matches&&!!navigator.share&&!!navigator.canShare}catch(e){}return c?'share':'save'}
+function bcErr(e){return String(e&&e.name||'Error').slice(0,40)}
 /** the last step of a save, shared by the strike card and the leaderboard: the share sheet with the file on a phone or tablet
  *  that can share files (files only: some apps drop the picture when text comes with it), else a download. Resolves 'share',
  *  'save' or 'abort' (the person closed the sheet); rejects on a failure */
@@ -417,7 +422,7 @@ function bLbH(h){return h<520?'h-xs':h<620?'h-s':''}
 /** the replay reached S.end: hold the clock there (the map stands whole) and put the board up, once */
 function bLbHold(S){if(!BREP)return;if(BREP.pauseAt==null||BREP.vt!==S.end){BREP.vt=S.end;BREP.pt=performance.now();BREP.pauseAt=performance.now();BREP.esp=null}if(!BLB)bLbMount()}
 /** the board goes up on the stage (z-index 8): the model (the viewer sees YOU), the DOM, the photos for the picture, the entry */
-function bLbMount(){bLbOff();bCardOff();if(!BREP)return null;var M=bLbModel({R:BREP.R,P:BREP.P,S:BREP.R.S,V:BCV},false),B={m:M,el:null,size:null,t0:performance.now(),fin:!!reduce,av:{},busy:0,hint:false,raf:0,tm:[],key:null,eat:false};BLB=B;
+function bLbMount(){bLbOff();bCardOff();if(!BREP)return null;var M=bLbModel({R:BREP.R,P:BREP.P,S:BREP.R.S,V:BCV},false),B={m:M,el:null,size:null,t0:performance.now(),fin:!!reduce,av:{},busy:0,hint:false,raf:0,tm:[],key:null,eat:false};BLB=B;bcTr('leaderboard_shown',{demo:!!M.demo,rows:M.rows.length,signed:bLbSigned()});
   try{document.documentElement.classList.add('w-board')}catch(e){}bLbPhotos(M);
   if(typeof st==='undefined'||!st||!st.appendChild||typeof document==='undefined'||!document.createElement)return B;
   try{bCardCss();bCardFonts();var w=st.clientWidth||vw,hh=st.clientHeight||vh,size=bCardSize(w),save=bCardCanSave(),share=save&&bcCanShare(),wrap=document.createElement('div');
@@ -506,9 +511,9 @@ function bLbBlob(fmt,o){if(!BLB||!BREP)return Promise.reject(new Error('no board
   return new Promise(function(ok,no){try{x.toBlob(function(b){b?ok({blob:b,name:name}):no(new Error('empty'))},'image/png')}catch(e){if(o.photos!==false)bLbBlob(fmt,{photos:false,map:o.map}).then(ok,no);else if(o.map!==false)bLbBlob(fmt,{photos:false,map:false}).then(ok,no);else no(e)}})}
 /** Save / Share (spec section 10, as bCardSave): "Saving...", the share sheet or a download, "Saved" 1.2 s; the hint after a share */
 function bLbSave(fmt,btn){var B=BLB;if(!B||B.busy||!B.m.rows.length)return Promise.resolve(false);var lab=btn?btn.querySelector('span')||btn:null,was=lab?lab.textContent:'',set=function(t){if(lab)lab.textContent=t};
-  B.busy=1;set('Saving…');if(btn)btn.disabled=true;bCardFonts();
+  B.busy=1;set('Saving…');if(btn)btn.disabled=true;bCardFonts();bcTr('leaderboard_share_tap',{kind:bcKind(fmt)});
   var free=function(){if(btn)btn.disabled=false;B.busy=0},done=function(ok){set(ok?'Saved':'Could not save. Try again.');setTimeout(function(){set(was);free()},ok?1200:2000);return ok};
-  return bLbBlob(fmt).then(function(r){return bcDeliver(r.blob,r.name)}).then(function(k){if(k==='abort'){set(was);free();return false}if(k==='share')bLbHint();return done(true)},function(){return done(false)})}
+  return bLbBlob(fmt).then(function(r){return bcDeliver(r.blob,r.name)}).then(function(k){if(k==='abort'){bcTr('leaderboard_share_done',{ok:false,err:'AbortError'});set(was);free();return false}bcTr('leaderboard_share_done',{ok:true,via:k});if(k==='share')bLbHint();return done(true)},function(e){bcTr('leaderboard_share_done',{ok:false,err:bcErr(e)});return done(false)})}
 function bLbHint(){var B=BLB;if(!B||B.hint||!B.el)return;B.hint=true;try{var w=B.el.querySelector('.lb-wrap');if(w)w.insertAdjacentHTML('beforeend',bLbHintHTML())}catch(e){}}
 (function(){var A=window.CALDERA_BATTLE_API;if(!A)return;
   /** the signed-in viewer's handle: their own cities read YOU and YOUR on screen (never in a saved picture) */

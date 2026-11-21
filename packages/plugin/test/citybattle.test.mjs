@@ -680,3 +680,16 @@ test("leaderboard picture: story 1080x1920 with one cyan link spot (480x64, cent
   const ce = lbRecCtx(); L.draw(ce, Object.assign(L.model(lbX([lbShots([["@a", "@b", 0]])]), true), { src: null, av: {} }), X.s); assert.ok(ce.T.some((t) => t.t === "No missile hit a city."));
   const cs = stubCtx(); L.draw(cs, Object.assign(L.model(lbX([b1], { V: "@mike" }), true), { src: { width: 1800, height: 1200 }, av: { "@lars": { width: 64 } } }), X.s); assert.ok(cs.__n.ops > 50, "finite geometry with a map frame and a photo");
 });
+
+test("ES tracer share funnel (MB 11-21): leaderboard shown / share tap / share done, strike card the same; no-op without esTrace", () => {
+  const J = CITY_JS;
+  assert.match(J, /function bcTr\(n,p\)\{try\{if\(typeof window!=='undefined'&&typeof window\.esTrace==='function'\)window\.esTrace\(n,p\|\|\{\}\)\}catch\(e\)\{\}\}/);
+  assert.match(J, /bcTr\('leaderboard_shown',/);
+  assert.match(J, /bcTr\('leaderboard_share_tap',\{kind:bcKind\(fmt\)\}\)/);
+  assert.match(J, /bcTr\('leaderboard_share_done',\{ok:true,via:k\}\)/);
+  assert.match(J, /bcTr\('leaderboard_share_done',\{ok:false,err:'AbortError'\}\)/);
+  assert.match(J, /bcTr\('leaderboard_share_done',\{ok:false,err:bcErr\(e\)\}\)/);
+  assert.match(J, /bcTr\('strikecard_share_tap',\{kind:bcKind\(fmt\)\}\)/);
+  assert.match(J, /bcTr\('strikecard_share_done',\{ok:true,via:k\}\)/);
+  assert.match(J, /function bcKind\(fmt\)\{if\(fmt==='p'\)return 'post45';/);
+});
