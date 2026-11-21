@@ -649,7 +649,7 @@ function bReplayStart(mode,sp,noFull){if(BREP)bReplayEnd(false);var demo=mode===
   if(reduce&&typeof frame==='function'){BREP.timer=setInterval(function(){if(!BREP){return}frame()},120)}
   draw();return P.n}
 /** the replay is over (or stopped): the map goes back to the live clock and the camera flies home */
-function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.timer)clearInterval(BREP.timer);BREP=null;bCardOff();BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();BWL.length=0;if(BPLAN)BHITB=BPLAN.hit;
+function bReplayEnd(fly){if(!BREP)return;var h=BREP.home,full=BREP.full;if(BREP.timer)clearInterval(BREP.timer);BREP=null;bCardOff();bLbOff();BLAST=0;BQ=-1;BFQ=-1;BP.length=0;BCOL.length=0;bRibbonsClear();BWL.length=0;if(BPLAN)BHITB=BPLAN.hit;
   var go=function(){if(fly&&h&&typeof flyTo==='function')flyTo(vw/2-h.x*h.z,vh*.52-h.y*h.z,h.z,reduce?1:BRT.tail);else bRedraw()};
   bSndStop();if(full&&typeof theater==='function'){theater(false);setTimeout(go,60)}else go()}
 /** skip to the next beat (a tap on the map, the Skip button); past the last beat: to the wide shot, then straight to the end */
@@ -674,7 +674,7 @@ function bCam(){if(!BREP||!BON||!BREP.follow)return;var R=BREP.R,c=bRepCam(R,bNo
   if(E){var u=(performance.now()-E.t0)/BCAMEASE;if(reduce||u>=1)BREP.ease=null;else{u=bEase(u);x=bLerp(E.x,x,u);y=bLerp(E.y,y,u);z=bLerp(E.z,z,u)}}   // Follow was just pressed: ease back to where the auto camera is
   if(Math.abs(x-cam.x)>.05||Math.abs(y-cam.y)>.05||Math.abs(z-cam.z)>1e-4){cam.x=x;cam.y=y;cam.z=z;dirty=true}}
 /** the clock: the replay ends, the rebuild steps redraw the cache, events between the last frame and this one make their effects */
-function bClock(now){var S=bS();if(!S)return;if(BREP&&now>=S.end){bReplayEnd(true);return}
+function bClock(now){var S=bS();if(!S)return;if(BREP&&now>=S.end){bLbHold(S);return}   // LEADERBOARD.md (Mike 11-21): hold at the end, the results board goes up (citycard.ts); Exit ends the replay
   var q=now<S.hold?-1:Math.floor(Math.min(1,(now-S.hold)/(S.end-S.hold))*6);if(q!==BQ){var first=BQ===-1&&q===-1;BQ=q;if(!first)bRedraw()}}
 function bBetween(t,a,b){return t>a&&t<=b}
 /** the floors a hit takes off its tower (the damage step before and after this impact), as a collapse on the moving layer */
@@ -892,7 +892,7 @@ window.CALDERA_BATTLE_API={
   phase:function(){var P=bPlan(Date.now()),S=bS(),now=bNow(),seg=bSegment(S,now),landed=0,fired=0;P.shots.forEach(function(s){if(bLandOf(S,s)<=now)landed++;if(bFireOf(S,s)<=now)fired++});
     var until=seg==='rebuild'?S.end:seg==='salvo'||seg==='damage'?S.hold:S.salvo,o={seg:seg,until:BREP?Date.now()+bRealMs(until-now,BREP.sp):until,salvoAt:S.salvo,total:P.n,landed:landed,fired:fired,night:P.night,replay:!!BREP,rebuilt:bRebuild()};
     if(BREP){var R=BREP.R,b=bBeatAt(R,now),st=bRepStage(R,now),nb=null;if(!b&&st!=='wide'&&st!=='rebuild'&&st!=='fall')for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}var cur=b||nb;
-      o.speed=BREP.sp;o.follow=BREP.follow;var hn2=bHitsNow(BREP.P,BREP.R.S,now),lh=hn2.length?hn2[hn2.length-1]:null;o.hit=lh?{d:lh.s.d,a:lh.s.a,w:lh.s.w,from:Math.round((1-lh.t0)*1e4)/100,to:Math.round((1-lh.t1)*1e4)/100,of:100,shield:!!lh.s.blocked||!(lh.s.f>0),sh:lh.s.blocked?0:lh.s.sh||0,usd:lh.s.f>0?lh.s.usd:0,pot:lh.s.pot||0,fire:!!(lh.s.x?lh.s.x.sp:lh.s.burn>=1)&&lh.s.f>0,ix:lh.s.ix}:null;o.stage=st;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'||st==='fall'?'damage':st==='rebuild'?'rebuild':'idle';
+      o.speed=BREP.sp;o.follow=BREP.follow;var hn2=bHitsNow(BREP.P,BREP.R.S,now),lh=hn2.length?hn2[hn2.length-1]:null;o.hit=lh?{d:lh.s.d,a:lh.s.a,w:lh.s.w,from:Math.round((1-lh.t0)*1e4)/100,to:Math.round((1-lh.t1)*1e4)/100,of:100,shield:!!lh.s.blocked||!(lh.s.f>0),sh:lh.s.blocked?0:lh.s.sh||0,usd:lh.s.f>0?lh.s.usd:0,pot:lh.s.pot||0,fire:!!(lh.s.x?lh.s.x.sp:lh.s.burn>=1)&&lh.s.f>0,ix:lh.s.ix}:null;o.stage=st;o.board=!!BLB;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'||st==='fall'?'damage':st==='rebuild'?'rebuild':'idle';
       var FF=BREP.P.fall;o.fallen=FF?FF.key:null;o.label=st==='fall'&&FF?(FF.raid?'The raiders fall':FF.key+' falls'):cur?(cur.raid?'Raiders':cur.a)+' → '+(cur.d.charAt(0)==='@'?cur.d:'the sea')+(cur.targets.length>1?' +'+(cur.targets.length-1):'')+' · '+cur.n+' missile'+(cur.n===1?'':'s'):st==='wide'?(FF?(FF.raid?'The raiders fell':FF.key+' fell')+' · every strike landed':'Every strike landed'):st==='rebuild'?'Cranes, '+Math.round(bRebuild()*100)+'% rebuilt':'';}
     return o},
   state:function(){return {on:BON,layers:BL,phase:this.phase(),cities:BDATA&&BDATA.members?Object.keys(BDATA.members).length:0}},

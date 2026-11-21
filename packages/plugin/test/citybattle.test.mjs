@@ -31,7 +31,7 @@ function world(sky, clock, data, reduce = false, store = memStore(), b2h = 30) {
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();var PURE=false;`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", "STORE", pre + HIFI_JS + STREET_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,stateLoad:bStateLoad,sync:function(){bStateSync(bPlan(Date.now()),Date.now())},rebOf:bRebuildOf,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{bBlK:bBlK,bBlast:bBlast,bMissileFly:bMissileFly,bBigFx:bBigFx,spScorch:spScorch,spPuff:spPuff,setZ:function(z){cam.z=z},pool:function(){return BP},padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,bTwoFrame:bTwoFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,bCardState:bCardState,bCardRanks:bCardRanks,bCardSpeed:bCardSpeed,bCardPlan:bCardPlan,bCardStandOf:bCardStandOf,bCardModel:bCardModel,bCardTimes:bCardTimes,bCardAt:bCardAt,bCardClear:bCardClear,BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,pu:{isTap:puIsTap,pool:function(){return PUP},plume:puPlume,crane:puCrane,target:puTarget,draw:puDraw,max:puMax,setVw:function(v){vw=v}},setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
+    art:{bBlK:bBlK,bBlast:bBlast,bMissileFly:bMissileFly,bBigFx:bBigFx,spScorch:spScorch,spPuff:spPuff,setZ:function(z){cam.z=z},pool:function(){return BP},padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,bTwoFrame:bTwoFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,bCardState:bCardState,bCardRanks:bCardRanks,bCardSpeed:bCardSpeed,bCardPlan:bCardPlan,bCardStandOf:bCardStandOf,bCardModel:bCardModel,bCardTimes:bCardTimes,bCardAt:bCardAt,bCardClear:bCardClear,lb:{model:bLbModel,tally:bLbTally,html:bLbHTML,buttons:bLbButtons,draw:bLbDraw,XL:BLXL,file:bLbFile,h:bLbH,css:BLCSS,canSave:bCardCanSave,N:BLN},BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,pu:{isTap:puIsTap,pool:function(){return PUP},plume:puPlume,crane:puCrane,target:puTarget,draw:puDraw,max:puMax,setVw:function(v){vw=v}},setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
 }
 /** a localStorage stand-in (a broken one throws on every call) */
 function memStore(broken = false) { const m = new Map(); return { getItem: k => { if (broken) throw new Error("quota"); return m.has(k) ? m.get(k) : null }, setItem: (k, v) => { if (broken) throw new Error("quota"); m.set(k, String(v)) }, removeItem: k => m.delete(k), get size() { return m.size }, raw: k => m.get(k) }; }
@@ -84,7 +84,10 @@ test("cinematic replay: one strike beat per city, most missiles first, raiders f
   ph = at0(R.beats[2].launch); assert.equal(ph.label, "Raiders \u2192 @a \u00b7 1 missile"); assert.ok(R.beats[2].lead.pad === R.beats[2].lead.from && R.beats[2].lead.from.y < R.beats[2].lead.to.y - 100, "raiders launch from the sea point, not a pad");
   ph = at0(S.wide + 3000); assert.equal(ph.stage, "wide"); assert.equal(Wd.camera.z, Wd.art.bWideFrame(R.shots, 900, 600).z, "the wide shot"); assert.equal(Wd.dmg(12, 9), 1, "every hit still showing"); assert.ok(Wd.ribbons() >= 9, "every ribbon kept");
   ph = at0(S.hold + (S.end - S.hold) / 2); assert.equal(ph.stage, "rebuild"); assert.ok(Wd.reb() > .45 && Wd.reb() < .55, "cranes half way"); assert.equal(ph.seg, "rebuild");
-  ph = at0(S.end + 10); assert.equal(ph.replay, false, "the replay ended on its own"); assert.equal(Wd.dmg(12, 9), 0, "back to the original state"); assert.equal(Wd.ribbons(), 0); assert.equal(ph.seg, "loading", "the live afternoon again");
+  // LEADERBOARD.md (Mike 11-21): at the end the clock holds at S.end and the results board goes up in place of an exit; Exit ends it
+  ph = at0(S.end + 10); assert.equal(ph.replay, true, "the replay holds at its end"); assert.equal(ph.board, true, "the board is up"); assert.equal(ph.stage, "done"); assert.equal(ph.t, S.end, "the clock stands at S.end");
+  clock.p += 5000; Wd.over(); assert.equal(Wd.api.phase().t, S.end, "no timer: it stays until the viewer picks a button"); assert.ok(Wd.api.board(), "board()"); assert.equal(Wd.dmg(12, 9), 0, "the map stands whole behind it");
+  assert.equal(Wd.api.boardAct("exit"), true); ph = Wd.api.phase(); assert.equal(ph.replay, false, "Exit ends the replay"); assert.equal(Wd.api.board(), null); assert.equal(Wd.dmg(12, 9), 0, "back to the original state"); assert.equal(Wd.ribbons(), 0); assert.equal(ph.seg, "loading", "the live afternoon again");
   Wd.api.replay(); Wd.api.stop(); assert.equal(Wd.api.phase().replay, false);
 });
 
@@ -103,7 +106,7 @@ test("cinematic replay: beats from 1 to 8 cities, at most 6 full strikes (the re
   assert.equal(W2.api.pause(), true); const t1 = W2.api.phase().t; clock.p += 3000; W2.bcam(); W2.over(); assert.equal(W2.api.phase().t, t1, "paused: the clock stands still"); assert.equal(W2.api.phase().paused, true);
   assert.equal(W2.api.pause(), false); clock.p += 500; assert.ok(Math.abs(W2.api.phase().t - (t1 + 500)) < 1, "resumed where it was");
   W2.api.skip(); ph = W2.api.phase(); assert.equal(ph.stage, "fall", "after the last strike: the fall"); assert.equal(ph.label, "@b falls", "the city that took the most falls"); assert.equal(ph.seg, "damage");
-  W2.api.skip(); assert.equal(W2.api.phase().stage, "wide"); W2.api.skip(); assert.equal(W2.api.phase().stage, "rebuild"); W2.api.skip(); clock.p += 1; W2.bcam(); W2.over(); assert.equal(W2.api.phase().replay, false, "skipping the cranes ends the replay");
+  W2.api.skip(); assert.equal(W2.api.phase().stage, "wide"); W2.api.skip(); assert.equal(W2.api.phase().stage, "rebuild"); W2.api.skip(); clock.p += 1; W2.bcam(); W2.over(); assert.equal(W2.api.phase().board, true, "skipping the cranes goes to the results board"); W2.api.boardAct("exit"); assert.equal(W2.api.phase().replay, false, "and Exit ends the replay");
   // the demo: a sample battle between the biggest cities on the map, raiders last, labelled demo; the live plan is untouched
   assert.equal(W2.api.replay("demo"), 11); ph = W2.api.phase(); assert.equal(ph.demo, true); assert.equal(ph.beats, 3); assert.deepEqual(W2.rep().R.beats.map((b) => b.a), ["@a", "@b", "~raiders"]); assert.equal(W2.rep().R.beats[0].n, 5);
   W2.api.stop(); assert.equal(W2.plan().n, 8, "today's plan is still today's"); assert.equal(W2.api.phase().demo, undefined);
@@ -555,4 +558,125 @@ test("power-ups 11-21: prefers-reduced-motion is a 300 ms fade-in of the end sta
   for (const bad of ["fetch(", "XMLHttpRequest", "sendBeacon", "localStorage", "sessionStorage", "indexedDB", "document.cookie", "WebSocket"]) assert.ok(!POWERUP_JS.includes(bad), `no ${bad} in the power-up code`);
   assert.ok(BATTLE_DRAW_JS.includes(POWERUP_JS), "shipped with the battle renderer");
   assert.ok(CITY_JS.includes("window.CALDERA_BATTLE_TAP(ev.clientX,ev.clientY)") && CITY_JS.includes("puIsTap(performance.now()-(was.t0||0)"), "city.ts hands a replay tap to the hub's tray");
+});
+
+// ---- the leaderboard at the end of the replay (LEADERBOARD.md, Fable design 11-21; Mike 11-21)
+/** a 2D context that records text, boxes and the translate offset (house rule 11: where things land on the picture) */
+function lbRecCtx() {
+  const T = [], B = [], F = [], st = [], o = { tx: 0, ty: 0, textAlign: "left", font: "" }, grad = { addColorStop() {} };
+  const ctx = { T, B, F, save() { st.push([o.tx, o.ty, o.textAlign]); }, restore() { const p = st.pop() || [0, 0, "left"]; o.tx = p[0]; o.ty = p[1]; o.textAlign = p[2]; }, translate(x, y) { o.tx += x; o.ty += y; },
+    transform() {}, rotate() {}, scale() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, arc() {}, clip() {}, fill() {}, stroke() {}, drawImage() {},
+    createLinearGradient: () => grad, measureText: (t) => ({ width: String(t).length * 10 }),
+    fillText(t, x, y) { for (const v of [x, y]) if (!Number.isFinite(v)) throw new Error("non-finite text"); T.push({ t: String(t), x: x + o.tx, y: y + o.ty, align: ctx.textAlign, local: o.tx !== 0 || o.ty !== 0 }); },
+    strokeRect(x, y, w, h) { B.push({ x: x + o.tx, y: y + o.ty, w, h }); }, fillRect(x, y, w, h) { F.push({ x: x + o.tx, y: y + o.ty, w, h }); } };
+  Object.defineProperty(ctx, "textAlign", { get: () => o.textAlign, set: (v) => { o.textAlign = v; } }); return ctx;
+}
+const lbShots = (list) => list.map(([a, d, usd, extra]) => Object.assign({ a, d, f: usd > 0 ? 1 : 0, usd, blocked: 0, sh: 0, pot: 0 }, extra || {}));
+const lbX = (beats, o = {}) => { const shots = beats.flat(); return { R: { beats: beats.map((b) => ({ shots: b })), F: !!o.F }, P: { shots, night: o.night || "2026-11-20", demo: !!o.demo, hit: {}, fall: o.fall || null }, S: { wide: 0 }, V: o.V || null }; };
+
+test("leaderboard: the top 5 by damage (the strike card's order); a viewer at rank 6 or lower is pinned with the real rank; SEA RAIDERS rank with no link; $0 has no row", () => {
+  const Wd = world("day", { t: at(16), p: 1 }, data()); const L = Wd.art.lb;
+  const b1 = lbShots([["@orion", "@mike", 64.4e6], ["@lars", "@mike", 21.9e6], ["@lars", "@mike", 0], ["~raiders", "@lin", 14.2e6], ["@lin", "@orion", 9.8e6]]);
+  const b2 = lbShots([["@bart", "@lin", 4.6e6], ["@kes", "@lin", 2.4e6], ["@novak", "@orion", 9e5], ["@mike", "@orion", 6.4e5], ["@zero", "@orion", 0], ["@mike", "@lin", 0, { blocked: 1, pot: 5e6 }]]);
+  let M = L.model(lbX([b1, b2]), false);
+  assert.equal(L.N, 5); assert.deepEqual(M.rows.map((r) => r.a), ["@orion", "@lars", "~raiders", "@lin", "@bart"], "top 5 by landed dollars");
+  assert.deepEqual(M.rows.map((r) => r.rank), [1, 2, 3, 4, 5]); assert.equal(M.rows[0].s, 1); assert.ok(Math.abs(M.rows[1].s - 21.9 / 64.4) < 1e-9, "bar share of rank 1");
+  assert.deepEqual([M.rows[1].land, M.rows[1].fired], [1, 2], "Lars: 1 of 2 missiles hit"); assert.equal(M.rows[2].name, "SEA RAIDERS"); assert.ok(/\braid\b/.test(M.rows[2].cls)); assert.ok(/\btop\b/.test(M.rows[0].cls));
+  assert.equal(M.pin, null, "no viewer, no pin"); assert.ok(!M.rows.some((r) => r.a === "@zero"), "$0 damage: no rank, no row");
+  // the viewer at rank 2: the row reads YOU on screen, the handle in the picture; at rank 5 no pin; at rank 8 pinned with rank 8
+  M = L.model(lbX([b1, b2], { V: "@lars" }), false); assert.equal(M.rows[1].name, "YOU"); assert.ok(/\bme\b/.test(M.rows[1].cls)); assert.equal(M.pin, null); assert.equal(M.you, null, "ranked, no city on the map: no viewer line");
+  const pic = L.model(lbX([b1, b2], { V: "@lars" }), true); assert.equal(pic.rows[1].name, "LARS", "the picture: the handle, never YOU"); assert.ok(/\bme\b/.test(pic.rows[1].cls), "and still the purple row"); assert.ok(!JSON.stringify(pic).includes("YOU"));
+  assert.equal(L.model(lbX([b1, b2], { V: "@bart" }), false).pin, null, "rank 5: in the top 5, no pin");
+  M = L.model(lbX([b1, b2], { V: "@mike" }), false); assert.equal(M.rows.length, 5); assert.ok(M.pin, "rank 8: pinned"); assert.equal(M.pin.rank, 8, "with the real rank"); assert.equal(M.pin.name, "YOU"); assert.deepEqual([M.pin.land, M.pin.fired], [1, 2]);
+  assert.equal(L.model(lbX([b1, b2], { V: "@mike" }), true).pin.name, "MIKE", "the pinned row stays in the picture, with the handle");
+  // ties go to the earlier beat; fewer than 5 attackers: only the rows that exist
+  M = L.model(lbX([lbShots([["@x", "@y", 5]]), lbShots([["@w", "@y", 5]])]), false); assert.deepEqual(M.rows.map((r) => r.a), ["@x", "@w"]);
+  // the markup: an ordered list with values, a member links to the profile, the raiders do not; the pin under a dotted line
+  M = L.model(lbX([b1, b2], { V: "@mike" }), false); const h = L.html(M, "l", { save: true, share: false, signedIn: true });
+  assert.ok(h.startsWith('<div class="blb sz-l" role="dialog" aria-modal="true" aria-labelledby="lb-t">')); assert.ok(h.includes('<h2 class="lb-title" id="lb-t">Battle results</h2>'));
+  assert.ok(h.includes('<li class="top" value="1" style="--s:1.000;--d:4">'), "rank 1 lands last (--d = rows - 1)"); assert.ok(h.includes('value="5" style="--s:0.071;--d:0"'), "rank 5 first");
+  assert.ok(h.includes('<li class="me pin" value="8" style="--s:0.020;--d:7">'), "the pinned row: min share .02, --d rows + 2");
+  assert.ok(h.includes('href="https://caldera.social/@orion/" target="_top" rel="noopener">ORION</a>'), "a member links to the Caldera profile");
+  const raid = h.slice(h.indexOf('<li class="raid"'), h.indexOf("</li>", h.indexOf('<li class="raid"'))); assert.ok(raid.includes('class="av r"') && raid.includes('<span class="n">SEA RAIDERS</span>') && !raid.includes("<a "), "raiders: a white diamond, no link");
+  assert.ok(h.includes("TOP ATTACKER · 1 of 1 missiles hit") && h.includes("1 of 2 missiles hit"), "the line under the name");
+  assert.ok(L.html(M, "s", { save: true }).includes("1 of 2 hit</span>"), "phone: the short line"); assert.ok(h.includes('<span class="lb-sr"> damage</span>'));
+  assert.ok(h.includes('<p class="lb-eye"><span>Last night · NOV 20</span><em>caldera.social</em></p>'));
+  // no damage at all: one line, no Save
+  M = L.model(lbX([lbShots([["@x", "@y", 0]])]), false); assert.equal(M.rows.length, 0); const h0 = L.html(M, "m", { save: true, signedIn: true });
+  assert.ok(h0.includes('<li class="none">No missile hit a city.</li>')); assert.ok(!h0.includes('data-lb="save"'), "no Save without rows"); assert.ok(h0.includes('data-lb="again"') && h0.includes('data-lb="exit"'));
+});
+
+test("leaderboard: viewer lines, callouts (a fall beats hardest hit; best shield ties by what it held), totals, demo and file names", () => {
+  const Wd = world("day", { t: at(16), p: 1 }, data()); const L = Wd.art.lb;
+  const b = lbShots([["@a", "@b", 5e6], ["@v", "@b", 0], ["@v", "@b", 0], ["@v", "@a", 0], ["@c", "@a", 0, { blocked: 1, pot: 2e6 }], ["@c", "@b", 0, { blocked: 1, pot: 1e6 }], ["@a", "@b", 0, { blocked: 1, pot: 9e6 }]]);
+  assert.equal(L.model(lbX([b], { V: "@v" }), false).you, "You fired 3 missiles. No hit.");
+  assert.equal(L.model(lbX([lbShots([["@v", "@b", 0]])], { V: "@v" }), false).you, "You fired 1 missile. No hit.");
+  assert.equal(L.model(lbX([b], { V: "@nobody" }), false).you, "You fired no missiles."); assert.equal(L.model(lbX([b], { V: "@v" }), true).you, null, "no viewer line in the picture");
+  let M = L.model(lbX([b]), false); assert.deepEqual(M.call, [["Best shield", "B · 2 blocked", "cyan"]], "two blocked each: B held more");
+  const T = L.tally(lbX([b]).P); assert.deepEqual(T.A["@v"], { fired: 3, land: 0 }); assert.deepEqual([T.D["@b"].blocked, T.D["@b"].held, T.D["@a"].held], [2, 1e7, 2e6]);
+  assert.deepEqual(M.facts, [["1", "cities hit", ""], ["1", "missiles hit", ""], ["$5M", "damage in all", "gold"]], "the last card's three totals");
+  M = L.model(lbX([b], { fall: { key: "@b" }, F: true }), false); assert.deepEqual(M.call[0], ["City down", "B", "red"], "a fall comes first"); assert.equal(M.call.length, 2);
+  assert.deepEqual(L.model(lbX([b], { fall: { key: "~raiders" }, F: true }), false).call[0], ["Fleet sunk", "SEA RAIDERS", "red"]);
+  // file names: story adds -story; the demo names say demo
+  M = L.model(lbX([b]), false); assert.equal(L.file(M, "p"), "caldera-leaderboard-2026-11-20.png"); assert.equal(L.file(M, "s"), "caldera-leaderboard-2026-11-20-story.png");
+  const D = L.model(lbX([b], { demo: true, night: "demo" }), false); assert.equal(D.demo, true); assert.equal(L.file(D, "s"), "caldera-leaderboard-demo-story.png"); assert.equal(L.file(D, "p"), "caldera-leaderboard-demo.png");
+  assert.ok(L.html(D, "l", { save: true, signedIn: true }).includes('<b class="demo">DEMO</b>Sample battle'));
+  // the real replay: hardest hit when nothing fell (a defender with towers that lost 1 point or more), a fall when one did
+  const clock = { t: at(16), p: 10000 }, W2 = world("day", clock, data()); W2.api.view(true); W2.over(); W2.api.replay(); const R = W2.rep().R, P = W2.rep().P, S = W2.S();
+  const real = W2.art.lb.model({ R, P, S, V: null }, false); assert.ok(real.rows.length >= 2); assert.deepEqual(real.rows.map((r) => r.a), W2.art.bCardRanks(R.beats, R.beats.length - 1).slice(0, 5).map((r) => r.a), "the same order as the strike card's strip");
+  if (P.fall && R.F) assert.equal(real.call[0][2], "red");
+  const nofall = W2.art.lb.model({ R: Object.assign({}, R, { F: false }), P: Object.assign({}, P, { fall: null }), S, V: null }, false); assert.equal(nofall.call[0][0], "Hardest hit"); assert.ok(/^[AB] −\d+%$/.test(nofall.call[0][1]), nofall.call[0][1]); W2.api.stop();
+});
+
+test("leaderboard: the buttons (Share / Save first; demo signed out: Add your city first; sandboxed: no Save, Watch again first); the board replaces the end of the replay", () => {
+  const Wd = world("day", { t: at(16), p: 1 }, data()); const L = Wd.art.lb, real = { demo: false, rows: [1] }, demo = { demo: true, rows: [1] };
+  assert.deepEqual(L.buttons(real, { save: true, share: false, signedIn: true }), { list: ["save", "again", "exit", "post"], pri: "save", n3: false }, "desktop: Save picture (story), then a small Post size link");
+  assert.deepEqual(L.buttons(real, { save: true, share: true, signedIn: true }).list, ["save", "again", "exit"], "phone: one Share button, no Post size");
+  assert.deepEqual(L.buttons(real, { save: true, share: false, signedIn: false }).list, ["save", "again", "exit", "post", "addlink"], "signed out on a real night: Save first, Add your city as a link");
+  assert.deepEqual(L.buttons(demo, { save: true, share: true, signedIn: false }), { list: ["add", "save", "again", "exit"], pri: "add", n3: true }, "demo, signed out: Add your city first, Share second");
+  assert.deepEqual(L.buttons(demo, { save: true, share: false, signedIn: true }).pri, "save");
+  assert.deepEqual(L.buttons(real, { save: false, signedIn: true }), { list: ["again", "exit"], pri: "again", n3: false }, "sandboxed page: no Share, Save or Post size");
+  assert.deepEqual(L.buttons({ demo: false, rows: [] }, { save: true, signedIn: true }).list, ["again", "exit"], "no rows: no Save");
+  const Mx = L.model(lbX([lbShots([["@a", "@b", 5e6]])], { demo: true, night: "demo" }), false), hd = L.html(Mx, "s", { save: true, share: true, signedIn: false, add: "/#start" });
+  assert.ok(hd.includes('<div class="lb-act n3"><a class="lb-btn pri" data-lb="add" href="/#start"'), "Add your city is the primary"); assert.ok(hd.includes('class="lb-btn" data-lb="save" data-fmt="s" aria-label="Share the results as a picture"') && hd.includes("<span>Share</span>"));
+  const hs = L.html(Mx, "l", { save: false, signedIn: true }); assert.ok(!hs.includes('data-lb="save"'), "sandboxed: no Save"); assert.ok(hs.includes('class="lb-btn pri" data-lb="again"'));
+  const hdk = L.html(L.model(lbX([lbShots([["@a", "@b", 5e6]])]), false), "l", { save: true, share: false, signedIn: true }); assert.ok(hdk.includes('class="lb-btn pri" data-lb="save" data-fmt="s" aria-label="Save the results as a picture"') && hdk.includes("<span>Save picture</span>") && hdk.includes('data-fmt="p">Post size (4:5)</button>'));
+  // Save hides where it cannot save: the harness has no canvas; a sandboxed hosted city page has an opaque origin
+  assert.equal(L.canSave(), false); const src = BATTLE_DRAW_JS.slice(BATTLE_DRAW_JS.indexOf("function bCardCanSave(){"), BATTLE_DRAW_JS.indexOf("\n", BATTLE_DRAW_JS.indexOf("function bCardCanSave(){")));
+  const can = (win, loc) => new Function("window", "location", "document", "HTMLCanvasElement", src + ";return bCardCanSave()")(win, loc, win.document, { prototype: { toBlob() {} } });
+  const doc = { createElement() {} }; assert.equal(can({ document: doc, origin: "https://caldera.social", localStorage: {} }, { origin: "https://caldera.social" }), true, "a normal page saves");
+  assert.equal(can({ document: doc, origin: "null" }, { origin: "null" }), false, "a sandboxed page does not");
+  assert.equal(can(Object.defineProperty({ document: doc, origin: "x" }, "localStorage", { get() { throw new Error("blocked"); } }), { origin: "x" }), false, "storage blocked: no Save");
+  // the height classes; the CSS rides with the strike card's style element (CITY_JS); the board marks html.w-board for the hub
+  assert.deepEqual([L.h(700), L.h(600), L.h(500)], ["", "h-s", "h-xs"]); assert.ok(BATTLE_DRAW_JS.includes("s.textContent=BCCSS+BLCSS;")); assert.ok(L.css.includes(".blb{position:absolute;inset:0;z-index:8;"));
+  const fn = (n) => { const a = BATTLE_DRAW_JS.indexOf("function " + n + "("); return BATTLE_DRAW_JS.slice(a, BATTLE_DRAW_JS.indexOf("\nfunction ", a + 1)); };
+  assert.ok(fn("bLbMount").includes("classList.add('w-board')") && fn("bLbOff").includes("classList.remove('w-board')"), "html.w-board while the board shows (the hub hides its bar and tray on it)");
+  assert.ok(/function bClock\(now\)\{var S=bS\(\);if\(!S\)return;if\(BREP&&now>=S\.end\)\{bLbHold\(S\);return\}/.test(BATTLE_DRAW_JS), "the end holds and mounts the board in place of bReplayEnd");
+  // in a replay: the board at the end, Watch again restarts the same mode, Exit ends it (the hub's hooks when given)
+  const clock = { t: at(16), p: 10000 }, W2 = world("day", clock, data()); W2.api.view(true); W2.over(); W2.api.replay("demo"); const S = W2.S();
+  clock.p = 10000 + S.end + 50; W2.over(); const bd = W2.api.board(); assert.ok(bd && bd.m.demo, "the demo's board"); assert.equal(W2.api.card(), null, "no strike card under it");
+  assert.equal(W2.api.boardAct("again"), true); assert.equal(W2.api.board(), null); assert.equal(W2.api.phase().replay, true); assert.equal(W2.api.phase().demo, true, "Watch again: the same mode"); assert.ok(W2.api.phase().t < 1000, "from the start");
+  const calls = []; W2.api.boardHooks({ again: (d) => calls.push(["again", d]), exit: () => calls.push(["exit"]) });
+  clock.p += S.end + 50; W2.over(); assert.ok(W2.api.board()); W2.api.boardAct("again"); assert.deepEqual(calls, [["again", true]], "the hub's play() does it when it gave a hook");
+  W2.api.replay(); clock.p += W2.S().end + 50; W2.over(); W2.api.boardAct("exit"); assert.deepEqual(calls[1], ["exit"]); assert.equal(W2.api.board(), null); W2.api.boardHooks(null); W2.api.stop();
+});
+
+test("leaderboard picture: story 1080x1920 with one cyan link spot (480x64, centred, y 1506 to 1570), nothing in the top 250, the bottom 340 or the 96 px side edges; post 1080x1350", () => {
+  const Wd = world("day", { t: at(16), p: 1 }, data()); const L = Wd.art.lb, X = L.XL;
+  assert.deepEqual([X.s.W, X.s.H, X.p.W, X.p.H], [1080, 1920, 1080, 1350]);
+  const b1 = lbShots([["@orion-the-very-long-handle-name", "@mike", 64.4e6], ["@lars", "@mike", 21.9e6], ["~raiders", "@lin", 14.2e6], ["@lin", "@orion", 9.8e6], ["@bart", "@lin", 4.6e6], ["@kes", "@lin", 2.4e6], ["@mike", "@orion", 6.4e5], ["@lin", "@mike", 0, { blocked: 1, pot: 3e6 }]]);
+  for (const V of [null, "@mike", "@lars"]) for (const k of ["s", "p"]) {
+    const D = Object.assign(L.model(lbX([b1], { V, fall: { key: "@mike" }, F: true }), true), { src: null, av: {} }), c = lbRecCtx(), Lk = X[k]; Wd.art.lb.draw(c, D, Lk);
+    const spot = c.B.filter((b) => b.w < 800); assert.equal(spot.length, 1, "one box that looks like a button: the link spot");
+    const ux = (Lk.W - Lk.urlW) / 2; assert.deepEqual(spot[0], { x: ux, y: Lk.urlY, w: Lk.urlW, h: Lk.urlH }); if (k === "s") assert.deepEqual([spot[0].x, spot[0].y, spot[0].x + spot[0].w, spot[0].y + spot[0].h], [300, 1506, 780, 1570], "the strike card's story spot (BCXL.s)");
+    assert.equal(c.B.length, V === "@mike" || V === "@lars" ? 2 : 1, "the viewer's row outline is the only other stroke, and it spans the row"); c.B.filter((b) => b.w >= 800).forEach((b) => assert.ok(b.x >= Lk.M && b.x + b.w <= Lk.W - Lk.M));
+    const url = c.T.filter((t) => t.t === "caldera.social"); assert.equal(url.length, 1); assert.equal(url[0].x, 540); assert.ok(url[0].y > Lk.urlY && url[0].y < Lk.urlY + Lk.urlH);
+    if (k === "s") c.T.forEach((t) => { assert.ok(t.y >= 250 && t.y <= 1580, `text "${t.t}" at y ${t.y} stays out of the story header and reply bar`); if (t.align === "left" && !t.local) assert.ok(t.x >= 96, `"${t.t}" x ${t.x}`); if (t.align === "right") assert.ok(t.x <= 984, `"${t.t}" x ${t.x}`); });
+    assert.ok(!c.T.some((t) => /\bYOU\b/.test(t.t)), "never YOU in a picture"); if (V === "@mike") assert.ok(c.T.some((t) => t.t === "MIKE"), "the saver's pinned row, with the handle");
+    assert.ok(c.T.some((t) => t.t === "BATTLE RESULTS") && c.T.some((t) => t.t === "BATTLE · NOV 20, 2026") && c.T.some((t) => t.t === "CITY DOWN"));
+    assert.ok(!c.T.some((t) => /TOP ATTACKER/.test(t.t) && t.t !== "TOP ATTACKERS"), "no TOP ATTACKER prefix on rank 1 in the picture"); }
+  const Dd = Object.assign(L.model(lbX([b1], { demo: true, night: "demo" }), true), { src: null, av: {} }), cd = lbRecCtx(); L.draw(cd, Dd, X.s);
+  assert.ok(cd.T.some((t) => t.t === "DEMO BATTLE") && cd.T.some((t) => t.t === "SAMPLE DATA. NOT A REAL BATTLE."), "the demo picture says so");
+  const ce = lbRecCtx(); L.draw(ce, Object.assign(L.model(lbX([lbShots([["@a", "@b", 0]])]), true), { src: null, av: {} }), X.s); assert.ok(ce.T.some((t) => t.t === "No missile hit a city."));
+  const cs = stubCtx(); L.draw(cs, Object.assign(L.model(lbX([b1], { V: "@mike" }), true), { src: { width: 1800, height: 1200 }, av: { "@lars": { width: 64 } } }), X.s); assert.ok(cs.__n.ops > 50, "finite geometry with a map frame and a photo");
 });
