@@ -26,7 +26,7 @@ test("D5: friendship rays off by default; a saved choice wins (topic colours wer
 });
 
 test("D6: battle sound on for a pressed replay, silent for a link on load, mute remembered, storage wrapped", () => {
-  assert.match(BATTLE_DRAW_JS, /theater\(true\);bSndStart\(!noFull\)/);
+  assert.match(BATTLE_DRAW_JS, /var full=false;bSndStart\(!noFull\)/);   // Mike 11-21: no forced full screen
   assert.match(BATTLE_DRAW_JS, /function bSndPref\(\)\{try\{return localStorage\.getItem\(BSKEY\)!=='0'\}catch\(err\)\{return true\}\}/, "on unless the viewer muted it");
   assert.match(BATTLE_DRAW_JS, /function bSndSet\(on\)\{BSON=!!on;try\{localStorage\.setItem\(BSKEY,BSON\?'1':'0'\)\}catch\(err\)\{\}/);
   assert.match(BATTLE_DRAW_JS, /BSKEY='caldera\.battle\.sound'/);

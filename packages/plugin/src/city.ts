@@ -1764,6 +1764,11 @@ function theater(on){if(on){if(THEA||document.fullscreenElement||st.classList.co
     try{r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null}catch(err){r=null}
     if(r&&r.then){THEA='fs';r.catch(function(){if(THEA==='fs'){THEA='css';cssFull(true)}})}else{THEA='css';cssFull(true)}return true}
   var m=THEA;THEA='';st.classList.remove('c-theater');if(m==='fs'&&document.fullscreenElement){try{document.exitFullscreen()}catch(err){}}else if(m==='css'&&st.classList.contains('c-full'))cssFull(false);return !!m}
+/** the viewer's own full screen (the battle replay bar's button, Mike 11-21): the Fullscreen API, or the CSS full window where the
+ *  browser refuses it. stageFull() reads the state; it never ends a replay */
+function stageFull(on){var is=!!document.fullscreenElement||st.classList.contains('c-full');if(on==null||!!on===is)return is;
+  if(!on){if(document.fullscreenElement){try{document.exitFullscreen()}catch(err){}}else cssFull(false);return false}
+  var r=null;try{r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null}catch(err){r=null}if(r&&r.catch)r.catch(function(){cssFull(true)});else cssFull(true);return true}
 function thStop(){st.classList.remove('c-theater');if(typeof BREP!=='undefined'&&BREP&&typeof bReplayEnd==='function')bReplayEnd(true)}
 bf.onclick=function(){if(document.fullscreenElement){document.exitFullscreen();return}if(st.classList.contains('c-full'))return cssFull(false);
   var r=st.requestFullscreen&&document.fullscreenEnabled?st.requestFullscreen():null;if(r&&r.catch)r.catch(function(){cssFull(true)});else cssFull(true)};

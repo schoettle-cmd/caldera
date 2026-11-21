@@ -15,12 +15,16 @@ test("pop-out: no window on phones or app web views, never navigates this page t
   assert.match(code, /if\(MINI&&window\.parent===window&&!window\.opener&&NOPOP\)/, "a mini view that took over an app page goes back");
 });
 
-test("battle replay: a ?replay link plays without full screen; only a tap enlarges the map", () => {
+test("battle replay (Mike 11-21): no replay forces full screen; the viewer's own Full screen tap does, and leaving it keeps the replay", () => {
   assert.match(BATTLE_DRAW_JS, /function bReplayStart\(mode,sp,noFull\)/);
-  assert.match(BATTLE_DRAW_JS, /var full=!noFull&&typeof theater==='function'&&theater\(true\)/, "D3: a pressed replay at any width goes full screen");
+  assert.match(BATTLE_DRAW_JS, /var full=false;bSndStart\(!noFull\);/, "Mike 11-21: a pressed replay starts in the page");
+  assert.doesNotMatch(BATTLE_DRAW_JS, /theater\(true\)/);
+  assert.match(BATTLE_DRAW_JS, /full:function\(on\)\{return typeof stageFull==='function'\?stageFull\(on\):false\}/);
   assert.match(BATTLE_DRAW_JS, /bReplayStart\(mode,o&&o\.speed,o&&o\.auto\)/);
   const own = CITY_JS.replace(BATTLE_DRAW_JS, "");
-  assert.equal((own.match(/cssFull\(true\)/g) || []).length, 4, "in the city itself only the Full screen button and the replay theater (each with its fallback) call cssFull(true)");
-  const th = own.slice(own.indexOf("function theater(on)"), own.indexOf("function thStop()"));
+  assert.equal((own.match(/cssFull\(true\)/g) || []).length, 6, "in the city itself only the Full screen button, the viewer's stageFull and the old theater (each with its fallback) call cssFull(true)");
+  const sf = own.slice(own.indexOf("function stageFull(on)"), own.indexOf("function thStop()"));
+  assert.doesNotMatch(sf, /thStop|bReplayEnd|THEA=/, "leaving the viewer's full screen never ends the replay");
+  const th = own.slice(own.indexOf("function theater(on)"), own.indexOf("function stageFull(on)"));
   assert.equal((th.match(/cssFull\(true\)/g) || []).length, 2);
 });
