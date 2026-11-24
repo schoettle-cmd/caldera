@@ -781,3 +781,15 @@ test("Replay plays the newest night, the one the Last night card shows (GE 11-24
   assert.match(CITY_JS, /src0=demo\?null:bNewest\(/);
   assert.match(CITY_JS, /P\.night=demo\?'demo':\(src0&&src0\.key\)/);
 });
+
+test("bPick: the battle at 20:00 PT (2026-11-25 on) fires live at the Pacific 20:00; the 02:00 PT nights before keep their day; the switch evening takes the newest", () => {
+  const src = CITY_JS.match(/function bPick\(noon\)\{[^\n]*\n[^\n]*\}/)[0], pick = (D, noon) => new Function("BDATA", "BDAY", src + "; return bPick(" + noon + ");")(D, 864e5);
+  const noonPT = d => Date.parse(d + "T20:00:00Z");   // 12:00 PST
+  const n24 = { night: "2026-11-24", t0: Date.parse("2026-11-24T10:00:00Z"), shots: [] }, n25 = { night: "2026-11-25", t0: Date.parse("2026-11-25T04:00:00Z"), shots: [] };
+  assert.equal(pick({ ...n24, prev: null }, noonPT("2026-11-24")).key, "2026-11-24", "02:00 PT night: the same day's 20:00");
+  assert.equal(pick({ ...n25, prev: n24 }, noonPT("2026-11-24")).key, "2026-11-25", "the switch evening: the newest");
+  assert.equal(pick({ ...n25, prev: n24 }, noonPT("2026-11-25")), null, "the next day: nothing until tonight's night is resolved");
+  const n26 = { night: "2026-11-26", t0: Date.parse("2026-11-26T04:00:00Z"), shots: [] };
+  assert.equal(pick({ ...n26, prev: n25 }, noonPT("2026-11-25")).key, "2026-11-26", "20:00 PT battle: fires at the Pacific 20:00 that evening");
+  assert.equal(pick({ ...n26, prev: n25 }, Date.parse("2026-11-26T11:00:00Z")).key, "2026-11-26", "Berlin (noon 11:00 UTC): the next day's 20:00");
+});

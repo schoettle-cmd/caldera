@@ -4,12 +4,12 @@
  *
  * The empty lots (code 0) at the plot's front corner become a paved yard: a launcher, an armory bunker and up to six pallets
  * that hold today's missiles (one size per pallet, heaviest nearest the launcher; one drawn missile stands for 1, 2, 5, 10,
- * 25, 50 or 100 when the day is huge). The yard follows the night battle (10:00 UTC, 02:00 Pacific): Stock (stacks grow),
+ * 25, 50 or 100 when the day is huge). The yard follows the night battle (20:00 Pacific since 2026-11-25, data.next): Stock (stacks grow),
  * Load (B-8 h to B-30 min: the door opens, a cart runs, the stacks drain onto the launcher), Ready (last 30 min: arm up,
  * green lamps), Fired (B to B+4 h: arm up and empty, scorch, the new day's stacks). Built lots (codes 1-7) are never used.
  * With fewer than 4 empty lots the yard moves to the tiles outside the plot road at the same corner.
  * Data: window.CALDERA_BATTLE members["@handle"].n (today's arsenal) and .nx (the arsenal of the next battle, when it is not
- * today's: 00:00 to 10:00 UTC), shots (last night). No battle data: the zero-missile look.
+ * the work day's: from the 19:45 PT lock to the battle), shots (last night). No battle data: the zero-missile look.
  * Drawn from citygrowth.ts: pads in growGround, objects in growObject (atlas sprites at LOD 1), the cart and the beacon in
  * growOver; the chip goes through the world labels (city.ts worldLabels). Runs inside the CITY_JS closure.
  */
@@ -30,7 +30,7 @@ function yPlan(n,Y){n=n||{};var out=null;for(var s=0;s<YSTEP.length;s++){var u=Y
     YORD.forEach(function(k){var g=+n[k]>0?Math.ceil(n[k]/u):0;while(g>0){pal.push({k:k,g:Math.min(YCAP[k],g)});g-=YCAP[k]}});
     out={u:u,pallets:pal};if(pal.length<=Y)return out}
   out.pallets=out.pallets.slice(0,Y);return out}
-/** the battle's offset in the UTC day (data.next), 10:00 UTC when there is no data */
+/** the battle's offset in the UTC day (data.next: 04:00 UTC in winter, 03:00 in summer), 10:00 UTC when there is no data */
 function yOff(D){var t=D&&+D.next;return t>0?((t%YDAY)+YDAY)%YDAY:10*YHR}
 /** the state from the clock: last = the latest battle at or before now, B = the next one */
 function yPhase(now,off){if(off==null)off=10*YHR;var last=Math.floor((now-off)/YDAY)*YDAY+off,B=last+YDAY;

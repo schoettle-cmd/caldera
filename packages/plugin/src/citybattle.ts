@@ -7,7 +7,8 @@
  * created that represent the people's GitHub. And then cranes appear, and they rebuild up the buildings ... the buildings
  * return to their original state."
  *
- * One daily salvo on the viewer's local clock: the night the hub resolved (02:00 Pacific) inside (noon - 24h, noon] drops
+ * One daily salvo on the viewer's local clock: the night the hub resolved (20:00 Pacific since 2026-11-25; 02:00 Pacific before)
+ * inside (noon - 16h, noon + 8h] (the first local 20:00 at or after the battle, hub armory.ts salvoAt) drops
  * from the sky at 12:00 and stacks on each city's ammo pad (one missile per shot), loads one by one into the launch center
  * through the afternoon, counts down and fires in one salvo at 20:00, the hits hold on the real repo towers until midnight,
  * and cranes with scaffolding rebuild them from 00:00 to 12:00, whole by noon. Replay (Mike 11-08: "zooms into the first
@@ -495,9 +496,12 @@ function bNow(){return BREP?(BREP.pauseAt!=null?BREP.vt:BREP.esp?BREP.vt+(perfor
 function bS(){return BREP?BREP.R.S:BPLAN?BPLAN.S:null}
 function bRedraw(){if(reduce)setTimeout(draw,0);else draw()}
 function bNoonOf(t){var d=new Date(t);d.setHours(12,0,0,0);return d.getTime()}
-/** the night the hub resolved inside (noon - 24h, noon]: it drops at that noon, fires at 20:00 and is rebuilt the next morning */
+/** the night the hub resolved inside (noon - 16h, noon + 8h]: the night whose first local 20:00 at or after the battle is this
+ *  day's 20:00 (the battle moved to 20:00 PT on 2026-11-25; a 02:00 PT battle still falls in the window). It drops at that noon
+ *  (or as soon as it is resolved), fires at 20:00 and is rebuilt the next morning. Two nights in one window (the switch
+ *  evening, 11-24 PT): the newest */
 function bPick(noon){var c=[];if(BDATA&&BDATA.t0!=null)c.push({t0:BDATA.t0,shots:BDATA.shots||[],key:BDATA.night||'',fallen:BDATA.fallen||null});if(BDATA&&BDATA.prev&&BDATA.prev.t0!=null)c.push({t0:BDATA.prev.t0,shots:BDATA.prev.shots||[],key:BDATA.prev.night||'p',fallen:BDATA.prev.fallen||null});
-  for(var i=0;i<c.length;i++)if(c[i].t0>noon-BDAY&&c[i].t0<=noon)return c[i];return null}
+  for(var i=0;i<c.length;i++)if(c[i].t0>noon+8*36e5-BDAY&&c[i].t0<=noon+8*36e5)return c[i];return null}
 /** each member's GitHub buildings (the repo towers in their neighborhood), tallest first (the hub's lot is a tower index), and which building a tile is */
 function bBuildings(){BBLD={};BBAT={};if(typeof GM==='undefined'||typeof tiles==='undefined')return;var own={};for(var k in GM){var g=GM[k];(g.n&&g.n.ds||[]).forEach(function(d){if(!d.estate)own[d.name]=k});BBLD[k]=[]}
   if(typeof NBS!=='undefined')NBS.forEach(function(n){if(!n.uc||BBLD[n.key])return;n.ds.forEach(function(d){own[d.name]=n.key});BBLD[n.key]=[]});
