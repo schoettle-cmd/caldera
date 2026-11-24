@@ -89,3 +89,9 @@ test("world card: Runs on Orpheus line (gold: Founding Fleet), map link with ref
   assert.match(n, /href="https:\/\/useorpheus\.com\/\?utm_source=caldera&utm_medium=map&utm_campaign=tie&ref=bo"/);
   assert.equal(api.orphLine("@cy"), "");
 });
+
+test("Founding Fleet pins carry Orpheus's official gold pin (Orpheus Dev 11-24); normal pins keep the drawn mark", () => {
+  assert.ok(CITY_JS.includes("new Path2D('M12 22s-7-6.1-7-12a7 7 0 0 1 14 0c0 5.9-7 12-7 12z')"));
+  assert.ok(CITY_JS.includes("c.fillStyle='#e2c064'") && CITY_JS.includes("c.fillStyle='#1c1608'"));
+  assert.ok(/if\(gold&&typeof Path2D!=='undefined'\)\{[\s\S]*?\}\s*else\{c\.strokeStyle=ink/.test(CITY_JS));
+});

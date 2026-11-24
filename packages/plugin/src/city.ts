@@ -1382,8 +1382,11 @@ c.fillStyle=g;c.beginPath();c.moveTo(x0+r,y0);c.arcTo(x1,y0,x1,y,r);c.arcTo(x1,y
 c.lineWidth=1.5;c.strokeStyle=gold?'#7A5200':'#6D4AE8';c.stroke();
 var mx=x0+3+d/2,my=y-h/2,ink=gold?'#FFD46B':'#FFFFFF';
 c.fillStyle=gold?'#3A2600':'#2A1B66';c.beginPath();c.arc(mx,my,d/2,0,6.3);c.fill();
-c.strokeStyle=ink;c.lineWidth=1.3;c.beginPath();c.arc(mx-.5,my+.7,3.3,0,6.3);c.stroke();
-c.fillStyle=ink;c.beginPath();c.arc(mx-.5,my+.7,1.1,0,6.3);c.fill();c.beginPath();c.arc(mx+2.7,my-2.9,1.5,0,6.3);c.fill();
+if(gold&&typeof Path2D!=='undefined'){   // Founding Fleet: Orpheus's official gold pin (Orpheus Dev 11-24), its 24-unit box scaled into the disc
+  c.save();c.translate(mx-6,my-6.2);c.scale(.5,.5);c.fillStyle='#e2c064';c.fill(new Path2D('M12 22s-7-6.1-7-12a7 7 0 0 1 14 0c0 5.9-7 12-7 12z'));
+  c.fillStyle='#1c1608';c.beginPath();c.arc(12,10,2.6,0,6.3);c.fill();c.restore()}
+else{c.strokeStyle=ink;c.lineWidth=1.3;c.beginPath();c.arc(mx-.5,my+.7,3.3,0,6.3);c.stroke();
+c.fillStyle=ink;c.beginPath();c.arc(mx-.5,my+.7,1.1,0,6.3);c.fill();c.beginPath();c.arc(mx+2.7,my-2.9,1.5,0,6.3);c.fill()}
 c.fillStyle=gold?'#2A1B00':'#1A1330';c.textAlign='left';c.textBaseline='middle';c.fillText(text,mx+d/2+4,my+.5);c.textAlign='center';c.textBaseline='alphabetic'}
 var OFMARK='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false" style="flex:none"><circle cx="8" cy="8.6" r="4.9" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="8" cy="8.6" r="1.6" fill="currentColor"/><circle cx="12.4" cy="3.6" r="2" fill="currentColor"/></svg>';
 /** the world card line for a fleet member (after the Lit up today line) */
