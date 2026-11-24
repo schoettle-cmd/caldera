@@ -10,6 +10,9 @@
  * Saira Extra Condensed 900 for the headline; signed-in viewers see YOU / YOUR on screen, saved pictures always show handles.
  * The map art is untouched: the card is a DOM overlay on the stage (st), above the canvas. Its CSS animations are paused and
  * driven from the replay's virtual clock (CSSAnimation.currentTime), so pause, speed, seek, Prev and Next all show it right.
+ * BATTLE.md (Fable 11-24, Mike: "label panel" in the way): the plate is gone. The same words now sit in the top corner as a strike
+ * callout with no box (a soft shade only), from the first impact to the 11-20 exit time; a fly line names who fires while the
+ * missiles fly; money counts with the landed missiles; a rank chip (NOW 1ST to 3RD). The saved pictures do not change.
  * Runs inside the CITY_JS closure after BATTLE_LOGIC_JS (BREP, BRT, BFL, bNow, bPause, bUsd, BBLD, bImpactOf, BCLS, cam, vw,
  * vh, dpr, reduce, cv, st, sound, AC). Only block comments in here, no non-ASCII characters (escapes instead).
  */
@@ -25,12 +28,27 @@ function bCardTimes(kind,rm){var h=rm?BCT.rmHold:kind==='last'?BCT.last:BCT.hold
 function bCardAdd(rm){return rm?BCT.rmHold:BCT.hold}
 /** the clock rate while a card holds: never shorter than 1.2 s of real time (2x would make it 1 s) */
 function bCardSpeed(sp,T){var cap=(T?T.h:BCT.hold)/BCT.floor;return Math.min(sp,cap)}
-/** every card of a replay: one per beat (citybattle.ts puts c0 on the beat), the fall, and the last card in the wide shot */
-function bCardPlan(R,rm){var L=[];R.beats.forEach(function(b){if(b.c0!=null)L.push({k:'beat',b:b,c0:b.c0,T:bCardTimes('beat',rm)})});var S=R.S;
+/** every card of a replay: one per beat (citybattle.ts puts c0 on the beat), the fall, and the last card in the wide shot.
+ *  BATTLE.md U4/U5 (Fable 11-24): a beat's callout shows from its first impact (s0; at the settle with reduced motion) to the
+ *  same exit as the 11-20 card (x1 = c0 + T.len); its fly line from the launch (f0) to the first impact (f1); the settle is the
+ *  last impact. The hold (c0 + T.i to c0 + T.i + T.h) and the 1.2 s floor do not change */
+function bCardPlan(R,rm){var L=[],S=R.S;R.beats.forEach(function(b){if(b.c0==null)return;var lo=1e18,hi=-1e18;b.shots.forEach(function(s){var t=bImpactOf(S,s);if(t<lo)lo=t;if(t>hi)hi=t});
+    var T=bCardTimes('beat',rm),cap=b.c0+T.i;if(!(lo<1e18)){lo=hi=b.c0}hi=Math.min(hi,cap);lo=Math.min(lo,hi);L.push({k:'beat',b:b,c0:b.c0,T:T,f0:b.launch<lo?b.launch:null,f1:lo,hit0:lo,settle:hi})});
   if(R.F&&S.zf0!=null){var T2=bCardTimes('fall',rm);L.push({k:'fall',c0:rm?S.zf0+BFL.hit:S.wide-T2.len,T:T2})}
-  var T3=bCardTimes('last',rm),pe=L.length?L[L.length-1].c0+L[L.length-1].T.len:0;L.push({k:'last',c0:Math.max(S.wide,pe),T:T3});L.forEach(function(c,i){c.id=i});return L}
-/** the card showing at now and how far into it (tau), or null */
-function bCardAt(L,now){if(!L)return null;for(var i=0;i<L.length;i++){var c=L[i];if(now>=c.c0&&now<c.c0+c.T.len)return {c:c,tau:now-c.c0}}return null}
+  var T3=bCardTimes('last',rm),pe=L.length?L[L.length-1].c0+L[L.length-1].T.len:0;L.push({k:'last',c0:Math.max(S.wide,pe),T:T3});
+  L.forEach(function(c,i){c.id=i;c.x1=c.c0+c.T.len;if(c.settle==null){c.hit0=c.settle=c.c0;c.f0=null}c.s0=rm?c.settle:c.hit0});return L}
+/** the card showing at now and how far into it (tau): the callout {c,tau} from s0, or its fly line {c,tau,fly:true} from f0; null between */
+function bCardAt(L,now){if(!L)return null;for(var i=0;i<L.length;i++){var c=L[i];if(now>=c.s0&&now<c.x1)return {c:c,tau:now-c.s0,fly:false};if(c.f0!=null&&now>=c.f0&&now<c.f1)return {c:c,tau:now-c.f0,fly:true}}return null}
+/** the money a beat's missiles have landed by now (U4: the number counts with the missiles, never ahead of the map) */
+function bCardLive(c,now){var u=0;if(!c||!c.b)return 0;c.b.shots.forEach(function(s){if(bImpactOf(BREP?BREP.R.S:{live:false},s)<=now)u+=bCardUsd(s)});return u}
+/** a callout whose big value is money counts up; a word or a percent waits for the settle */
+function bcMoney(M){return M.kind==='beat'&&(M.state==='small'||M.state==='multi'||M.state==='montage')}
+/** U6: the rank chip after the settle: NOW 1ST, 2ND, 3RD; none for rank 4 and lower, a shield, a miss, a montage, the fall or last card */
+function bcRank(M){var r=M.rank;if(M.kind!=='beat'||!(r>=1&&r<=3)||/^(shield|miss|montage)$/.test(M.state))return '';return 'NOW '+r+['ST','ND','RD'][r-1]}
+/** U5: the fly line, from the launch to the first impact. b: a beat, V: the viewer (YOU) or null */
+function bFlyModel(b,V){var n=b.n||b.shots.length;if(b.montage){var k0=b.cities||1;return {l1:[[k0+' MORE CIT'+(k0===1?'Y FIRES':'IES FIRE')]],sub:'',subS:''}}
+  var A=b.a,D=b.targets[0],k=b.targets.length-1,dn=V&&D===V?'YOUR CITY':bcName(D,null);
+  return {l1:[[bcName(A,V),bcCls(A,V,'atk')],[' '+bcVerb(A,V,'FIRE')+' '+n+' MISSILE'+(n===1?'':'S')]],sub:'at '+dn+(k===1?' and 1 more city':k>1?' and '+k+' more cities':''),subS:'at '+dn+(k>0?' +'+k:'')}}
 /** how much of a city still stands at t (0..1, by tower height): each tower loses what the hits on it took (the same sum as the
  *  hit label's STANDING), null for a city with no towers (the raiders' fleet). Pure: blds [{idx,h}], hits {idx:[q]}, imp(q) */
 function bCardStandOf(blds,hits,imp,t){if(!blds||!blds.length)return null;var tot=0,s=0;blds.forEach(function(b){var h=Math.max(1,b.h||1),v=0;((hits||{})[b.idx]||[]).forEach(function(q){if(imp(q)<=t)v+=q.v||0});tot+=h;s+=h*(1-Math.min(1,v))});return s/tot}
@@ -84,7 +102,7 @@ function bCardModel(c,X){var R=X.R,P=X.P,S=X.S,V=X.V||null,dt=bcDate(P.night),is
     if(st!=='multi'&&st!=='montage'&&before!=null){var f0=bcPct(before),t0=bcPct(after);M.bar=[(V&&D===V?'YOUR':bcPoss(D,null))+' '+bcCity(D),f0,t0,f0===t0?'still '+t0+'% standing':f0+'% → '+t0+'% standing']}
     if(st==='multi'){var rows=b.targets.map(function(d){var u=0;sh.forEach(function(s){if(s.d===d)u+=bCardUsd(s)});var s0=stand(d,b.t0),s1=stand(d,c.c0+c.T.i);return {d:d,u:u,f:s0==null?100:bcPct(s0),t:s1==null?100:bcPct(s1)}}).sort(function(p,q){return q.u-p.u});
       var more=rows.length>3?rows.length-2:0;M.rows=rows.slice(0,more?2:3).map(function(r){return [V&&r.d===V?'YOUR CITY':bcName(r.d,null),r.f,r.t,r.u>0?'−'+(r.f-r.t)+'%':'held',bUsd(r.u)]});if(more)M.more='+'+more+' more cities'}
-    var L1=bCardRanks(R.beats,b.i),L0=b.i>0?bCardRanks(R.beats,b.i-1):[],r1=bCardRankOf(L1,A),r0=bCardRankOf(L0,A),cur=b.montage?null:A;M.lb=bcStrip(L1,cur,r0&&r1&&r0>r1?r0-r1:0,V);
+    var L1=bCardRanks(R.beats,b.i),L0=b.i>0?bCardRanks(R.beats,b.i-1):[],r1=bCardRankOf(L1,A),r0=bCardRankOf(L0,A),cur=b.montage?null:A;M.rank=r1;M.lb=bcStrip(L1,cur,r0&&r1&&r0>r1?r0-r1:0,V);
     M.file=b.montage||st==='multi'?'caldera-battle-'+iso+'.png':'caldera-'+bcFile(A)+'-vs-'+bcFile(D)+'-'+iso+'.png'}
   else if(c.k==='fall'){var F=P.fall,key=F.key,fin=null,fr=-1,n2=0,l2=0,d2=0;P.shots.forEach(function(s){if(s.d!==key)return;n2++;if(s.f>0&&!s.blocked){l2++;d2+=bCardUsd(s)}if(s.ri>fr){fr=s.ri;fin=s.a}});
     var bf=stand(key,S.zf0);M.state='fall';M.a=fin;M.d=key;M.l1=fin?[[bcName(fin,V),bcCls(fin,V,'atk')],[' '+bcVerb(fin,V,'FINISH')+' '],[bcPoss(key,V),bcCls(key,V,'def')],[' '+bcCity(key)]]:[[bcPoss(key,V),bcCls(key,V,'def')],[' '+bcCity(key)+' FALLS']];
@@ -102,52 +120,41 @@ function bCardSay(M){var tc=function(x){return String(x).toLowerCase().replace(/
   var s=(t(M.l1)+' '+(M.state==='last'?tc(M.big):M.big.toLowerCase())+' '+t(M.tail)).replace(/\s+/g,' ').trim();s=s.charAt(0).toUpperCase()+s.slice(1)+'.';
   return s+(M.facts||[]).map(function(f){return ' '+f[0].replace('−','')+' '+f[1]+'.'}).join('')}
 /* ---- the card on the stage (DOM) */
-var BCCSS='.bcard{position:absolute;z-index:6;left:50%;bottom:var(--bot);width:var(--w);transform:translateX(-50%);filter:drop-shadow(0 12px 22px rgba(0,0,0,.5));--tc:#FFC83D;--e1:#B07A0E;--e2:#5E3F04;--ac:#FF6A3D;--plate:rgba(11,13,19,.93);--ink:#F4F6FA;--ink2:rgba(244,246,250,.7);--ink3:rgba(244,246,250,.46);--cyan:#3DF2FF;--you:#8B6CF6;--atk:#FF6A3D;--def:#58B4FF;--heal:#4BE38A;--gold:#FFC83D;--raid:#F2F2F5;--slam:"Saira Extra Condensed","Barlow Condensed","Arial Narrow",Arial,sans-serif;--disp:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--ui:"IBM Plex Sans",-apple-system,"Segoe UI",Arial,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-family:var(--ui);color:var(--ink);box-sizing:border-box;-webkit-user-select:none;user-select:none;touch-action:manipulation}'
- +'.bcard *{box-sizing:border-box}.bcard.sz-l{--w:760px;--cut:16px;--px:30px;--pt:15px;--f1:46px;--fb:128px;--fact:15px;--lbh:44px;--lbn:16px;--row:17px}.bcard.sz-m{--w:560px;--cut:11px;--px:21px;--pt:10px;--f1:31px;--fb:86px;--fact:12.5px;--lbh:36px;--lbn:14px;--row:15px}.bcard.sz-s{--w:calc(100% - 20px);--cut:8px;--px:15px;--pt:9px;--f1:25px;--fb:74px;--fact:11.5px;--lbh:36px;--lbn:13px;--row:15px}'
- +'.bcard .sc-plate{position:relative;background:var(--plate);clip-path:polygon(var(--cut) 0,100% 0,calc(100% - var(--cut)) 100%,0 100%)}.bcard .sc-timer{height:3px;background:var(--ac);transform-origin:0 50%}'
- +'.bcard .sc-main{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:18px;align-items:end;padding:var(--pt) var(--px) 0 calc(var(--px) + 4px)}'
- +'.bcard .sc-head{min-width:0;transform:skewX(-8deg);transform-origin:0 100%;font-family:var(--slam);font-weight:900;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap}'
- +'.bcard .sc-l1{font-size:calc(var(--f1)*var(--k,1));line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.55);overflow:hidden;text-overflow:ellipsis}.bcard .sc-l2{display:flex;align-items:flex-end;gap:.28em;font-size:calc(var(--f1)*var(--k,1));line-height:.95;margin-top:2px}'
- +'.bcard .sc-big{display:inline-block;font-size:calc(var(--fb)*var(--k,1));line-height:.84;color:var(--tc);transform-origin:0 100%;text-shadow:.016em .008em 0 var(--e1),.032em .016em 0 var(--e1),.048em .024em 0 var(--e1),.064em .032em 0 var(--e2),.08em .04em 0 var(--e2),.12em .075em .05em rgba(0,0,0,.55)}'
- +'.bcard .sc-tail{padding-bottom:.08em;text-shadow:0 2px 0 rgba(0,0,0,.55);overflow:hidden;text-overflow:ellipsis}.bcard b{font-weight:inherit}.bcard .atk{color:var(--atk)}.bcard .def{color:var(--def)}.bcard .you{color:var(--you)}.bcard .raid{color:var(--raid)}.bcard .gold{color:var(--gold)}'
- +'.bcard .sc-side{display:grid;justify-items:end;gap:8px;padding-bottom:4px}.bcard .sc-btns{display:flex;gap:6px}'
- +'.bcard .sc-save{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px 0 9px;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:var(--ink);font:600 12px/1 var(--ui);cursor:pointer;position:relative;white-space:nowrap}.bcard .sc-save::after{content:"";position:absolute;inset:-8px}'
- +'.bcard .sc-save:hover{background:var(--ink);color:#0B0D13;border-color:var(--ink)}.bcard .sc-save:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}.bcard .sc-save svg{width:14px;height:14px;flex:none}.bcard .sc-save[disabled]{cursor:default}'
- +'.bcard .sc-facts{list-style:none;margin:0;padding:0;display:grid;justify-items:end;gap:1px;font:500 var(--fact)/1.35 var(--mono);color:var(--ink2);white-space:nowrap}.bcard .sc-facts b{color:var(--ink);font-weight:600}.bcard .sc-facts b.gold{color:var(--gold)}'
- +'.bcard .sc-bar,.bcard .sc-rows,.bcard .sc-you{margin:10px var(--px) 0 calc(var(--px) + 2px)}.bcard .sc-bar,.bcard .sc-rows>div{display:grid;grid-template-columns:auto minmax(40px,1fr) auto;gap:10px;align-items:center;height:var(--row)}'
- +'.bcard .sc-rows{display:grid;gap:3px}.bcard .sc-rows>div{grid-template-columns:minmax(0,7.5em) minmax(40px,1fr) 3.2em 4.6em}.bcard .sc-rows>p{margin:0;font:500 calc(var(--row) - 4.5px)/1 var(--mono);color:var(--ink3)}'
- +'.bcard .lab{font:600 calc(var(--row) - 3px)/1 var(--disp);letter-spacing:.1em;text-transform:uppercase;color:var(--def);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bcard .lab.you{color:var(--you)}'
- +'.bcard .val,.bcard .sc-you{font:500 calc(var(--row) - 4.5px)/1 var(--mono);color:var(--ink2);white-space:nowrap}.bcard .sc-rows .val{text-align:right}.bcard .sc-rows .val.g{color:var(--gold)}'
- +'.bcard .track{position:relative;height:8px;background:rgba(255,255,255,.12);overflow:hidden}.bcard.sz-l .track{height:10px}.bcard .track i{position:absolute;top:0;bottom:0}.bcard .track .left{left:0;background:var(--def)}'
- +'.bcard .track .lost{background:repeating-linear-gradient(-63deg,var(--gold) 0 3px,rgba(255,200,61,.25) 3px 6px);opacity:.75}.bcard .track::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 1px),rgba(11,13,19,.9) calc(5% - 1px) 5%)}'
- +'.bcard.shield .track{outline:1.5px solid var(--cyan);outline-offset:1px}.bcard .sc-you{display:flex;align-items:center;gap:7px;height:var(--row)}.bcard .sc-you::before{content:"";width:7px;height:7px;background:var(--you);transform:rotate(45deg)}'
- +'.bcard .sc-lb{display:flex;align-items:stretch;margin-top:10px;background:rgba(255,255,255,.055);height:var(--lbh);padding:0 var(--px) 0 calc(var(--px) - 4px)}.bcard .sc-lb .h{display:grid;align-content:center;gap:3px;padding-right:12px;flex:none}'
- +'.bcard .sc-lb .h span{font:600 11px/1 var(--disp);letter-spacing:.13em;text-transform:uppercase;color:var(--ink2);white-space:nowrap}.bcard .sc-lb .h em{font:500 9.5px/1 var(--mono);font-style:normal;color:var(--ink3)}'
- +'.bcard .sc-lb a.n{color:inherit;text-decoration:none;pointer-events:auto;display:flex;align-items:center;gap:5px;min-width:0}.bcard .sc-lb a.n:hover,.bcard .sc-lb a.n:focus-visible{text-decoration:underline}.bcard .sc-lb .av{width:18px;height:18px;border-radius:50%;flex:none;display:inline-grid;place-items:center;background:#2A2D36 center/cover no-repeat;font:600 10px/1 var(--mono);color:#E8E8EE;overflow:hidden}.bcard .sc-lb .av.p{color:transparent}'
- +'.bcard .sc-lb ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:1;min-width:0}.bcard .sc-lb li{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:7px;align-content:center;padding:0 8px;border-left:1px solid rgba(255,255,255,.09);min-width:0}'
- +'.bcard .sc-lb li>i{grid-row:1/3;align-self:center;font:900 calc(var(--lbn) + 9px)/1 var(--slam);font-style:normal;color:var(--ink3)}.bcard .sc-lb .n{font:600 var(--lbn)/1.05 var(--disp);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
- +'.bcard .sc-lb .v{font:500 calc(var(--lbn) - 3.5px)/1.2 var(--mono);color:var(--gold)}.bcard .sc-lb li.cur>i{color:var(--ac)}.bcard .sc-lb li.cur .n{color:var(--ink)}.bcard .sc-lb li.me .n{color:var(--you)}.bcard .sc-lb li.none .n,.bcard .sc-lb li.none .v{color:var(--ink3)}'
- +'.bcard .sc-lb .up{display:inline-block;margin-left:5px;font:600 .72em/1 var(--mono);color:var(--heal)}.bcard .sc-lb .up::before{content:"";display:inline-block;border:.34em solid transparent;border-bottom:.5em solid var(--heal);border-top:0;margin-right:2px}'
- +'.bcard .sc-paused{position:absolute;left:calc(var(--px) + 4px);top:8px;z-index:2;font:600 10px/1 var(--mono);letter-spacing:.1em;color:#0B0D13;background:var(--ink);padding:4px 6px;border-radius:3px;display:none}.bcard.hp .sc-paused{display:block}'
- +'.bcard .sc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}'
- +'.bcard.sz-s .sc-main{grid-template-columns:minmax(0,1fr);row-gap:7px}.bcard.sz-s .sc-side{display:contents}.bcard.sz-s .sc-btns{position:absolute;right:var(--px);top:var(--pt)}.bcard.sz-s .sc-save{height:32px}'
- +'.bcard.sz-s .sc-facts{display:flex;flex-wrap:nowrap;overflow:hidden;gap:0;justify-self:start}.bcard.sz-s .sc-facts li+li::before{content:"·";margin:0 .5em;color:var(--ink3)}.bcard.sz-s .sc-tail{white-space:normal;max-width:7.2em}'
- +'.bcard.sz-s .sc-l1{max-width:calc(100% - var(--sbw,84px))}.bcard.sz-s .sc-lb .h{padding-right:8px}.bcard.sz-s .sc-lb li{padding:0 6px;column-gap:5px}.bcard.sz-s .sc-bar,.bcard.sz-s .sc-rows,.bcard.sz-s .sc-you{margin-top:7px}.bcard.sz-s .sc-lb{margin-top:9px}'
- +'.bcard.sz-s .sc-rows>div{grid-template-columns:minmax(0,5.6em) minmax(30px,1fr) 3em 4.4em;gap:7px}'
- /* motion: one timeline from the start of the enter; paused here and driven from the replay clock (bCardDrive) */
- +'.bcard .sc-plate{animation:scWipe 120ms cubic-bezier(.2,.8,.2,1) both,scOut 200ms cubic-bezier(.4,0,1,1) var(--xo) forwards}.bcard .sc-timer{animation:scTimer var(--hd) linear 500ms both}'
- +'.bcard .sc-l1{animation:scSlide 180ms cubic-bezier(.2,.8,.2,1) 80ms both}.bcard .sc-big{animation:scSlam 220ms cubic-bezier(.2,.9,.3,1) 200ms both}.bcard .sc-tail{animation:scSlide 180ms cubic-bezier(.2,.8,.2,1) 300ms both}.bcard .sc-main{animation:scShake 120ms linear 420ms}'
- +'.bcard .track .lost{animation:scDrain 480ms ease-out 420ms both}.bcard .sc-facts li{animation:scFade 160ms ease-out 500ms both}.bcard .sc-facts li:nth-child(2){animation-delay:560ms}.bcard .sc-facts li:nth-child(3){animation-delay:620ms}'
- +'.bcard .sc-bar,.bcard .sc-rows,.bcard .sc-you{animation:scFade 160ms ease-out 420ms both}.bcard .sc-lb{animation:scRise 200ms ease-out 640ms both}.bcard .sc-lb li.cur{animation:scRank 360ms ease-out 760ms both}.bcard .sc-btns{animation:scFade 160ms ease-out 640ms both}'
- +'.bcard.drv,.bcard.drv *{animation-play-state:paused!important}'
- +'@keyframes scWipe{from{clip-path:polygon(var(--cut) 0,var(--cut) 0,0 100%,0 100%);opacity:.4}to{clip-path:polygon(var(--cut) 0,100% 0,calc(100% - var(--cut)) 100%,0 100%);opacity:1}}@keyframes scOut{to{opacity:0;transform:translateY(8px) scale(.985)}}'
+var BCCSS='.bcall{position:absolute;z-index:6;left:16px;top:14px;max-width:calc(100% - 200px);pointer-events:none;--f1:34px;--fb:76px;--ft:30px;--fact:12.5px;--tl:190px;--tc:#FFC83D;--e1:#B07A0E;--e2:#5E3F04;--ac:#FF6A3D;--ink:#F4F6FA;--ink2:rgba(244,246,250,.86);--cyan:#3DF2FF;--you:#B9A6FF;--atk:#FF6A3D;--def:#58B4FF;--gold:#FFC83D;--raid:#F2F2F5;--slam:"Saira Extra Condensed","Barlow Condensed","Arial Narrow",Arial,sans-serif;--disp:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--ui:"IBM Plex Sans",-apple-system,"Segoe UI",Arial,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-family:var(--ui);color:var(--ink);box-sizing:border-box;-webkit-user-select:none;user-select:none}'
+ +'.bcall *{box-sizing:border-box}.bcall.sz-m{left:14px;--f1:26px;--fb:54px;--ft:22px;--fact:12px;--tl:140px}.bcall.sz-s{left:12px;top:12px;right:12px;max-width:none;--f1:20px;--fb:42px;--ft:18px;--fact:11.5px;--tl:110px}'
+ /* a soft shade under the text only: a corner on wide stages, a thin top fade on small panes. No plate */
+ +'.bcall::before{content:"";position:absolute;z-index:-1;left:-16px;top:-14px;width:calc(100% + 190px);height:calc(100% + 80px);background:radial-gradient(ellipse farthest-side at 0 0,rgba(8,9,14,.84),rgba(8,9,14,.52) 48%,rgba(8,9,14,0) 100%);pointer-events:none}'
+ +'.bcall.sz-s::before{left:-12px;top:-12px;width:calc(100% + 24px);height:calc(100% + 34px);background:linear-gradient(180deg,rgba(8,9,14,.8),rgba(8,9,14,.5) 60%,rgba(8,9,14,0))}'
+ +'.bcall .bc-head{font-family:var(--slam);font-weight:900;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;transform:skewX(-8deg);transform-origin:0 100%}'
+ +'.bcall .bc-l1{font-size:calc(var(--f1)*var(--k,1));line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.7),0 0 6px rgba(8,9,14,.9);overflow:hidden;text-overflow:ellipsis}'
+ +'.bcall .bc-l2{display:flex;align-items:flex-end;gap:.26em;margin-top:3px;font-size:calc(var(--ft)*var(--k,1));line-height:.95}'
+ +'.bcall .bc-big{display:inline-block;font-size:calc(var(--fb)*var(--k,1));line-height:.84;color:var(--tc);transform-origin:0 100%;font-variant-numeric:tabular-nums;text-shadow:.016em .008em 0 var(--e1),.032em .016em 0 var(--e1),.048em .024em 0 var(--e1),.064em .032em 0 var(--e2),.08em .04em 0 var(--e2),.12em .075em .05em rgba(0,0,0,.6)}'
+ +'.bcall .bc-tail{padding-bottom:.08em;text-shadow:0 2px 0 rgba(0,0,0,.7),0 0 6px rgba(8,9,14,.9);overflow:hidden;text-overflow:ellipsis}'
+ +'.bcall .bc-rank{align-self:center;margin-left:.3em;padding:.2em .42em .16em;background:var(--gold);color:#0B0D13;font:700 calc(var(--ft)*.52)/1 var(--disp);letter-spacing:.1em}'
+ +'.bcall b{font-weight:inherit}.bcall .atk{color:var(--atk)}.bcall .def{color:var(--def)}.bcall .you{color:var(--you)}.bcall .raid{color:var(--raid)}.bcall .gold{color:var(--gold)}'
+ +'.bcall.sz-s .bc-l1,.bcall.sz-s .bc-l2{max-width:calc(100% - var(--tools,140px))}'
+ +'.bcall .bc-timer{height:3px;width:var(--tl);margin-top:7px;background:var(--ac);transform-origin:0 50%}'
+ +'.bcall .bc-row{display:flex;align-items:center;gap:10px;margin-top:7px;min-width:0}'
+ +'.bcall .bc-facts,.bcall .bc-cities,.bcall .bc-sub{min-width:0;font:500 var(--fact)/1.35 var(--mono);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.8),0 0 5px rgba(8,9,14,.95)}'
+ +'.bcall .bc-facts b{color:#fff;font-weight:600}.bcall .bc-cities{margin-top:2px}.bcall .bc-cities b{color:var(--def);font:600 calc(var(--fact) + .5px)/1 var(--disp);letter-spacing:.1em}.bcall .bc-cities b.you{color:var(--you)}.bcall .bc-cities i{font-style:normal;color:var(--gold)}'
+ +'.bcall.sz-s .bc-cities{display:none}.bcall.sz-s .bc-row{justify-content:space-between}'
+ +'.bcall .bc-save{pointer-events:auto;position:relative;flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 8px;border-radius:8px;border:1px solid rgba(255,255,255,.34);background:rgba(11,13,19,.72);color:var(--ink);font:600 12px/1 var(--ui);white-space:nowrap;cursor:pointer}'
+ +'.bcall .bc-save::after{content:"";position:absolute;inset:-8px}.bcall .bc-save svg{width:14px;height:14px;flex:none}.bcall .bc-save:hover{background:var(--ink);color:#0B0D13;border-color:var(--ink)}.bcall .bc-save:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}.bcall .bc-save[disabled]{cursor:default}.bcall.sz-s .bc-save{height:32px}'
+ +'.bcall .sc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}'
+ /* the quiet line while the missiles fly */
+ +'.bcall.in{--f1:26px}.bcall.in.sz-m{--f1:22px}.bcall.in.sz-s{--f1:18px}.bcall.in::before{opacity:.8}.bcall .bc-sub{margin-top:4px}.bcall.in.sz-s .bc-sub{max-width:calc(100% - var(--tools,140px))}'
+ /* motion: one timeline from the first impact; paused here and driven from the replay clock (bCardDrive). --l2: the big value's
+  * slam (100 ms for money, the settle for a word or a percent), --settle: the last impact, --hold: the timer, --xo: the exit */
+ +'.bcall.go{animation:scOut 200ms cubic-bezier(.4,0,1,1) var(--xo,2500ms) forwards}'
+ +'.bcall.go .bc-l1{animation:scSlide 180ms cubic-bezier(.2,.8,.2,1) both}.bcall.go .bc-big{animation:scSlam 220ms cubic-bezier(.2,.9,.3,1) var(--l2,100ms) both}.bcall.go .bc-tail{animation:scSlide 180ms cubic-bezier(.2,.8,.2,1) calc(var(--l2,100ms) + 100ms) both}'
+ +'.bcall.go .bc-rank{animation:scPop 200ms cubic-bezier(.2,.9,.3,1) var(--settle,0ms) both}.bcall.go .bc-row,.bcall.go .bc-cities{animation:scFade 160ms ease-out var(--settle,0ms) both}.bcall.go .bc-timer{animation:scTimer var(--hold,2000ms) linear var(--settle,0ms) both}'
+ +'.bcall.go.in{animation:scFade 150ms ease-out both,scFadeOut 150ms linear var(--xo,1000ms) forwards}.bcall.go.in .bc-l1{animation:none}'
+ +'.bcall.drv,.bcall.drv *{animation-play-state:paused!important}'
  +'@keyframes scTimer{from{transform:scaleX(1)}to{transform:scaleX(0)}}@keyframes scSlide{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}@keyframes scSlam{0%{opacity:0;transform:scale(2.6)}55%{opacity:1;transform:scale(.94)}100%{opacity:1;transform:scale(1)}}'
- +'@keyframes scShake{0%{transform:translateX(0)}25%{transform:translateX(4px)}60%{transform:translateX(-3px)}100%{transform:translateX(0)}}@keyframes scDrain{0%{opacity:1;filter:brightness(2.2)}100%{opacity:.75;filter:none}}'
- +'@keyframes scFade{from{opacity:0}to{opacity:1}}@keyframes scFadeOut{to{opacity:0}}@keyframes scRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes scRank{0%{background:rgba(255,106,61,.5)}100%{background:transparent}}'
- /* reduced motion: one fade in, the still hold, one fade out; no wipe, slam, shake, drain or swap */
- +'.bcard.rm .sc-plate{animation:scFade 150ms linear both,scFadeOut 150ms linear var(--xo) forwards}.bcard.rm .sc-timer{animation:scTimer var(--hd) linear 150ms both}.bcard.rm .sc-plate *:not(.sc-timer){animation:none}'
- /* on a phone the overview and the power-up tray step aside while a card shows (any element marked data-card-hide) */
- +'[data-card-hide]{transition:opacity .15s}@media (max-width:599px){html.w-card [data-card-hide]{opacity:0;pointer-events:none}}';
+ +'@keyframes scPop{from{opacity:0;transform:scale(1.5)}to{opacity:1;transform:none}}@keyframes scOut{to{opacity:0;transform:translateY(-6px)}}'
+ +'@keyframes scFade{from{opacity:0}to{opacity:1}}@keyframes scFadeOut{to{opacity:0}}@keyframes scShake{0%{transform:translateX(0)}25%{transform:translateX(4px)}60%{transform:translateX(-3px)}100%{transform:translateX(0)}}@keyframes scRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes scRank{0%{background:rgba(255,106,61,.5)}100%{background:transparent}}'
+ /* reduced motion: one fade in at the settle with the final values, the still hold, one fade out; no slam, slide, count or pop */
+ +'.bcall.go.rm{animation:scFade 150ms linear both,scFadeOut 150ms linear var(--xo,2750ms) forwards}.bcall.go.rm *{animation:none!important}.bcall.go.rm .bc-timer{animation:scTimer var(--hold,2600ms) linear 150ms both!important}';
 var BCICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>';
 function bcE(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function bcParts(a){return (a||[]).map(function(p){return p[1]?'<b class="'+p[1]+'">'+bcE(p[0])+'</b>':bcE(p[0])}).join('')}
@@ -156,60 +163,69 @@ function bcTrack(f,t){f=Math.max(0,Math.min(100,f));t=Math.max(0,Math.min(f,t));
 function bCardCanSave(){try{if(typeof window==='undefined'||!window.document||!document.createElement)return false;if(window.origin==='null'||(typeof location!=='undefined'&&location.origin==='null'))return false;void window.localStorage;return typeof HTMLCanvasElement!=='undefined'&&!!HTMLCanvasElement.prototype.toBlob}catch(e){return false}}
 /** the size class from the stage width (DESIGN.md): L 1100 and up, M 600 to 1099, S under 600 */
 function bCardSize(w){return w>=1100?'l':w>=600?'m':'s'}
-function bCardHTML(M,size,save){var T=BCTONE[M.tone]||BCTONE.gold,ac=BCCOL[M.ac]||BCCOL.atk,big=M.bigYou?'<b class="you">'+bcE(M.big)+'</b>':bcE(M.big);
-  var btn=function(f,l,al){return '<button class="sc-save" type="button" data-save="'+f+'" aria-label="'+al+'">'+BCICO+'<span>'+l+'</span></button>'};
-  var btns=!save?'':M.kind==='last'?btn('p','Save post','Save this card as a post picture')+btn('s','Save story','Save this card as a story picture'):btn('p','Save','Save this card as a picture');
-  var h='<span class="sc-sr">'+bcE(M.say)+'</span><div class="sc-plate" aria-hidden="false"><div class="sc-timer"></div><span class="sc-paused" aria-hidden="true">PAUSED</span><div class="sc-main">'
-   +'<div class="sc-head" aria-hidden="true"><div class="sc-l1">'+bcParts(M.l1)+'</div><div class="sc-l2"><span class="sc-big">'+big+'</span>'+(M.tail&&M.tail.length?'<span class="sc-tail">'+bcParts(M.tail)+'</span>':'')+'</div></div>'
-   +'<div class="sc-side">'+(btns?'<div class="sc-btns">'+btns+'</div>':'')+'<ul class="sc-facts" aria-hidden="true">'+M.facts.map(function(f){return '<li><b'+(f[0].charAt(0)==='\u2212'?' class="gold"':'')+'>'+bcE(f[0])+'</b> '+bcE(size==='s'&&f[2]||f[1])+'</li>'}).join('')+'</ul></div></div>';
-  if(M.bar)h+='<div class="sc-bar" aria-hidden="true"><span class="lab'+(/^YOUR /.test(M.bar[0])?' you':'')+'">'+bcE(M.bar[0])+'</span>'+bcTrack(M.bar[1],M.bar[2])+'<span class="val">'+bcE(M.bar[3])+'</span></div>';
-  if(M.rows)h+='<div class="sc-rows" aria-hidden="true">'+M.rows.map(function(r){return '<div><span class="lab'+(/^YOUR /.test(r[0])?' you':'')+'">'+bcE(r[0])+'</span>'+bcTrack(r[1],r[2])+'<span class="val">'+bcE(r[3])+'</span><span class="val g">'+bcE(r[4])+'</span></div>'}).join('')+(M.more?'<p>'+bcE(M.more)+'</p>':'')+'</div>';
-  if(M.you)h+='<div class="sc-you" aria-hidden="true">'+bcE(M.you)+'</div>';
-  h+='<div class="sc-lb"><div class="h"><span>Top attackers</span><em>caldera.social</em></div><ol>'+M.lb.map(function(r,i){var lk=r?bcLink(r[4]):null;return r?'<li class="'+r[2]+'"><i>'+(i+1)+'</i>'+(lk?'<a class="n" href="'+bcE(lk.href)+'" target="_top" rel="noopener">'+bcAv(r[4],lk.av):'<span class="n">')+bcE(r[0])+(r[3]?'<span class="up">'+r[3]+'</span>':'')+(lk?'</a>':'</span>')+'<span class="v">'+bcE(r[1])+'</span></li>':'<li class="none"><i>'+(i+1)+'</i><span class="n">—</span><span class="v">&nbsp;</span></li>'}).join('')+'</ol></div></div>';
+/** U1: the city line of the callout (section 4): the cities of a multi strike with their damage, else the bar's line, else the
+ *  viewer's own line. Parts [name or '', cls, value]; bcCityLine is the plain text */
+function bcCityParts(M){if(M.rows){var P=M.rows.map(function(r){return [r[0],/^YOUR /.test(r[0])?'you':'',r[3]==='held'?'held':'\u2212'+r[4]]});if(M.more)P.push(['','',M.more]);return P}
+  if(M.bar)return [[M.bar[0],/^YOUR /.test(M.bar[0])?'you':'',M.bar[3],1]];if(M.you)return [['','',M.you]];return []}
+function bcCityLine(M){return bcCityParts(M).map(function(p){return p[0]?p[0]+(p[3]?' \u00b7 ':' ')+p[2]:p[2]}).join(' \u00b7 ')}
+/** U1: the callout on the stage: the hidden sentence, the headline, the big value with its tail and rank chip, the timer line, the
+ *  facts with Save, the city line. No plate. size: l, m or s (short fact words on s); save: the page can save a file */
+function bCardHTML(M,size,save){var T=BCTONE[M.tone]||BCTONE.gold,ac=BCCOL[M.ac]||BCCOL.atk,big=M.bigYou?'<b class="you">'+bcE(M.big)+'</b>':bcE(M.big),rk=bcRank(M);
+  var btn=function(f,l,al){return '<button class="bc-save" type="button" data-save="'+f+'" aria-label="'+al+'">'+BCICO+'<span>'+l+'</span></button>'};
+  var btns=!save?'':M.kind==='last'?btn('p','Save post','Save this card as a post picture')+btn('s','Save story','Save this card as a story picture'):btn('p','Save','Save a picture of this strike');
+  var cl=bcCityParts(M).map(function(p){return p[0]?'<b'+(p[1]?' class="'+p[1]+'"':'')+'>'+bcE(p[0])+'</b>'+(p[3]?' \u00b7 ':' ')+(p[2].charAt(0)==='\u2212'?'<i>'+bcE(p[2])+'</i>':bcE(p[2])):bcE(p[2])}).join(' \u00b7 ');
+  var h='<span class="sc-sr">'+bcE(M.say)+'</span><div class="bc-head" aria-hidden="true"><div class="bc-l1">'+bcParts(M.l1)+'</div><div class="bc-l2"><span class="bc-big">'+big+'</span>'
+   +(M.tail&&M.tail.length?'<span class="bc-tail">'+bcParts(M.tail)+'</span>':'')+(rk?'<span class="bc-rank">'+rk+'</span>':'')+'</div></div><div class="bc-timer" aria-hidden="true"></div>'
+   +'<div class="bc-row"><span class="bc-facts" aria-hidden="true">'+(M.facts||[]).map(function(f){return '<b>'+bcE(f[0])+'</b> '+bcE(size==='s'&&f[2]||f[1])}).join(' \u00b7 ')+'</span>'+btns+'</div>'
+   +(cl?'<div class="bc-cities" aria-hidden="true">'+cl+'</div>':'');
   return {html:h,vars:'--tc:'+T[0]+';--e1:'+T[1]+';--e2:'+T[2]+';--ac:'+ac}}
-/** the space under the card: the spec's distance, or more when the replay bar sits higher (the card always clears it) */
-function bCardBot(size){var b=size==='l'?96:72;try{var bp=st&&st.querySelector&&st.querySelector('.b-play');if(bp&&bp.offsetParent!==null){var sr=st.getBoundingClientRect(),pr=bp.getBoundingClientRect();if(pr.height>0)b=Math.max(b,Math.round(sr.bottom-pr.top+10))}}catch(e){}return b}
+/** U5: the fly line: one headline and one mono line (the short one on a small pane); not read by a screen reader */
+function bFlyHTML(F,size){var sub=size==='s'?F.subS:F.sub;return '<div class="bc-head"><div class="bc-l1">'+bcParts(F.l1)+'</div></div>'+(sub?'<div class="bc-sub">'+bcE(sub)+'</div>':'')}
+/** the 11-20 card sat over the bottom of the map; the callout is in the top corner, so nothing needs room at the bottom */
+function bCardBot(size){return 0}
 /** the long-name rule: shrink line 1, the big number and the tail together in 5% steps down to 70%, then cut with an ellipsis */
-function bCardFit(el){var hd=el.querySelector('.sc-head');if(!hd)return;var k=1;hd.style.setProperty('--k','1');var tight=function(){var l1=hd.querySelector('.sc-l1'),l2=hd.querySelector('.sc-l2');return hd.scrollWidth>hd.clientWidth+1||l1&&l1.scrollWidth>l1.clientWidth+1||l2&&l2.scrollWidth>hd.clientWidth+1};while(tight()&&k>.7){k-=.05;hd.style.setProperty('--k',k.toFixed(2))}}
+function bCardFit(el){var hd=el.querySelector('.bc-head');if(!hd)return;var k=1;hd.style.setProperty('--k','1');var tight=function(){var l1=hd.querySelector('.bc-l1'),l2=hd.querySelector('.bc-l2');return l1&&l1.scrollWidth>l1.clientWidth+1||l2&&l2.scrollWidth>l2.clientWidth+1};while(tight()&&k>.7){k-=.05;hd.style.setProperty('--k',k.toFixed(2))}}
 function bCardFonts(){try{if(document.fonts&&document.fonts.load){['900 80px "Saira Extra Condensed"','600 16px "Barlow Condensed"','700 54px "Barlow Condensed"','500 15px "IBM Plex Mono"','600 24px "IBM Plex Mono"','500 24px "IBM Plex Sans"'].forEach(function(f){document.fonts.load(f).catch(function(){})})}}catch(e){}}
 function bCardCss(){try{if(document.getElementById('bcard-css'))return;var s=document.createElement('style');s.id='bcard-css';s.textContent=BCCSS+BLCSS;(document.head||document.documentElement).appendChild(s)}catch(e){}}
-/** the card for c goes up: the model (the viewer sees YOU), the DOM, the size, the fit; animations paused for the clock to drive */
-function bCardMount(c){bCardOff();var X={R:BREP.R,P:BREP.P,S:BREP.R.S,V:BCV},M=bCardModel(c,X);BCARD={id:c.id,c:c,m:M,el:null,anim:null,tau:-1,hp:false,tp:false};
+function bcMs(v){return Math.max(0,Math.round(v))+'ms'}
+/** the callout (or with fly, the fly line) for c goes up: the model (the viewer sees YOU), the DOM, the size, the fit; animations
+ *  paused for the clock to drive. Times are ms from the first impact (the fly line: from the launch) */
+function bCardMount(c,fly){bCardOff();var X={R:BREP.R,P:BREP.P,S:BREP.R.S,V:BCV},M=fly?bFlyModel(c.b,BCV):bCardModel(c,X),sT=c.settle-c.s0,live=!fly&&!reduce&&bcMoney(M),l2=live?100:sT;
+  BCARD={id:c.id,fly:!!fly,c:c,m:M,el:null,anim:null,tau:-1,live:live,big:null,slam:l2+120};
   if(typeof st==='undefined'||!st||!st.appendChild||typeof document==='undefined'||!document.createElement)return;
-  try{bCardCss();bCardFonts();var size=bCardSize(st.clientWidth||vw),save=bCardCanSave(),H=bCardHTML(M,size,save),el=document.createElement('div');
-    el.className='bcard sz-'+size+(reduce?' rm':'')+(M.shield?' shield':'');el.setAttribute('role','status');el.setAttribute('aria-live','polite');el.setAttribute('data-card',M.state);
-    el.style.cssText=H.vars+';--bot:'+bCardBot(size)+'px;--xo:'+(c.T.i+c.T.h)+'ms;--hd:'+c.T.h+'ms';el.innerHTML=H.html;st.appendChild(el);BCARD.el=el;
-    var bw=el.querySelector('.sc-btns');if(bw&&size==='s')el.style.setProperty('--sbw',(bw.offsetWidth+12)+'px');bCardFit(el);
-    if(el.getAnimations){el.classList.add('drv');void el.offsetWidth;BCARD.anim=el.getAnimations({subtree:true})}
-    document.documentElement.classList.add('w-card');bCardWire(el)}catch(e){}}
-function bCardOff(){if(!BCARD)return;var el=BCARD.el,hp=BCARD.hp||BCARD.tp;BCARD=null;if(el&&el.parentNode)el.parentNode.removeChild(el);try{document.documentElement.classList.remove('w-card')}catch(e){}if(hp&&BREP&&BREP.pauseAt!=null&&!BCSAVE)bPause(false)}
-/** pause to look: the pointer on the card pauses (PAUSED chip), leaving resumes; on touch a tap pauses and a second tap (or Play) resumes */
-function bCardWire(el){var stop=function(ev){ev.stopPropagation()};['pointerdown','mousedown','touchstart','wheel','click','dblclick'].forEach(function(k){el.addEventListener(k,stop,k==='wheel'||k==='touchstart'?{passive:true}:false)});
-  el.addEventListener('pointerenter',function(ev){if(ev.pointerType!=='mouse'||!BCARD||!BREP)return;if(BREP.pauseAt==null){bPause(true);BCARD.hp=true}el.classList.toggle('hp',BREP.pauseAt!=null)});
-  el.addEventListener('pointerleave',function(ev){if(ev.pointerType!=='mouse'||!BCARD)return;if(BCARD.hp&&!BCSAVE&&BREP&&BREP.pauseAt!=null)bPause(false);BCARD.hp=false;el.classList.remove('hp')});
-  el.addEventListener('pointerup',function(ev){if(ev.pointerType==='mouse'||!BCARD||!BREP||ev.target.closest&&ev.target.closest('.sc-save'))return;if(BREP.pauseAt!=null){bPause(false);BCARD.tp=false}else{bPause(true);BCARD.tp=true}el.classList.toggle('hp',BREP.pauseAt!=null)});
-  Array.prototype.forEach.call(el.querySelectorAll('[data-save]'),function(b){b.addEventListener('click',function(){bCardSave(b.getAttribute('data-save'),b)})})}
-/** every frame: each animation of the card at tau (a seek shows it settled, a pause freezes it, the timer line included) */
+  try{bCardCss();bCardFonts();var size=bCardSize(st.clientWidth||vw),el=document.createElement('div');
+    if(fly){el.className='bcall go in sz-'+size+(reduce?' rm':'');el.setAttribute('aria-hidden','true');el.setAttribute('data-card','fly');el.style.cssText='--xo:'+bcMs(c.f1-c.f0-150);el.innerHTML=bFlyHTML(M,size)}
+    else{var H=bCardHTML(M,size,bCardCanSave()),xo=c.c0+c.T.i+c.T.h-c.s0;el.className='bcall go sz-'+size+(reduce?' rm':'')+(M.shield?' shield':'');el.setAttribute('role','status');el.setAttribute('aria-live','polite');el.setAttribute('data-card',M.state);
+      el.style.cssText=H.vars+';--settle:'+bcMs(sT)+';--l2:'+bcMs(l2)+';--xo:'+bcMs(xo)+';--hold:'+bcMs(reduce?xo-150:xo-sT);el.innerHTML=H.html}
+    st.appendChild(el);BCARD.el=el;
+    if(size==='s'){var tl=st.querySelector&&st.querySelector('.c-tools'),tw=tl&&tl.offsetWidth?tl.offsetWidth+8:0;if(tw)el.style.setProperty('--tools',tw+'px')}
+    bCardFit(el);if(el.getAnimations){el.classList.add('drv');void el.offsetWidth;BCARD.anim=el.getAnimations({subtree:true})}
+    if(!fly)document.documentElement.classList.add('w-card');bCardWire(el)}catch(e){}}
+function bCardOff(){if(!BCARD)return;var el=BCARD.el;BCARD=null;if(el&&el.parentNode)el.parentNode.removeChild(el);try{document.documentElement.classList.remove('w-card')}catch(e){}}
+/** U1: the text takes no pointer: the map drags and zooms under it, no pause on hover or tap. Only Save stops the pointer */
+function bCardWire(el){var stop=function(ev){ev.stopPropagation()};Array.prototype.forEach.call(el.querySelectorAll('[data-save]'),function(b){['pointerdown','mousedown','touchstart','click','dblclick'].forEach(function(k){b.addEventListener(k,stop,k==='touchstart'?{passive:true}:false)});
+    b.addEventListener('click',function(){bCardSave(b.getAttribute('data-save'),b)})})}
+/** every frame: each animation of the callout at tau (a seek shows it settled, a pause freezes it, the timer line included) */
 function bCardDrive(tau){if(!BCARD)return;var prev=BCARD.tau;BCARD.tau=tau;var A=BCARD.anim;if(A)for(var i=0;i<A.length;i++){try{A[i].currentTime=Math.max(0,tau)}catch(e){}}
-  if(BCARD.el){BCARD.el.classList.toggle('hp',!!BREP&&BREP.pauseAt!=null&&(BCARD.hp||BCARD.tp))}
-  if(!reduce&&prev>=0&&prev<BCT.slam&&tau>=BCT.slam&&tau-prev<400)bCardThud()}
+  if(!reduce&&!BCARD.fly&&prev>=0&&prev<BCARD.slam&&tau>=BCARD.slam&&tau-prev<400)bCardThud()}
 /** the slam (sound on only): a sine from 90 to 45 Hz in 160 ms, gain .4 */
 function bCardThud(){try{if(typeof sound==='undefined'||!sound)return;AC=AC||new (window.AudioContext||window.webkitAudioContext)();var t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type='sine';o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(45,t+.16);g.gain.setValueAtTime(.4,t);g.gain.exponentialRampToValueAtTime(.001,t+.17);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+.18)}catch(e){}}
-/** the renderer calls this every frame of a replay (battleOver): the card for now, the 1.2 s floor on the hold at 2x */
+/** U4: the big money value: the landed sum of this strike at now; the DOM text changes only when the words change */
+function bCardBigNow(now){if(!BCARD||!BCARD.live)return null;var t=bUsd(bCardLive(BCARD.c,now));if(t!==BCARD.big){BCARD.big=t;try{var b=BCARD.el&&BCARD.el.querySelector('.bc-big');if(b)b.textContent=t}catch(e){}}return t}
+/** the renderer calls this every frame of a replay (battleOver): the callout or fly line for now, the 1.2 s floor on the hold at 2x */
 function bCardTick(now){if(!BREP){bCardOff();return}if(!BREP.cards)BREP.cards=bCardPlan(BREP.R,reduce);var A=bCardAt(BREP.cards,now);
-  var hold=A&&A.tau>=A.c.T.i&&A.tau<A.c.T.i+A.c.T.h,want=hold?bCardSpeed(BREP.sp,A.c.T):BREP.sp,cur=BREP.esp||BREP.sp;
+  var h0=A&&!A.fly?A.c.c0+A.c.T.i:0,hold=A&&!A.fly&&now>=h0&&now<h0+A.c.T.h,want=hold?bCardSpeed(BREP.sp,A.c.T):BREP.sp,cur=BREP.esp||BREP.sp;
   if(want!==cur&&BREP.pauseAt==null){BREP.vt=now;BREP.pt=performance.now();BREP.esp=want===BREP.sp?null:want}
   if(!A){bCardOff();return}
-  if(!BCARD||BCARD.id!==A.c.id){if(A.tau>=A.c.T.i+A.c.T.h){bCardOff();return}bCardMount(A.c)}   /* never put a card up in its exit: Next took it away */
-  bCardDrive(A.tau)}
-/** the hit labels on the map clear as a card comes in (120 ms) */
-function bCardClear(now){if(!BREP||!BREP.cards)return 1;var A=bCardAt(BREP.cards,now);if(!A||A.c.k!=='beat')return 1;return reduce?0:Math.max(0,1-A.tau/120)}
-/** the hold camera on a short stage: the hit stays 48 px above the card's top edge; the camera eases up by what is missing over
- *  300 ms before the card comes in, and back over the first 300 ms of the next move. y, z: the auto camera's screen y and zoom */
-function bCardLift(now,y,z){if(!BREP||!BREP.cards)return 0;var L=BREP.cards;for(var i=0;i<L.length;i++){var c=L[i];if(c.k!=='beat'||c.b.montage)continue;var a=c.c0-BCT.lift,ce=c.c0+c.T.i+c.T.h;if(now<a||now>ce+BCT.lift)continue;
-    if(now<=ce){var size=bCardSize((typeof st!=="undefined"&&st&&st.clientWidth)||vw),top=null;if(BCARD&&BCARD.id===c.id&&BCARD.el&&typeof cv!=="undefined"&&cv&&cv.getBoundingClientRect){var r=BCARD.el.getBoundingClientRect();if(r.height>0)top=r.top-cv.getBoundingClientRect().top}
-      if(top==null)top=vh-bCardBot(size)-(size==='l'?250:190)-(c.b.targets.length>1?36:0);var iy=y+c.b.lead.to.y*z;c.need=Math.min(0,top-BCT.gap-iy)}
-    var need=c.need||0;if(!need)return 0;if(reduce)return now<=ce?need:0;var u=now<=ce?bEase((now-a)/BCT.lift):1-bEase((now-ce)/BCT.lift);return need*u}return 0}
+  if(!BCARD||BCARD.id!==A.c.id||BCARD.fly!==A.fly){if(!A.fly&&now>=A.c.c0+A.c.T.i+A.c.T.h){bCardOff();return}bCardMount(A.c,A.fly)}   /* never put a callout up in its exit: Next took it away */
+  bCardBigNow(now);bCardDrive(A.tau)}
+/** the hit labels on the map clear as a callout comes in (120 ms) */
+function bCardClear(now){if(!BREP||!BREP.cards)return 1;var A=bCardAt(BREP.cards,now);if(!A||A.fly||A.c.k!=='beat')return 1;return reduce?0:Math.max(0,1-A.tau/120)}
+/** U1: the camera no longer lifts the hit: the callout sits in the top corner, clear of it */
+function bCardLift(now,y,z){return 0}
+/** U8: the strike that landed last at now (the callout showing, else the latest card whose callout started): Save works while
+ *  paused and after the callout left */
+function bCardPick(now){if(BCARD&&!BCARD.fly)return BCARD.c;if(!BREP)return null;var L=BREP.cards||(BREP.cards=bCardPlan(BREP.R,reduce)),t=now==null?bNow():now,p=null;for(var i=0;i<L.length;i++)if(L[i].s0<=t)p=L[i];return p}
 /* ---- the saved picture: one function draws both sizes on a canvas (spec section 8). Names, never "you" */
 var BCXL={p:{W:1080,H:1350,M:72,top:58,fy:410,y0:640,urlY:1264,urlW:420,urlH:54,url:28},s:{W:1080,H:1920,M:96,top:270,fy:650,y0:880,urlY:1506,urlW:480,urlH:64,url:32}};
 function bcW(c,a){return a.reduce(function(s,p){return s+c.measureText(p[0]).width},0)}
@@ -242,15 +258,15 @@ function bCardDraw(ctx,data,L){var S=data,T=BCTONE[S.tone]||BCTONE.gold,W=L.W,H=
   var ux=(W-L.urlW)/2;c.fillStyle='rgba(61,242,255,.1)';c.fillRect(ux,L.urlY,L.urlW,L.urlH);c.strokeStyle='#3DF2FF';c.lineWidth=2.5;c.strokeRect(ux,L.urlY,L.urlW,L.urlH);c.font='600 '+L.url+'px '+MO;c.fillStyle='#3DF2FF';c.textAlign='center';c.fillText('caldera.social',W/2,L.urlY+L.urlH/2+L.url*.36);c.restore()}
 /** the picture of the card showing (fmt p: 1080x1350 post, s: 1080x1920 story) as a PNG blob; a map frame that cannot be read
  *  (a tainted canvas) is left out rather than failing */
-function bCardBlob(fmt,withMap){var C=BCARD;if(!C)return Promise.reject(new Error('no card'));var L=BCXL[fmt==='s'?'s':'p'],M=bCardModel(C.c,{R:BREP.R,P:BREP.P,S:BREP.R.S,V:null}),src=withMap===false||typeof cv==='undefined'?null:cv,fx=null,fy=null;
+function bCardBlob(fmt,withMap){var C={c:BREP?bCardPick():null};if(!C.c)return Promise.reject(new Error('no card'));var L=BCXL[fmt==='s'?'s':'p'],M=bCardModel(C.c,{R:BREP.R,P:BREP.P,S:BREP.R.S,V:null}),src=withMap===false||typeof cv==='undefined'?null:cv,fx=null,fy=null;
   if(src&&C.c.k==='beat'&&!C.c.b.montage&&C.c.b.lead&&C.c.b.lead.to){var d=typeof dpr==='number'?dpr:1;fx=(cam.x+C.c.b.lead.to.x*cam.z)*d;fy=(cam.y+C.c.b.lead.to.y*cam.z)*d}
   M.src=src;M.fx=fx;M.fy=fy;var x=document.createElement('canvas');x.width=L.W;x.height=L.H;bCardDraw(x.getContext('2d'),M,L);
   return new Promise(function(ok,no){try{x.toBlob(function(b){b?ok({blob:b,name:fmt==='s'?M.file.replace(/\.png$/,'-story.png'):M.file}):no(new Error('empty'))},'image/png')}catch(e){if(src&&withMap!==false)bCardBlob(fmt,false).then(ok,no);else no(e)}})}
 /** Save: the replay pauses and the card stays; "Saving..."; the share sheet on a phone or tablet that can share files, else a
  *  download; "Saved" for 1.2 s, then the replay goes on. On a failure "Could not save. Try again." for 2 s */
-function bCardSave(fmt,btn){if(!BCARD||!BREP||BCSAVE)return Promise.resolve(false);var lab=btn&&btn.querySelector('span'),was=lab?lab.textContent:'',set=function(t){if(lab)lab.textContent=t};
+function bCardSave(fmt,btn){if(!BREP||BCSAVE||!bCardPick())return Promise.resolve(false);var lab=btn&&btn.querySelector('span'),was=lab?lab.textContent:'',set=function(t){if(lab)lab.textContent=t};
   var mine=BREP.pauseAt==null;if(mine)bPause(true);BCSAVE=1;set('Saving…');bcTr('strikecard_share_tap',{kind:bcKind(fmt)});if(btn)btn.disabled=true;bCardFonts();
-  var done=function(ok,keep){set(ok?'Saved':'Could not save. Try again.');setTimeout(function(){set(was);if(btn)btn.disabled=false;BCSAVE=0;if(mine&&BREP&&BREP.pauseAt!=null&&!(BCARD&&(BCARD.hp||BCARD.tp)))bPause(false)},ok?1200:2000);return ok};
+  var done=function(ok,keep){set(ok?'Saved':'Could not save. Try again.');setTimeout(function(){set(was);if(btn)btn.disabled=false;BCSAVE=0;if(mine&&BREP&&BREP.pauseAt!=null)bPause(false)},ok?1200:2000);return ok};
   return bCardBlob(fmt).then(function(r){return bcDeliver(r.blob,r.name)}).then(function(k){if(k==='abort'){bcTr('strikecard_share_done',{ok:false,err:'AbortError'});set(was);if(btn)btn.disabled=false;BCSAVE=0;if(mine&&BREP&&BREP.pauseAt!=null)bPause(false);return false}bcTr('strikecard_share_done',{ok:true,via:k});return done(true)},function(e){bcTr('strikecard_share_done',{ok:false,err:bcErr(e)});return done(false)})}
 /** ES session tracer events for the share funnel (MB order 11-21): no-op when the page has no tracer (Obsidian, city pages) */
 function bcTr(n,p){try{if(typeof window!=='undefined'&&typeof window.esTrace==='function')window.esTrace(n,p||{})}catch(e){}}
@@ -274,6 +290,7 @@ function bcCanShare(){try{if(!matchMedia('(pointer: coarse)').matches)return fal
  * answers (Fable's recommendations): demo + signed out = "Add your city" first; the saved picture shows the saver's row in
  * purple with the handle, never YOU; desktop = story PNG + a small "Post size (4:5)" link, the phone one Share button. */
 /* the board's CSS rides in the same style element as BCCSS (bCardCss), so it is in CITY_JS for hosted city pages too */
+var BLPLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>';
 var BLCSS='.blb{position:absolute;inset:0;z-index:8;display:grid;place-items:center;padding:12px 10px;overflow:hidden auto;--tc:#FFC83D;--e1:#B07A0E;--e2:#5E3F04;--plate:rgba(11,13,19,.93);--ink:#F4F6FA;--ink2:rgba(244,246,250,.7);--ink3:rgba(244,246,250,.46);--cyan:#3DF2FF;--you:#8B6CF6;--youink:#B9A6FF;--atk:#FF6A3D;--def:#58B4FF;--gold:#FFC83D;--raid:#F2F2F5;--fall:#FF4D5E;--slam:"Saira Extra Condensed","Barlow Condensed","Arial Narrow",Arial,sans-serif;--disp:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--ui:"IBM Plex Sans",-apple-system,"Segoe UI",Arial,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-family:var(--ui);color:var(--ink);box-sizing:border-box;-webkit-user-select:none;user-select:none;touch-action:manipulation}'
  +'.blb *{box-sizing:border-box}'
  +'.blb::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 45%,rgba(5,6,10,.5),rgba(5,6,10,.84));animation:scFade 200ms linear both}'
@@ -409,7 +426,7 @@ function bLbHTML(M,size,o){var n=M.rows.length,B=bLbButtons(M,o),h='<div class="
   var add=bcE(o.add||'/#start'),cls=function(k){return 'lb-btn'+(B.pri===k?' pri':'')},P={
     add:'<a class="'+cls('add')+'" data-lb="add" href="'+add+'" target="_top" rel="noopener">Add your city</a>',
     save:'<button type="button" class="'+cls('save')+'" data-lb="save" data-fmt="s" aria-label="'+(o.share?'Share the results as a picture':'Save the results as a picture')+'">'+(o.share?BLSHARE:BCICO)+'<span>'+(o.share?'Share':'Save picture')+'</span></button>',
-    again:'<button type="button" class="'+cls('again')+'" data-lb="again">Watch again</button>',exit:'<button type="button" class="lb-btn" data-lb="exit">Exit</button>',
+    again:'<button type="button" class="'+cls('again')+'" data-lb="again">'+BLPLAY+'<span>Replay again</span></button>',exit:'<button type="button" class="lb-btn" data-lb="exit">Exit</button>',
     post:'<button type="button" class="lb-link" data-lb="save" data-fmt="p">Post size (4:5)</button>',addlink:'<a class="lb-link" data-lb="add" href="'+add+'" target="_top" rel="noopener">Add your city</a>'};
   h+='</div><div class="lb-act'+(B.n3?' n3':'')+'">'+B.list.map(function(k){return P[k]}).join('')+'</div>'+(o.hint?bLbHintHTML():'')+'</div></div>';return h}
 function bLbHintHTML(){return '<p class="lb-hint" role="status">For an Instagram story: add a Link sticker. Put it on the <b>caldera.social</b> box.</p>'}
@@ -431,7 +448,7 @@ function bLbMount(){bLbOff();bCardOff();if(!BREP)return null;var M=bLbModel({R:B
     if(reduce)bLbFocus();else{bLbCount(el);B.tm.push(setTimeout(function(){if(BLB===B)bLbFin()},BLENTRY));B.tm.push(setTimeout(function(){if(BLB===B&&!B.fin)bCardThud()},200));
       B.tm.push(setTimeout(function(){if(BLB===B&&!B.fin)bCardThud()},600+90*Math.max(0,M.rows.length-1)))}}catch(e){}
   return B}
-/** the board comes down (Exit, Watch again, the end of the replay) */
+/** the board comes down (Exit, Replay again, the end of the replay) */
 function bLbOff(){var B=BLB;if(!B)return;BLB=null;B.tm.forEach(function(t){clearTimeout(t)});if(B.raf&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(B.raf);
   try{if(B.key)document.removeEventListener('keydown',B.key,true)}catch(e){}if(B.el&&B.el.parentNode)B.el.parentNode.removeChild(B.el);try{document.documentElement.classList.remove('w-board')}catch(e){}}
 /** the entry is over (or skipped): every value final, focus on the primary button */
@@ -441,7 +458,7 @@ function bLbFocus(){try{var p=BLB&&BLB.el&&BLB.el.querySelector('.lb-btn.pri');i
 function bLbCount(el){var B=BLB,L=[];Array.prototype.forEach.call(el.querySelectorAll('.lb-rows li'),function(li){var v=li.querySelector('.v[data-usd]');if(!v||!v.firstChild)return;var d=+(li.style.getPropertyValue('--d')||0);L.push({n:v.firstChild,u:+v.getAttribute('data-usd'),t:520+d*90});v.firstChild.nodeValue='$0'});
   if(!L.length)return;if(typeof requestAnimationFrame!=='function'){L.forEach(function(x){x.n.nodeValue=bUsd(x.u)});return}
   var step=function(){if(BLB!==B||B.fin)return;var t=performance.now()-B.t0,more=false;L.forEach(function(x){var u=Math.max(0,Math.min(1,(t-x.t)/500));if(u<1)more=true;x.n.nodeValue=bUsd(x.u*(1-Math.pow(1-u,3)))});if(more)B.raf=requestAnimationFrame(step)};B.raf=requestAnimationFrame(step)}
-/** the buttons, keys and taps: Esc = Exit, R = Watch again, S = Share / Save; Tab stays inside; a tap on the scrim does nothing;
+/** the buttons, keys and taps: Esc = Exit, R = Replay again, S = Share / Save; Tab stays inside; a tap on the scrim does nothing;
  *  any key or tap during the entry only skips it (class fin), it does not also press a button */
 function bLbWire(el){var stop=function(ev){ev.stopPropagation()},B=BLB;['pointerdown','mousedown','touchstart','wheel','click','dblclick','pointerup','contextmenu'].forEach(function(k){el.addEventListener(k,stop,k==='wheel'||k==='touchstart'?{passive:true}:false)});
   var entry=function(){return !B.fin&&performance.now()-B.t0<BLENTRY};
@@ -453,7 +470,7 @@ function bLbWire(el){var stop=function(ev){ev.stopPropagation()},B=BLB;['pointer
     if(k==='s'||k==='S'){var sb=el.querySelector('[data-lb="save"][data-fmt="s"]');ev.preventDefault();ev.stopPropagation();if(sb)bLbAct('save',sb);return}
     if(k==='Tab'){var f=Array.prototype.filter.call(el.querySelectorAll('button:not([disabled]),a[href]'),function(x){return x.offsetParent!==null});if(!f.length)return;var i=f.indexOf(document.activeElement);ev.preventDefault();f[ev.shiftKey?(i<=0?f.length-1:i-1):(i<0||i>=f.length-1?0:i+1)].focus()}};
   document.addEventListener('keydown',B.key,true)}
-/** a button: save / share, Watch again (same mode, speed and full screen; the hub's play() when it gave one), Exit (the hub's
+/** a button: save / share, Replay again (same mode, speed and full screen; the hub's play() when it gave one), Exit (the hub's
  *  stopPlay() when it gave one, else back to the page as the bar's End does) */
 function bLbAct(k,btn){if(!BLB)return false;if(k==='save'){bLbSave(btn&&btn.getAttribute('data-fmt')||'s',btn);return true}
   var demo=!!(BREP&&BREP.demo),sp=BREP?BREP.sp:null;
@@ -519,10 +536,14 @@ function bLbHint(){var B=BLB;if(!B||B.hint||!B.el)return;B.hint=true;try{var w=B
   /** the signed-in viewer's handle: their own cities read YOU and YOUR on screen (never in a saved picture) */
   A.viewer=function(h){BCV=h?'@'+String(h).replace(/^@/,''):null;return BCV};
   /** the card showing now (for the page and tests): its state, model, and how far in */
-  A.card=function(){return BCARD?{id:BCARD.id,kind:BCARD.c.k,state:BCARD.m.state,tau:BCARD.tau,m:BCARD.m}:null};
-  A.cards=function(){return BREP?(BREP.cards||(BREP.cards=bCardPlan(BREP.R,reduce))).map(function(c){return {k:c.k,c0:c.c0,len:c.T.len,hold:c.T.h}}):null};
-  A.cardSave=function(fmt){return BCARD?bCardSave(fmt||'p',BCARD.el&&BCARD.el.querySelector('[data-save="'+(fmt||'p')+'"]')):Promise.resolve(false)};
+  A.card=function(){return BCARD?{id:BCARD.id,kind:BCARD.fly?'fly':BCARD.c.k,state:BCARD.fly?'fly':BCARD.m.state,tau:BCARD.tau,m:BCARD.m,big:BCARD.big}:null};
+  A.cards=function(){return BREP?(BREP.cards||(BREP.cards=bCardPlan(BREP.R,reduce))).map(function(c){return {k:c.k,c0:c.c0,len:c.T.len,hold:c.T.h,s0:c.s0,f0:c.f0,f1:c.f1,settle:c.settle,x1:c.x1}}):null};
+  A.cardSave=function(fmt){return BCARD&&!BCARD.fly?bCardSave(fmt||'p',BCARD.el&&BCARD.el.querySelector('[data-save="'+(fmt||'p')+'"]')):Promise.resolve(false)};
   A.cardBlob=function(fmt){return bCardBlob(fmt||'p')};
+  /** U8: the More menu's "Save strike picture" (key S): the strike that landed last, also paused and after its callout left;
+   *  false when none landed yet or the page cannot save. canPic(): 'off' (the page cannot save: no row), 'wait' (dimmed), 'ready' */
+  A.canPic=function(){return !bCardCanSave()?'off':BREP&&bCardPick()?'ready':'wait'};
+  A.savePic=function(){if(!BREP||!bCardCanSave()||!bCardPick())return false;var b=BCARD&&!BCARD.fly&&BCARD.el?BCARD.el.querySelector('[data-save="p"]'):null;bCardSave('p',b);return true};
   /** the leaderboard at the end of the replay: board() = {m: the model, size} or null; boardSave / boardBlob (fmt s story, p post);
    *  boardHooks({again(demo), exit(), add: href, signedIn: value or function}) from the hub; boardAct('again'|'exit') for tests */
   A.board=function(){return BLB?{m:BLB.m,size:BLB.size}:null};

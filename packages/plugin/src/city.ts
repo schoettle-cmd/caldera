@@ -423,6 +423,7 @@ html.c-mini .c-tools button{padding:3px 8px;font-size:11px}
 .c-today{position:absolute;left:10px;bottom:10px;z-index:2;padding:4px 10px;border-radius:999px;background:rgba(8,12,22,.72);color:#E6F6FF;font:500 12px/1.3 'IBM Plex Mono',ui-monospace,monospace;pointer-events:none;backdrop-filter:blur(4px)}
 html.c-mini .c-today{display:none}
 html.w-replay .c-live,html.w-replay .c-today,html.w-replay .c-hint,html.w-replay .c-heli,html.w-replay .c-sfk{display:none!important}   /* the pure city while the battle replay plays */
+html.w-battle:not(.w-replay):not(.w-board) .c-bnote{top:auto!important;bottom:68px!important}   /* BATTLE.md U2 (11-24): the New land note sits above the map's Replay button */
 .c-today.c-today-in{position:static;display:block;padding:0 0 6px;margin:0 0 6px;border-radius:0;background:none;backdrop-filter:none;border-bottom:1px solid rgba(61,242,255,.25);font-size:11px;color:#CFEFFF}
 .c-stage:not(.c-dig) .c-hint~.c-today{bottom:42px}@media (max-width:600px){.c-stage:not(.c-dig) .c-hint~.c-today{bottom:10px}}
 .c-setup{position:relative;margin:10px 0 4px;padding:10px 40px 10px 14px;border:1px solid var(--line,#2A2A2F);border-radius:var(--radius-md,10px);background:var(--bg-raised,#18181B);font-size:var(--text-sm,14px);color:var(--text,#E6E6EA)}
@@ -1285,7 +1286,7 @@ function drawShimmer(){if(!SHIM)return;var f=(performance.now()-SHIM.t0)/900;if(
 var FLYG=0;function flyStop(){FLYG++}   // a replay taking the camera cancels any flight in progress
 function flyTo(x1,y1,z1,ms,done){var z0=cam.z,x0=cam.x,y0=cam.y,t0=performance.now(),g=++FLYG;(function anim(){if(g!==FLYG)return;var f=Math.min(1,(performance.now()-t0)/ms),k=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
   cam.z=z0+(z1-z0)*k;cam.x=x0+(x1-x0)*k;cam.y=y0+(y1-y0)*k;draw();if(f<1)requestAnimationFrame(anim);else if(done)done()})()}
-var buildBar=null;function buildNote(html){if(!buildBar){buildBar=document.createElement('div');buildBar.setAttribute('role','status');
+var buildBar=null;function buildNote(html){if(!buildBar){buildBar=document.createElement('div');buildBar.className='c-bnote';buildBar.setAttribute('role','status');
   buildBar.style.cssText='position:absolute;left:50%;'+(vw<600?'top:52px;width:calc(100% - 24px);justify-content:space-between;':'bottom:18px;')+'transform:translateX(-50%);z-index:6;display:flex;gap:10px;align-items:center;max-width:calc(100% - 24px);padding:9px 10px 9px 14px;border-radius:12px;background:rgba(10,12,22,.9);border:1px solid #8B6CF6;box-shadow:0 0 22px rgba(139,108,246,.45);color:#fff;font:600 12.5px/1.35 IBM Plex Sans,Arial,sans-serif';
   st.appendChild(buildBar)}buildBar.innerHTML=html;var sk=buildBar.querySelector('button');if(sk)sk.onclick=buildSkip}
 function buildDone(){BTIMERS.forEach(clearTimeout);BTIMERS=[];for(var k in BUILD)BUILD[k].t0=-1e9;BUILDING=false;BUILD={};LEGOST={};DUST=[];draw();if(buildBar){buildBar.remove();buildBar=null}}

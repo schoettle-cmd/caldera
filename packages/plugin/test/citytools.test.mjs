@@ -51,11 +51,13 @@ test("Mike 11-20: zoomed out, a hit tower is cut to its stump and charred like c
   assert.match(CITY_JS, /prismHi\(c,x,top,t\[0\],th,dm\?mix\(tc,Math\.min\(\.65,\.2\+\.5\*dm\.d\),'#3A3D47'\):tc,\{floors:false\}\);if\(th<t\[1\]\)\{cut=true;top-=th;return\}/);
 });
 
-test("Mike 11-20: the strike card's top attackers link to the member's Caldera profile with their avatar; raiders stay plain", () => {
+test("Mike 11-20: the top attackers (saved picture, results board) link to the member's Caldera profile with their avatar; raiders stay plain", () => {
   assert.match(CITY_JS, /function bcLink\(h\)\{if\(!h\|\|h\.charAt\(0\)!=='@'\|\|bcRaid\(h\)\)return null;/);
-  assert.match(CITY_JS, /<a class="n" href="'\+bcE\(lk\.href\)\+'" target="_top" rel="noopener">'\+bcAv\(r\[4\],lk\.av\)/);
   assert.match(CITY_JS, /r\.a===cur&&up>0\?up:0,r\.a\]:null\)\}return o\}/);
-  assert.match(CITY_JS, /'<div class="sc-lb">/);
+  // BATTLE.md (Fable 11-24): the strip left the map callout; it stays in the saved picture and on the results board, with the links
+  assert.ok(!CITY_JS.includes('<div class="sc-lb">'), "no Top attackers strip on the map");
+  assert.match(CITY_JS, /c\.fillText\('ATTACKERS',M\+18,sy\+66\)/, "the saved picture keeps the strip");
+  assert.match(CITY_JS, /bcLink\(r\.a\)/, "the board links members to their profile");
 });
 
 test("Mike 11-21: a plot with no missiles shows no missile pill; the pill shows only above 0", () => {

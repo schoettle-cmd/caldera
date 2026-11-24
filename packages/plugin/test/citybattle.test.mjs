@@ -31,7 +31,7 @@ function world(sky, clock, data, reduce = false, store = memStore(), b2h = 30) {
     function bh(r){return r.commits}function gState(g){return g.cs}function gLang(g){return g.lang}var cx=mk();var PURE=false;`;
   const F = class extends Date { static now() { return clock.t; } };
   return new Function("PAL", "mk", "DATA", "FakeDate", "CLOCK", "STORE", pre + HIFI_JS + STREET_JS + BATTLE_DRAW_JS + `; return {api:window.CALDERA_BATTLE_API,stateLoad:bStateLoad,sync:function(){bStateSync(bPlan(Date.now()),Date.now())},rebOf:bRebuildOf,over:battleOver,plan:function(){return bPlan(Date.now())},S:bS,now:bNow,dmg:function(i,j){return bBld(null,i,j)},reb:bRebuild,draws:function(){return draws},bp:function(){return BP.length},vox:function(){return BP.filter(function(p){return p.k==='vox'}).length},voxDown:function(){return BP.filter(function(p){return p.k==='vox'&&p.down}).length},cranes:cranes,bcam:bCam,camera:cam,rep:function(){return BREP},ribbons:function(){return BTR.length},dbg:function(){return {H:JSON.stringify(Object.keys(BHITB).map(function(k){return [k,Object.keys(BHITB[k])]})),B:Object.keys(BBAT).join(' '),sh:BPLAN.shots.map(function(s){return [s.a,s.d,s.lot,s.f,!!s.b,s.b&&s.b.idx,bImpactAt(bS(),s)-bS().salvo]}),S:[bS().salvo,bS().hold,bS().end,bNow()]}},
-    art:{bBlK:bBlK,bBlast:bBlast,bMissileFly:bMissileFly,bBigFx:bBigFx,spScorch:spScorch,spPuff:spPuff,setZ:function(z){cam.z=z},pool:function(){return BP},padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,bTwoFrame:bTwoFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,bCardState:bCardState,bCardRanks:bCardRanks,bCardSpeed:bCardSpeed,bCardPlan:bCardPlan,bCardStandOf:bCardStandOf,bCardModel:bCardModel,bCardTimes:bCardTimes,bCardAt:bCardAt,bCardClear:bCardClear,lb:{model:bLbModel,tally:bLbTally,html:bLbHTML,buttons:bLbButtons,draw:bLbDraw,XL:BLXL,file:bLbFile,h:bLbH,css:BLCSS,canSave:bCardCanSave,N:BLN},BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,pu:{isTap:puIsTap,pool:function(){return PUP},plume:puPlume,crane:puCrane,target:puTarget,draw:puDraw,max:puMax,setVw:function(v){vw=v}},setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
+    art:{bBlK:bBlK,bBlast:bBlast,bMissileFly:bMissileFly,bBigFx:bBigFx,spScorch:spScorch,spPuff:spPuff,setZ:function(z){cam.z=z},pool:function(){return BP},padHi:padHi,stackHi:stackHi,chuteHi:chuteHi,chuteDownHi:chuteDownHi,launcherHi:launcherHi,badgeHi:badgeHi,countdownHi:countdownHi,missileHi:missileHi,ruinHi:ruinHi,bTraj:bTraj,bImpactFx:bImpactFx,bStep:bStep,bDrawParticles:bDrawParticles,bLaunchFx:bLaunchFx,bShieldFx:bShieldFx,bLandFx:bLandFx,bSchedule:bSchedule,bSegment:bSegment,bSlot:bSlot,bBeats:bBeats,bDrawCollapse:bDrawCollapse,bRubblePiles:bRubblePiles,collapses:function(){return BCOL.length},bld:function(){return BBLD},bRepCam:bRepCam,bPadZoom:bPadZoom,bWideFrame:bWideFrame,bRibbonFill:bRibbonFill,bDrawRibbons:bDrawRibbons,bLaunchFxBig:bLaunchFxBig,BRT:BRT,BSPEEDS:BSPEEDS,bSpeedOf:bSpeedOf,bSpeedNext:bSpeedNext,bRealMs:bRealMs,bVirt:bVirt,bClampZoom:bClampZoom,bClampCam:bClampCam,bMapBounds:bMapBounds,bFitCam:bFitCam,bCamLim:bCamLim,bHitsNow:bHitsNow,bHitLabels:bHitLabels,bRepFlight:bRepFlight,bPadFrame:bPadFrame,bHitFrame:bHitFrame,bTwoFrame:bTwoFrame,fx:function(){return BFXT},userCam:bUserCam,bVis:bVis,bFallOf:bFallOf,bFallFrame:bFallFrame,bRaze:bRaze,bRazeLot:bRazeLot,bHitsOn:bHitsOn,under:battleUnder,bBigFx:bBigFx,bNukeFx:bNukeFx,bRezFx:bRezFx,bRezHeap:bRezHeap,bFleetHi:bFleetHi,bShakeAt:bShakeAt,BFL:BFL,bCardState:bCardState,bCardRanks:bCardRanks,bCardSpeed:bCardSpeed,bCardPlan:bCardPlan,bCardStandOf:bCardStandOf,bCardModel:bCardModel,bCardTimes:bCardTimes,bCardAt:bCardAt,bCardClear:bCardClear,bFlyModel:bFlyModel,bcRank:bcRank,bCardLive:bCardLive,bcCityLine:bcCityLine,bCardHTML:bCardHTML,bFlyHTML:bFlyHTML,bcMoney:bcMoney,bCardPick:bCardPick,bUsd:bUsd,bImpactOf:bImpactOf,lb:{model:bLbModel,tally:bLbTally,html:bLbHTML,buttons:bLbButtons,draw:bLbDraw,XL:BLXL,file:bLbFile,h:bLbH,css:BLCSS,canSave:bCardCanSave,N:BLN},BVMIN:BVMIN,BDES:BDES,pool:function(){return BP}},setLOD:function(v){LODN=v},card:battleCard,pu:{isTap:puIsTap,pool:function(){return PUP},plume:puPlume,crane:puCrane,target:puTarget,draw:puDraw,max:puMax,setVw:function(v){vw=v}},setPure:function(v){PURE=!!v},text:function(){var n=cx.__n.text||0;cx.__n.text=0;return n}}`)(PAL, stubCtx, data, F, clock, store);
 }
 /** a localStorage stand-in (a broken one throws on every call) */
 function memStore(broken = false) { const m = new Map(); return { getItem: k => { if (broken) throw new Error("quota"); return m.has(k) ? m.get(k) : null }, setItem: (k, v) => { if (broken) throw new Error("quota"); m.set(k, String(v)) }, removeItem: k => m.delete(k), get size() { return m.size }, raw: k => m.get(k) }; }
@@ -160,13 +160,14 @@ test("strike card (STRIKECARD.md, Mike and Orion 11-20): a card after every beat
   R.beats.forEach((b, i) => { assert.equal(cards[i].c0, b.c0); assert.equal(b.c0 + 500 + 2000, b.end, "the card holds 2 s, then the camera moves on"); });
   assert.equal(cards[3].c0 + cards[3].len, S.wide, "the fall's card leaves as the wide shot starts"); assert.equal(cards[4].c0, S.wide); assert.ok(cards[4].c0 + cards[4].len <= S.hold, "the last card fits the wide shot");
   const go = (ms) => { Wd.api.seek(ms); Wd.bcam(); Wd.over(); return Wd.api.card(); };
-  assert.equal(go(R.beats[0].c0 - 10), null, "no card before the hold ends"); assert.equal(A.bCardClear(R.beats[0].c0 - 10), 1);
+  const k0 = cards[0]; assert.equal(go(R.beats[0].launch - 10), null, "nothing before the launch"); assert.equal(go(k0.f0 + 10).kind, "fly", "BATTLE.md U5: the fly line from the launch"); assert.equal(go(k0.s0 - 10).kind, "fly", "to the first impact");
+  assert.equal(go(k0.s0 + 10).kind, "beat", "U4: the callout mounts at the first impact"); assert.ok(k0.s0 < k0.settle || k0.s0 === k0.settle); assert.ok(k0.s0 < k0.c0, "earlier than the 11-20 card"); assert.equal(k0.x1, k0.c0 + k0.len, "and leaves at the same time"); assert.equal(A.bCardClear(k0.s0 - 10), 1);
   let c = go(R.beats[0].c0 + 1500), m = c.m; assert.equal(c.kind, "beat"); assert.ok(["hit", "small", "fall"].includes(m.state), m.state); assert.equal(m.l1[0][0], "A"); assert.equal(m.l1[0][1], "atk");
   assert.deepEqual(m.facts[m.state === "small" ? 0 : 1].slice(0, 2), ["5 of 6", "missiles hit"], "the shot the shield held whole does not count");
   if (m.state === "hit") { assert.ok(m.facts[0][0].startsWith("−$"), "damage first"); assert.equal(m.big, m.p + "%"); assert.equal(m.bar[1] - m.bar[2], m.p, "the bar and the big number agree"); assert.deepEqual(m.tail.map((p) => p[0]).join(""), "OF B’S CITY"); }
   assert.deepEqual(m.lb[0].slice(0, 3), ["A", m.lb[0][1], "cur"]); assert.equal(m.lb[1], null, "empty ranks"); assert.equal(m.file, "caldera-a-vs-b-2026-11-07.png"); assert.equal(m.date, "NOV 7");
   assert.ok(/^A (destroys|hits B\u2019s city|finishes B\u2019s city) /.test(m.say), m.say); if (m.state === "fall") { assert.equal(m.big, "CITY DOWN"); assert.equal(m.bar[2], 0); }
-  assert.equal(A.bCardClear(R.beats[0].c0 + 60), .5, "the hit labels clear in 120 ms"); assert.equal(A.bCardClear(R.beats[0].c0 + 200), 0);
+  assert.equal(A.bCardClear(k0.s0 + 60), .5, "the hit labels clear in 120 ms"); assert.equal(A.bCardClear(k0.s0 + 200), 0);
   // the viewer's own city reads YOUR on screen; the picture never says you
   Wd.api.viewer("b"); c = go(R.beats[0].c0 + 1600); m = c.m; assert.ok(m.l1.concat(m.tail).some((p) => p[0] === "YOUR" && p[1] === "you") || m.bar[0] === "YOUR CITY", "YOUR on screen");
   const pic = A.bCardModel(Wd.rep().cards[0], { R, P: Wd.rep().P, S, V: null }); assert.ok(!JSON.stringify([pic.l1, pic.tail, pic.bar]).includes("YOU"), "a saved picture shows names"); Wd.api.viewer(null);
@@ -628,7 +629,7 @@ test("leaderboard: viewer lines, callouts (a fall beats hardest hit; best shield
   const nofall = W2.art.lb.model({ R: Object.assign({}, R, { F: false }), P: Object.assign({}, P, { fall: null }), S, V: null }, false); assert.equal(nofall.call[0][0], "Hardest hit"); assert.ok(/^[AB] −\d+%$/.test(nofall.call[0][1]), nofall.call[0][1]); W2.api.stop();
 });
 
-test("leaderboard: the buttons (Share / Save first; demo signed out: Add your city first; sandboxed: no Save, Watch again first); the board replaces the end of the replay", () => {
+test("leaderboard: the buttons (Share / Save first; demo signed out: Add your city first; sandboxed: no Save, Replay again first); the board replaces the end of the replay", () => {
   const Wd = world("day", { t: at(16), p: 1 }, data()); const L = Wd.art.lb, real = { demo: false, rows: [1] }, demo = { demo: true, rows: [1] };
   assert.deepEqual(L.buttons(real, { save: true, share: false, signedIn: true }), { list: ["save", "again", "exit", "post"], pri: "save", n3: false }, "desktop: Save picture (story), then a small Post size link");
   assert.deepEqual(L.buttons(real, { save: true, share: true, signedIn: true }).list, ["save", "again", "exit"], "phone: one Share button, no Post size");
@@ -639,7 +640,7 @@ test("leaderboard: the buttons (Share / Save first; demo signed out: Add your ci
   assert.deepEqual(L.buttons({ demo: false, rows: [] }, { save: true, signedIn: true }).list, ["again", "exit"], "no rows: no Save");
   const Mx = L.model(lbX([lbShots([["@a", "@b", 5e6]])], { demo: true, night: "demo" }), false), hd = L.html(Mx, "s", { save: true, share: true, signedIn: false, add: "/#start" });
   assert.ok(hd.includes('<div class="lb-act n3"><a class="lb-btn pri" data-lb="add" href="/#start"'), "Add your city is the primary"); assert.ok(hd.includes('class="lb-btn" data-lb="save" data-fmt="s" aria-label="Share the results as a picture"') && hd.includes("<span>Share</span>"));
-  const hs = L.html(Mx, "l", { save: false, signedIn: true }); assert.ok(!hs.includes('data-lb="save"'), "sandboxed: no Save"); assert.ok(hs.includes('class="lb-btn pri" data-lb="again"'));
+  const hs = L.html(Mx, "l", { save: false, signedIn: true }); assert.ok(!hs.includes('data-lb="save"'), "sandboxed: no Save"); assert.ok(hs.includes('class="lb-btn pri" data-lb="again"')); assert.ok(/data-lb="again"><svg[^>]*><path[^>]*\/><\/svg><span>Replay again<\/span>/.test(hs), "BATTLE.md U2: Replay again, with the play icon"); assert.ok(!hs.includes("Watch again"));
   const hdk = L.html(L.model(lbX([lbShots([["@a", "@b", 5e6]])]), false), "l", { save: true, share: false, signedIn: true }); assert.ok(hdk.includes('class="lb-btn pri" data-lb="save" data-fmt="s" aria-label="Save the results as a picture"') && hdk.includes("<span>Save picture</span>") && hdk.includes('data-fmt="p">Post size (4:5)</button>'));
   // Save hides where it cannot save: the harness has no canvas; a sandboxed hosted city page has an opaque origin
   assert.equal(L.canSave(), false); const src = BATTLE_DRAW_JS.slice(BATTLE_DRAW_JS.indexOf("function bCardCanSave(){"), BATTLE_DRAW_JS.indexOf("\n", BATTLE_DRAW_JS.indexOf("function bCardCanSave(){")));
@@ -692,4 +693,91 @@ test("ES tracer share funnel (MB 11-21): leaderboard shown / share tap / share d
   assert.match(J, /bcTr\('strikecard_share_tap',\{kind:bcKind\(fmt\)\}\)/);
   assert.match(J, /bcTr\('strikecard_share_done',\{ok:true,via:k\}\)/);
   assert.match(J, /function bcKind\(fmt\)\{if\(fmt==='p'\)return 'post45';/);
+});
+
+// ---- the battle screen (BATTLE.md, Fable design 11-24): the strike callout in the top corner, the fly line, the rank chip, the live sum
+test("BATTLE.md U5: the fly line words: 1 missile, many, the viewer, the raiders, a montage; the short mono line on small panes", () => {
+  const Wd = world("day", { t: at(16), p: 1 }, data()), A = Wd.art, sh = (n) => Array.from({ length: n }, () => ({}));
+  const words = (F) => F.l1.map((p) => p[0]).join("");
+  let F = A.bFlyModel({ a: "@jgeofil", n: 5, shots: sh(5), targets: ["@benzema216", "@mike", "@x", "@y", "@z"] }, null);
+  assert.equal(words(F), "JGEOFIL FIRES 5 MISSILES"); assert.equal(F.l1[0][1], "atk"); assert.equal(F.sub, "at BENZEMA216 and 4 more cities"); assert.equal(F.subS, "at BENZEMA216 +4");
+  F = A.bFlyModel({ a: "@a", n: 1, shots: sh(1), targets: ["@b"] }, null); assert.equal(words(F), "A FIRES 1 MISSILE"); assert.equal(F.sub, "at B"); assert.equal(F.subS, "at B");
+  F = A.bFlyModel({ a: "@a", n: 3, shots: sh(3), targets: ["@b", "@c"] }, null); assert.equal(words(F), "A FIRES 3 MISSILES"); assert.equal(F.sub, "at B and 1 more city"); assert.equal(F.subS, "at B +1");
+  F = A.bFlyModel({ a: "@a", n: 3, shots: sh(3), targets: ["@b"] }, "@a"); assert.equal(words(F), "YOU FIRE 3 MISSILES"); assert.equal(F.l1[0][1], "you");
+  F = A.bFlyModel({ a: "@a", n: 2, shots: sh(2), targets: ["@b", "@c", "@d"] }, "@b"); assert.equal(F.sub, "at YOUR CITY and 2 more cities");
+  F = A.bFlyModel({ a: "~raiders", n: 4, shots: sh(4), targets: ["@b"] }, null); assert.equal(words(F), "SEA RAIDERS FIRE 4 MISSILES"); assert.equal(F.l1[0][1], "raid");
+  F = A.bFlyModel({ a: "@q", n: 9, shots: sh(9), targets: ["@b"], montage: true, cities: 4 }, null); assert.equal(words(F), "4 MORE CITIES FIRE"); assert.equal(F.sub, "", "a montage: the headline alone");
+  assert.equal(words(A.bFlyModel({ a: "@q", n: 1, shots: sh(1), targets: ["@b"], montage: true, cities: 1 }, null)), "1 MORE CITY FIRES");
+  const h = A.bFlyHTML(A.bFlyModel({ a: "@a", n: 5, shots: sh(5), targets: ["@b", "@c", "@d"] }, null), "s");
+  assert.ok(h.includes('class="bc-l1"') && h.includes("at B +2") && !/bc-big|bc-save|bc-rank/.test(h), "one headline, one mono line: no number, no chip, no Save");
+  assert.ok(!/[^\x00-\x7F]/.test(BATTLE_DRAW_JS.slice(BATTLE_DRAW_JS.indexOf("function bFlyModel"), BATTLE_DRAW_JS.indexOf("function bFlyModel") + 600)), "ASCII source");
+});
+
+test("BATTLE.md U6: the rank chip: NOW 1ST, 2ND, 3RD; none for rank 4 and lower, a shield, a miss, a montage, the fall and the last card", () => {
+  const A = world("day", { t: at(16), p: 1 }, data()).art, rk = (o) => A.bcRank(Object.assign({ kind: "beat", state: "small", rank: 1 }, o));
+  assert.deepEqual([1, 2, 3, 4, 5, 0].map((r) => rk({ rank: r })), ["NOW 1ST", "NOW 2ND", "NOW 3RD", "", "", ""]);
+  for (const s of ["hit", "multi", "fall"]) assert.equal(rk({ state: s, rank: 2 }), "NOW 2ND", s);
+  for (const s of ["shield", "miss", "montage"]) assert.equal(rk({ state: s }), "", s);
+  assert.equal(rk({ kind: "fall", state: "fall" }), ""); assert.equal(rk({ kind: "last", state: "last" }), "");
+  // in a replay: the model carries the attacker's rank after the strike (bCardRankOf), and the callout shows it after the tail
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay();
+  const go = (ms) => { Wd.api.seek(ms); Wd.bcam(); Wd.over(); return Wd.api.card(); }, cards = Wd.api.cards();
+  const m0 = go(cards[0].c0 + 1500).m, m1 = go(cards[1].c0 + 1500).m; assert.equal(m0.rank, 1, "A leads after strike 1"); assert.equal(m1.rank, 2, "B is second after strike 2");
+  const h = Wd.art.bCardHTML(m1, "l", false).html; assert.ok(/<span class="bc-tail">.*<\/span><span class="bc-rank">NOW 2ND<\/span>/.test(h)); Wd.api.stop();
+});
+
+test("BATTLE.md U4: the callout's money value is the landed sum of the strike at the clock time, never ahead of the map; words and percents wait for the settle", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay();
+  const A = Wd.art, R = Wd.rep().R, S = R.S, L = Wd.rep().cards || (Wd.over(), Wd.rep().cards), go = (ms) => { Wd.api.seek(ms); Wd.bcam(); Wd.over(); return Wd.api.card(); };
+  const landed = (b, t) => b.shots.reduce((u, s) => u + (A.bImpactOf(S, s) <= t && s.f > 0 && !s.blocked ? s.usd || 0 : 0), 0);
+  let checked = 0;
+  R.beats.forEach((b, i) => { const c = Wd.api.cards()[i]; assert.ok(c.s0 >= Math.min(...b.shots.map((s) => A.bImpactOf(S, s))), "not before the first impact");
+    for (let t = c.s0 - 200; t < c.x1; t += 37) { const u = A.bCardLive(Wd.rep().cards[i], t); assert.ok(u <= landed(b, t) + 1e-9, `strike ${i} at ${t}: ${u} > ${landed(b, t)}`); assert.equal(u, landed(b, t)); }
+    assert.equal(A.bCardLive(Wd.rep().cards[i], c.settle), b.shots.reduce((u, s) => u + (s.f > 0 && !s.blocked ? s.usd || 0 : 0), 0), "all of it at the settle");
+    const k = go(c.s0 + 5); if (k && k.kind === "beat" && A.bcMoney(k.m)) { for (const t of [c.s0 + 5, (c.s0 + c.settle) / 2, c.settle, c.settle + 300]) { const k2 = go(t); assert.equal(k2.big, A.bUsd(landed(b, t)), `the big value at ${t}`); checked++; } } });
+  assert.ok(checked > 0, "a money callout was checked"); assert.ok(L); Wd.api.stop();
+  // reduced motion: the callout comes in once at the settle with its final values
+  const Wr = world("day", { t: at(16), p: 1 }, data(), true); Wr.api.view(true); Wr.over(); Wr.api.replay(); Wr.api.cards().forEach((c) => assert.equal(c.s0, c.settle)); Wr.api.stop();
+});
+
+test("BATTLE.md U1: the callout markup: no plate, the head, the timer line, the facts with Save, the city line; short words on small panes", () => {
+  const A = world("day", { t: at(16), p: 1 }, data()).art;
+  const M = { kind: "beat", state: "multi", tone: "gold", ac: "atk", l1: [["JGEOFIL", "atk"], [" HITS 5 CITIES"]], big: "$4M", tail: [["DAMAGE"]], rank: 2, say: "Jgeofil hits 5 cities $4m damage.",
+    facts: [["5 of 5", "missiles hit", "hit"], ["$7.9M", "blocked by shield", "blocked"]], rows: [["MIKE", 100, 80, "−20%", "$2.3M"], ["DAVIDGUTTMAN", 100, 98, "−2%", "$852k"]], more: "+3 more cities" };
+  assert.equal(A.bcCityLine(M), "MIKE −$2.3M · DAVIDGUTTMAN −$852k · +3 more cities");
+  assert.equal(A.bcCityLine({ rows: [["MIKE", 100, 100, "held", "$0"]] }), "MIKE held", "a city with no damage holds");
+  assert.equal(A.bcCityLine({ bar: ["B’S CITY", 100, 79, "100% → 79% standing"] }), "B’S CITY · 100% → 79% standing");
+  assert.equal(A.bcCityLine({ you: "Your city: 2 hits, 80% standing" }), "Your city: 2 hits, 80% standing");
+  const h = A.bCardHTML(M, "l", true).html;
+  for (const k of ['class="sc-sr"', 'class="bc-head" aria-hidden="true"', 'class="bc-l1"', 'class="bc-big"', 'class="bc-tail"', 'class="bc-rank">NOW 2ND', 'class="bc-timer"', 'class="bc-row"', 'class="bc-facts" aria-hidden="true"><b>5 of 5</b> missiles hit · <b>$7.9M</b> blocked by shield', 'aria-label="Save a picture of this strike"', 'class="bc-cities"']) assert.ok(h.includes(k), k);
+  for (const k of ["sc-plate", "sc-bar", "sc-rows", "sc-lb", "sc-paused", "Top attackers"]) assert.ok(!h.includes(k), `no ${k}`);
+  assert.ok(A.bCardHTML(M, "s", true).html.includes("<b>5 of 5</b> hit · <b>$7.9M</b> blocked"), "small panes: the short words");
+  assert.ok(!A.bCardHTML(M, "l", false).html.includes("bc-save"), "no Save where the page cannot save");
+  const last = A.bCardHTML(Object.assign({}, M, { kind: "last", state: "last" }), "l", true).html; assert.ok(last.includes("Save post") && last.includes("Save story"));
+  const css = BATTLE_DRAW_JS.slice(BATTLE_DRAW_JS.indexOf("var BCCSS="), BATTLE_DRAW_JS.indexOf("var BCICO="));
+  assert.ok(/\.bcall\{position:absolute;z-index:6;left:16px;top:14px;max-width:calc\(100% - 200px\);pointer-events:none/.test(css), "top left, no pointer");
+  assert.ok(css.includes(".bcall .bc-save{pointer-events:auto") && css.includes(".bcall.sz-s .bc-cities{display:none}") && css.includes("@keyframes scPop") && css.includes("@keyframes scOut{to{opacity:0;transform:translateY(-6px)}}"));
+  assert.ok(!css.includes(".bcard") && !css.includes("data-card-hide"), "the plate and the phone hide rule are gone");
+  assert.ok(/\.bcall\.go\.rm \*\{animation:none!important\}/.test(css), "reduced motion: no slam, slide or pop");
+  assert.ok(!/pointerenter|pointerleave/.test(BATTLE_DRAW_JS.slice(BATTLE_DRAW_JS.indexOf("function bCardWire"), BATTLE_DRAW_JS.indexOf("function bCardDrive"))), "no pause on hover or tap");
+});
+
+test("BATTLE.md U1/U7/U8: no camera lift, the hit at 54% (50% under 700 px); phase() gives the strike's start and end; Save picks the strike that landed last", () => {
+  const A = world("day", { t: at(16), p: 1 }, data()).art, b = { lead: { to: { x: 10, y: 20 } } };
+  for (const [vw, vh, k] of [[1300, 800, .54], [900, 600, .54], [390, 700, .5]]) { const f = A.bHitFrame(b, vw, vh), y = vh * .52 + (b.lead.to.y - f.y) * f.z; assert.ok(Math.abs(y - vh * k) < 1e-6, `${vw}: ${y / vh}`); }
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over(); Wd.api.replay(); const R = Wd.rep().R, cards = Wd.api.cards();
+  const go = (ms) => { Wd.api.seek(ms); Wd.bcam(); Wd.over(); return Wd.api.phase(); };
+  let ph = go(R.beats[1].t0 + 100); assert.equal(ph.b0, R.beats[1].t0); assert.equal(ph.b1, R.beats[1].end); assert.deepEqual(ph.strikes, R.beats.map((x) => [x.t0, x.end]));
+  go(cards[0].s0 - 50); assert.equal(Wd.art.bCardPick(cards[0].s0 - 50), null, "nothing landed yet");
+  go(R.beats[1].t0 + 100); assert.equal(Wd.api.card(), null); assert.equal(Wd.art.bCardPick(R.beats[1].t0 + 100).id, 0, "after the callout left: the strike that landed last");
+  assert.equal(Wd.api.canPic(), "off", "a page that cannot save a file: no row"); assert.equal(Wd.api.savePic(), false); Wd.api.stop();
+});
+
+test("Replay plays the newest night, the one the Last night card shows (GE 11-24 data fault)", () => {
+  const f = new Function("BDATA", "bPick", CITY_JS.match(/function bNewest\(noon\)\{[^\n]*\}/)[0] + "; return bNewest(0);");
+  const pick = () => ({ key: "old" });
+  assert.equal(f({ t0: 5, night: "2026-11-24", shots: [{ a: 1 }] }, pick).key, "2026-11-24");
+  assert.equal(f({ t0: 5, night: "2026-11-24", shots: [] }, pick).key, "old");
+  assert.match(CITY_JS, /src0=demo\?null:bNewest\(/);
+  assert.match(CITY_JS, /P\.night=demo\?'demo':\(src0&&src0\.key\)/);
 });

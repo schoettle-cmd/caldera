@@ -389,17 +389,17 @@ function bClampAbs(v,m){return v>m?m:v<-m?-m:v}
 function bPadFrame(b,vw){var f=b.lead.pad||b.lead.from,t=b.lead.to;return {x:f.x+bClampAbs((t.x-f.x)*.1,12),y:f.y-18,z:bPadZoom(vw)}}
 /** the zoom at mid-flight: out far enough that a long arc reads as a journey, never below .45 of the pad zoom */
 function bFlightZoom(pz,dist,vw){return Math.max(pz*.45,Math.min(pz*.75,vw*1.2/Math.max(60,dist||300)))}
-function bHitFrame(b,vw){var z=bPadZoom(vw)*.8;return {x:b.lead.to.x,y:b.lead.to.y-10+(vw<700?90/z:0),z:z}}   /* phone: the hit sits 90 px higher, clear of the replay controls and the strike card (Mike 11-20) */
+function bHitFrame(b,vw,vh){var z=bPadZoom(vw)*.8;return {x:b.lead.to.x,y:vh>0?b.lead.to.y+(vw<700?.02:-.02)*vh/z:b.lead.to.y-10,z:z}}   /* BATTLE.md U1 (11-24): no lift; the camera puts the frame at 52% of the stage, so the lead hit sits at 54% (50% under 700 px wide) */
 /** the two-shot: the pad and every target of the beat in one frame (18% side and 22% top/bottom margin), zoom in [fit, pad x .7] */
 function bTwoFrame(b,vw,vh){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,f=b.lead.pad||b.lead.from;[f].concat(b.shots.map(function(s){return s.to})).forEach(function(p){if(!p)return;x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y)});
   var fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,pz=bPadZoom(vw),z=Math.min(vw*.64/Math.max(80,x1-x0),vh*.56/Math.max(80,y1-y0+60));z=Math.max(Math.min(fz,pz*.7),Math.min(pz*.7,z));return {x:(x0+x1)/2,y:(y0+y1)/2-20,z:z}}
 /** Mike 11-20 ("on mobile the missile camera does not keep the missiles in view"): the world points of every missile of the beat
  *  in the air at now (its arc included, so the apex counts) */
 function bFlying(b,now){var P=[];b.shots.forEach(function(s){if(s.rf==null||!s.from||!s.to||now<s.rf||now>s.rf+s.fl)return;var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-s.rf)/s.fl);P.push({x:tr.x,y:tr.y})});return P}
-/** keep pts on screen: margins of 10% at the sides, 10% at the top and room for the HUD and the strike card at the bottom (34% on a
- *  phone, 20% else); zooms out (to 80% of the fit zoom at most) when they don't fit, then slides the frame the least it must */
+/** keep pts on screen: margins of 10% at the sides; the top keeps room for the strike callout (22% under 700 px wide, 10% else),
+ *  the bottom for the replay bar (20% on a phone, 12% else; BATTLE.md 11-24); zooms out (to 80% of the fit zoom at most) when they don't fit, then slides the frame the least it must */
 function bKeep(fr,pts,vw,vh){if(!pts||!pts.length||!fr)return fr;var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;pts.forEach(function(p){x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y)});
-  var mx=vw*.1,mt=vh*.1,mb=vh*(vw<700?.34:.2),fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,z=fr.z,zf=Math.min((vw-2*mx)/Math.max(1,x1-x0),(vh-mt-mb)/Math.max(1,y1-y0));
+  var mx=vw*.1,mt=vh*(vw<700?.22:.1),mb=vh*(vw<700?.2:.12),fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,z=fr.z,zf=Math.min((vw-2*mx)/Math.max(1,x1-x0),(vh-mt-mb)/Math.max(1,y1-y0));
   if(zf<z)z=Math.max(Math.min(z,fz*.8),zf);
   var cx=fr.x,cy=fr.y,lo=x1-(vw/2-mx)/z,hi=x0+(vw/2-mx)/z;cx=lo>hi?(lo+hi)/2:Math.min(hi,Math.max(lo,cx));
   var ylo=y1-(vh/2-mb)/z,yhi=y0+(vh/2-mt)/z;cy=ylo>yhi?(ylo+yhi)/2:Math.min(yhi,Math.max(ylo,cy));return {x:cx,y:cy,z:z}}
@@ -410,13 +410,13 @@ function bCamMix(a,b,u){u=bEase(u);return {x:bLerp(a.x,b.x,u),y:bLerp(a.y,b.y,u)
  *  reduce: cuts instead of moves (pad until mid-flight, then the hit). Returns null after the end (the renderer flies home). */
 function bRepCam(R,now,home,vw,vh,reduce){var S=R.S,st=bRepStage(R,now);if(st==='done')return null;
   if(st==='pre')return home;
-  if(st==='fall'){var FR=R.F,lf=R.beats[R.beats.length-1],from0=lf?bHitFrame(lf,vw):home,uf=(now-S.zf0)/BFL.cam,k2=Math.max(0,now-S.zf),zf=FR.z*(1-.08*Math.min(1,k2/4000));if(reduce)return FR;
+  if(st==='fall'){var FR=R.F,lf=R.beats[R.beats.length-1],from0=lf?bHitFrame(lf,vw,vh):home,uf=(now-S.zf0)/BFL.cam,k2=Math.max(0,now-S.zf),zf=FR.z*(1-.08*Math.min(1,k2/4000));if(reduce)return FR;
     return uf>=1?{x:FR.x,y:FR.y,z:zf}:bCamMix(from0,{x:FR.x,y:FR.y,z:zf},uf)}   // ease to the whole city, then a slow pull back while it derezzes
-  if(st==='wide'||st==='rebuild'){var wide=bWideFrame(R.shots,vw,vh)||home,lb=R.beats[R.beats.length-1],fromC=R.F?{x:R.F.x,y:R.F.y,z:R.F.z*.92}:lb?bHitFrame(lb,vw):home,u=(now-S.wide)/(BRT.wide*.7);return reduce?wide:u>=1?wide:bCamMix(fromC,wide,u)}
-  var b=bBeatAt(R,now);if(!b){var nb=null;for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}return nb&&nb.i>0?bHitFrame(R.beats[nb.i-1],vw):home}
-  var prev=b.i>0?(R.beats[b.i-1].montage?bWideFrame(R.beats[b.i-1].shots,vw,vh)||home:bHitFrame(R.beats[b.i-1],vw)):home,lead=b.lead;
+  if(st==='wide'||st==='rebuild'){var wide=bWideFrame(R.shots,vw,vh)||home,lb=R.beats[R.beats.length-1],fromC=R.F?{x:R.F.x,y:R.F.y,z:R.F.z*.92}:lb?bHitFrame(lb,vw,vh):home,u=(now-S.wide)/(BRT.wide*.7);return reduce?wide:u>=1?wide:bCamMix(fromC,wide,u)}
+  var b=bBeatAt(R,now);if(!b){var nb=null;for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}return nb&&nb.i>0?bHitFrame(R.beats[nb.i-1],vw,vh):home}
+  var prev=b.i>0?(R.beats[b.i-1].montage?bWideFrame(R.beats[b.i-1].shots,vw,vh)||home:bHitFrame(R.beats[b.i-1],vw,vh)):home,lead=b.lead;
   if(b.montage){var mw=bWideFrame(b.shots,vw,vh)||home;return reduce?mw:bCamMix(prev,mw,(now-b.t0)/1000)}
-  var two=bTwoFrame(b,vw,vh),hit=bHitFrame(b,vw);
+  var two=bTwoFrame(b,vw,vh),hit=bHitFrame(b,vw,vh);
   if(now<b.launch){if(reduce)return two;return bCamMix(prev,two,(now-b.t0)/BRT.establish)}   // ease to the two-shot, then hold on it (ready)
   var f=Math.min(1,(now-lead.rf)/lead.fl);
   if(reduce)return f<.5?two:hit;
@@ -636,8 +636,10 @@ function bDemoShots(){bBuildings();var keys=Object.keys(BBLD).filter(function(k)
     for(var k=0;k<n;k++){var d=near[k%n<n-1||near.length<2?0:1],held=k===n-1&&n>2;var w=W[i%W.length];raw.push([a,d,w,held?0:DF[w]*(k%3===1?.5:1),0,held?-1:(k+i)%Math.max(1,BBLD[d].length),held?1:0,0,DX(w,k,held)])}});
   raw.push(['~raiders',keys[0],'rocket',DF.rocket,0,0,0,0,DX('rocket',0,false)]);raw.push(['~raiders',keys[0],'rocket',DF.rocket*.5,0,1%Math.max(1,BBLD[keys[0]].length),0,0,DX('rocket',1,false)]);return raw}
 /** start a replay: today's shots (or the demo), the beats on a virtual clock from 0, the camera saved to come back to */
-function bReplayStart(mode,sp,noFull){if(BREP)bReplayEnd(false);var demo=mode==='demo',src0=demo?null:bPick(bPlan(Date.now()).dayNoon),raw=demo?bDemoShots():(src0||{shots:[]}).shots;
-  if(!raw.length)return 0;bBuildings();var P=bShots(raw);if(!P.n)return 0;P.demo=demo;P.night=demo?'demo':BPLAN?BPLAN.night:'';P.live=false;P.fall=bFallOf(P,demo?null:src0&&src0.fallen);
+/** the night the Replay plays: the newest resolved night (the one the Last night card shows, GE 11-24 data fault); the noon pick when it has no shots */
+function bNewest(noon){if(BDATA&&BDATA.t0!=null&&(BDATA.shots||[]).length)return{t0:BDATA.t0,shots:BDATA.shots,key:BDATA.night||'',fallen:BDATA.fallen||null};return bPick(noon)}
+function bReplayStart(mode,sp,noFull){if(BREP)bReplayEnd(false);var demo=mode==='demo',src0=demo?null:bNewest(bPlan(Date.now()).dayNoon),raw=demo?bDemoShots():(src0||{shots:[]}).shots;
+  if(!raw.length)return 0;bBuildings();var P=bShots(raw);if(!P.n)return 0;P.demo=demo;P.night=demo?'demo':(src0&&src0.key)||(BPLAN?BPLAN.night:'');P.live=false;P.fall=bFallOf(P,demo?null:src0&&src0.fallen);
   var R=bBeats(P.shots,0,reduce,P.fall?bFallFrame(P.fall,vw,vh):null),home={x:(vw/2-cam.x)/cam.z,y:(vh*.52-cam.y)/cam.z,z:cam.z};P.S=R.S;
   // D3 (Mike 11-20): a pressed replay always plays in the theater (full screen, or the CSS full screen where the browser refuses
   // it); a ?replay link on load stays inline (Mike 11-17). Back to the page at the end
@@ -892,7 +894,7 @@ window.CALDERA_BATTLE_API={
   phase:function(){var P=bPlan(Date.now()),S=bS(),now=bNow(),seg=bSegment(S,now),landed=0,fired=0;P.shots.forEach(function(s){if(bLandOf(S,s)<=now)landed++;if(bFireOf(S,s)<=now)fired++});
     var until=seg==='rebuild'?S.end:seg==='salvo'||seg==='damage'?S.hold:S.salvo,o={seg:seg,until:BREP?Date.now()+bRealMs(until-now,BREP.sp):until,salvoAt:S.salvo,total:P.n,landed:landed,fired:fired,night:P.night,replay:!!BREP,rebuilt:bRebuild()};
     if(BREP){var R=BREP.R,b=bBeatAt(R,now),st=bRepStage(R,now),nb=null;if(!b&&st!=='wide'&&st!=='rebuild'&&st!=='fall')for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}var cur=b||nb;
-      o.speed=BREP.sp;o.follow=BREP.follow;var hn2=bHitsNow(BREP.P,BREP.R.S,now),lh=hn2.length?hn2[hn2.length-1]:null;o.hit=lh?{d:lh.s.d,a:lh.s.a,w:lh.s.w,from:Math.round((1-lh.t0)*1e4)/100,to:Math.round((1-lh.t1)*1e4)/100,of:100,shield:!!lh.s.blocked||!(lh.s.f>0),sh:lh.s.blocked?0:lh.s.sh||0,usd:lh.s.f>0?lh.s.usd:0,pot:lh.s.pot||0,fire:!!(lh.s.x?lh.s.x.sp:lh.s.burn>=1)&&lh.s.f>0,ix:lh.s.ix}:null;o.stage=st;o.board=!!BLB;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'||st==='fall'?'damage':st==='rebuild'?'rebuild':'idle';
+      o.speed=BREP.sp;o.follow=BREP.follow;var hn2=bHitsNow(BREP.P,BREP.R.S,now),lh=hn2.length?hn2[hn2.length-1]:null;o.hit=lh?{d:lh.s.d,a:lh.s.a,w:lh.s.w,from:Math.round((1-lh.t0)*1e4)/100,to:Math.round((1-lh.t1)*1e4)/100,of:100,shield:!!lh.s.blocked||!(lh.s.f>0),sh:lh.s.blocked?0:lh.s.sh||0,usd:lh.s.f>0?lh.s.usd:0,pot:lh.s.pot||0,fire:!!(lh.s.x?lh.s.x.sp:lh.s.burn>=1)&&lh.s.f>0,ix:lh.s.ix}:null;o.stage=st;o.board=!!BLB;o.beats=R.beats.length;o.beat=cur?cur.i+1:R.beats.length;o.demo=!!BREP.demo;o.paused=BREP.pauseAt!=null;o.t=now;o.dur=R.S.end;o.b0=cur?cur.t0:null;o.b1=cur?cur.end:null;o.strikes=R.beats.map(function(x){return [x.t0,x.end]});o.seg=st==='beat'||st==='pre'?'salvo':st==='wide'||st==='fall'?'damage':st==='rebuild'?'rebuild':'idle';
       var FF=BREP.P.fall;o.fallen=FF?FF.key:null;o.label=st==='fall'&&FF?(FF.raid?'The raiders fall':FF.key+' falls'):cur?(cur.raid?'Raiders':cur.a)+' → '+(cur.d.charAt(0)==='@'?cur.d:'the sea')+(cur.targets.length>1?' +'+(cur.targets.length-1):'')+' · '+cur.n+' missile'+(cur.n===1?'':'s'):st==='wide'?(FF?(FF.raid?'The raiders fell':FF.key+' fell')+' · every strike landed':'Every strike landed'):st==='rebuild'?'Cranes, '+Math.round(bRebuild()*100)+'% rebuilt':'';}
     return o},
   state:function(){return {on:BON,layers:BL,phase:this.phase(),cities:BDATA&&BDATA.members?Object.keys(BDATA.members).length:0}},
