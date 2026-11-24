@@ -373,7 +373,7 @@ test("11-13 pure city: while the replay plays (PURE) the battle layer draws no t
 });
 
 test("11-13 pure city: city.ts keys one flag (PURE) on html.w-replay; labels, rays, store markers and agent pills read it; the saved Labels and Friendships choices are never written", () => {
-  for (const s of ["var PURE=false;function LBL(){return labels&&!PURE}", "function drawRays(){if(!WORLD||!RAYS||PURE)return;", "c.clearRect(0,0,L3.width,L3.height);if(!LBL()){WLAB=[];return}", "SIGNS=[];if(PURE)return;",
+  for (const s of ["var PURE=false;function LBL(){return labels&&!PURE}", "function drawRays(){if(!WORLD||!RAYS||PURE)return;", "c.clearRect(0,0,L3.width,L3.height);fleetVeil(c);if(!LBL()){WLAB=[];return}", "function fleetVeil(c){if(!FLEET||PURE||!WORLD)return;", "SIGNS=[];if(PURE)return;",
     "function pxPill(c,x,y,text,col){if(typeof PURE!=='undefined'&&PURE)return;", "function heliPill(t){if(!LBL()", "if(LBL()&&bf>=1&&!INTRO", "if(LBL()&&!INTRO){var fT=", "pureSync"])
     assert.ok(CITY_JS.includes(s), s);
   assert.ok(CITY_CSS.includes("html.w-replay .c-live,html.w-replay .c-today,html.w-replay .c-hint,html.w-replay .c-heli,html.w-replay .c-sfk{display:none!important}"), "the live panel, visit count, hint, helicopter line and store keys hide too");

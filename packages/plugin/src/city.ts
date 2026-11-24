@@ -1174,8 +1174,9 @@ ${BATTLE_DRAW_JS}
 var GC=window.CALDERA_GIFTS||null,GME=null,LIT={};
 if(D.world&&GC){fetch(GC.url+'/me',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){GME=j}).catch(function(){});
   fetch(GC.url+'/lit',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.lit)LIT=j.lit}).catch(function(){})}
-function giftHtml(key,repo){if(!D.world||!GC)return'';var L=LIT[key],h=key.replace(/^@/,''),out='<div class="c-gift">';
+function giftHtml(key,repo){if(!D.world||!GC)return repo?'':orphLine(key);var L=LIT[key],h=key.replace(/^@/,''),out='<div class="c-gift">';
   if(L&&L.n)out+='<div class="k">&#10022; Lit up today by '+L.by.slice(0,4).map(function(x){return '@'+e(x)}).join(', ')+(L.n>4?' and '+(L.n-4)+' more':'')+'</div>';
+  if(!repo)out+=orphLine(key);
   if(!GME)out+='';else if(!GME.member)out+='<a class="c-gift-b" href="/auth/github?back=%2Fworld">&#10022; Sign in to light up '+(repo?'this repo':'their city')+'</a>';
   else if(!GME.listed)out+='<div class="k">List your page in People to light up cities.</div>';
   else if(GME.handle===h)out+=L&&L.n?'':'<div class="k">Friends can light up your city. It glows here for 24 hours.</div>';
@@ -1335,32 +1336,68 @@ function worldScores(){var t=performance.now();if(WSCORE&&t-WSCORE_T<5000)return
     WSCORE[n.key]=(LIT[n.key]&&LIT[n.key].n?40+5*LIT[n.key].n:0)+(ag[n.key]?30+5*ag[n.key]:0)+Math.min(30,6*Math.log(1+wk))+Math.min(10,Math.log(1+cm))+(wm.isNew?8:0)+Math.min(6,+wm.friends||0)});return WSCORE}
 function nbTop(n){if(n._ty==null){var ty=Infinity;n.ds.forEach(function(d){(BDIST[d.name]||[]).forEach(function(o){ty=Math.min(ty,iso(o.i,o.j).y-bh(o.r))})});
   var m=iso(n.ox+n.w/2-.5,n.oy+n.h/2-.5);n._tx=m.x;n._ty=isFinite(ty)?ty-10:iso(n.ox-.5,n.oy-.5).y-10}return {x:n._tx,y:n._ty}}
-function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);if(!LBL()){WLAB=[];return}c.setTransform(dpr,0,0,dpr,0,0);
-  var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[],me=worldMe(),fr=worldFriends(),sc=worldScores(),phone=vw<600;
-  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y),k=n.key,pr=k===foc?0:k===WHOVER?.3:k===me?.6:fr[k]?.8:1;
+function worldLabels(tags){var c=c3;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,L3.width,L3.height);fleetVeil(c);if(!LBL()){WLAB=[];return}c.setTransform(dpr,0,0,dpr,0,0);
+  var z=cam.z,S=function(x,y){return [x*z+cam.x,y*z+cam.y]},foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null,cand=[],placed=[],me=worldMe(),fr=worldFriends(),sc=worldScores(),phone=vw<600,late=[];
+  NBS.forEach(function(n){var wm=WORLD.m[n.key]||{},t=nbTop(n),sp=S(t.x,t.y),k=n.key,of=wm.orph|0,pr=k===foc?0:k===WHOVER?.3:k===me?.6:of?.65:fr[k]?.8:1;
+    if(FLEET&&!of&&k!==foc)return;   // Orpheus fleet only: the other cities keep no label (the focused one does)
     if(n.uc){cand.push({pr:1,sc:0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+' · Unclaimed',uc:1,ua:ucK(n,500,700),hl:ucHl(n),font:'600 10.5px IBM Plex Mono,ui-monospace,monospace',block:n.rep});return}
-    cand.push({pr:pr,sc:sc[k]||0,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+(wm.isNew?(phone?' ✦':' ✦ new'):'')+(LIT[k]&&LIT[k].n?'  ✦ lit'+(LIT[k].n>1?' ×'+LIT[k].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':k===me?'rgba(109,74,232,.98)':'rgba(139,108,246,.96)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
+    cand.push({pr:pr,sc:sc[k]||0,orph:of,x:sp[0],y:sp[1],text:(phone&&k.length>22?k.slice(0,21)+'…':k)+(wm.isNew?(phone?' ✦':' ✦ new'):'')+(LIT[k]&&LIT[k].n?'  ✦ lit'+(LIT[k].n>1?' ×'+LIT[k].n:''):''),bg:wm.isNew?'rgba(46,170,120,.95)':k===me?'rgba(109,74,232,.98)':'rgba(139,108,246,.96)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',block:n.rep})});
   if(z>=.55)blocks.forEach(function(b){if(b.estate||b.d.uc)return;var p2=corner(b.x+b.k-.5+.05,b.y+b.k-.5+.05),sp=S(p2[0],p2[1]);cand.push({pr:(b.d.nb===foc?1.5:2),sc:0,x:sp[0],y:sp[1]+20,text:b.d.label||b.d.name,bg:'rgba(26,22,44,.9)',fg:'#E6DEFF',font:'600 11px IBM Plex Sans,Arial,sans-serif',block:byName[b.d.nb]||b})});
   if(z>=.55&&typeof yardLabels==='function')yardLabels(cand,S);   // the Armory yard's chip (cityarmory.ts)
   if(z>=.55){var per={};Object.keys(AG).forEach(function(id){var a=AG[id].a;if(!a||!a.d||AG[id].gone)return;var q=per[a.d]=per[a.d]||{w:0,p:0};if(a.state==='working'||a.state==='thinking')q.w++;else q.p++});
     Object.keys(per).forEach(function(k){if(!NBM[k])return;var hb=dockAt({d:k}),sp=S(hb.x,hb.y),q=per[k];
-      cand.push({pr:1.9,sc:0,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
+      cand.push({pr:1.9,sc:0,nb:k,x:sp[0],y:sp[1]+18,text:k+'’s agents'+(q.w?' · '+q.w+' working':'')+(q.p?' · '+q.p+' parked':''),bg:'rgba(48,34,6,.9)',fg:'#FFC24A',font:'600 10px IBM Plex Mono,ui-monospace,monospace'})})}
   if(SHOP&&SHOP.big){var mq=iso(SHOP.i+1,SHOP.j+1),msp=S(mq.x,mq.y-30);cand.push({pr:.5,sc:0,x:msp[0],y:msp[1],text:'\u2726 Free tools market \u00b7 '+TOOLS.length,bg:'rgba(201,139,78,.97)',fg:'#fff',font:phone?'700 11.5px IBM Plex Sans,Arial,sans-serif':'700 13px IBM Plex Sans,Arial,sans-serif',shop:1})}
   tags.forEach(function(g){var sp=S(g.x,g.y);cand.push({pr:3,sc:0,x:sp[0],y:sp[1],text:g.text,bg:'rgba(17,20,32,.88)',fg:'#F2F2F5',font:'600 10.5px IBM Plex Sans,Arial,sans-serif',url:g.url})});
+  if(FLEET)cand=cand.filter(function(g){if(g.orph||g.pr===0)return true;var k=g.armory||g.nb||(g.block&&g.block.d&&(g.block.d.nb||g.block.d.name));return !!(k&&fleetHas(k)&&g.pr>=1.5&&g.pr<3)});   // block labels, yards and agent chips of fleet cities only
   cand.sort(function(a,b){return a.pr-b.pr||b.sc-a.sc});WLAB=placed;
   // budget: one label per ~40,000px² of stage in smart mode (about 6 on a phone, 20 on a laptop); the must-shows never count
   // zooming in spreads neighborhoods apart, so the budget grows with zoom (up to 4x) and collisions decide the rest
   var cap=LMODE==='all'?Infinity:Math.round(Math.max(4,vw*vh/40000)*Math.max(1,Math.min(4,FITZ?z/FITZ:1))),used=0,M=5;
   var hitAny=function(q){for(var i=0;i<placed.length;i++){var o=placed[i];if(q.x0<o.x1+M&&q.x1+M>o.x0&&q.y0<o.y1+M&&q.y1+M>o.y0)return true}return false};
-  cand.forEach(function(g){var must=g.pr<.7;if(!must&&used>=cap)return;c.font=g.font;var w=c.measureText(g.text).width+12+(g.dots&&g.dots.length?g.dots.length*8+2:0),bx={x0:g.x-w/2-3,x1:g.x+w/2+3,y0:g.y-20,y1:g.y+5};
+  cand.forEach(function(g){var must=g.pr<.7;if(!must&&used>=cap)return;c.font=g.font;var w=c.measureText(g.text).width+12+(g.dots&&g.dots.length?g.dots.length*8+2:0)+(g.orph?18:0),bx={x0:g.x-w/2-3,x1:g.x+w/2+3,y0:g.orph?g.y-24:g.y-20,y1:g.y+5};
     if(bx.x1<0||bx.x0>vw||bx.y1<0||bx.y0>vh)return;
     {var sh=Math.max(0,6-bx.x0)-Math.max(0,bx.x1-(vw-6));if(sh){bx.x0+=sh;bx.x1+=sh;g.x+=sh}}   // a name near the edge slides in instead of vanishing
     if(hitAny(bx)){if(!must)return;var offs=[],ok=false;[26,52].forEach(function(dy){[0,-.5,.5].forEach(function(fx){offs.push([w*fx,-dy]);offs.push([w*fx,dy])})});
       for(var oi=0;oi<offs.length&&!ok;oi++){var ox=offs[oi][0],q={x0:bx.x0+ox,x1:bx.x1+ox,y0:bx.y0+offs[oi][1],y1:bx.y1+offs[oi][1]};var s2=Math.max(0,6-q.x0)-Math.max(0,q.x1-(vw-6));q.x0+=s2;q.x1+=s2;ox+=s2;   // stay inside the stage
         if(q.y0<4||q.y1>vh-4)continue;if(!hitAny(q)){bx=q;g.x+=ox;g.y+=offs[oi][1];ok=true}}if(!ok)return}
     if(!must)used++;bx.text=g.text;bx.pr=g.pr;placed.push(bx);
-    if(g.uc)ucPill(c,g.x,g.y,g.text,g.font,g.ua,g.hl);else if(g.dots)yChip(c,g.x,g.y,g.text,g.dots,g.font);else pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
-    if(g.url||g.block||g.shop)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block,shop:g.shop,armory:g.armory})})}
+    if(g.orph)late.push(g);else if(g.uc)ucPill(c,g.x,g.y,g.text,g.font,g.ua,g.hl);else if(g.dots)yChip(c,g.x,g.y,g.text,g.dots,g.font);else pill(c,g.x,g.y,g.text,g.bg,g.fg,g.font);
+    if(g.url||g.block||g.shop)tagHits.push({x0:(bx.x0-cam.x)/z,x1:(bx.x1-cam.x)/z,y0:(bx.y0-cam.y)/z,y1:(bx.y1-cam.y)/z,url:g.url,block:g.block,shop:g.shop,armory:g.armory})});
+  late.forEach(function(g){fleetPill(c,g.x,g.y,g.text,g.orph===2,g.font)})}   // Orpheus fleet pins go over every other label
+// ---- the Orpheus fleet (FLEET.md piece 1, Fable 11-24): members who run Orpheus carry a pin (gold = Founding Fleet); the
+// toggle shows only them, the other cities under a veil at about 22%. The state lives in the URL only (?fleet=orpheus).
+function fleetHas(k){var m=WORLD&&WORLD.m[k];return !!(m&&m.orph)}
+var FLEETN=WORLD?Object.keys(WORLD.m).filter(fleetHas).length:0,FLEET=false;
+try{FLEET=!!FLEETN&&new URLSearchParams(location.search).get('fleet')==='orpheus'}catch(err){}
+function fleetVeil(c){if(!FLEET||PURE||!WORLD)return;c.save();c.setTransform(dpr,0,0,dpr,0,0);c.fillStyle='rgba(9,8,16,.78)';c.fillRect(0,0,vw,vh);
+  c.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*cam.x,dpr*cam.y);c.globalCompositeOperation='destination-out';c.fillStyle='#000';var foc=WFOCUS?(WFOCUS.d.nb||WFOCUS.d.name):null;
+  NBS.forEach(function(n){if(n.uc||!(fleetHas(n.key)||n.key===foc))return;var a=iso(n.ox-1.4,n.oy-1.4),b=iso(n.ox+n.w+.6,n.oy-1.4),d=iso(n.ox+n.w+.6,n.oy+n.h+.6),f=iso(n.ox-1.4,n.oy+n.h+.6);
+    c.beginPath();c.moveTo(a.x,a.y+TH/2-260);c.lineTo(b.x,b.y+TH/2-260);c.lineTo(b.x,b.y+TH/2);c.lineTo(d.x,d.y+TH/2);c.lineTo(f.x,f.y+TH/2);c.lineTo(f.x,f.y+TH/2-260);c.closePath();c.fill()});c.restore()}
+/** the pin: a pill with the Orpheus medallion and a pointer; gold for the Founding Fleet */
+function fleetPill(c,x,y,text,gold,font){c.font=font;var tw=c.measureText(text).width,d=15,w=tw+d+15,h=21,r=10.5,x0=x-w/2,x1=x+w/2,y0=y-h;
+c.save();c.shadowColor=gold?'rgba(255,196,84,.95)':'rgba(196,178,255,.95)';c.shadowBlur=14;
+var g=c.createLinearGradient(0,y0,0,y);if(gold){g.addColorStop(0,'#FFE7A6');g.addColorStop(1,'#E9AE3B')}else{g.addColorStop(0,'#FFFFFF');g.addColorStop(1,'#E6DEFF')}
+c.fillStyle=g;c.beginPath();c.moveTo(x0+r,y0);c.arcTo(x1,y0,x1,y,r);c.arcTo(x1,y,x0,y,r);c.lineTo(x+4,y);c.lineTo(x,y+5);c.lineTo(x-4,y);c.arcTo(x0,y,x0,y0,r);c.arcTo(x0,y0,x1,y0,r);c.closePath();c.fill();c.restore();
+c.lineWidth=1.5;c.strokeStyle=gold?'#7A5200':'#6D4AE8';c.stroke();
+var mx=x0+3+d/2,my=y-h/2,ink=gold?'#FFD46B':'#FFFFFF';
+c.fillStyle=gold?'#3A2600':'#2A1B66';c.beginPath();c.arc(mx,my,d/2,0,6.3);c.fill();
+c.strokeStyle=ink;c.lineWidth=1.3;c.beginPath();c.arc(mx-.5,my+.7,3.3,0,6.3);c.stroke();
+c.fillStyle=ink;c.beginPath();c.arc(mx-.5,my+.7,1.1,0,6.3);c.fill();c.beginPath();c.arc(mx+2.7,my-2.9,1.5,0,6.3);c.fill();
+c.fillStyle=gold?'#2A1B00':'#1A1330';c.textAlign='left';c.textBaseline='middle';c.fillText(text,mx+d/2+4,my+.5);c.textAlign='center';c.textBaseline='alphabetic'}
+var OFMARK='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false" style="flex:none"><circle cx="8" cy="8.6" r="4.9" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="8" cy="8.6" r="1.6" fill="currentColor"/><circle cx="12.4" cy="3.6" r="2" fill="currentColor"/></svg>';
+/** the world card line for a fleet member (after the Lit up today line) */
+function orphLine(key){var m=WORLD&&WORLD.m[key];if(!m||!m.orph)return'';var h=key.replace(/^@/,''),href='https://useorpheus.com/?utm_source=caldera&utm_medium=map&utm_campaign=tie&ref='+encodeURIComponent(h);
+  return '<a class="k k-orph'+(m.orph===2?' gold':'')+'" href="'+e(href)+'" target="_blank" rel="noopener">'+OFMARK+(m.orph===2?'Founding Fleet &middot; Runs on Orpheus':'Runs on Orpheus')+' <span aria-hidden="true">&rarr;</span></a>'}
+/** one switch for the Layers row, the fleet row's label and the on-map chip: aria-pressed, the chip, the URL, a redraw */
+function fleetSet(on){on=!!on&&!!FLEETN;FLEET=on;['t-orph','of-only'].forEach(function(id){var b=document.getElementById(id);if(b)b.setAttribute('aria-pressed',String(on))});
+  var ch=document.getElementById('w-of-chip');if(on&&!ch&&st){ch=document.createElement('button');ch.type='button';ch.className='w-of-chip';ch.id='w-of-chip';ch.setAttribute('aria-label','Orpheus fleet only. Show all cities');
+    ch.innerHTML=OFMARK+'<span>Orpheus fleet only</span><b aria-hidden="true">&times;</b>';ch.onclick=function(){fleetSet(false)};st.appendChild(ch)}else if(!on&&ch)ch.remove();
+  try{var u=new URL(location.href);if(on)u.searchParams.set('fleet','orpheus');else u.searchParams.delete('fleet');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}catch(err){}
+  draw();return on}
+if(WORLD){window.CALDERA_FLEET=fleetSet;
+  /** the fleet row's chips fly to a city; false = not on this map (the link opens instead) */
+  window.CALDERA_FOCUS=function(h){var b=byName['@'+String(h||'').toLowerCase().replace(/^@/,'')];if(!b)return false;worldFocus(b);return true}}
 // friendships as rays of light: soft glowing arcs in the sky between two neighborhoods, light motes travelling along
 // them. Real friendships glow warm violet, people who work on the same repo glow code-teal, GitHub follows sky-blue; the
 // founder's welcome links are faint and thin. Dimmer by day. Links are [a, b, kind, why]: 0 request/invite, 1 founder,
@@ -1742,6 +1779,7 @@ cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function zoom(f,ox,oy){var lim=BON?bCamLim():null,z=lim?bClampZoom(cam.z*f,lim.min,lim.max):Math.min(3,Math.max(D.world?.08:.25,cam.z*f));f=z/cam.z;cam.x=ox-(ox-cam.x)*f;cam.y=oy-(oy-cam.y)*f;cam.z=z;if(BON){bClampPan();bUserCam()}draw()}   // the Battle view: never farther out than the whole battlefield, never closer than 3x
 cv.addEventListener('wheel',function(ev){ev.preventDefault();if(BON)flyStop();var r=st.getBoundingClientRect(),dy=ev.deltaMode===1?ev.deltaY*16:ev.deltaMode===2?ev.deltaY*100:ev.deltaY;zoom(Math.exp(-dy*(ev.ctrlKey?0.01:0.0015)),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});   // a mouse wheel, or a trackpad pinch (the browser sends it as a ctrl+wheel with small steps)
 var bl=document.getElementById('t-labels'),bs=document.getElementById('t-sky');
+var bto=document.getElementById('t-orph');if(WORLD&&!FLEETN){if(bto)bto.remove();var ofr=document.getElementById('of-row');if(ofr)ofr.remove()}else if(WORLD){if(bto)bto.onclick=function(){fleetSet(!FLEET)};if(FLEET)setTimeout(function(){fleetSet(true)},0)}
 var btp=document.getElementById('t-topics');if(btp){btp.setAttribute('aria-pressed',String(TOPICS));topicLegend();btp.onclick=function(){TOPICS=!TOPICS;btp.setAttribute('aria-pressed',String(TOPICS));try{localStorage.setItem('caldera-world-topics',TOPICS?'1':'0')}catch(err){}topicLegend();if(reduce)frame()}}
 var bfr=document.getElementById('t-fr');if(bfr){bfr.setAttribute('aria-pressed',String(RAYS));bfr.onclick=function(){RAYS=!RAYS;bfr.setAttribute('aria-pressed',String(RAYS));try{localStorage.setItem('caldera-world-rays',RAYS?'1':'0')}catch(err){}if(reduce)frame()}}
 var LTXT={smart:'Labels',all:'All labels',off:'Labels off'},LTIP={smart:'Labels: the most relevant names that fit. Zoom in for more. Tap for all',all:'All labels that fit. Tap to hide labels',off:'Labels hidden. Tap for smart labels'};
@@ -1835,7 +1873,7 @@ window.addEventListener('resize',function(){fit();draw()});
 // ---- the toolbar on one row (Mike 11-19, Duo landscape: the chips wrapped into tall circles over the map). Buttons that
 // don't fit move, least used first, into a "More" menu at the end of the row; at mid widths Sound, Reset, Pop out and Full
 // screen drop their words first. The CSS rides in the script (published pages only get the script upgraded).
-var MORE=null,MOREP=null,TORD=null,MORDER=['t-legend','t-topics','t-sky','t-wx','t-sf','t-under','*','t-pop','t-snd','t-reset','t-fr','t-stores','t-labels'];
+var MORE=null,MOREP=null,TORD=null,MORDER=['t-legend','t-topics','t-orph','t-sky','t-wx','t-sf','t-under','*','t-pop','t-snd','t-reset','t-fr','t-stores','t-labels'];
 function moreOpen(on){if(!MOREP)return;MOREP.hidden=!on;MORE.setAttribute('aria-expanded',String(!!on));if(on)MOREP.style.maxHeight=Math.max(120,st.clientHeight-60)+'px'}
 function toolsFit(){var tb=st.querySelector('.c-tools');if(!tb)return;
   if(!MORE){if(!document.getElementById('c-more-css')){var sc=document.createElement('style');sc.id='c-more-css';
