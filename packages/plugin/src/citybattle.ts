@@ -285,7 +285,7 @@ var BSHK=null;
 function bShake(now,a,dur){if(reduce||now==null)return;dur=dur||600;var cur=BSHK?BSHK.a*Math.exp(-4*(now-BSHK.t)/BSHK.dur):0;if(a>cur)BSHK={t:now,a:a,dur:dur}}
 // the full-frame flash of the big blasts (spec: L .18 for 140 ms, XL .45 for 300, the last strike .85 easing out over 420)
 var BFLS=null;function bFlash(now,a,dur){if(reduce||now==null)return;if(!BFLS||now>=BFLS.t+BFLS.dur||a>=BFLS.a)BFLS={t:now,a:a,dur:dur}}
-function bShakeAt(now){if(!BSHK||reduce)return [0,0];var u=now-BSHK.t;if(u<0||u>BSHK.dur*1.2)return [0,0];var a=BSHK.a*Math.exp(-4*u/BSHK.dur);return [Math.sin(u*.093)*a+Math.sin(u*.051)*a*.5,Math.cos(u*.077)*a*.6]}
+function bShakeAt(now){if(!BSHK||reduce)return [0,0];var u=now-BSHK.t;if(u<0||u>BSHK.dur*1.2)return [0,0];var a=BSHK.a*Math.exp(-4*u/BSHK.dur);if(vw<700)a=Math.min(6,a*.7);   /* MOTION.md 11-26: a phone shakes x .7, at most 6 px */return [Math.sin(u*.093)*a+Math.sin(u*.051)*a*.5,Math.cos(u*.077)*a*.6]}
 /** under the objects, over the ground (city.ts frame calls it): the scorched desolation of every L and XL blast with embers, held
  *  until the cranes clear it, and the fallen city's ground: one big scorch and a glowing grid where each building stood */
 function battleUnder(){if(!BON||!BDATA||!BL.damage||typeof GM==='undefined')return;var P=BREP?BREP.P:BPLAN;if(!P)return;var S=bS();if(!S)return;var now=bNow();if(S.live&&now>=S.end)return;
@@ -396,7 +396,18 @@ function bTwoFrame(b,vw,vh){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,f=b.lead.pad||b.le
   var fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,pz=bPadZoom(vw),z=Math.min(vw*.64/Math.max(80,x1-x0),vh*.56/Math.max(80,y1-y0+60));z=Math.max(Math.min(fz,pz*.7),Math.min(pz*.7,z));return {x:(x0+x1)/2,y:(y0+y1)/2-20,z:z}}
 /** Mike 11-20 ("on mobile the missile camera does not keep the missiles in view"): the world points of every missile of the beat
  *  in the air at now (its arc included, so the apex counts) */
-function bFlying(b,now){var P=[];b.shots.forEach(function(s){if(s.rf==null||!s.from||!s.to||now<s.rf||now>s.rf+s.fl)return;var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-s.rf)/s.fl);P.push({x:tr.x,y:tr.y})});return P}
+function bFlying(b,now){var P=[];b.shots.forEach(function(s){if(s.rf==null||!s.from||!s.to||now<s.rf)return;if(now>=s.rf+s.fl){P.push({x:s.to.x,y:s.to.y});return}var tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,(now-s.rf)/s.fl);P.push({x:tr.x,y:tr.y})});return P}   /* 11-26 (Mike: "the map jumps" at the hit): a landed missile stays in the set at its target, so the frame never snaps when one lands */
+/** Mike 11-26 ("the zoom into the city needs to view right at the moment before impact"): the camera settles BSETTLE ms (virtual)
+ *  before the lead impact and holds still through the hit. The settled frame is static per beat: the hit frame widened once to hold
+ *  every target of the beat and the rest of each arc from the settle time on (no live framing after it, so nothing moves at the hit) */
+var BSETTLE=450,BTAU=90,BEASE=1300;   /* MOTION.md (11-26): L = 450 ms real before the FIRST impact of the beat (x speed on the replay clock), a 1300 ms real ease, a 90 ms real filter */
+function bSp(){return BREP&&BREP.sp?BREP.sp:1}
+function bSettleAt(b){var first=b.lead.ri;b.shots.forEach(function(s){if(s.ri!=null&&s.ri<first)first=s.ri});return Math.max(b.lead.rf+b.lead.fl*.25,first-BSETTLE*bSp())}
+/** smootherstep, zoom in log space: no visible stop on arrival */
+function bCamMix5(a,b,u){u=Math.max(0,Math.min(1,u));u=u*u*u*(u*(u*6-15)+10);return {x:bLerp(a.x,b.x,u),y:bLerp(a.y,b.y,u),z:Math.exp(bLerp(Math.log(a.z),Math.log(b.z),u))}}
+function bHitK(b,vw,vh){var ts=bSettleAt(b);if(b.hk&&b.hk.w===vw&&b.hk.h===vh&&b.hk.ts===ts)return b.hk.f;var P=[];b.shots.forEach(function(s){if(s.rf==null||!s.from||!s.to)return;P.push({x:s.to.x,y:s.to.y});if(s.ri<=ts)return;
+    for(var k=0;k<=6;k++){var u=Math.max(0,(ts-s.rf)/s.fl)+(1-Math.max(0,(ts-s.rf)/s.fl))*k/6,tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,Math.min(1,u));P.push({x:tr.x,y:tr.y})}});
+  var f=bKeep(bHitFrame(b,vw,vh),P,vw,vh);b.hk={w:vw,h:vh,ts:ts,f:f};return f}
 /** keep pts on screen: margins of 10% at the sides; the top keeps room for the strike callout (22% under 700 px wide, 10% else),
  *  the bottom for the replay bar (20% on a phone, 12% else; BATTLE.md 11-24); zooms out (to 80% of the fit zoom at most) when they don't fit, then slides the frame the least it must */
 function bKeep(fr,pts,vw,vh){if(!pts||!pts.length||!fr)return fr;var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;pts.forEach(function(p){x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y)});
@@ -411,21 +422,21 @@ function bCamMix(a,b,u){u=bEase(u);return {x:bLerp(a.x,b.x,u),y:bLerp(a.y,b.y,u)
  *  reduce: cuts instead of moves (pad until mid-flight, then the hit). Returns null after the end (the renderer flies home). */
 function bRepCam(R,now,home,vw,vh,reduce){var S=R.S,st=bRepStage(R,now);if(st==='done')return null;
   if(st==='pre')return home;
-  if(st==='fall'){var FR=R.F,lf=R.beats[R.beats.length-1],from0=lf?bHitFrame(lf,vw,vh):home,uf=(now-S.zf0)/BFL.cam,k2=Math.max(0,now-S.zf),zf=FR.z*(1-.08*Math.min(1,k2/4000));if(reduce)return FR;
+  if(st==='fall'){var FR=R.F,lf=R.beats[R.beats.length-1],from0=lf?bHitK(lf,vw,vh):home,uf=(now-S.zf0)/BFL.cam,k2=Math.max(0,now-S.zf),zf=FR.z*(1-.08*Math.min(1,k2/4000));if(reduce)return FR;
     return uf>=1?{x:FR.x,y:FR.y,z:zf}:bCamMix(from0,{x:FR.x,y:FR.y,z:zf},uf)}   // ease to the whole city, then a slow pull back while it derezzes
-  if(st==='wide'||st==='rebuild'){var wide=bWideFrame(R.shots,vw,vh)||home,lb=R.beats[R.beats.length-1],fromC=R.F?{x:R.F.x,y:R.F.y,z:R.F.z*.92}:lb?bHitFrame(lb,vw,vh):home,u=(now-S.wide)/(BRT.wide*.7);return reduce?wide:u>=1?wide:bCamMix(fromC,wide,u)}
-  var b=bBeatAt(R,now);if(!b){var nb=null;for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}return nb&&nb.i>0?bHitFrame(R.beats[nb.i-1],vw,vh):home}
-  var prev=b.i>0?(R.beats[b.i-1].montage?bWideFrame(R.beats[b.i-1].shots,vw,vh)||home:bHitFrame(R.beats[b.i-1],vw,vh)):home,lead=b.lead;
+  if(st==='wide'||st==='rebuild'){var wide=bWideFrame(R.shots,vw,vh)||home,lb=R.beats[R.beats.length-1],fromC=R.F?{x:R.F.x,y:R.F.y,z:R.F.z*.92}:lb?bHitK(lb,vw,vh):home,u=(now-S.wide)/(BRT.wide*.7);return reduce?wide:u>=1?wide:bCamMix(fromC,wide,u)}
+  var b=bBeatAt(R,now);if(!b){var nb=null;for(var i=0;i<R.beats.length;i++)if(now<R.beats[i].t0){nb=R.beats[i];break}return nb&&nb.i>0?bHitK(R.beats[nb.i-1],vw,vh):home}
+  var prev=b.i>0?(R.beats[b.i-1].montage?bWideFrame(R.beats[b.i-1].shots,vw,vh)||home:bHitK(R.beats[b.i-1],vw,vh)):home,lead=b.lead;
   if(b.montage){var mw=bWideFrame(b.shots,vw,vh)||home;return reduce?mw:bCamMix(prev,mw,(now-b.t0)/1000)}
-  var two=bTwoFrame(b,vw,vh),hit=bHitFrame(b,vw,vh);
+  var two=bTwoFrame(b,vw,vh),hit=bHitK(b,vw,vh),ts=bSettleAt(b);
   if(now<b.launch){if(reduce)return two;return bCamMix(prev,two,(now-b.t0)/BRT.establish)}   // ease to the two-shot, then hold on it (ready)
   var f=Math.min(1,(now-lead.rf)/lead.fl);
   if(reduce)return f<.5?two:hit;
-  if(f>=1)return bKeep(hit,bFlying(b,now),vw,vh);   // the hold on the hit (a ripple's last missiles may still be flying)
+  if(now>=ts)return hit;   // settled before the impact: the hit, the blast and the hold play in a still frame (it already holds the ripple's later missiles)
   var pz=bPadZoom(vw),near=two.z>=.5*pz,fly=two;
   if(!near){var tr=bTraj(lead.from.x,lead.from.y,lead.to.x,lead.to.y,f),fz=typeof FITZ==='number'&&FITZ>0?FITZ:.3,zf=Math.max(Math.min(fz,pz*.6),Math.min(pz*.6,bVmax(vw)*(lead.fl/1000)/Math.max(60,lead.dist||300)));
     var tk={x:bLerp(tr.x,lead.to.x,.35),y:bLerp(tr.gy,lead.to.y,.35)-20,z:zf};fly=f<.15?bCamMix(two,tk,f/.15):tk}   // far strike: track a point 35% ahead of the missile, slow enough to follow
-  return bKeep(f<.6?fly:bCamMix(fly,hit,(f-.6)/.22),bFlying(b,now),vw,vh)}   // 60-82% of the flight: ease to the hit frame, then the missile flies into a still frame
+  var e0=Math.max(lead.rf+lead.fl*.25,ts-BEASE*bSp()),live=bKeep(fly,bFlying(b,now),vw,vh);return now<e0?live:bCamMix5(live,hit,(now-e0)/Math.max(1,ts-e0))}   // one eased move (1300 ms real) that arrives L before the first impact
 // ---- smoke ribbons: one polyline per missile, kept for the whole replay. Points carry their time, so the ribbon widens,
 // drifts with the wind and thins as it ages. Polylines, not particles: ten ribbons cost ten strokes a frame.
 var BTR=[];
@@ -675,7 +686,9 @@ function bUserCam(){if(BREP&&BON&&BREP.follow){BREP.follow=false;BREP.ease=null}
 function bFollow(on){if(!BREP)return false;on=on==null?true:!!on;if(typeof flyStop==='function')flyStop();if(on&&!BREP.follow){BREP.follow=true;BREP.ease=reduce?null:{t0:performance.now(),x:cam.x,y:cam.y,z:cam.z}}else if(!on){BREP.follow=false;BREP.ease=null}bRedraw();return BREP.follow}
 function bFitAll(){bUserCam();var f=bFitCam();if(typeof flyStop==='function')flyStop();if(reduce||typeof flyTo!=='function'){cam.x=f.x;cam.y=f.y;cam.z=f.z;dirty=true;bRedraw()}else flyTo(f.x,f.y,f.z,350)}
 /** the camera, every frame before anything is drawn (frame() calls it): where the beats want it, in css px */
-function bCam(){if(!BREP||!BON||!BREP.follow)return;var R=BREP.R,c=bRepCam(R,bNow(),BREP.home,vw,vh,reduce);if(!c)return;var x=vw/2-c.x*c.z,y=vh*.52-c.y*c.z,z=c.z,E=BREP.ease;
+function bCam(){if(!BREP||!BON||!BREP.follow)return;var R=BREP.R,vn=bNow(),c=bRepCam(R,vn,BREP.home,vw,vh,reduce);if(!c)return;
+  var C=BREP.cs,rt=performance.now(),rd=C?rt-C.r:0,vd=C?vn-C.t:0,cut=!C||reduce||C.w!==vw||C.h!==vh||C.sp!==BREP.sp||rd<0||rd>250||Math.abs(vd-rd*BREP.sp)>120&&!(BREP.pauseAt!=null&&vd===0);
+  if(!cut&&rd>0){var a=1-Math.exp(-Math.min(50,rd)/BTAU);c={x:bLerp(C.x,c.x,a),y:bLerp(C.y,c.y,a),z:Math.exp(bLerp(Math.log(C.z),Math.log(c.z),a))}}else if(!cut)c={x:C.x,y:C.y,z:C.z};BREP.cs={x:c.x,y:c.y,z:c.z,t:vn,r:rt,w:vw,h:vh,sp:BREP.sp};var x=vw/2-c.x*c.z,y=vh*.52-c.y*c.z,z=c.z,E=BREP.ease;
   y+=bCardLift(bNow(),y,z);var sk=bShakeAt(bNow());x+=sk[0];y+=sk[1];   // the strike card: the hit stays clear of it
   if(E){var u=(performance.now()-E.t0)/BCAMEASE;if(reduce||u>=1)BREP.ease=null;else{u=bEase(u);x=bLerp(E.x,x,u);y=bLerp(E.y,y,u);z=bLerp(E.z,z,u)}}   // Follow was just pressed: ease back to where the auto camera is
   if(Math.abs(x-cam.x)>.05||Math.abs(y-cam.y)>.05||Math.abs(z-cam.z)>1e-4){cam.x=x;cam.y=y;cam.z=z;dirty=true}}

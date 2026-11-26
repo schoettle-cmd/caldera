@@ -43,7 +43,7 @@ test("Mike 11-20: on a phone the replay camera keeps every missile in the air on
   const k = bKeep(fr, pts, 390, 844); pts.forEach(p => assert.ok(on(k, p, 390, 844), JSON.stringify(k)));
   const wide = [{ x: -2000, y: 0 }, { x: 2000, y: -300 }]; const k2 = bKeep(fr, wide, 390, 844); assert.ok(k2.z < fr.z && k2.z >= 0.24 - 1e-9);
   assert.deepEqual(bKeep(fr, [], 390, 844), fr);
-  assert.match(CITY_JS, /return bKeep\(f<\.6\?fly:bCamMix\(fly,hit,\(f-\.6\)\/\.22\),bFlying\(b,now\),vw,vh\)\}/);
+  assert.match(CITY_JS, /live=bKeep\(fly,bFlying\(b,now\),vw,vh\);return now<e0\?live:bCamMix5\(live,hit,/, "in the air the live frame keeps the missiles; from 55% of the flight it eases to the settled hit frame (11-26)");
 });
 
 test("Mike 11-20: zoomed out, a hit tower is cut to its stump and charred like close up (no whole block)", () => {
