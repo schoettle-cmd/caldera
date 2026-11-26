@@ -831,3 +831,9 @@ test("replay one shot (Mike 11-26: 'see the exact hit of each one'): one beat pe
   assert.equal(Wd.api.replay("shots", { only: [99] }), 0, "an unknown shot plays nothing"); Wd.api.stop();
   assert.deepEqual(Object.keys(Wd.api.gaps()).filter((k) => +k < 7), [], "every member shot here has a launch and a landing point");
 });
+
+test("replay one shot: the settled frame is the hit alone, so on a phone the target sits near the centre, not at the edge", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over();
+  Wd.api.replay("shots", { only: [6] }); const b = Wd.rep().R.beats[0], L = b.lead, f = Wd.art.bHitK(b, 360, 600);
+  assert.ok(Math.abs(f.x - L.to.x) < 2 && Math.abs(f.y - L.to.y) < 40, "centred on the target"); Wd.api.stop();
+});

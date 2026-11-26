@@ -411,7 +411,7 @@ function bSp(){return BREP&&BREP.sp?BREP.sp:1}
 function bSettleAt(b){var first=b.lead.ri;b.shots.forEach(function(s){if(s.ri!=null&&s.ri<first)first=s.ri});return Math.max(b.lead.rf+b.lead.fl*.25,first-BSETTLE*bSp())}
 /** smootherstep, zoom in log space: no visible stop on arrival */
 function bCamMix5(a,b,u){u=Math.max(0,Math.min(1,u));u=u*u*u*(u*(u*6-15)+10);return {x:bLerp(a.x,b.x,u),y:bLerp(a.y,b.y,u),z:Math.exp(bLerp(Math.log(a.z),Math.log(b.z),u))}}
-function bHitK(b,vw,vh){var ts=bSettleAt(b);if(b.hk&&b.hk.w===vw&&b.hk.h===vh&&b.hk.ts===ts)return b.hk.f;var P=[];b.shots.forEach(function(s){if(s.rf==null||!s.from||!s.to)return;P.push({x:s.to.x,y:s.to.y});if(s.ri<=ts)return;
+function bHitK(b,vw,vh){var ts=bSettleAt(b);if(b.hk&&b.hk.w===vw&&b.hk.h===vh&&b.hk.ts===ts)return b.hk.f;var P=[];b.shots.forEach(function(s){if(s.rf==null||!s.from||!s.to)return;P.push({x:s.to.x,y:s.to.y});if(s.ri<=ts||b.one)return;   /* a one-shot replay (11-26) frames the hit alone: on a phone the rest of the arc pushed it to the edge */
     for(var k=0;k<=6;k++){var u=Math.max(0,(ts-s.rf)/s.fl)+(1-Math.max(0,(ts-s.rf)/s.fl))*k/6,tr=bTraj(s.from.x,s.from.y,s.to.x,s.to.y,Math.min(1,u));P.push({x:tr.x,y:tr.y})}});
   var f=bKeep(bHitFrame(b,vw,vh),P,vw,vh);b.hk={w:vw,h:vh,ts:ts,f:f};return f}
 /** keep pts on screen: margins of 10% at the sides; the top keeps room for the strike callout (22% under 700 px wide, 10% else),
