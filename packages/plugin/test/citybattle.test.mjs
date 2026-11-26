@@ -812,3 +812,22 @@ test("impact camera (Mike 11-26: 'the map jumps' at the hit, 'view right at the 
   assert.ok(worst < 40, `largest pan step per frame ${worst.toFixed(1)} px`);
   Wd.api.stop();
 });
+
+test("replay one shot (Mike 11-26: 'see the exact hit of each one'): one beat per chosen shot in the given order, earlier hits already standing, settled before the impact, then it holds on the hit; Next stops there", () => {
+  const clock = { t: at(16), p: 10000 }, Wd = world("day", clock, data()); Wd.api.view(true); Wd.over();
+  assert.equal(Wd.api.replay("shots", { only: [4] }), 8, "the whole night is loaded");
+  const R = Wd.rep().R, P = Wd.rep().P, A = Wd.art; assert.equal(R.beats.length, 1); assert.equal(R.beats[0].lead.ix, 4, "the chosen shot");
+  assert.ok(P.shots.filter((s) => s.ix < 4).every((s) => s.pre && s.ri < 0), "the shots before it have landed: the city stands as it did");
+  assert.ok(P.shots.filter((s) => s.ix > 4).every((s) => s.rf > 1e12), "the shots after it never fire");
+  const b = R.beats[0], L = b.lead, at0 = (ms) => { clock.p = 10000 + ms; Wd.bcam(); Wd.over(); return Wd.api.phase(); };
+  assert.deepEqual(A.bRepCam(R, A.bSettleAt(b), Wd.rep().home, 900, 600, false), A.bHitK(b, 900, 600), "settled before the impact");
+  let ph = at0(L.ri - 100); assert.equal(ph.oneDone, false); assert.deepEqual(ph.one, [4]);
+  ph = at0(R.oneEnd + 50); assert.equal(ph.oneDone, true, "done after the hit and the callout"); assert.equal(ph.replay, true, "the replay holds on the hit (no results board)");
+  const hk = A.bHitK(b, 900, 600); assert.ok(Math.abs((450 - Wd.camera.x) / Wd.camera.z - hk.x) < 1, "the camera stays on the hit");
+  assert.equal(Wd.api.next(), false, "nothing after the last chosen shot");
+  // Replay all: the given order, one at a time
+  Wd.api.replay("shots", { only: [5, 0, 6] }); const R2 = Wd.rep().R; assert.deepEqual(R2.beats.map((x) => x.lead.ix), [5, 0, 6]);
+  R2.beats.forEach((x, i) => { if (i) assert.ok(x.t0 >= R2.beats[i - 1].end, "never two strikes at once"); });
+  assert.equal(Wd.api.replay("shots", { only: [99] }), 0, "an unknown shot plays nothing"); Wd.api.stop();
+  assert.deepEqual(Object.keys(Wd.api.gaps()).filter((k) => +k < 7), [], "every member shot here has a launch and a landing point");
+});

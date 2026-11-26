@@ -16,11 +16,11 @@ test("pop-out: no window on phones or app web views, never navigates this page t
 });
 
 test("battle replay (Mike 11-21): no replay forces full screen; the viewer's own Full screen tap does, and leaving it keeps the replay", () => {
-  assert.match(BATTLE_DRAW_JS, /function bReplayStart\(mode,sp,noFull\)/);
+  assert.match(BATTLE_DRAW_JS, /function bReplayStart\(mode,sp,noFull,only\)/);
   assert.match(BATTLE_DRAW_JS, /var full=false;bSndStart\(!noFull\);/, "Mike 11-21: a pressed replay starts in the page");
   assert.doesNotMatch(BATTLE_DRAW_JS, /theater\(true\)/);
   assert.match(BATTLE_DRAW_JS, /full:function\(on\)\{return typeof stageFull==='function'\?stageFull\(on\):false\}/);
-  assert.match(BATTLE_DRAW_JS, /bReplayStart\(mode,o&&o\.speed,o&&o\.auto\)/);
+  assert.match(BATTLE_DRAW_JS, /bReplayStart\(mode,o&&o\.speed,o&&o\.auto,o&&o\.only\)/);
   const own = CITY_JS.replace(BATTLE_DRAW_JS, "");
   assert.equal((own.match(/cssFull\(true\)/g) || []).length, 6, "in the city itself only the Full screen button, the viewer's stageFull and the old theater (each with its fallback) call cssFull(true)");
   const sf = own.slice(own.indexOf("function stageFull(on)"), own.indexOf("function thStop()"));
