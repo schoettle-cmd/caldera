@@ -631,12 +631,16 @@ test("leaderboard: viewer lines, callouts (a fall beats hardest hit; best shield
 
 test("leaderboard: the buttons (Share / Save first; demo signed out: Add your city first; sandboxed: no Save, Replay again first); the board replaces the end of the replay", () => {
   const Wd = world("day", { t: at(16), p: 1 }, data()); const L = Wd.art.lb, real = { demo: false, rows: [1] }, demo = { demo: true, rows: [1] };
-  assert.deepEqual(L.buttons(real, { save: true, share: false, signedIn: true }), { list: ["save", "again", "exit", "post"], pri: "save", n3: false }, "desktop: Save picture (story), then a small Post size link");
+  assert.deepEqual(L.buttons(real, { save: true, share: false, signedIn: true }), { list: ["save", "again", "exit", "post"], pri: "save", n3: false, jn: false }, "desktop: Save picture (story), then a small Post size link");
   assert.deepEqual(L.buttons(real, { save: true, share: true, signedIn: true }).list, ["save", "again", "exit"], "phone: one Share button, no Post size");
-  assert.deepEqual(L.buttons(real, { save: true, share: false, signedIn: false }).list, ["save", "again", "exit", "post", "addlink"], "signed out on a real night: Save first, Add your city as a link");
-  assert.deepEqual(L.buttons(demo, { save: true, share: true, signedIn: false }), { list: ["add", "save", "again", "exit"], pri: "add", n3: true }, "demo, signed out: Add your city first, Share second");
+  assert.deepEqual(L.buttons(real, { save: true, share: false, signedIn: false }), { list: ["join", "save", "again", "exit", "post"], pri: "join", n3: true, jn: true }, "signed out on a real night (11-27): the join button first and primary, no Add your city link");
+  const hj = L.html(L.model(lbX([lbShots([["@a", "@b", 5e6]])]), false), "l", { save: true, share: false, signedIn: false, join: "/join?tp=replay_end" });
+  assert.ok(hj.includes('<div class="lb-act n3 jn"><div class="lb-join"><a class="lb-btn pri" data-lb="add" data-jn="board" href="/join?tp=replay_end"') && hj.includes("Put your city in tonight\u2019s battle") && hj.includes('id="lb-js">Free. Your GitHub becomes a city'), "the join button, primary, with its line");
+  assert.ok(!hj.includes(">Add your city<") && (hj.match(/class="lb-btn pri"/g) || []).length === 1, "one primary, no old link");
+  assert.ok(!L.html(L.model(lbX([lbShots([["@a", "@b", 5e6]])]), false), "l", { save: true, signedIn: true }).includes("lb-join"), "members: no join button");
+  assert.deepEqual(L.buttons(demo, { save: true, share: true, signedIn: false }), { list: ["add", "save", "again", "exit"], pri: "add", n3: true, jn: false }, "demo, signed out: Add your city first, Share second");
   assert.deepEqual(L.buttons(demo, { save: true, share: false, signedIn: true }).pri, "save");
-  assert.deepEqual(L.buttons(real, { save: false, signedIn: true }), { list: ["again", "exit"], pri: "again", n3: false }, "sandboxed page: no Share, Save or Post size");
+  assert.deepEqual(L.buttons(real, { save: false, signedIn: true }), { list: ["again", "exit"], pri: "again", n3: false, jn: false }, "sandboxed page: no Share, Save or Post size");
   assert.deepEqual(L.buttons({ demo: false, rows: [] }, { save: true, signedIn: true }).list, ["again", "exit"], "no rows: no Save");
   const Mx = L.model(lbX([lbShots([["@a", "@b", 5e6]])], { demo: true, night: "demo" }), false), hd = L.html(Mx, "s", { save: true, share: true, signedIn: false, add: "/#start" });
   assert.ok(hd.includes('<div class="lb-act n3"><a class="lb-btn pri" data-lb="add" href="/#start"'), "Add your city is the primary"); assert.ok(hd.includes('class="lb-btn" data-lb="save" data-fmt="s" aria-label="Share the results as a picture"') && hd.includes("<span>Share</span>"));

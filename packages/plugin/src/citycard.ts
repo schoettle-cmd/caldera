@@ -354,6 +354,13 @@ var BLCSS='.blb{position:absolute;inset:0;z-index:8;display:grid;place-items:cen
  +'.blb .lb-btn.pri{height:44px;padding:0 22px 0 18px;border-radius:22px;border-color:var(--ink);background:var(--ink);color:#0B0D13;font-size:15px}'
  +'.blb .lb-btn.pri:hover{background:#fff}'
  +'.blb .lb-btn svg{width:16px;height:16px;flex:none}'
+ // 11-27 the join button for signed-out viewers (Fable reports/2026-11-27-replay-end-join/DESIGN.md)
+ +'.blb .lb-act.jn{row-gap:10px}.blb .lb-join{flex:0 0 100%;display:grid;justify-items:center;gap:6px;min-width:0}'
+ +'.blb .lb-join .lb-btn.pri{height:46px;padding:0 24px 0 20px;border-radius:23px;font-size:15.5px;gap:9px;transition:background-color .15s ease-out}'
+ +'.blb .lb-jd{flex:none;width:8px;height:8px;background:var(--you);transform:rotate(45deg)}'
+ +'.blb .lb-sub{margin:0;max-width:100%;text-align:center;font:500 12.5px/1.35 var(--ui);color:var(--ink);opacity:.86;text-shadow:0 1px 2px rgba(0,0,0,.7)}'
+ +'.blb.sz-s .lb-join{grid-column:1/-1;justify-items:stretch}.blb.sz-s .lb-join .lb-btn.pri{height:48px;border-radius:24px;padding:0 10px;font-size:15px}.blb.sz-s .lb-sub{font-size:12px}'
+ +'.blb.h-s .lb-sub,.blb.h-xs .lb-sub{display:none}@media (max-width:359px){.blb.sz-s .lb-jd{display:none}}@media (prefers-reduced-motion:reduce){.blb .lb-join .lb-btn.pri{transition:none}}'
  +'.blb .lb-btn[disabled]{cursor:default;opacity:.8}'
  +'.blb .lb-btn:focus-visible,.blb .lb-link:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}'
  +'.blb .lb-link{background:none;border:0;padding:8px 6px;font:600 13px/1 var(--ui);color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}'
@@ -404,9 +411,9 @@ function bLbModel(X,pic){var R=X.R,P=X.P,S=X.S,V=X.V||null,T=bLbTally(P),L=bCard
 /** the file name of a saved picture: the story adds -story before .png (as bCardBlob) */
 function bLbFile(M,fmt){return fmt==='p'?M.file:M.file.replace(/\.png$/,'-story.png')}
 /** the button set (spec section 6): which buttons, in which order, which one is primary. o: {save, share, signedIn} */
-function bLbButtons(M,o){var n=M.rows.length,save=!!(o.save&&n),demoAdd=M.demo&&!o.signedIn,L=[];
-  if(demoAdd)L.push('add');if(save)L.push('save');L.push('again','exit');if(save&&!o.share)L.push('post');if(!o.signedIn&&!M.demo)L.push('addlink');
-  return {list:L,pri:demoAdd?'add':save?'save':'again',n3:demoAdd&&save}}
+function bLbButtons(M,o){var n=M.rows.length,save=!!(o.save&&n),demoAdd=M.demo&&!o.signedIn,join=!M.demo&&!o.signedIn,L=[];   // 11-27 (caldera-replay-end-join, Fable DESIGN.md): a signed-out viewer of a real night gets the join button first, in place of the old "Add your city" link
+  if(demoAdd)L.push('add');if(join)L.push('join');if(save)L.push('save');L.push('again','exit');if(save&&!o.share)L.push('post');
+  return {list:L,pri:demoAdd?'add':join?'join':save?'save':'again',n3:(demoAdd||join)&&save,jn:join}}
 var BLSHARE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 12v7h14v-7"/></svg>';
 /** one row: rank, avatar (bcAv; the raiders a white diamond), name (a member links to the profile), the line under it, damage */
 function bLbRow(r,size,d,pin){var raid=bcRaid(r.a),lk=raid?null:bcLink(r.a),sub=r.land+' of '+r.fired+(size==='s'?' hit':' missiles hit');
@@ -427,12 +434,15 @@ function bLbHTML(M,size,o){var n=M.rows.length,B=bLbButtons(M,o),h='<div class="
     add:'<a class="'+cls('add')+'" data-lb="add" href="'+add+'" target="_top" rel="noopener">Add your city</a>',
     save:'<button type="button" class="'+cls('save')+'" data-lb="save" data-fmt="s" aria-label="'+(o.share?'Share the results as a picture':'Save the results as a picture')+'">'+(o.share?BLSHARE:BCICO)+'<span>'+(o.share?'Share':'Save picture')+'</span></button>',
     again:'<button type="button" class="'+cls('again')+'" data-lb="again">'+BLPLAY+'<span>Replay again</span></button>',exit:'<button type="button" class="lb-btn" data-lb="exit">Exit</button>',
-    post:'<button type="button" class="lb-link" data-lb="save" data-fmt="p">Post size (4:5)</button>',addlink:'<a class="lb-link" data-lb="add" href="'+add+'" target="_top" rel="noopener">Add your city</a>'};
-  h+='</div><div class="lb-act'+(B.n3?' n3':'')+'">'+B.list.map(function(k){return P[k]}).join('')+'</div>'+(o.hint?bLbHintHTML():'')+'</div></div>';return h}
+    post:'<button type="button" class="lb-link" data-lb="save" data-fmt="p">Post size (4:5)</button>',
+    join:'<div class="lb-join"><a class="lb-btn pri" data-lb="add" data-jn="board" href="'+bcE(o.join||bLbJoin())+'" target="_top" rel="nofollow noopener" aria-describedby="lb-js"><i class="lb-jd" aria-hidden="true"></i><span>Put your city in tonight\u2019s battle</span></a><p class="lb-sub" id="lb-js">Free. Your GitHub becomes a city, and today\u2019s code becomes missiles.</p></div>'};
+  h+='</div><div class="lb-act'+(B.n3?' n3':'')+(B.jn?' jn':'')+'">'+B.list.map(function(k){return P[k]}).join('')+'</div>'+(o.hint?bLbHintHTML():'')+'</div></div>';return h}
 function bLbHintHTML(){return '<p class="lb-hint" role="status">For an Instagram story: add a Link sticker. Put it on the <b>caldera.social</b> box.</p>'}
 /** signed in? the hub says (boardHooks signedIn: a value or a function), else a known viewer (BCV) */
 function bLbSigned(){var s=BLHOOK.signedIn;if(typeof s==='function'){try{return !!s()}catch(e){return !!BCV}}return s==null?!!BCV:!!s}
 /** the "Add your city" link: the hub's, else the /world action's ("/#start"), on caldera.social when the page is not on the web */
+/** the join link at the end of a real night's replay (11-27): the hub's (boardHooks join), else /join?tp=replay_end on caldera.social */
+function bLbJoin(){if(BLHOOK.join)return String(BLHOOK.join);var web=typeof location!=='undefined'&&/^https?:$/.test(location.protocol)&&location.origin!=='null';return (web?'':'https://caldera.social')+'/join?tp=replay_end'}
 function bLbAdd(){if(BLHOOK.add)return String(BLHOOK.add);var web=typeof location!=='undefined'&&/^https?:$/.test(location.protocol)&&location.origin!=='null';return (web?'':'https://caldera.social')+'/#start'}
 /** the stage's height class: under 620 px the totals go, under 520 px only ranks 1 to 3 and the pinned row */
 function bLbH(h){return h<520?'h-xs':h<620?'h-s':''}
@@ -443,7 +453,7 @@ function bLbMount(){bLbOff();bCardOff();if(!BREP)return null;var M=bLbModel({R:B
   try{document.documentElement.classList.add('w-board')}catch(e){}bLbPhotos(M);
   if(typeof st==='undefined'||!st||!st.appendChild||typeof document==='undefined'||!document.createElement)return B;
   try{bCardCss();bCardFonts();var w=st.clientWidth||vw,hh=st.clientHeight||vh,size=bCardSize(w),save=bCardCanSave(),share=save&&bcCanShare(),wrap=document.createElement('div');
-    wrap.innerHTML=bLbHTML(M,size,{save:save,share:share,signedIn:bLbSigned(),rm:!!reduce,add:bLbAdd()});var el=wrap.firstChild,hc=bLbH(hh);if(hc)el.classList.add(hc);
+    wrap.innerHTML=bLbHTML(M,size,{save:save,share:share,signedIn:bLbSigned(),rm:!!reduce,add:bLbAdd(),join:bLbJoin()});var el=wrap.firstChild,hc=bLbH(hh);if(hc)el.classList.add(hc);
     st.appendChild(el);B.el=el;B.size=size;B.share=share;bLbWire(el);
     if(reduce)bLbFocus();else{bLbCount(el);B.tm.push(setTimeout(function(){if(BLB===B)bLbFin()},BLENTRY));B.tm.push(setTimeout(function(){if(BLB===B&&!B.fin)bCardThud()},200));
       B.tm.push(setTimeout(function(){if(BLB===B&&!B.fin)bCardThud()},600+90*Math.max(0,M.rows.length-1)))}}catch(e){}
@@ -545,7 +555,7 @@ function bLbHint(){var B=BLB;if(!B||B.hint||!B.el)return;B.hint=true;try{var w=B
   A.canPic=function(){return !bCardCanSave()?'off':BREP&&bCardPick()?'ready':'wait'};
   A.savePic=function(){if(!BREP||!bCardCanSave()||!bCardPick())return false;var b=BCARD&&!BCARD.fly&&BCARD.el?BCARD.el.querySelector('[data-save="p"]'):null;bCardSave('p',b);return true};
   /** the leaderboard at the end of the replay: board() = {m: the model, size} or null; boardSave / boardBlob (fmt s story, p post);
-   *  boardHooks({again(demo), exit(), add: href, signedIn: value or function}) from the hub; boardAct('again'|'exit') for tests */
+   *  boardHooks({again(demo), exit(), add: href, join: href, signedIn: value or function}) from the hub; boardAct('again'|'exit') for tests */
   A.board=function(){return BLB?{m:BLB.m,size:BLB.size}:null};
   A.boardSave=function(fmt){fmt=fmt==='p'?'p':'s';return BLB?bLbSave(fmt,BLB.el&&BLB.el.querySelector('[data-lb="save"][data-fmt="'+fmt+'"]')):Promise.resolve(false)};
   A.boardBlob=function(fmt){return bLbBlob(fmt==='p'?'p':'s')};
